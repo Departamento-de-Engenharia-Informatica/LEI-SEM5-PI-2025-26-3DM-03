@@ -134,7 +134,7 @@ VesselVisitNotification "1" -- "1" Dock : assigned to
 VesselVisitNotification "1" -- "1" CargoManifest : includes
 VesselVisitNotification "1" -- "1" CrewInfo : has
 
-PortAuthority "1" -- "*" VesselVisitNotification : approves 
+PortAuthority "1" -- "*" VesselVisitNotification : manages 
 CargoManifest "1" -- "*" ManifestEntry : includes
 ManifestEntry "1" -- "1" Container : contains
 
