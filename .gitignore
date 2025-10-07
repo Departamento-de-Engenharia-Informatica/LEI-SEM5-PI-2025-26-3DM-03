@@ -1,71 +1,149 @@
-# -----------------------------
-# Node.js / JavaScript
-# -----------------------------
+# ======================================
+# 🔹 VISUAL STUDIO / C# / .NET
+# ======================================
+
+## Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.config
+*.dbmdl
+*.log
+*.user
+*.suo
+*.vspscc
+*.vscode
+*.swp
+*.swo
+*.tmp
+*.bak
+
+## Visual Studio
+.vs/
+.idea/
+*.sln.docstates
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## NuGet Packages
+*.nupkg
+*.snupkg
+*.nuspec
+**/packages/*
+!**/packages/build/
+!**/packages/repositories.config
+
+## Others
+*.db
+*.mdf
+*.ldf
+*.bak
+*.sqlite
+*.sqlite3
+*.swp
+
+# ======================================
+# 🔹 DOTNET / ASP.NET SPECIFIC
+# ======================================
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Auto-generated files
+Generated\ Files/
+*.g.cs
+*.g.i.cs
+*.generated.cs
+*.designer.cs
+*_i.c
+*_p.c
+*.cachefile
+*.dbmdl
+*.jfm
+*.pfx
+*.publishsettings
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# Publish outputs
+.publish/
+app.publish/
+
+# Local environment
+Properties/launchSettings.json
+
+# ======================================
+# 🔹 NODE.JS / FRONTEND (React, Angular, Vue…)
+# ======================================
 node_modules/
+dist/
+build/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-dist/
-build/
+.env.*
 coverage/
-.DS_Store
+*.tsbuildinfo
 
-# -----------------------------
-# Java / Maven / Gradle
-# -----------------------------
-target/
-bin/
-*.class
-*.jar
-*.war
-*.ear
-.gradle/
-build/
-out/
-.idea/
-*.log
-*.tmp
-hs_err_pid*
-
-# -----------------------------
-# Python (caso use scripts)
-# -----------------------------
+# ======================================
+# 🔹 PYTHON (caso use scripts de IA)
+# ======================================
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.db
 .venv/
 env/
 venv/
 *.ipynb_checkpoints
 
-# -----------------------------
-# IDE / Ferramentas
-# -----------------------------
-.vscode/
-.idea/
-*.swp
-*.swo
+# ======================================
+# 🔹 DOCUMENTAÇÃO / GERAÇÃO
+# ======================================
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.out
+docs/**/*.toc
+*.pdf~
 *.bak
 *.tmp
 
-# -----------------------------
-# Sistema Operativo
-# -----------------------------
-Thumbs.db
+# ======================================
+# 🔹 SISTEMA OPERATIVO / IDE
+# ======================================
 .DS_Store
+Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# -----------------------------
-# Testes e relatórios
-# -----------------------------
+# ======================================
+# 🔹 TESTES E RELATÓRIOS
+# ======================================
 test-results/
 reports/
 logs/
+
+# ======================================
+# 🔹 MISC
+# ======================================
+# Evita ficheiros locais de configuração
+*.local.json
+*.vscode/
+.idea/
