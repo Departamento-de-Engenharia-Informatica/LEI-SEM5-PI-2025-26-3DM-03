@@ -35,9 +35,16 @@ class VesselVisitNotification {
   status
 }
 
+class PortAuthority {
+  id
+  name
+  department
+}
+
 class CrewInfo {
   captain
   crewSize
+  nationality
 }
 
 class CargoManifest {
@@ -127,13 +134,15 @@ VesselVisitNotification "1" -- "1" Dock : assigned to
 VesselVisitNotification "1" -- "1" CargoManifest : includes
 VesselVisitNotification "1" -- "1" CrewInfo : has
 
+PortAuthority "1" -- "*" VesselVisitNotification : approves 
 CargoManifest "1" -- "*" ManifestEntry : includes
 ManifestEntry "1" -- "1" Container : contains
 
 StaffMember "1" -- "*" Qualification : holds
 Resource "1" -- "*" Qualification : requires
-Resource "0..*" -- "0..1" Dock : operates at
+Resource "0..*" -- "0..1" Dock : assigned to
 Resource "0..*" -- "0..1" StorageArea : operates in
+Resource "0..*" -- "0..*" StaffMember : operated by
 
 StorageArea "0..*" -- "0..*" Dock : serves
 
