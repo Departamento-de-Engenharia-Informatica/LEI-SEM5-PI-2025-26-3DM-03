@@ -1,0 +1,144 @@
+@startuml
+hide empty members
+hide methods
+skinparam monochrome true
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+left to right direction
+
+title Domain Model
+
+' =============== ENTIDADES PRINCIPAIS ===============
+
+class VesselType {
+  id
+  name
+  description
+  capacityTEU
+  maxRows
+  maxBays
+  maxTiers
+}
+
+class Vessel {
+  imoNumber
+  name
+  rows
+  bays
+  tiers
+}
+
+class VesselVisitNotification {
+  id
+  scheduledArrival
+  scheduledDeparture
+  status
+}
+
+class CrewInfo {
+  captain
+  crewSize
+}
+
+class CargoManifest {
+  id
+  type
+}
+
+class ManifestEntry {
+  id
+  entryNumber
+  entryWeight
+  positionBay
+  positionRow
+  positionTier
+  cargoType
+}
+
+class Container {
+  id
+  isoID
+  size
+  weight
+}
+
+class StaffMember {
+  id
+  name
+  email
+  phoneNumber
+  status
+  startTime
+  endTime
+}
+
+class Qualification {
+  code
+  description
+}
+
+class Resource {
+  id
+  description
+  type
+  operationalCapacity
+  status
+}
+
+class Dock {
+  id
+  name
+  location
+  length
+  depth
+  maxDraft
+}
+
+class StorageArea {
+  id
+  type
+  location
+  maxCapacity
+  currentUtilization
+}
+
+class ShippingAgent {
+  id
+  name
+  taxNumber
+  type
+  address
+}
+
+class Representative {
+  id
+  name
+  citizenID
+  nationality
+  email
+  phoneNumber
+}
+
+' =============== RELAÇÕES ===============
+
+VesselType "1" -- "0..*" Vessel : classifies
+VesselVisitNotification "1" -- "1" Vessel : refers to
+VesselVisitNotification "1" -- "1" Dock : assigned to
+VesselVisitNotification "1" -- "1" CargoManifest : includes
+VesselVisitNotification "1" -- "1" CrewInfo : has
+
+CargoManifest "1" -- "*" ManifestEntry : includes
+ManifestEntry "1" -- "1" Container : contains
+
+StaffMember "1" -- "*" Qualification : holds
+Resource "1" -- "*" Qualification : requires
+Resource "0..*" -- "0..1" Dock : operates at
+Resource "0..*" -- "0..1" StorageArea : operates in
+
+StorageArea "0..*" -- "0..*" Dock : serves
+
+ShippingAgent "1" -- "*" Representative : employs
+ShippingAgent "1" -- "*" Vessel : manages
+ShippingAgent "1" -- "*" VesselVisitNotification : submits
+
+@enduml
