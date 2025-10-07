@@ -1,5 +1,5 @@
 @startuml
-title Port Logistics Management System (PLMS) — Use Case Diagram
+title Port Logistics Management System (PLMS) — Use Case Diagram (All User Stories Simplified)
 
 left to right direction
 skinparam actorStyle awesome
@@ -9,59 +9,79 @@ skinparam usecase {
   ArrowColor #555
 }
 
-' === Actors ===
+' === ACTORS ===
+actor "Administrator" as ADM
 actor "Port Authority Officer" as PAO
 actor "Shipping Agent Representative" as SAR
 actor "Logistics Operator" as LO
-actor "Administrator" as ADM
 actor "External IAM Provider" as IAM
 
-rectangle "Port Logistics Management System (PLMS)" as System {
+rectangle "Port Logistics Management System (PLMS)" {
 
-  ' === Authentication & Admin ===
-  usecase "User Authentication & Authorization" as UC_AUTH
-  usecase "Manage Users & Roles" as UC_ADMIN
+  ' ===== Cross-cutting =====
+  usecase "US 2.0 – Authenticate and authorize users" as UC_AUTH
 
-  ' === Port Authority ===
-  usecase "Manage Reference Data\n(Vessel Types, Docks, Storage Areas)" as UC_REF
-  usecase "Register Shipping Agents\n& Representatives" as UC_SA
-  usecase "Review & Approve Vessel Visit Notifications" as UC_VVN_APPROVE
+  ' ===== Administrator =====
+  usecase "US 2.1.0 – Manage users and roles" as UC_USERS
 
-  ' === Shipping Agent ===
-  usecase "Manage Vessels" as UC_VESSEL
-  usecase "Create & Submit Vessel Visit Notifications" as UC_VVN
-  usecase "Attach Cargo Manifests & Crew Info" as UC_MANIFEST
+  ' ===== Port Authority =====
+  usecase "US 2.1.1 – Create / update Vessel Types" as UC_VTYPE
+  usecase "US 2.1.2 – Manage Vessels" as UC_VESSEL
+  usecase "US 2.2.5 – Register Shipping Agents" as UC_SAGENT
+  usecase "US 2.2.6 – Manage Agent Representatives" as UC_REP
+  usecase "US 2.2.9 – Review and approve Vessel Visits" as UC_APPROVE
+  usecase "US 2.4.1 – Manage Docks" as UC_DOCK
+  usecase "US 2.4.2 – Manage Storage Areas" as UC_STORAGE
 
-  ' === Logistics Operator ===
-  usecase "Manage Staff & Qualifications" as UC_STAFF
-  usecase "Manage Equipment / Resources" as UC_RES
-  usecase "Plan & Monitor Operations" as UC_OPS
+  ' ===== Shipping Agent =====
+  usecase "US 2.1.3 – Register Vessels" as UC_REGVESSEL
+  usecase "US 2.2.7 – Create Vessel Visit Notification" as UC_CREATEVVN
+  usecase "US 2.2.8 – Add Crew Information" as UC_CREW
+  usecase "US 2.3.1 – Attach Cargo Manifest" as UC_MANIFEST
+  usecase "US 2.2.10 – Submit Vessel Visit for Approval" as UC_SUBMITVVN
+  usecase "US 2.2.12 – View Visit Status" as UC_VIEWSTATUS
+
+  ' ===== Logistics Operator =====
+  usecase "US 2.2.11 – Manage Staff Members" as UC_STAFF
+  usecase "US 2.5.1 – Manage Qualifications" as UC_QUALIF
+  usecase "US 2.5.2 – Manage Resources / Equipment" as UC_RES
+  usecase "US 2.5.3 – Plan and Schedule Operations" as UC_SCHEDULE
+  usecase "US 2.5.4 – Monitor and Adjust Execution" as UC_MONITOR
 }
 
-' === Relationships ===
-' Authentication
+' === RELATIONSHIPS ===
+' IAM Provider
 IAM --> UC_AUTH
+ADM --> UC_AUTH
 PAO --> UC_AUTH
 SAR --> UC_AUTH
 LO  --> UC_AUTH
-ADM --> UC_AUTH
 
-' Admin
-ADM --> UC_ADMIN
+' Administrator
+ADM --> UC_USERS
 
 ' Port Authority
-PAO --> UC_REF
-PAO --> UC_SA
-PAO --> UC_VVN_APPROVE
+PAO --> UC_VTYPE
+PAO --> UC_VESSEL
+PAO --> UC_SAGENT
+PAO --> UC_REP
+PAO --> UC_DOCK
+PAO --> UC_STORAGE
+PAO --> UC_APPROVE
 
 ' Shipping Agent
-SAR --> UC_VESSEL
-SAR --> UC_VVN
+SAR --> UC_REGVESSEL
+SAR --> UC_CREATEVVN
+SAR --> UC_CREW
 SAR --> UC_MANIFEST
+SAR --> UC_SUBMITVVN
+SAR --> UC_VIEWSTATUS
 
 ' Logistics Operator
 LO --> UC_STAFF
+LO --> UC_QUALIF
 LO --> UC_RES
-LO --> UC_OPS
+LO --> UC_SCHEDULE
+LO --> UC_MONITOR
 
 @enduml
