@@ -1,13 +1,13 @@
 @startuml
-title Port Logistics Management System (PLMS) — Use Case Diagram (Final)
+title Port Logistics Management System (PLMS) — Use Case Diagram
 
 left to right direction
+skinparam actorStyle awesome
 skinparam usecase {
   BorderColor #777
   BackgroundColor #EEE
   ArrowColor #555
 }
-skinparam actorStyle awesome
 
 ' === Actors ===
 actor "Port Authority Officer" as PAO
@@ -17,101 +17,51 @@ actor "Administrator" as ADM
 actor "External IAM Provider" as IAM
 
 rectangle "Port Logistics Management System (PLMS)" as System {
-  ' === Cross-cutting ===
-  usecase "Authenticate user (SSO/OAuth)" as UC_AUTHN
-  usecase "Authorize user (RBAC)" as UC_AUTHZ
-  usecase "Audit & logging" as UC_AUDIT
 
-  ' === Admin ===
-  usecase "Manage users & roles" as UC_ADMIN_USERS
+  ' === Authentication & Admin ===
+  usecase "User Authentication & Authorization" as UC_AUTH
+  usecase "Manage Users & Roles" as UC_ADMIN
 
-  ' === Port Authority — Reference Data ===
-  usecase "Manage Vessel Types" as UC_VESSELTYPE
+  ' === Port Authority ===
+  usecase "Manage Reference Data\n(Vessel Types, Docks, Storage Areas)" as UC_REF
+  usecase "Register Shipping Agents\n& Representatives" as UC_SA
+  usecase "Review & Approve Vessel Visit Notifications" as UC_VVN_APPROVE
+
+  ' === Shipping Agent ===
   usecase "Manage Vessels" as UC_VESSEL
-  usecase "Manage Docks" as UC_DOCK
-  usecase "Manage Storage Areas" as UC_STORAGE
-  usecase "Register Shipping Agent Organizations" as UC_SA_ORG
-  usecase "Manage Shipping Agent Representatives" as UC_SA_REP
+  usecase "Create & Submit Vessel Visit Notifications" as UC_VVN
+  usecase "Attach Cargo Manifests & Crew Info" as UC_MANIFEST
 
-  ' === Shipping Agent — Vessel Visit ===
-  usecase "Create Vessel Visit Notification" as UC_VVN_CREATE
-  usecase "Attach Cargo Manifest(s)" as UC_MANIFEST
-  usecase "Provide Crew Info" as UC_CREW
-  usecase "Edit In-Progress VVN" as UC_VVN_EDIT
-  usecase "Withdraw/Cancel In-Progress VVN" as UC_VVN_WITHDRAW
-  usecase "Submit VVN for Approval" as UC_VVN_SUBMIT
-  usecase "View VVN Status" as UC_VVN_VIEW
-
-  ' === Port Authority — Decision ===
-  usecase "Review VVN" as UC_VVN_REVIEW
-  usecase "Approve VVN" as UC_VVN_APPROVE
-  usecase "Reject VVN (with reason)" as UC_VVN_REJECT
-  usecase "Assign Dock" as UC_ASSIGN_DOCK
-
-  ' === Logistics Operator — Ops & Scheduling ===
-  usecase "Manage Qualifications" as UC_QUALIF
-  usecase "Manage Operating Staff" as UC_STAFF
-  usecase "Manage Physical Resources" as UC_RES
-  usecase "Define Operational Tasks (un/load)" as UC_TASKS
-  usecase "Schedule & Allocate Resources" as UC_SCHEDULE
-  usecase "Monitor & Adjust Execution" as UC_MONITOR
+  ' === Logistics Operator ===
+  usecase "Manage Staff & Qualifications" as UC_STAFF
+  usecase "Manage Equipment / Resources" as UC_RES
+  usecase "Plan & Monitor Operations" as UC_OPS
 }
 
 ' === Relationships ===
-' AuthN/AuthZ
-IAM --> UC_AUTHN
-PAO --> UC_AUTHZ
-SAR --> UC_AUTHZ
-LO  --> UC_AUTHZ
-ADM --> UC_AUTHZ
-UC_AUTHZ .> UC_AUTHN : <<include>>\nRequires authenticated identity
+' Authentication
+IAM --> UC_AUTH
+PAO --> UC_AUTH
+SAR --> UC_AUTH
+LO  --> UC_AUTH
+ADM --> UC_AUTH
 
 ' Admin
-ADM --> UC_ADMIN_USERS
-UC_ADMIN_USERS --> UC_AUDIT
+ADM --> UC_ADMIN
 
-' Port Authority — reference data
-PAO --> UC_VESSELTYPE
-PAO --> UC_VESSEL
-PAO --> UC_DOCK
-PAO --> UC_STORAGE
-PAO --> UC_SA_ORG
-PAO --> UC_SA_REP
-
-' Shipping Agent — VVN
-SAR --> UC_VVN_CREATE
-SAR --> UC_VVN_EDIT
-SAR --> UC_VVN_WITHDRAW
-SAR --> UC_VVN_SUBMIT
-SAR --> UC_VVN_VIEW
-
-UC_VVN_CREATE .> UC_MANIFEST : <<include>>
-UC_VVN_CREATE .> UC_CREW : <<extend>>\nRequired for HAZMAT
-note right of UC_CREW
-  Crew info may be requested when necessary;
-  mandatory for dangerous cargo (HAZMAT).
-end note
-
-' Port Authority — decision
-PAO --> UC_VVN_REVIEW
+' Port Authority
+PAO --> UC_REF
+PAO --> UC_SA
 PAO --> UC_VVN_APPROVE
-PAO --> UC_VVN_REJECT
-UC_VVN_APPROVE .> UC_ASSIGN_DOCK : <<include>>
-UC_VVN_REVIEW  --> UC_AUDIT
-UC_VVN_APPROVE --> UC_AUDIT
-UC_VVN_REJECT  --> UC_AUDIT
 
-' Logistics Operator — ops & scheduling
-LO --> UC_QUALIF
+' Shipping Agent
+SAR --> UC_VESSEL
+SAR --> UC_VVN
+SAR --> UC_MANIFEST
+
+' Logistics Operator
 LO --> UC_STAFF
 LO --> UC_RES
-LO --> UC_TASKS
-LO --> UC_SCHEDULE
-LO --> UC_MONITOR
-
-UC_SCHEDULE .> UC_STAFF : <<include>>\nCheck availability/skills
-UC_SCHEDULE .> UC_RES   : <<include>>
-UC_TASKS     .> UC_MANIFEST : <<include>>
-UC_MONITOR   --> UC_AUDIT
+LO --> UC_OPS
 
 @enduml
