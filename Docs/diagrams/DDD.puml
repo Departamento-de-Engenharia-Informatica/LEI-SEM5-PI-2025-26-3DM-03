@@ -1,0 +1,351 @@
+@startuml domain_model
+skinparam monochrome true
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide circle
+hide methods
+
+top to bottom direction
+
+' ==========================
+' AGGREGATE: Vessel
+' ==========================
+package "VesselAggregate" {
+  class VesselType <<Entity>> { }
+
+  class TypeName <<ValueObject>> { }
+  class TypeDescription <<ValueObject>> { }
+  class Capacity <<ValueObject>> { }
+  class MaxRows <<ValueObject>> { }
+  class MaxBays <<ValueObject>> { }
+  class MaxTiers <<ValueObject>> { }
+
+  VesselType "1"-- "1" TypeName: has >
+  VesselType "1"-- "1..*" TypeDescription: has >
+  VesselType "1"-- "1" Capacity: has >
+  VesselType "1"-- "1..*"MaxRows: has >
+  VesselType "1"-- "1" MaxBays: has >
+  VesselType "1"-- "1" MaxTiers: has >
+
+  class VesselRecord <<AggregateRoot>> <<Entity>> { }
+
+  class IMOnumber <<ValueObject>> { }
+  class VesselName <<ValueObject>> { }
+  class VesselRows <<ValueObject>> { }
+  class VesselBays <<ValueObject>> { }
+  class VesselTiers <<ValueObject>> { }
+
+  VesselRecord *-- IMOnumber
+  VesselRecord *-- VesselName
+  VesselRecord *-- VesselRows
+  VesselRecord *-- VesselBays
+  VesselRecord *-- VesselTiers
+  VesselRecord *-- VesselType
+}
+
+' ==========================
+' AGGREGATE: Vessel Visit
+' ==========================
+package "VesselVisitAggregate" {
+  class VesselVisitNotification <<AggregateRoot>> <<Entity>> { }
+
+  class VisitID <<ValueObject>> { }
+  class ScheduledArrival <<ValueObject>> { }
+  class ScheduledDeparture <<ValueObject>> { }
+
+  class Status <<ValueObject>> {
+    Pending
+    Rejected
+    Approved
+    Completed
+  }
+
+  class CrewInfo <<ValueObject>> {
+    crewCaptain
+    crewSize
+  }
+
+  VesselVisitNotification *-- VisitID
+  VesselVisitNotification *-- ScheduledArrival
+  VesselVisitNotification *-- ScheduledDeparture
+  VesselVisitNotification *-- Status
+  VesselVisitNotification *-- CrewInfo
+}
+
+' ==========================
+' AGGREGATE: Cargo Manifest
+' ==========================
+package "CargoManifestAggregate" {
+  class CargoManifest <<AggregateRoot>> <<Entity>> { }
+
+  class ManifestType <<ValueObject>> {
+    Loading
+    Unloading
+  }
+
+  class ManifestID <<ValueObject>> { }
+  class ManifestWeight <<ValueObject>> { }
+
+  class ManifestEntry <<Entity>> { }
+  class EntryNumber <<ValueObject>> { }
+  class EntryWeight <<ValueObject>> { }
+
+  class EntryPosition <<ValueObject>> {
+    bay
+    row
+    tier
+  }
+
+  class DestinationOrCurrentLocation <<ValueObject>> { }
+
+  class CargoType <<ValueObject>> {
+    HAZMAT
+    RefrigeratedGoods
+    GeneralConsumerProducts
+    Electronics
+    OversizedIndustrialEquipment
+  }
+
+  class Container <<Entity>> { }
+  class IsoID <<ValueObject>> { }
+  class ContainerSize <<ValueObject>> { }
+  class ContainerWeight <<ValueObject>> { }
+
+  CargoManifest *-- ManifestID
+  CargoManifest *-- ManifestType
+  CargoManifest "1" *-- "*" ManifestEntry : includes >
+
+  ManifestEntry *-- EntryNumber
+  ManifestEntry *-- EntryPosition
+  ManifestEntry *-- DestinationOrCurrentLocation
+  ManifestEntry *-- CargoType
+  ManifestEntry *-- EntryWeight
+  ManifestEntry *-- Container
+
+  Container *-- IsoID
+  Container *-- ContainerSize
+  Container *-- ContainerWeight
+
+  ' Peso agregado do manifesto (se aplicável) pode referir-se ao somatório das entries
+  ' (mantemos ManifestWeight ligado ao Container no teu original, mas faz mais sentido por Entry/Manifest)
+  ' Se quiseres, podemos ligar ManifestWeight diretamente ao CargoManifest.
+}
+
+' ==========================
+' AGGREGATE: Staff
+' ==========================
+package "StaffAggregate" {
+  class StaffMember <<AggregateRoot>> <<Entity>> { }
+
+  class StaffID <<ValueObject>> { }
+  class StaffName <<ValueObject>> { }
+
+  class ContactInfo <<ValueObject>> {
+    email
+    phoneNumber
+  }
+
+  class OperationalWindow <<ValueObject>> {
+    startTime
+    endTime
+  }
+
+  class StaffStatus <<ValueObject>> {
+    Available
+    Unavailable
+  }
+
+  StaffMember "1"-- "1" StaffID
+  StaffMember "1"-- "1" StaffName
+  StaffMember "1"-- "1" ContactInfo
+  StaffMember "1"-- "1" OperationalWindow
+  StaffMember "1"-- "1" StaffStatus
+}
+
+' ==========================
+' AGGREGATE: Qualification
+' ==========================
+package "QualificationAggregate" {
+  class Qualification <<AggregateRoot>> <<Entity>> { }
+
+  class QualificationCode <<ValueObject>> { }
+  class QualificationDescription <<ValueObject>> { }
+
+  Qualification "1"-- "1" QualificationCode
+  Qualification "1"-- "1..*"QualificationDescription
+}
+
+' ==========================
+' AGGREGATE: Resource
+' ==========================
+package "ResourceAggregate" {
+  class Resource <<AggregateRoot>> <<Entity>> { }
+
+  class ResourceID <<ValueObject>> { }
+  class ResourceDescription <<ValueObject>> { }
+  class OperationalCapacity <<ValueObject>> { }
+
+  class AvailabilityStatus <<ValueObject>> {
+    Active
+    Inactive
+    UnderMaintenance
+  }
+
+  class ResourceType <<ValueObject>> {
+    MobileCrane
+    FixedCrane
+    Truck
+  }
+
+  note left of ResourceType
+    The list of resource types is not exhaustive and can be expanded as needed.
+  end note
+
+  Resource *-- ResourceID
+  Resource *-- ResourceDescription
+  Resource *-- OperationalCapacity
+  Resource *-- AvailabilityStatus
+  Resource *-- ResourceType
+}
+
+' ==========================
+' AGGREGATE: Dock
+' ==========================
+package "DockAggregate" {
+  class Dock <<AggregateRoot>> <<Entity>> { }
+
+  class DockID <<ValueObject>> { }
+  class DockName <<ValueObject>> { }
+  class Location <<ValueObject>> { }
+  class Length <<ValueObject>> { }
+  class Depth <<ValueObject>> { }
+  class MaxDraft <<ValueObject>> { }
+
+  Dock *-- DockID
+  Dock *-- DockName
+  Dock *-- Location
+  Dock *-- Length
+  Dock *-- Depth
+  Dock *-- MaxDraft
+}
+
+' ==========================
+' AGGREGATE: Storage Area
+' ==========================
+package "StorageAreaAggregate" {
+  class StorageArea <<AggregateRoot>> <<Entity>> { }
+
+  class StorageAreaID <<ValueObject>> { }
+  class StorageAreaType <<ValueObject>> {
+    Yard
+    Warehouse
+  }
+  class StorageLocation <<ValueObject>> { }
+  class StorageAreaCapacity <<ValueObject>> { }
+  class CurrentUtilization <<ValueObject>> { }
+
+  StorageArea *-- StorageAreaID
+  StorageArea *-- StorageAreaType
+  StorageArea *-- StorageLocation
+  StorageArea *-- StorageAreaCapacity
+  StorageArea *-- CurrentUtilization
+}
+
+' ==========================
+' AGGREGATE: Shipping Organization
+' ==========================
+package "ShippingOrganizationAggregate" {
+  class ShippingAgent <<AggregateRoot>> <<Entity>> { }
+
+  class ShippingAgentName <<ValueObject>> { }
+  class TaxNumber <<ValueObject>> { }
+  class ShippingAgentType <<ValueObject>> {
+    Owner
+    Operator
+  }
+  class Address <<ValueObject>> {
+    street
+    city
+    postalCode
+    country
+  }
+
+  class Representative <<Entity>> { }
+  class RepresentativeName <<ValueObject>> { }
+  class RepresentativeCitizenID <<ValueObject>> { }
+  class RepresentativeNationality <<ValueObject>> { }
+  class RepresentativeEmail <<ValueObject>> { }
+  class RepresentativePhoneNumber <<ValueObject>> { }
+
+  ShippingAgent *-- ShippingAgentName
+  ShippingAgent *-- TaxNumber
+  ShippingAgent *-- ShippingAgentType
+  ShippingAgent *-- Address
+
+  Representative *-- RepresentativeName
+  Representative *-- RepresentativeCitizenID
+  Representative *-- RepresentativeNationality
+  Representative *-- RepresentativeEmail
+  Representative *-- RepresentativePhoneNumber
+}
+
+' ==========================
+' RELATIONSHIPS (as no teu original)
+' ==========================
+
+' StorageArea constraints / composition
+StorageArea "1" -- "0..*" Dock : may be constrained to serve >
+
+' VesselType vs Dock capability (accommodates)
+Dock "1..*" -- "1..*" VesselType : accommodates >
+
+' Staff qualifications
+StaffMember "1..*" -- "0..*" Qualification : possesses >
+
+' Resource ties
+Resource "1..*" -- "1" Dock : may be assigned to >
+Resource "1..*" -- "1" StorageArea : may be assigned to >
+Resource "1..*" -- "0..*" Qualification : requires >
+
+' Shipping org structure
+ShippingAgent "1" -- "*" Representative : employs >
+ShippingAgent "1" -- "*" VesselRecord : manages >
+ShippingAgent "1" -- "*" VesselVisitNotification : submits >
+
+' Manifest & entries & container
+CargoManifest "1" -- "*" ManifestEntry : includes >
+CargoManifest "1" -- "1" ManifestID : has >
+CargoManifest "1" -- "1" ManifestType : is of >
+
+ManifestEntry "1" -- "1" EntryNumber : has >
+ManifestEntry "1" -- "1" EntryPosition : has >
+ManifestEntry "1" -- "1" DestinationOrCurrentLocation : has >
+ManifestEntry "1" -- "1" CargoType : has >
+ManifestEntry "1" -- "1" EntryWeight : has >
+ManifestEntry "1" -- "1" Container : includes >
+
+Container "1" -- "1" IsoID : has >
+Container "1" -- "1" ContainerSize : has >
+Container "1" -- "1" ContainerWeight : has >
+
+' Vessels in notifications
+VesselVisitNotification "1" -- "*" VesselRecord : includes >
+VesselVisitNotification "1" -- "1" CargoManifest : has >
+VesselVisitNotification "1" -- "1" VisitID : has >
+VesselVisitNotification "1" -- "1" ScheduledArrival : has >
+VesselVisitNotification "1" -- "1" ScheduledDeparture : has >
+VesselVisitNotification "1" -- "1" Status : has >
+VesselVisitNotification "1" -- "1" CrewInfo : has >
+VesselVisitNotification "1" -- "1" Dock : assigned to >
+VesselVisitNotification "1" -- "1..*" Resource : requires >
+
+' Vessel record details
+VesselRecord "1" -- "1" VesselType : has 
+VesselRecord "1" -- "1" IMOnumber : has 
+VesselRecord "1" -- "1" VesselName : has 
+VesselRecord "1" -- "1" VesselRows : has 
+VesselRecord "1" -- "1" VesselBays : has 
+VesselRecord "1" -- "1" VesselTiers : has >
+
+@enduml
