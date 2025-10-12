@@ -12,21 +12,7 @@ top to bottom direction
 ' AGGREGATE: Vessel
 ' ==========================
 package "VesselAggregate" {
-  class VesselType <<Entity>> { }
-
-  class TypeName <<ValueObject>> { }
-  class TypeDescription <<ValueObject>> { }
-  class Capacity <<ValueObject>> { }
-  class MaxRows <<ValueObject>> { }
-  class MaxBays <<ValueObject>> { }
-  class MaxTiers <<ValueObject>> { }
-
-  VesselType "1"-- "1" TypeName: has >
-  VesselType "1"-- "1..*" TypeDescription: has >
-  VesselType "1"-- "1" Capacity: has >
-  VesselType "1"-- "1..*"MaxRows: has >
-  VesselType "1"-- "1" MaxBays: has >
-  VesselType "1"-- "1" MaxTiers: has >
+  
 
   class VesselRecord <<AggregateRoot>> <<Entity>> { }
 
@@ -44,6 +30,23 @@ package "VesselAggregate" {
   VesselRecord "1"-- "1" VesselType: has >
 }
 
+package "VesselTypeAggregate" {
+  class VesselType <<AggregateRoot>> <<Entity>> { }
+  class TypeName <<ValueObject>> { }
+  class TypeDescription <<ValueObject>> { }
+  class Capacity <<ValueObject>> { }
+  class MaxRows <<ValueObject>> { }
+  class MaxBays <<ValueObject>> { }
+  class MaxTiers <<ValueObject>> { }
+
+  VesselType "1"-- "1" TypeName: has >
+  VesselType "1"-- "1..*" TypeDescription: has >
+  VesselType "1"-- "1" Capacity: has >
+  VesselType "1"-- "1..*"MaxRows: has >
+  VesselType "1"-- "1" MaxBays: has >
+  VesselType "1"-- "1" MaxTiers: has >
+  VesselRecord "1" -- "1" VesselType : is of >
+}
 ' ==========================
 ' AGGREGATE: Vessel Visit
 ' ==========================
@@ -272,13 +275,8 @@ package "ShippingOrganizationAggregate" {
 ' RELATIONSHIPS (as no teu original)
 ' ==========================
 
-' StorageArea constraints / composition
 StorageArea "1" -- "0..*" Dock : may be constrained to serve >
 
-' VesselType vs Dock capability (accommodates)
-Dock "1..*" -- "1..*" VesselType : accommodates >
-
-' Staff qualifications
 StaffMember "1..*" -- "0..*" Qualification : possesses >
 
 ' Resource ties
