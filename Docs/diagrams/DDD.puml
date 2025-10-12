@@ -36,12 +36,12 @@ package "VesselAggregate" {
   class VesselBays <<ValueObject>> { }
   class VesselTiers <<ValueObject>> { }
 
-  VesselRecord *-- IMOnumber
-  VesselRecord *-- VesselName
-  VesselRecord *-- VesselRows
-  VesselRecord *-- VesselBays
-  VesselRecord *-- VesselTiers
-  VesselRecord *-- VesselType
+  VesselRecord "1"-- "1" IMOnumber: has >
+  VesselRecord "1"-- "1" VesselName: has >
+  VesselRecord "1"-- "1" VesselRows: has >
+  VesselRecord "1"-- "1" VesselBays: has >
+  VesselRecord "1"-- "1" VesselTiers: has >
+  VesselRecord "1"-- "1" VesselType: has >
 }
 
 ' ==========================
@@ -65,12 +65,6 @@ package "VesselVisitAggregate" {
     crewCaptain
     crewSize
   }
-
-  VesselVisitNotification *-- VisitID
-  VesselVisitNotification *-- ScheduledArrival
-  VesselVisitNotification *-- ScheduledDeparture
-  VesselVisitNotification *-- Status
-  VesselVisitNotification *-- CrewInfo
 }
 
 ' ==========================
@@ -112,24 +106,11 @@ package "CargoManifestAggregate" {
   class ContainerSize <<ValueObject>> { }
   class ContainerWeight <<ValueObject>> { }
 
-  CargoManifest *-- ManifestID
-  CargoManifest *-- ManifestType
-  CargoManifest "1" *-- "*" ManifestEntry : includes >
+  CargoManifest "1"-- "1" ManifestID: has >
+  CargoManifest "1"-- "1" ManifestType: has >
+  CargoManifest "1" -- "*" ManifestEntry : includes >
 
-  ManifestEntry *-- EntryNumber
-  ManifestEntry *-- EntryPosition
-  ManifestEntry *-- DestinationOrCurrentLocation
-  ManifestEntry *-- CargoType
-  ManifestEntry *-- EntryWeight
-  ManifestEntry *-- Container
 
-  Container *-- IsoID
-  Container *-- ContainerSize
-  Container *-- ContainerWeight
-
-  ' Peso agregado do manifesto (se aplicável) pode referir-se ao somatório das entries
-  ' (mantemos ManifestWeight ligado ao Container no teu original, mas faz mais sentido por Entry/Manifest)
-  ' Se quiseres, podemos ligar ManifestWeight diretamente ao CargoManifest.
 }
 
 ' ==========================
@@ -156,11 +137,11 @@ package "StaffAggregate" {
     Unavailable
   }
 
-  StaffMember "1"-- "1" StaffID
-  StaffMember "1"-- "1" StaffName
-  StaffMember "1"-- "1" ContactInfo
-  StaffMember "1"-- "1" OperationalWindow
-  StaffMember "1"-- "1" StaffStatus
+  StaffMember "1"-- "1" StaffID: has >
+  StaffMember "1"-- "1" StaffName: has >
+  StaffMember "1"-- "1" ContactInfo: has >
+  StaffMember "1"-- "1" OperationalWindow: has >
+  StaffMember "1"-- "1" StaffStatus: has >
 }
 
 ' ==========================
@@ -172,8 +153,8 @@ package "QualificationAggregate" {
   class QualificationCode <<ValueObject>> { }
   class QualificationDescription <<ValueObject>> { }
 
-  Qualification "1"-- "1" QualificationCode
-  Qualification "1"-- "1..*"QualificationDescription
+  Qualification "1"-- "1" QualificationCode: has >
+  Qualification "1"-- "1..*" QualificationDescription: has >
 }
 
 ' ==========================
@@ -198,15 +179,12 @@ package "ResourceAggregate" {
     Truck
   }
 
-  note left of ResourceType
-    The list of resource types is not exhaustive and can be expanded as needed.
-  end note
 
-  Resource *-- ResourceID
-  Resource *-- ResourceDescription
-  Resource *-- OperationalCapacity
-  Resource *-- AvailabilityStatus
-  Resource *-- ResourceType
+  Resource "1" -- "1" ResourceID: has >
+  Resource "1" -- "1" ResourceDescription: has >
+  Resource "1" -- "1" OperationalCapacity: has >
+  Resource "1" -- "1" AvailabilityStatus: has >
+  Resource "1" -- "1" ResourceType: has >
 }
 
 ' ==========================
@@ -222,12 +200,12 @@ package "DockAggregate" {
   class Depth <<ValueObject>> { }
   class MaxDraft <<ValueObject>> { }
 
-  Dock *-- DockID
-  Dock *-- DockName
-  Dock *-- Location
-  Dock *-- Length
-  Dock *-- Depth
-  Dock *-- MaxDraft
+  Dock "1" -- "1" DockID: has >
+  Dock "1" -- "1" DockName: has >
+  Dock "1" -- "1" Location: has >
+  Dock "1" -- "1" Length: has >
+  Dock "1" -- "1" Depth: has >
+  Dock "1" -- "1" MaxDraft: has >
 }
 
 ' ==========================
@@ -245,11 +223,11 @@ package "StorageAreaAggregate" {
   class StorageAreaCapacity <<ValueObject>> { }
   class CurrentUtilization <<ValueObject>> { }
 
-  StorageArea *-- StorageAreaID
-  StorageArea *-- StorageAreaType
-  StorageArea *-- StorageLocation
-  StorageArea *-- StorageAreaCapacity
-  StorageArea *-- CurrentUtilization
+  StorageArea "1" -- "1" StorageAreaID: has >
+  StorageArea "1" -- "1" StorageAreaType: has >
+  StorageArea "1" -- "1" StorageLocation: has >
+  StorageArea "1" -- "1" StorageAreaCapacity: has >
+  StorageArea "1" -- "1" CurrentUtilization: has >
 }
 
 ' ==========================
@@ -278,16 +256,16 @@ package "ShippingOrganizationAggregate" {
   class RepresentativeEmail <<ValueObject>> { }
   class RepresentativePhoneNumber <<ValueObject>> { }
 
-  ShippingAgent *-- ShippingAgentName
-  ShippingAgent *-- TaxNumber
-  ShippingAgent *-- ShippingAgentType
-  ShippingAgent *-- Address
+  ShippingAgent "1" -- "1" ShippingAgentName: has >
+  ShippingAgent "1" -- "1" TaxNumber: has >
+  ShippingAgent "1" -- "1" ShippingAgentType: has >
+  ShippingAgent "1" -- "1" Address: has >
 
-  Representative *-- RepresentativeName
-  Representative *-- RepresentativeCitizenID
-  Representative *-- RepresentativeNationality
-  Representative *-- RepresentativeEmail
-  Representative *-- RepresentativePhoneNumber
+  Representative "1" -- "1" RepresentativeName: has >
+  Representative "1" -- "1" RepresentativeCitizenID: has >
+  Representative "1" -- "1" RepresentativeNationality: has >
+  Representative "1" -- "1" RepresentativeEmail: has >
+  Representative "1" -- "1" RepresentativePhoneNumber: has >
 }
 
 ' ==========================
@@ -313,10 +291,6 @@ ShippingAgent "1" -- "*" Representative : employs >
 ShippingAgent "1" -- "*" VesselRecord : manages >
 ShippingAgent "1" -- "*" VesselVisitNotification : submits >
 
-' Manifest & entries & container
-CargoManifest "1" -- "*" ManifestEntry : includes >
-CargoManifest "1" -- "1" ManifestID : has >
-CargoManifest "1" -- "1" ManifestType : is of >
 
 ManifestEntry "1" -- "1" EntryNumber : has >
 ManifestEntry "1" -- "1" EntryPosition : has >
@@ -340,12 +314,5 @@ VesselVisitNotification "1" -- "1" CrewInfo : has >
 VesselVisitNotification "1" -- "1" Dock : assigned to >
 VesselVisitNotification "1" -- "1..*" Resource : requires >
 
-' Vessel record details
-VesselRecord "1" -- "1" VesselType : has 
-VesselRecord "1" -- "1" IMOnumber : has 
-VesselRecord "1" -- "1" VesselName : has 
-VesselRecord "1" -- "1" VesselRows : has 
-VesselRecord "1" -- "1" VesselBays : has 
-VesselRecord "1" -- "1" VesselTiers : has >
 
 @enduml
