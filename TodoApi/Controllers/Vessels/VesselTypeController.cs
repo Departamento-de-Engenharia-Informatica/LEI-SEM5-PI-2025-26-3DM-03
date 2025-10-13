@@ -25,7 +25,7 @@ namespace TodoApi.Controllers.Vessels
         {
             var query = _context.VesselTypes.AsQueryable();
 
-            //  Filtro por nome, descrição, ou ambos (case-insensitive)
+            // 🔍 Filtro por nome, descrição ou ambos (case-insensitive)
             if (!string.IsNullOrWhiteSpace(search))
             {
                 string lowerSearch = search.ToLower();
@@ -63,7 +63,7 @@ namespace TodoApi.Controllers.Vessels
         // POST: api/VesselTypes
         // ==============================
         [HttpPost]
-        public async Task<ActionResult<VesselTypeDTO>> PostVesselType(VesselTypeDTO dto)
+        public async Task<ActionResult<VesselTypeDTO>> PostVesselType(CreateVesselTypeDTO dto)
         {
             var vesselType = VesselTypeMapper.ToModel(dto);
 
@@ -79,7 +79,7 @@ namespace TodoApi.Controllers.Vessels
         // PUT: api/VesselTypes/5
         // ==============================
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutVesselType(long id, VesselTypeDTO dto)
+        public async Task<IActionResult> PutVesselType(long id, UpdateVesselTypeDTO dto)
         {
             if (id != dto.Id)
                 return BadRequest();
@@ -101,5 +101,17 @@ namespace TodoApi.Controllers.Vessels
 
             return NoContent();
         }
+        [HttpDelete("{id}")]
+public async Task<IActionResult> DeleteVesselType(long id)
+{
+    var vesselType = await _context.VesselTypes.FindAsync(id);
+    if (vesselType == null)
+        return NotFound();
+
+    _context.VesselTypes.Remove(vesselType);
+    await _context.SaveChangesAsync();
+
+    return NoContent();
+}
     }
 }
