@@ -62,6 +62,7 @@ package "VesselVisitAggregate" {
   class CrewInfo <<ValueObject>> {
     crewCaptain
     crewSize
+    crewNationality
   }
 }
 
@@ -77,7 +78,7 @@ package "CargoManifestAggregate" {
   class ManifestWeight <<ValueObject>> { }
 
   class ManifestEntry <<Entity>> { }
-  class EntryNumber <<ValueObject>> { }
+  class EntryID <<ValueObject>> { }
   class EntryWeight <<ValueObject>> { }
 
   class EntryPosition <<ValueObject>> {
@@ -97,6 +98,7 @@ package "CargoManifestAggregate" {
   }
 
   class Container <<Entity>> { }
+  class ContainerID <<ValueObject>> { }
   class IsoID <<ValueObject>> { }
   class ContainerSize <<ValueObject>> { }
   class ContainerWeight <<ValueObject>> { }
@@ -257,7 +259,7 @@ Resource "0..*" -- "0..*" Qualification : requires >
 ShippingAgent "1" -- "0..*" Representative : employs >
 ShippingAgent "1" -- "0..*" VesselRecord : represents >
 ShippingAgent "1" -- "0..*" VesselVisitNotification : submits >
-ManifestEntry "1" -- "1" EntryNumber : has >
+ManifestEntry "1" -- "1" EntryID : has >
 ManifestEntry "1" -- "1" EntryPosition : has >
 ManifestEntry "1" -- "1" DestinationOrCurrentLocation : has >
 ManifestEntry "1" -- "1" CargoType : has >
@@ -266,6 +268,8 @@ ManifestEntry "1" -- "1" Container : includes >
 Container "1" -- "1" IsoID : has >
 Container "1" -- "1" ContainerSize : has >
 Container "1" -- "1" ContainerWeight : has >
+Container "1" -- "1" ContainerID : has >
+
 VesselVisitNotification "1" -- "1" VisitID : has >
 VesselVisitNotification "1" -- "1" ScheduledArrival : has >
 VesselVisitNotification "1" -- "1" ScheduledDeparture : has >
