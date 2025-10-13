@@ -20,17 +20,24 @@ namespace TodoApi.Controllers.Vessels
         // GET: api/VesselTypes
         // ==============================
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<VesselTypeDTO>>> GetVesselTypes(string? search = null)
+        public async Task<ActionResult<IEnumerable<VesselTypeDTO>>> GetVesselTypes(
+            string? search = null, string? filterBy = "all")
         {
             var query = _context.VesselTypes.AsQueryable();
 
-            //  Filtro por nome ou descrição (case-insensitive)
+            //  Filtro por nome, descrição, ou ambos (case-insensitive)
             if (!string.IsNullOrWhiteSpace(search))
             {
                 string lowerSearch = search.ToLower();
-                query = query.Where(vt =>
-                    vt.Name.ToLower().Contains(lowerSearch) ||
-                    vt.Description.ToLower().Contains(lowerSearch));
+
+                query = filterBy?.ToLower() switch
+                {
+                    "name" => query.Where(vt => vt.Name.ToLower().Contains(lowerSearch)),
+                    "description" => query.Where(vt => vt.Description.ToLower().Contains(lowerSearch)),
+                    _ => query.Where(vt =>
+                        vt.Name.ToLower().Contains(lowerSearch) ||
+                        vt.Description.ToLower().Contains(lowerSearch))
+                };
             }
 
             var vesselTypes = await query.ToListAsync();
@@ -63,7 +70,9 @@ namespace TodoApi.Controllers.Vessels
             _context.VesselTypes.Add(vesselType);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetVesselType), new { id = vesselType.Id }, VesselTypeMapper.ToDTO(vesselType));
+            return CreatedAtAction(nameof(GetVesselType),
+                new { id = vesselType.Id },
+                VesselTypeMapper.ToDTO(vesselType));
         }
 
         // ==============================
