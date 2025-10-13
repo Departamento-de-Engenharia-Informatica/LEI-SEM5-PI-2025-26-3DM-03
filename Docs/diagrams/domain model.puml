@@ -50,11 +50,11 @@ class CrewInfo {
 class CargoManifest {
   id
   type
+  weight
 }
 
 class ManifestEntry {
   id
-  entryNumber
   entryWeight
   positionBay
   positionRow
@@ -101,6 +101,10 @@ class Dock {
   maxDraft
 }
 
+class AllowedVesselType {
+  vesselTypeID
+}
+
 class StorageArea {
   id
   type
@@ -118,7 +122,6 @@ class ShippingAgent {
 }
 
 class Representative {
-  id
   name
   citizenID
   nationality
@@ -129,10 +132,14 @@ class Representative {
 ' =============== RELAÇÕES ===============
 
 VesselType "1" -- "0..*" Vessel : classifies
+
 VesselVisitNotification "1" -- "1" Vessel : refers to
 VesselVisitNotification "1" -- "1" Dock : assigned to
 VesselVisitNotification "1" -- "1" CargoManifest : includes
 VesselVisitNotification "1" -- "1" CrewInfo : has
+
+Dock "1" -- "0..*" AllowedVesselType : permits >
+AllowedVesselType "1" -- "1" VesselType : references >
 
 PortAuthority "1" -- "*" VesselVisitNotification : manages 
 CargoManifest "1" -- "*" ManifestEntry : includes

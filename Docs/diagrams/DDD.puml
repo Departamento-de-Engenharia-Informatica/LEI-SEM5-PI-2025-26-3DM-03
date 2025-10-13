@@ -257,7 +257,6 @@ Resource "0..*" -- "0..*" Qualification : requires >
 ShippingAgent "1" -- "0..*" Representative : employs >
 ShippingAgent "1" -- "0..*" VesselRecord : represents >
 ShippingAgent "1" -- "0..*" VesselVisitNotification : submits >
-CargoManifest "1" -- "1..*" ManifestEntry : includes >
 ManifestEntry "1" -- "1" EntryNumber : has >
 ManifestEntry "1" -- "1" EntryPosition : has >
 ManifestEntry "1" -- "1" DestinationOrCurrentLocation : has >
