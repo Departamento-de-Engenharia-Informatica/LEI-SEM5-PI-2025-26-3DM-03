@@ -166,11 +166,18 @@ package "ResourceAggregate" {
     Truck
   }
 
+  class ResourceOperationalWindow <<ValueObject>> {
+    dayOfWeek
+    startTime
+    endTime
+  }
+
   Resource "1" -- "1" ResourceID: has >
   Resource "1" -- "1" ResourceDescription: has >
   Resource "1" -- "1" OperationalCapacity: has >
   Resource "1" -- "1" AvailabilityStatus: has >
   Resource "1" -- "1" ResourceType: has >
+  Resource "1" -- "1..*" ResourceOperationalWindow: has >
 }
 
 package "DockAggregate" {
@@ -253,8 +260,6 @@ package "ShippingOrganizationAggregate" {
 
 StorageArea "0..*" -- "0..*" Dock : may serve >
 StaffMember "0..*" -- "0..*" Qualification : possesses >
-Resource "0..*" -- "0..1" Dock : may be located at >
-Resource "0..*" -- "0..1" StorageArea : may be assigned to >
 Resource "0..*" -- "0..*" Qualification : requires >
 ShippingAgent "1" -- "0..*" Representative : employs >
 ShippingAgent "1" -- "0..*" VesselRecord : represents >
