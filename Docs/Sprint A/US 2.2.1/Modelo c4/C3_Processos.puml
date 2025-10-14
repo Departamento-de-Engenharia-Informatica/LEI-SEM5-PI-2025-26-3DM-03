@@ -1,0 +1,20 @@
+@startuml C3_Manage_Vessel_Types_Process_View
+title C3 – Manage Vessel Types (Process View / System Sequence Diagram)
+hide footbox
+
+actor "Port Authority Officer" as Officer
+participant "VesselTypeController\n(API Layer)" as Controller
+participant "VesselTypeMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / InMemory)" as DB
+
+
+Officer -> Controller : POST /api/VesselTypes (CreateVesselTypeDTO)
+Controller -> Mapper : Converte DTO para Entidade VesselType
+Mapper --> Controller : Retorna Entidade VesselType
+Controller -> Context : Adiciona VesselType e chama SaveChanges()
+Context -> DB : INSERT INTO VesselTypes (...)
+DB --> Context : Confirma inserção
+Controller --> Officer : HTTP 201 Created (VesselTypeDTO)
+
+@enduml

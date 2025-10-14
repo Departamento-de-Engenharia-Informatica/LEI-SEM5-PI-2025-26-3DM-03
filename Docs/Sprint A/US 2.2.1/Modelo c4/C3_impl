@@ -1,0 +1,98 @@
+@startuml C3_Manage_Vessel_Types_Implementation_View
+title C3 – Manage Vessel Types (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+
+' ======================
+' Packages conforme ao teu projeto
+' ======================
+
+package "Controllers.Vessels" {
+  class VesselTypeController {
+    + GetAll()
+    + GetById(id)
+    + Post(dto)
+    + Put(id, dto)
+    + Delete(id)
+  }
+}
+
+package "Models.Vessels" {
+  class VesselType {
+    + Id : long
+    + Name : string
+    + Description : string
+    + Capacity : int
+    + MaxRows : int
+    + MaxBays : int
+    + MaxTiers : int
+  }
+
+  class VesselTypeDTO {
+    + Id : long
+    + Name : string
+    + Description : string
+    + Capacity : int
+    + MaxRows : int
+    + MaxBays : int
+    + MaxTiers : int
+  }
+
+  class CreateVesselTypeDTO {
+    + Name : string
+    + Description : string
+    + Capacity : int
+    + MaxRows : int
+    + MaxBays : int
+    + MaxTiers : int
+  }
+
+  class UpdateVesselTypeDTO {
+    + Id : long
+    + Name : string
+    + Description : string
+    + Capacity : int
+    + MaxRows : int
+    + MaxBays : int
+    + MaxTiers : int
+  }
+
+  class VesselTypeMapper {
+    + ToDTO(model)
+    + ToModel(dto)
+  }
+}
+
+package "Data" {
+  class PortContext {
+    + VesselTypes : DbSet<VesselType>
+    + SaveChanges()
+  }
+}
+
+' ======================
+' Relações
+' ======================
+
+VesselTypeController --> VesselTypeMapper : usa para conversões
+VesselTypeController --> PortContext : acede à base de dados (EF Core)
+VesselTypeMapper --> VesselType : converte entidades
+VesselTypeMapper --> VesselTypeDTO : converte DTOs
+VesselTypeMapper --> CreateVesselTypeDTO
+VesselTypeMapper --> UpdateVesselTypeDTO
+PortContext --> VesselType : contém DbSet<>
+
+@enduml
