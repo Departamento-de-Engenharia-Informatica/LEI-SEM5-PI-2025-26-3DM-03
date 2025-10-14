@@ -1,0 +1,63 @@
+@startuml C4_Manage_Vessel_Types_Physical_View
+title C4 – Manage Vessel Types (Physical / Deployment View – Vessels)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+' ======================
+' INFRAESTRUTURA (FÍSICA)
+' ======================
+
+actor "Port Authority Officer" as Officer
+
+node "User Device\n(Laptop / Browser)" as Client {
+  artifact "Frontend Web App\n(React / Angular)" as Frontend
+}
+
+node "Application Server\n(Docker Container / IIS)" as AppServer {
+  artifact "Vessel Types Management API.dll\n(ASP.NET Core 8.0)" as API
+  artifact "Controllers.Vessels.dll"
+  artifact "Models.Vessels.dll"
+  artifact "Data.dll"
+}
+
+node "Database Server\n(SQL Server / InMemoryDB)" as DBServer {
+  database "PLMS Database" as Database
+}
+
+cloud "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+
+' ======================
+' RELAÇÕES (FÍSICAS)
+' ======================
+
+Officer --> Frontend : Interage via Browser (HTTPS)
+Frontend --> API : Envia pedidos REST (JSON/HTTPS)
+API --> IAM : Valida token OAuth 2.0
+API --> Database : CRUD via EF Core (SQL)
+AppServer -[hidden]-> DBServer
+
+@enduml

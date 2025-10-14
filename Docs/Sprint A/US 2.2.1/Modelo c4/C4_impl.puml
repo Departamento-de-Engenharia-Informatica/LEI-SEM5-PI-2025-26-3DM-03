@@ -1,0 +1,48 @@
+@startuml C4_Manage_Vessel_Types_Implementation_View
+title C4 – Manage Vessel Types (Implementation / Package View – Vessels)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Estrutura do domínio Vessels
+' ======================
+
+package "Controllers.Vessels" {
+  [VesselTypeController]
+}
+
+package "Models.Vessels" {
+  [VesselType]
+  [VesselTypeDTO]
+  [CreateVesselTypeDTO]
+  [UpdateVesselTypeDTO]
+  [VesselTypeMapper]
+}
+
+package "Data" {
+  [PortContext]
+}
+
+' ======================
+' Relações
+' ======================
+
+[VesselTypeController] --> [VesselTypeMapper] : usa para conversões
+[VesselTypeController] --> [PortContext] : acede à BD (EF Core)
+[VesselTypeMapper] --> [VesselType] : converte entidades
+[VesselTypeMapper] --> [VesselTypeDTO]
+[VesselTypeMapper] --> [CreateVesselTypeDTO]
+[VesselTypeMapper] --> [UpdateVesselTypeDTO]
+[PortContext] --> [VesselType] : contém DbSet<>
+
+@enduml
