@@ -1,0 +1,41 @@
+@startuml Mapping_C2_to_C3_Manage_Vessel_Types
+title Mapeamento entre C2 (Lógica) e C3 (Implementação) – Manage Vessel Types
+left to right direction
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "C2 – Logical View" {
+  [Vessel Types Management API]
+  [PLMS Database]
+  [External IAM Provider]
+}
+
+package "C3 – Implementation View" {
+  [VesselTypeController]
+  [VesselTypeMapper]
+  [PortContext]
+  [VesselType]
+  [CreateVesselTypeDTO]
+  [UpdateVesselTypeDTO]
+  [Entity Framework Core]
+  [ASP.NET Auth Middleware]
+}
+
+' Mapeamento de correspondência
+[Vessel Types Management API] --> [VesselTypeController]
+[Vessel Types Management API] --> [VesselTypeMapper]
+[Vessel Types Management API] --> [PortContext]
+[Vessel Types Management API] --> [VesselType]
+[Vessel Types Management API] --> [CreateVesselTypeDTO]
+[Vessel Types Management API] --> [UpdateVesselTypeDTO]
+
+[PLMS Database] --> [Entity Framework Core]
+[PLMS Database] --> [PortContext]
+[External IAM Provider] --> [ASP.NET Auth Middleware]
+
+@enduml
