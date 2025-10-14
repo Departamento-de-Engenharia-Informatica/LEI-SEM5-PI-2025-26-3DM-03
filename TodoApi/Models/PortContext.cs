@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Models.Qualifications;
 using TodoApi.Models.Vessels;
+using TodoApi.Models.Docks;
 
 namespace TodoApi.Models
 {
@@ -20,6 +21,7 @@ namespace TodoApi.Models
         // =======================
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
+        public DbSet<Dock> Docks { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -48,6 +50,18 @@ namespace TodoApi.Models
                 entity.Property(q => q.Description)
                       .IsRequired()
                       .HasMaxLength(200);
+            });
+
+            // Configuração da entidade Dock
+            modelBuilder.Entity<Dock>(entity =>
+            {
+                entity.ToTable("Docks");
+                entity.HasKey(d => d.Id);
+                entity.Property(d => d.Name).IsRequired().HasMaxLength(100);
+                entity.Property(d => d.Location).HasMaxLength(200);
+                entity.Property(d => d.Length);
+                entity.Property(d => d.Depth);
+                entity.Property(d => d.MaxDraft);
             });
 
             // =======================
@@ -87,6 +101,30 @@ namespace TodoApi.Models
                     Description = "Truck Driver"
                 }
             );
+        
+            modelBuilder.Entity<Dock>().HasData(
+                new Dock
+                {
+                    Id = 1,
+                    Name = "North Pier 1",
+                    Location = "North Side",
+                    Length = 300.0,
+                    Depth = 15.0,
+                    MaxDraft = 12.0
+                },
+                new Dock
+                {
+                    Id = 2,
+                    Name = "East Dock A",
+                    Location = "East Side",
+                    Length = 250.0,
+                    Depth = 12.0,
+                    MaxDraft = 10.0
+                }
+            );
+
+
         }
     }
 }
+
