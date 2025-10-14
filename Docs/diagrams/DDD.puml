@@ -20,10 +20,10 @@ package "VesselAggregate" {
 
   VesselRecord "1"-- "1" IMOnumber: has >
   VesselRecord "1"-- "1" VesselName: has >
-  VesselRecord "1"-- "1" VesselRows: has >
-  VesselRecord "1"-- "1" VesselBays: has >
-  VesselRecord "1"-- "1" VesselTiers: has >
-  VesselRecord "1"-- "1" VesselTypeId: has >
+  VesselRecord "1..*"-- "1" VesselRows: has >
+  VesselRecord "1..*"-- "1" VesselBays: has >
+  VesselRecord "1..*"-- "1" VesselTiers: has >
+  VesselRecord "1..*"-- "1" VesselTypeId: has >
 }
 
 package "VesselTypeAggregate" {
@@ -105,7 +105,7 @@ package "CargoManifestAggregate" {
 
   CargoManifest "1"-- "1" ManifestID: has >
   CargoManifest "1"-- "1" ManifestType: has >
-  CargoManifest "1"-- "0..1" ManifestWeight: has >
+  CargoManifest "1"-- "1" ManifestWeight: has >
   CargoManifest "1" -- "1..*" ManifestEntry : includes >
 }
 
@@ -133,7 +133,7 @@ package "StaffAggregate" {
   StaffMember "1"-- "1" StaffID: has >
   StaffMember "1"-- "1" StaffName: has >
   StaffMember "1"-- "1" ContactInfo: has >
-  StaffMember "1"-- "1" OperationalWindow: has >
+  StaffMember "1..*"-- "1" OperationalWindow: has >
   StaffMember "1"-- "1" StaffStatus: has >
 }
 
@@ -261,7 +261,7 @@ package "ShippingOrganizationAggregate" {
 StorageArea "0..*" -- "0..*" Dock : may serve >
 StaffMember "0..*" -- "0..*" Qualification : possesses >
 Resource "0..*" -- "0..*" Qualification : requires >
-ShippingAgent "1" -- "0..*" Representative : employs >
+ShippingAgent "1" -- "1..*" Representative : employs >
 ShippingAgent "1" -- "0..*" VesselRecord : represents >
 ShippingAgent "1" -- "0..*" VesselVisitNotification : submits >
 ManifestEntry "1" -- "1" EntryID : has >
