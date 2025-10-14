@@ -1,0 +1,27 @@
+@startuml C1_Manage_Vessel_Types_Scenario_View
+title C1 – Manage Vessel Types (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Port Authority Officer" as Officer
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Create Vessel Type" as UC_Create
+  usecase "Update Vessel Type" as UC_Update
+  usecase "View Vessel Types" as UC_View
+  usecase "Delete Vessel Type" as UC_Delete
+}
+
+Officer --> UC_Create
+Officer --> UC_Update
+Officer --> UC_View
+Officer --> UC_Delete
+
+
+
+@enduml
