@@ -1,0 +1,58 @@
+@startuml C2_Manage_Vessel_Types_Implementation_View
+title C2 – Manage Vessel Types (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Pacotes (lado a lado)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "Vessels" as P_Controllers_Vessels {
+      [VesselTypeController]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "Vessels" as P_Models_Vessels {
+      [VesselType]
+      [VesselTypeDTO]
+      [CreateVesselTypeDTO]
+      [UpdateVesselTypeDTO]
+      [VesselTypeMapper]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[VesselTypeController] --> [VesselTypeMapper] : usa para conversões
+[VesselTypeController] --> [PortContext] : acede à BD (EF Core)
+
+[VesselTypeMapper] --> [VesselType] : mapeia entidades
+[VesselTypeMapper] --> [VesselTypeDTO] : mapeia DTOs
+[VesselTypeMapper] --> [CreateVesselTypeDTO]
+[VesselTypeMapper] --> [UpdateVesselTypeDTO]
+
+@enduml
