@@ -42,7 +42,7 @@ node "Database Server\n(SQL Server / InMemoryDB)" as DBServer {
   database "PLMS Database" as Database
 }
 
-cloud "External IAM Provider\n(SSO / OAuth 2.0 / OpenID Connect)" as IAM
+cloud "External IAM Provider\n(SSO / OAuth 2.0 / OpenId Connect)" as IAM
 
 ' === Relações ===
 Officer --> Frontend : Acede via Browser (HTTPS)

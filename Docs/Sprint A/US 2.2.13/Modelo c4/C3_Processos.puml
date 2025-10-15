@@ -20,10 +20,10 @@ DB --> Context : OK
 Controller --> Officer : HTTP 201 Created (QualificationDTO)
 
 == Update Qualification ==
-Officer -> Controller : PUT /api/Qualifications/{id} (QualificationDTO)
+Officer -> Controller : PUT /api/Qualifications/{code} (QualificationDTO)
 Controller -> IAM : Valida Token
 IAM --> Controller : Token OK
-Controller -> Context : Find(id) -> Update -> SaveChanges()
+Controller -> Context : Find(code) -> Update -> SaveChanges()
 Context -> DB : UPDATE
 DB --> Context : OK
 Controller --> Officer : HTTP 200 OK (QualificationDTO)

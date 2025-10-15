@@ -35,10 +35,10 @@ Frontend --> Officer : Confirma criação
 
 == Atualização de Qualification ==
 Officer -> Frontend : Edita Qualification existente
-Frontend -> API : PUT /api/Qualifications/{id} (JSON + Bearer Token)
+Frontend -> API : PUT /api/Qualifications/{code} (JSON + Bearer Token)
 API -> IAM : Valida token JWT
 IAM --> API : Token válido
-API -> DB : UPDATE Qualifications SET ... WHERE id = ...
+API -> DB : UPDATE Qualifications SET ... WHERE code = ...
 DB --> API : Confirmação (OK)
 API --> Frontend : HTTP 200 OK (QualificationDTO)
 Frontend --> Officer : Confirma alteração
