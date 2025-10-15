@@ -2,7 +2,7 @@ namespace TodoApi.Models.ShippingAgentOrganization
 {
     public class ShippingAgentType
     {
-        public string Value { get; set; }
+        public string? Value { get; set; }
         public ShippingAgentType(string value) => Value = value;
         public ShippingAgentType() { }
 
