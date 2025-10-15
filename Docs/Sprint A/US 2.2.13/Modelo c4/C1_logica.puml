@@ -1,0 +1,40 @@
+@startuml C1_Manage_Qualifications_Logical_View
+title C1 – Manage Qualifications (Logical View)
+
+' === Atores Externos ===
+actor "Port Authority Officer" as Officer
+rectangle "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
+database "Database System\n(SQL / InMemory)" as DB
+
+' === Sistema em Foco ===
+package "Port Logistics Management System (PLMS)" {
+    rectangle "Qualifications Management API\n(ASP.NET Core Web API)" as API
+    rectangle "QualificationMapper\n(Conversão DTO ↔ Model)" as Mapper
+    rectangle "PortContext\n(Entity Framework Core)" as Context
+}
+
+' === Relações ===
+Officer --> IAM : Autentica-se via OAuth 2.0
+Officer --> API : CRUD de Qualifications (HTTP/JSON)
+API --> IAM : Validação de token
+API --> Context : Operações de leitura/escrita (EF Core)
+Context --> DB : Persistência de dados
+
+' === Estilo visual ===
+skinparam rectangle {
+  BackgroundColor<<System>> LightGray
+  BackgroundColor<<Component>> HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  FontColor White
+  BorderColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  FontColor Black
+}
+
+@enduml

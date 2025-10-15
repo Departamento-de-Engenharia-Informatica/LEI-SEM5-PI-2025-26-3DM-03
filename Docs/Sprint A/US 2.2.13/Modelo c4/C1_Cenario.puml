@@ -1,0 +1,18 @@
+@startuml C1_Manage_Qualifications_Scenario_View
+title C1 – Manage Qualifications (Cenário de Uso)
+
+actor "Port Authority Officer" as Officer
+rectangle "PLMS (Port Logistics Management System)" as PLMS
+
+Officer --> PLMS : Solicita listar/gerir Qualifications via UI
+PLMS --> Officer : Mostra lista / formulário de edição
+
+PLMS --> "External IAM Provider (OAuth 2.0)" : Delegates authentication
+PLMS --> "PLMS Database" : Persiste Qualifications
+
+note right of PLMS
+ Cenário típico: o Oficial entra no UI, autentica-se e cria/edita
+ qualifications que ficam persistidos na base de dados.
+end note
+
+@enduml
