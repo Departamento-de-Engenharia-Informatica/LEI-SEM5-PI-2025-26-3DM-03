@@ -1,0 +1,16 @@
+@startuml C3_Manage_Qualifications_Physical_View
+title C3 – Manage Qualifications (Physical / Component Deployment)
+
+node "App Server (Docker Host)" as App {
+  component "Qualifications API (ASP.NET Core)" as API
+  component "QualificationMapper (Library)" as Mapper
+}
+
+node "DB Server" as DB {
+  database "PLMS Database (SQL Server)" as Database
+}
+
+API --> Mapper
+API --> Database
+
+@enduml
