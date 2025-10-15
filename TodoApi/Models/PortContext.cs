@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TodoApi.Models.Qualifications;
 using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
+using TodoApi.Models.ShippingAgentOrganization;
 
 namespace TodoApi.Models
 {
@@ -22,6 +23,7 @@ namespace TodoApi.Models
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
         public DbSet<Dock> Docks { get; set; } = null!;
+        public DbSet<ShippingAgentOrganization> ShippingAgentOrganizations { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -62,6 +64,43 @@ namespace TodoApi.Models
                 entity.Property(d => d.Length);
                 entity.Property(d => d.Depth);
                 entity.Property(d => d.MaxDraft);
+            });
+
+            // Configuração da entidade ShippingAgentOrganization
+            modelBuilder.Entity<ShippingAgentOrganization>(entity =>
+            {
+                entity.ToTable("ShippingAgentOrganizations");
+                entity.HasKey(s => s.TaxNumber);
+                entity.Property(s => s.Name).IsRequired().HasMaxLength(100);
+                entity.Property(s => s.Type)
+                    .HasConversion(
+                        t => t.Value,
+                        v => new ShippingAgentType(v)
+                    )
+                    .IsRequired()
+                    .HasMaxLength(20);
+
+                // Address como owned type
+                entity.OwnsOne(s => s.Address, address =>
+                {
+                    address.Property(a => a.Street).HasMaxLength(100);
+                    address.Property(a => a.City).HasMaxLength(50);
+                    address.Property(a => a.PostalCode).HasMaxLength(20);
+                    address.Property(a => a.Country).HasMaxLength(50);
+                });
+
+                // Representatives como owned collection
+                entity.OwnsMany(s => s.Representatives, rep =>
+                {
+                    rep.WithOwner().HasForeignKey("ShippingAgentOrganizationTaxNumber");
+                    rep.Property<int>("Id"); // Chave primária shadow
+                    rep.HasKey("Id");
+                    rep.Property(r => r.Name).HasMaxLength(100);
+                    rep.Property(r => r.CitizenID).HasMaxLength(50);
+                    rep.Property(r => r.Nationality).HasMaxLength(50);
+                    rep.Property(r => r.Email).HasMaxLength(100);
+                    rep.Property(r => r.PhoneNumber).HasMaxLength(30);
+                });
             });
 
             // =======================
@@ -122,9 +161,6 @@ namespace TodoApi.Models
                     MaxDraft = 10.0
                 }
             );
-
-
         }
     }
 }
-
