@@ -1,0 +1,18 @@
+@startuml C4_Manage_Qualifications_Physical_View
+title C4 – Manage Qualifications (Physical / Deployment View)
+
+node "Kubernetes Cluster / VM" as Cluster {
+  folder "PLMS Namespace" {
+    container "Qualifications API (Docker)" as API
+    container "Frontend (Static SPA)" as Frontend
+  }
+}
+
+node "RDS / SQL Server Instance" as RDS {
+  database "PLMS Database" as Database
+}
+
+API --> Database
+Frontend --> API
+
+@enduml
