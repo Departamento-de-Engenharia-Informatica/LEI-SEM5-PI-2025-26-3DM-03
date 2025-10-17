@@ -5,9 +5,8 @@ namespace TodoApi.Models.ShippingOrganizations
     public class ShippingAgent
     {
         public long TaxNumber { get; set; }           // PK
-        public string Name { get; set; } = string.Empty;
-
-        // Agora é o Value Object (Owner / Operator)
+        public string LegalName { get; set; } = string.Empty;       // NEW
+        public string AlternativeName { get; set; } = string.Empty;
         public ShippingAgentType Type { get; set; } = ShippingAgentType.Owner;
 
         public Address Address { get; set; } = new();
@@ -17,13 +16,15 @@ namespace TodoApi.Models.ShippingOrganizations
 
         public ShippingAgent(
             long taxNumber,
-            string name,
+            string legalName,
+            string alternativeName,
             ShippingAgentType type,
             Address address,
             List<Representative> representatives)
         {
             TaxNumber = taxNumber;
-            Name = name;
+            LegalName = legalName;
+            AlternativeName = alternativeName;
             Type = type;
             Address = address;
             Representatives = representatives;

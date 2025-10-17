@@ -67,46 +67,35 @@ namespace TodoApi.Models
                 entity.Property(d => d.MaxDraft);
             });
 
-            // Configuração da entidade ShippingAgent
-            modelBuilder.Entity<ShippingAgent>(entity =>
+            modelBuilder.Entity<ShippingAgent>(e =>
             {
-                entity.ToTable("ShippingAgents");
-                entity.HasKey(s => s.TaxNumber);
-                entity.Property(s => s.Name).IsRequired().HasMaxLength(100);
+                e.HasKey(s => s.TaxNumber);
+                e.Property(s => s.LegalName).IsRequired().HasMaxLength(150);
+                e.Property(s => s.AlternativeName).IsRequired().HasMaxLength(150);
 
-                // Conversão automática do Value Object ShippingAgentType
-                entity.Property(s => s.Type)
-                    .HasConversion(
-                        new ValueConverter<ShippingAgentType, string>(
-                            v => v.Value,                // Domain -> DB
-                            v => new ShippingAgentType(v) // DB -> Domain
-                        ))
-                    .IsRequired()
-                    .HasMaxLength(20);
+                e.Property(s => s.Type)
+                .HasConversion(v => v.Value, v => new ShippingAgentType(v))
+                .IsRequired().HasMaxLength(20);
 
-                // Address como owned type
-                entity.OwnsOne(s => s.Address, address =>
+                e.OwnsOne(s => s.Address, a =>
                 {
-                    address.Property(a => a.Street).HasMaxLength(100);
-                    address.Property(a => a.City).HasMaxLength(50);
-                    address.Property(a => a.PostalCode).HasMaxLength(20);
-                    address.Property(a => a.Country).HasMaxLength(50);
+                    a.Property(p => p.Street).IsRequired().HasMaxLength(100);
+                    a.Property(p => p.City).IsRequired().HasMaxLength(50);
+                    a.Property(p => p.PostalCode).IsRequired().HasMaxLength(20);
+                    a.Property(p => p.Country).IsRequired().HasMaxLength(50);
                 });
 
-                // Representatives como owned collection
-                entity.OwnsMany(s => s.Representatives, rep =>
+                e.OwnsMany(s => s.Representatives, rep =>
                 {
                     rep.WithOwner().HasForeignKey("ShippingAgentTaxNumber");
-                    rep.Property<int>("Id"); // chave shadow
-                    rep.HasKey("Id");
-                    rep.Property(r => r.Name).HasMaxLength(100);
-                    rep.Property(r => r.CitizenID).HasMaxLength(50);
-                    rep.Property(r => r.Nationality).HasMaxLength(50);
-                    rep.Property(r => r.Email).HasMaxLength(100);
-                    rep.Property(r => r.PhoneNumber).HasMaxLength(30);
+                    rep.Property<int>("Id"); rep.HasKey("Id");
+                    rep.Property(r => r.Name).IsRequired().HasMaxLength(100);
+                    rep.Property(r => r.CitizenID).IsRequired().HasMaxLength(50);
+                    rep.Property(r => r.Nationality).IsRequired().HasMaxLength(50);
+                    rep.Property(r => r.Email).IsRequired().HasMaxLength(100);
+                    rep.Property(r => r.PhoneNumber).IsRequired().HasMaxLength(30);
                 });
-            });
-
+    });
             // =======================
             //   Dados iniciais (seeding)
             // =======================

@@ -12,7 +12,8 @@ namespace TodoApi.Models.ShippingOrganizations
             return new ShippingAgent
             {
                 TaxNumber = dto.TaxNumber,
-                Name = dto.Name,
+                LegalName = dto.LegalName,
+                AlternativeName = dto.AlternativeName,
                 Type = new ShippingAgentType(dto.Type),
                 Address = dto.Address,
                 Representatives = dto.Representatives
@@ -24,7 +25,8 @@ namespace TodoApi.Models.ShippingOrganizations
             return new ShippingAgentDTO
             {
                 TaxNumber = org.TaxNumber,
-                Name = org.Name,
+                LegalName = org.LegalName,
+                AlternativeName = org.AlternativeName,
                 Type = org.Type.ToString(),
                 Address = org.Address,
                 Representatives = org.Representatives
