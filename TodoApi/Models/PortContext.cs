@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TodoApi.Models.Qualifications;
 using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
-using TodoApi.Models.ShippingAgentOrganization;
+using SAO = TodoApi.Models.ShippingAgentOrganization;
 
 namespace TodoApi.Models
 {
@@ -23,7 +23,7 @@ namespace TodoApi.Models
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
         public DbSet<Dock> Docks { get; set; } = null!;
-        public DbSet<ShippingAgentOrganization> ShippingAgentOrganizations { get; set; } = null!;
+    public DbSet<SAO.ShippingAgentOrganization> ShippingAgentOrganizations { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -67,7 +67,7 @@ namespace TodoApi.Models
             });
 
             // Configuração da entidade ShippingAgentOrganization
-            modelBuilder.Entity<ShippingAgentOrganization>(entity =>
+            modelBuilder.Entity<SAO.ShippingAgentOrganization>(entity =>
             {
                 entity.ToTable("ShippingAgentOrganizations");
                 entity.HasKey(s => s.TaxNumber);
@@ -75,7 +75,7 @@ namespace TodoApi.Models
                 entity.Property(s => s.Type)
                     .HasConversion(
                         t => t.Value,
-                        v => new ShippingAgentType(v)
+                        v => new SAO.ShippingAgentType(v ?? string.Empty)
                     )
                     .IsRequired()
                     .HasMaxLength(20);
@@ -90,7 +90,7 @@ namespace TodoApi.Models
                 });
 
                 // Representatives como owned collection
-                entity.OwnsMany(s => s.Representatives, rep =>
+                entity.OwnsMany<SAO.Representative>(s => s.Representatives, rep =>
                 {
                     rep.WithOwner().HasForeignKey("ShippingAgentOrganizationTaxNumber");
                     rep.Property<int>("Id"); // Chave primária shadow

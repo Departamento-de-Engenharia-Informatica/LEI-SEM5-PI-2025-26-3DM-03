@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using TodoApi.Models.ShippingAgentOrganization;
+using TodoApi.Models;
+using SAO = TodoApi.Models.ShippingAgentOrganization;
 
-namespace TodoApi.Controllers.ShippingAgentOrganization
+namespace TodoApi.Controllers.ShippingAgentOrganizations
 {
     [ApiController]
     [Route("api/[controller]")]
@@ -15,22 +16,22 @@ namespace TodoApi.Controllers.ShippingAgentOrganization
         }
 
         [HttpPost]
-        public async Task<ActionResult<ShippingAgentOrganizationDTO>> Create(CreateShippingAgentOrganizationDTO dto)
+        public async Task<ActionResult<SAO.ShippingAgentOrganizationDTO>> Create(SAO.CreateShippingAgentOrganizationDTO dto)
         {
-            var org = ShippingAgentOrganizationMapper.ToDomain(dto);
+            var org = SAO.ShippingAgentOrganizationMapper.ToDomain(dto);
             _context.ShippingAgentOrganizations.Add(org);
             await _context.SaveChangesAsync();
 
-            var result = ShippingAgentOrganizationMapper.ToDTO(org);
+            var result = SAO.ShippingAgentOrganizationMapper.ToDTO(org);
             return CreatedAtAction(nameof(GetByTaxNumber), new { taxNumber = org.TaxNumber }, result);
         }
 
         [HttpGet("{taxNumber}")]
-        public async Task<ActionResult<ShippingAgentOrganizationDTO>> GetByTaxNumber(long taxNumber)
+        public async Task<ActionResult<SAO.ShippingAgentOrganizationDTO>> GetByTaxNumber(long taxNumber)
         {
             var org = await _context.ShippingAgentOrganizations.FindAsync(taxNumber);
             if (org == null) return NotFound();
-            return ShippingAgentOrganizationMapper.ToDTO(org);
+            return SAO.ShippingAgentOrganizationMapper.ToDTO(org);
         }
     }
 }
