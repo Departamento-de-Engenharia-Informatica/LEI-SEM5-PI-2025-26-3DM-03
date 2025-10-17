@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TodoApi.Models.Qualifications;
 using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
-using SAO = TodoApi.Models.ShippingAgentOrganization;
+using TodoApi.Models.ShippingOrganizations;
 
 namespace TodoApi.Models
 {
@@ -23,7 +24,7 @@ namespace TodoApi.Models
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
         public DbSet<Dock> Docks { get; set; } = null!;
-    public DbSet<SAO.ShippingAgentOrganization> ShippingAgentOrganizations { get; set; } = null!;
+        public DbSet<ShippingAgent> ShippingAgents { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -66,17 +67,20 @@ namespace TodoApi.Models
                 entity.Property(d => d.MaxDraft);
             });
 
-            // Configuração da entidade ShippingAgentOrganization
-            modelBuilder.Entity<SAO.ShippingAgentOrganization>(entity =>
+            // Configuração da entidade ShippingAgent
+            modelBuilder.Entity<ShippingAgent>(entity =>
             {
-                entity.ToTable("ShippingAgentOrganizations");
+                entity.ToTable("ShippingAgents");
                 entity.HasKey(s => s.TaxNumber);
                 entity.Property(s => s.Name).IsRequired().HasMaxLength(100);
+
+                // Conversão automática do Value Object ShippingAgentType
                 entity.Property(s => s.Type)
                     .HasConversion(
-                        t => t.Value,
-                        v => new SAO.ShippingAgentType(v ?? string.Empty)
-                    )
+                        new ValueConverter<ShippingAgentType, string>(
+                            v => v.Value,
+                            v => new ShippingAgentType(v)
+                        ))
                     .IsRequired()
                     .HasMaxLength(20);
 
@@ -92,8 +96,8 @@ namespace TodoApi.Models
                 // Representatives como owned collection
                 entity.OwnsMany<SAO.Representative>(s => s.Representatives, rep =>
                 {
-                    rep.WithOwner().HasForeignKey("ShippingAgentOrganizationTaxNumber");
-                    rep.Property<int>("Id"); // Chave primária shadow
+                    rep.WithOwner().HasForeignKey("ShippingAgentTaxNumber");
+                    rep.Property<int>("Id"); // chave shadow
                     rep.HasKey("Id");
                     rep.Property(r => r.Name).HasMaxLength(100);
                     rep.Property(r => r.CitizenID).HasMaxLength(50);
@@ -105,7 +109,7 @@ namespace TodoApi.Models
 
             // =======================
             //   Dados iniciais (seeding)
-            // =======================  
+            // =======================
             modelBuilder.Entity<VesselType>().HasData(
                 new VesselType
                 {
@@ -128,6 +132,7 @@ namespace TodoApi.Models
                     MaxTiers = 9
                 }
             );
+
             modelBuilder.Entity<Qualification>().HasData(
                 new Qualification
                 {
@@ -140,7 +145,7 @@ namespace TodoApi.Models
                     Description = "Truck Driver"
                 }
             );
-        
+
             modelBuilder.Entity<Dock>().HasData(
                 new Dock
                 {
