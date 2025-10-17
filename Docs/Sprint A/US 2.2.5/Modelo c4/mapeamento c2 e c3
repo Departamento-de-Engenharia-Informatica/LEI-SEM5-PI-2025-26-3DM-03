@@ -1,0 +1,49 @@
+@startuml Mapping_C2_to_C3_Register_Shipping_Agents
+title Mapeamento entre C2 (Lógica) e C3 (Implementação) – Register Shipping Agents
+left to right direction
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "C2 – Logical View" {
+  [Shipping Agents Management API]
+  [PLMS Database]
+  [External IAM Provider]
+  [Notification Services (Email/SMS)]
+}
+
+package "C3 – Implementation View" {
+  [ShippingAgentsController]
+  [ShippingAgentMapper]
+  [PortContext]
+  [ShippingAgent]
+  [CreateShippingAgentDTO]
+  [ShippingAgentDTO]
+  [Address]
+  [Representative]
+  [ShippingAgentType]
+  [Entity Framework Core]
+  [ASP.NET Auth Middleware]
+  [NotificationService]
+}
+
+' ===== Mapeamentos =====
+
+[Shipping Agents Management API] --> [ShippingAgentsController]
+[Shipping Agents Management API] --> [ShippingAgentMapper]
+[Shipping Agents Management API] --> [PortContext]
+[Shipping Agents Management API] --> [ShippingAgent]
+[Shipping Agents Management API] --> [CreateShippingAgentDTO]
+[Shipping Agents Management API] --> [ShippingAgentDTO]
+
+[PLMS Database] --> [Entity Framework Core]
+[PLMS Database] --> [PortContext]
+
+[External IAM Provider] --> [ASP.NET Auth Middleware]
+[Notification Services (Email/SMS)] --> [NotificationService]
+
+@enduml

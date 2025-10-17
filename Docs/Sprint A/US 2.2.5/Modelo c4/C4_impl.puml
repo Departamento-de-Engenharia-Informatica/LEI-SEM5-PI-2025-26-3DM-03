@@ -1,0 +1,55 @@
+@startuml C4_Register_Shipping_Agents_Implementation_View
+title C4 – Register Shipping Agents (Implementation / Package View – Shipping Organizations)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Estrutura do domínio ShippingOrganizations
+' ======================
+
+package "Controllers.ShippingOrganizations" {
+  [ShippingAgentsController]
+}
+
+package "Models.ShippingOrganizations" {
+  [ShippingAgent]
+  [ShippingAgentDTO]
+  [CreateShippingAgentDTO]
+  [ShippingAgentMapper]
+  [Address]
+  [Representative]
+  [ShippingAgentType]
+}
+
+package "Data" {
+  [PortContext]
+}
+
+' ======================
+' Relações
+' ======================
+
+[ShippingAgentsController] --> [ShippingAgentMapper] : usa para conversões
+[ShippingAgentsController] --> [PortContext] : acede à BD (EF Core)
+
+[ShippingAgentMapper] --> [ShippingAgent] : converte entidades
+[ShippingAgentMapper] --> [ShippingAgentDTO]
+[ShippingAgentMapper] --> [CreateShippingAgentDTO]
+
+[ShippingAgent] --> [Address]
+[ShippingAgent] --> [Representative]
+[ShippingAgent] --> [ShippingAgentType]
+
+[PortContext] --> [ShippingAgent] : contém DbSet<>
+
+@enduml

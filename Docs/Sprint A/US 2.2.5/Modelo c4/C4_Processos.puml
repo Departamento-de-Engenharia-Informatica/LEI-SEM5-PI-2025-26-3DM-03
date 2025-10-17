@@ -1,0 +1,39 @@
+@startuml C4_Register_Shipping_Agents_Process_View
+title C4 – Register Shipping Agents (Process View – Create Organization)
+hide footbox
+
+actor "Organization Representative" as Rep
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Shipping Agents Management API\n(ASP.NET Core)" as API
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+database "PLMS Database\n(SQL / SQLite)" as DB
+participant "Notification Providers\n(Email / SMS)" as Notif
+
+== Autenticação ==
+Rep -> Frontend : Inicia sessão (credenciais)
+Frontend -> IAM : Solicita Token OAuth 2.0
+IAM --> Frontend : Retorna Access Token (JWT)
+
+== Submissão de Organização ==
+Rep -> Frontend : Preenche e submete formulário\n(TaxNumber, LegalName, AlternativeName,\nAddress, Representatives[≥1], Type)
+Frontend -> API : POST /api/ShippingAgents\n(JSON + Bearer Token)
+API -> IAM : Valida token JWT
+IAM --> API : Token válido
+
+== Validação e Mapeamento ==
+API -> API : Valida obrigatórios:\n- TaxNumber, LegalName, AlternativeName, Address\n- ≥1 Representative (Name, CitizenID, Nationality, Email, Phone)\n- Formatos Email/Phone
+API -> API : Mapeia DTO → Entidade (ShippingAgent)
+
+== Persistência ==
+API -> DB : INSERT INTO ShippingAgents (...)\nINSERT INTO Representatives (...)
+DB --> API : Confirmação (OK)
+
+== Notificações ==
+API -> Notif : Envia confirmação (Email/SMS) ao representante
+Notif --> API : Entrega aceite
+
+== Resposta ==
+API --> Frontend : HTTP 201 Created (ShippingAgentDTO)
+Frontend --> Rep : Mostra confirmação (organização registada)
+
+@enduml

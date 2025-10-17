@@ -1,0 +1,25 @@
+@startuml C3_Register_Shipping_Agents_Process_View
+title C3 – Register Shipping Agents (Process View / System Sequence Diagram)
+hide footbox
+
+actor "Organization Representative" as Rep
+participant "ShippingAgentsController\n(API Layer)" as Controller
+participant "ShippingAgentMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / SQLite)" as DB
+participant "NotificationService\n(Email / SMS)" as Notif
+
+Rep -> Controller : POST /api/ShippingAgents (CreateShippingAgentDTO)
+Controller -> Mapper : Converte DTO → Entidade ShippingAgent
+Mapper --> Controller : Retorna Entidade ShippingAgent
+
+Controller -> Context : Adiciona ShippingAgent e chama SaveChanges()
+Context -> DB : INSERT INTO ShippingAgents (...)
+DB --> Context : Confirma inserção
+
+Controller -> Notif : Envia notificações de confirmação (Email/SMS)
+Notif --> Controller : Confirma envio
+
+Controller --> Rep : HTTP 201 Created (ShippingAgentDTO)
+
+@enduml

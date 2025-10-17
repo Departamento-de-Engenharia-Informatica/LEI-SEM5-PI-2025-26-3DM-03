@@ -1,0 +1,47 @@
+@startuml C3_Register_Shipping_Agents_Logical_View
+title C3 – Register Shipping Agents API (Logical View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  FontColor White
+  BorderColor Black
+}
+
+' === ATOR EXTERNO ===
+actor "Organization Representative" as Rep
+
+' === SISTEMA PRINCIPAL ===
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+
+  rectangle "Shipping Agents Management API\n(ASP.NET Core Web API)" as API
+  rectangle "ShippingAgentMapper\n(Conversão DTO ↔ Domínio)" as Mapper
+  rectangle "PortContext\n(Entity Framework Core)" as Context
+}
+
+database "Database System\n(SQL / SQLite)" as DB
+rectangle "External IAM Provider\n(OAuth 2.0 / SSO)" as IAM
+rectangle "Notification Services\n(Email / SMS)" as Notif
+
+' === RELAÇÕES ===
+Rep --> API : POST /api/ShippingAgents (registo JSON)
+Rep --> IAM : Autenticação via OAuth 2.0
+API --> IAM : Validação de token de acesso
+API --> Mapper : Conversão CreateShippingAgentDTO → Entidade
+API --> Context : Guarda entidades (EF Core)
+Context --> DB : Persistência dos Shipping Agents e Representatives
+API --> Notif : Envia notificações (Email/SMS)
+
+@enduml

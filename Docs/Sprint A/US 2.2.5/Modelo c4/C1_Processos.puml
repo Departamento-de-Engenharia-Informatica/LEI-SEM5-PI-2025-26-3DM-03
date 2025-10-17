@@ -1,0 +1,21 @@
+@startuml C1_Register_ShippingAgent_Process_View
+title C1 – Register Shipping Agent (Process View)
+
+actor "Organization Representative" as Representative
+participant "ShippingAgentsController\n(API Layer)" as Controller
+participant "ShippingAgentMapper\n(Data Mapper)" as Mapper
+participant "PortContext\n(EF Core)" as Context
+database "Database\n(SQL / SQLite)" as DB
+
+Representative -> Controller : POST /api/ShippingAgents\n(CreateShippingAgentDTO)
+Controller -> Mapper : Converte DTO → Entidade de Domínio\n(ShippingAgent + Representatives + Address)
+Mapper --> Controller : Retorna objeto ShippingAgent
+
+Controller -> Context : Adiciona entidade ShippingAgent
+Context -> DB : Persiste dados (SaveChanges)
+DB --> Context : Confirma inserção
+Context --> Controller : OK
+
+Controller --> Representative : HTTP 201 Created\n(ShippingAgentDTO)
+
+@enduml

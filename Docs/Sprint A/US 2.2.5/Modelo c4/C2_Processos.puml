@@ -1,0 +1,34 @@
+@startuml C2_Register_ShippingAgents_Process_View
+title C2 – Register Shipping Agents (Processes / Containers)
+!include <C4/C4_Container>
+
+Person(rep, "Organization Representative", "Submete o registo da organização")
+
+System_Boundary(sys, "Port Logistics Management System (PLMS)") {
+  Container(api, "Shipping Agents Management API\n(TodoApi - ASP.NET Core)", "C#", "Endpoints REST para gestão de organizações")
+  ContainerDb(db, "PLMS Database", "SQL / SQLite", "ShippingAgents, Representatives; Address (owned)")
+  Container(bg, "Notification Worker (opcional)", "C#", "Envio assíncrono de notificações")
+}
+
+System_Ext(mail, "Email Gateway", "SMTP / Provider API")
+System_Ext(sms, "SMS Gateway", "Provider API")
+
+Rel(rep, api, "POST /api/ShippingAgents", "JSON / HTTPS")
+Rel(api, db, "Persistência (EF Core)", "SQL")
+Rel(api, mail, "Email de confirmação", "SMTP/API")
+Rel(api, sms, "SMS de confirmação (opcional)", "HTTPS")
+Rel(api, bg, "Publica tarefa de notificação", "mensagem/fila")
+
+' Passos de processo (resumo)
+note right of api
+1) Recebe CreateShippingAgentDTO
+2) Valida obrigatórios:
+   - TaxNumber (ID), LegalName, AlternativeName, Address
+   - ≥ 1 Representative (Name, CitizenID, Nationality, Email, Phone)
+3) Mapeia → ShippingAgent (domínio)
+4) Guarda via EF Core
+5) Dispara notificações (email/SMS)
+6) HTTP 201 Created (ShippingAgentDTO)
+end note
+
+@enduml

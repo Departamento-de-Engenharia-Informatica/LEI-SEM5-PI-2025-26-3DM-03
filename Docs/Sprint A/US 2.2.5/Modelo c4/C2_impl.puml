@@ -1,0 +1,67 @@
+@startuml C2_Register_ShippingAgents_Implementation_View
+title C2 – Register Shipping Agents Organizations (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Pacotes (lado a lado)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "ShippingOrganizations" as P_Controllers_Shipping {
+      [ShippingAgentsController]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "ShippingOrganizations" as P_Models_Shipping {
+      [ShippingAgent]
+      [Representative]
+      [Address]
+      [ShippingAgentType <<VO>>]
+      [ShippingAgentDTO]
+      [CreateShippingAgentDTO]
+      [ShippingAgentMapper]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[ShippingAgentsController] --> [ShippingAgentMapper] : usa para conversões DTO↔Domínio
+[ShippingAgentsController] --> [PortContext] : acede à BD (EF Core)
+
+[ShippingAgentMapper] --> [ShippingAgent] : mapeia entidade
+[ShippingAgentMapper] --> [Representative]
+[ShippingAgentMapper] --> [Address]
+[ShippingAgentMapper] --> [ShippingAgentType]
+[ShippingAgentMapper] --> [ShippingAgentDTO]
+[ShippingAgentMapper] --> [CreateShippingAgentDTO]
+
+[PortContext] --> [ShippingAgent] : DbSet/Configuração
+[ShippingAgent] --> [Address]
+[ShippingAgent] --> [Representative]
+[ShippingAgent] --> [ShippingAgentType]
+
+@enduml

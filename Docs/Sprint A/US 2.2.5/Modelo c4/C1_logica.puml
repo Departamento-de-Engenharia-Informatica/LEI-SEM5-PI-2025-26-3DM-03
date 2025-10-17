@@ -1,0 +1,25 @@
+@startuml C1 - Lógica (US Registo de Organizações)
+!include <C4/C4_Container>
+
+Person(rep, "Organization Representative")
+Person(admin, "Port Admin")
+
+System(plms, "PLMS", "Port Logistics Management System")
+
+Boundary(rules, "Regras de Negócio") {
+  SystemDb(reqs, "Requisitos da US", "Regras mínimas")
+}
+
+Rel(rep, plms, "Submete registo")
+Rel(admin, plms, "Consulta / aprova")
+Rel(plms, reqs, "Valida regras")
+
+' Regras explícitas
+' (Mostradas como notas de alto nível)
+note right of reqs
+- Org: TaxNumber (ID), LegalName, AlternativeName, Address
+- Mínimo 1 Representative
+- Representative: Name, CitizenID, Nationality, Email, Phone
+- Email/Phone usados em notificações/autenticação
+end note
+@enduml
