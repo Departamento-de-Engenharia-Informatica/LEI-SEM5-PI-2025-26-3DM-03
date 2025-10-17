@@ -78,8 +78,8 @@ namespace TodoApi.Models
                 entity.Property(s => s.Type)
                     .HasConversion(
                         new ValueConverter<ShippingAgentType, string>(
-                            v => v.Value,
-                            v => new ShippingAgentType(v)
+                            v => v.Value,                // Domain -> DB
+                            v => new ShippingAgentType(v) // DB -> Domain
                         ))
                     .IsRequired()
                     .HasMaxLength(20);
@@ -94,7 +94,7 @@ namespace TodoApi.Models
                 });
 
                 // Representatives como owned collection
-                entity.OwnsMany<SAO.Representative>(s => s.Representatives, rep =>
+                entity.OwnsMany(s => s.Representatives, rep =>
                 {
                     rep.WithOwner().HasForeignKey("ShippingAgentTaxNumber");
                     rep.Property<int>("Id"); // chave shadow
