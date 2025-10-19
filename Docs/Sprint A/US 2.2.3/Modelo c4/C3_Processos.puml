@@ -1,0 +1,16 @@
+@startuml
+title C3 - Processos (Assign Allowed Vessel Types)
+
+start
+:Receive Create/UpdateDockDTO with AllowedVesselTypeIds;
+:For each id -> query VesselType repository;
+if (VesselType exists?) then (yes)
+  :Add to Dock.AllowedVesselTypes;
+else (no)
+  :Return 400 Bad Request (invalid vessel type id);
+endif
+:Persist Dock;
+:Return DockDTO;
+stop
+
+@enduml

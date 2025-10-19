@@ -1,0 +1,17 @@
+@startuml
+title Processos principais - US 2.2.3 Manage Docks
+
+start
+:Port Officer opens Dock management UI (or uses API);
+:Sends POST /api/Docks with CreateDockDTO;
+if (valid data?) then (yes)
+  :API validates and maps DTO -> Dock model;
+  :API queries VesselType ids and populates relations;
+  :API saves Dock to DB;
+  :API returns 201 Created with DockDTO;
+else (no)
+  :API returns 400 Bad Request with validation errors;
+endif
+stop
+
+@enduml

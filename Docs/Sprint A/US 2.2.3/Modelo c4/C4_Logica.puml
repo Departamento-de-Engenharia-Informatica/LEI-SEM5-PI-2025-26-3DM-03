@@ -1,0 +1,15 @@
+@startuml
+title C4 - Logic Components (detailed)
+
+component "DocksController" as controller
+component "DockMapper" as mapper
+component "DockService" as service
+component "DockRepository" as repo
+component "PortContext (DbContext)" as db
+
+controller --> mapper
+mapper --> service
+service --> repo
+repo --> db
+
+@enduml

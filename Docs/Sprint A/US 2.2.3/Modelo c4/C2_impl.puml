@@ -1,0 +1,16 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(portOfficer, "Port Officer")
+System_Boundary(s1, "Port Management System") {
+  Container(webApp, "Web UI / Swagger", "React / Swagger UI", "UI for officers")
+  Container(api, "Port API", "ASP.NET Core Web API", "Business logic for docks and vessel types")
+  ContainerDb(db, "Database", "EF Core / SQL", "Persists domain entities")
+}
+
+Rel(portOfficer, webApp, "Uses")
+Rel(webApp, api, "Calls")
+Rel(api, db, "Reads/Writes")
+
+SHOW_LEGEND()
+@enduml

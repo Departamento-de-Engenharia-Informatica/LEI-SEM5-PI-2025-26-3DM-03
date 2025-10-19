@@ -1,0 +1,16 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+Container(api, "Port API", "ASP.NET Core Web API")
+
+Component(controller, "DocksController", "Controller", "Defines endpoints for docks (GET, POST, PUT, DELETE)")
+Component(mapper, "DockMapper", "Mapper/Service", "Maps DTOs to Dock model and vice versa")
+Component(repo, "DockRepository", "Repository", "Encapsulates data access for Dock entity")
+Component(db, "DbContext (PortContext)", "EF Core DbContext")
+
+Rel(controller, mapper, "uses")
+Rel(mapper, repo, "uses")
+Rel(repo, db, "reads/writes")
+
+SHOW_LEGEND()
+@enduml

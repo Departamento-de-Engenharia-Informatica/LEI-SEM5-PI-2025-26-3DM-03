@@ -1,0 +1,12 @@
+@startuml
+title C3 - Logical Components
+
+component "Dock (Aggregate)" as dockAgg
+component "VesselType (Aggregate)" as vesselTypeAgg
+component "DockService" as dockService
+component "DockRepository" as dockRepo
+
+dockService --> dockRepo
+dockService --> vesselTypeAgg : validate allowed types
+
+@enduml

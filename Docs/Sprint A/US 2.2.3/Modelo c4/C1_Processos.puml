@@ -1,0 +1,11 @@
+@startuml
+title C1 - Processos (Resumo)
+
+start
+:Port Officer opens management UI/Swagger;
+:Requests list of docks (GET /api/Docks);
+:Filters by name/vesselType/location;
+:Selects a dock to edit or clicks create new;
+stop
+
+@enduml

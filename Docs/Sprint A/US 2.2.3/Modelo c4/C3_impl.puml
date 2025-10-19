@@ -1,0 +1,15 @@
+@startuml
+title C3 - Component Implementation (placeholder)
+
+package "TodoApi" {
+  [Controllers\DocksController.cs]
+  [Models\Dock.cs]
+  [Mappers\DockMapper.cs]
+  [Repositories\DockRepository.cs]
+}
+
+Controllers\DocksController.cs --> Models\Dock.cs : uses
+Controllers\DocksController.cs --> Mappers\DockMapper.cs : maps
+Mappers\DockMapper.cs --> Repositories\DockRepository.cs : reads/writes
+
+@enduml

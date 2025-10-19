@@ -1,0 +1,12 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+Person(portOfficer, "Port Authority Officer")
+System(api, "Port API", "REST API")
+System(vesselRegistry, "Vessel Registry Service", "Service managing vessel records and types")
+
+Rel(portOfficer, api, "Manage docks (create/update/search)")
+Rel(api, vesselRegistry, "References vessel types when assigning allowed types")
+
+SHOW_LEGEND()
+@enduml

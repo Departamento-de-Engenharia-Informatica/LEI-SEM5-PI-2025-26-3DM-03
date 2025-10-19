@@ -1,0 +1,13 @@
+@startuml
+title C4 - Component Processes (detailed)
+
+start
+:HTTP POST /api/Docks -> DocksController.Create(DTO);
+-> DockMapper: Map DTO -> Dock model
+-> DockService: Validate and assign VesselTypes
+-> DockRepository: Save Dock
+-> PortContext: Persist changes
+-> Response: 201 Created with DockDTO
+stop
+
+@enduml

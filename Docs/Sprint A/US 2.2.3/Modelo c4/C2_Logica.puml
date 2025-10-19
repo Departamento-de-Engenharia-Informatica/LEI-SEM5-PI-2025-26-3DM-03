@@ -1,0 +1,14 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+Person(portOfficer, "Port Authority Officer")
+System_Boundary(s1, "Port Management System") {
+  Container(api, "Port API", "ASP.NET Core Web API", "Exposes endpoints for docks, vessel types, and other resources")
+  Container(db, "Database", "EF Core / InMemory or SQL", "Persists docks, vessel types, relations")
+}
+
+Rel(portOfficer, api, "Manage docks: create, update, list, search")
+Rel(api, db, "Reads/Writes")
+
+SHOW_LEGEND()
+@enduml

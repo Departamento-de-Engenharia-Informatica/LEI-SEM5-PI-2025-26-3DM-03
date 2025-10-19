@@ -22,6 +22,7 @@ namespace TodoApi.Models
         //   Tabelas do domínio
         // =======================
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
+    public DbSet<Vessel> Vessels { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
         public DbSet<Dock> Docks { get; set; } = null!;
         public DbSet<ShippingAgent> ShippingAgents { get; set; } = null!;
@@ -65,6 +66,38 @@ namespace TodoApi.Models
                 entity.Property(d => d.Length);
                 entity.Property(d => d.Depth);
                 entity.Property(d => d.MaxDraft);
+            });
+
+            // Configuração da entidade Vessel (IMO como chave natural)
+            modelBuilder.Entity<Vessel>(entity =>
+            {
+                entity.ToTable("Vessels");
+                entity.HasKey(v => v.Imo);
+                entity.Property(v => v.Imo).IsRequired().HasMaxLength(7);
+                entity.Property(v => v.Name).IsRequired().HasMaxLength(200);
+                entity.Property(v => v.Operator).HasMaxLength(200);
+
+                // FK to VesselType
+                entity.HasOne(v => v.VesselType)
+                      .WithMany()
+                      .HasForeignKey(v => v.VesselTypeId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuração da entidade Vessel (IMO como chave natural)
+            modelBuilder.Entity<Vessel>(entity =>
+            {
+                entity.ToTable("Vessels");
+                entity.HasKey(v => v.Imo);
+                entity.Property(v => v.Imo).IsRequired().HasMaxLength(7);
+                entity.Property(v => v.Name).IsRequired().HasMaxLength(200);
+                entity.Property(v => v.Operator).HasMaxLength(200);
+
+                // FK to VesselType
+                entity.HasOne(v => v.VesselType)
+                      .WithMany()
+                      .HasForeignKey(v => v.VesselTypeId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<ShippingAgent>(e =>
@@ -155,6 +188,26 @@ namespace TodoApi.Models
                     MaxDraft = 10.0
                 }
             );
+
+        
+            modelBuilder.Entity<Vessel>().HasData(
+                new Vessel
+                {
+                    Imo = "1234567",
+                    Name = "MV Example One",
+                    VesselTypeId = 1,
+                    Operator = "Example Shipping Co"
+                },
+                new Vessel
+                {
+                    Imo = "7654321",
+                    Name = "MT Sample Tanker",
+                    VesselTypeId = 2,
+                    Operator = "Tankers Ltd"
+                }
+            );
+
+
         }
     }
 }

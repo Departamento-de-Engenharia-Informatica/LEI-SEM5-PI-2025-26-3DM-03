@@ -1,0 +1,14 @@
+@startuml
+title C3 - Physical Diagram (placeholder)
+
+' This diagram should show physical deployment nodes (API server, DB server, etc.)
+node "API Server" as apiNode {
+  [Port API]
+}
+node "Database Server" as dbNode {
+  [Database]
+}
+
+Rel(apiNode, dbNode, "connects to")
+
+@enduml
