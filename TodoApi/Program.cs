@@ -3,27 +3,47 @@ using TodoApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// =====================================================
+// Add services to the dependency injection container
+// =====================================================
+
+// Register controllers
 builder.Services.AddControllers();
 
-// Configurar o Entity Framework com base de dados InMemory
+// Configure Entity Framework Core with InMemory database
 builder.Services.AddDbContext<PortContext>(opt =>
     opt.UseInMemoryDatabase("PortDB"));
 
-// Register application services
-// Register domain repositories and application services
+// =====================================================
+// Register application services and repositories
+// =====================================================
+
+// Docks
+builder.Services.AddScoped<TodoApi.Application.Services.Docks.IDockService, TodoApi.Application.Services.Docks.DockService>();
+
+// Vessels
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IVesselTypeRepository, TodoApi.Infrastructure.Repositories.EfVesselTypeRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.IVesselTypeService, TodoApi.Application.Services.Vessels.VesselTypeService>();
 builder.Services.AddScoped<TodoApi.Application.Services.Vessels.IVesselService, TodoApi.Application.Services.Vessels.VesselService>();
-builder.Services.AddScoped<TodoApi.Application.Services.Docks.IDockService, TodoApi.Application.Services.Docks.DockService>();
 
-// Swagger (para testes e documentação)
+// Qualifications
+builder.Services.AddScoped<TodoApi.Domain.Repositories.IQualificationRepository, TodoApi.Infrastructure.Repositories.EfQualificationRepository>();
+builder.Services.AddScoped<TodoApi.Application.Services.Qualifications.IQualificationService, TodoApi.Application.Services.Qualifications.QualificationService>();
+
+
+// =====================================================
+// Swagger configuration (for API documentation/testing)
+// =====================================================
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// =====================================================
+// Build and configure the HTTP request pipeline
+// =====================================================
+
 var app = builder.Build();
 
-// Pipeline HTTP
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -33,8 +53,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 
+// Map all controllers
 app.MapControllers();
 
+// =====================================================
+// Ensure InMemory database is created at startup
+// =====================================================
 
 using (var scope = app.Services.CreateScope())
 {
@@ -42,4 +66,5 @@ using (var scope = app.Services.CreateScope())
     context.Database.EnsureCreated();
 }
 
+// Run the application
 app.Run();
