@@ -10,6 +10,9 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<PortContext>(opt =>
     opt.UseInMemoryDatabase("PortDB"));
 
+// Register application services
+builder.Services.AddScoped<TodoApi.Application.Services.IVesselTypeService, TodoApi.Application.Services.VesselTypeService>();
+
 // Swagger (para testes e documentação)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

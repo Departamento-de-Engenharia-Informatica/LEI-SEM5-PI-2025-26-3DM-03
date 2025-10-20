@@ -9,11 +9,11 @@ namespace TodoApi.Controllers.Vessels
     [ApiController]
     public class VesselTypesController : ControllerBase
     {
-        private readonly PortContext _context;
+        private readonly TodoApi.Application.Services.IVesselTypeService _service;
 
-        public VesselTypesController(PortContext context)
+        public VesselTypesController(TodoApi.Application.Services.IVesselTypeService service)
         {
-            _context = context;
+            _service = service;
         }
 
         // ==============================
@@ -23,26 +23,8 @@ namespace TodoApi.Controllers.Vessels
         public async Task<ActionResult<IEnumerable<VesselTypeDTO>>> GetVesselTypes(
             string? search = null, string? filterBy = "all")
         {
-            var query = _context.VesselTypes.AsQueryable();
-
-            // 🔍 Filtro por nome, descrição ou ambos (case-insensitive)
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                string lowerSearch = search.ToLower();
-
-                query = filterBy?.ToLower() switch
-                {
-                    "name" => query.Where(vt => vt.Name.ToLower().Contains(lowerSearch)),
-                    "description" => query.Where(vt => vt.Description.ToLower().Contains(lowerSearch)),
-                    _ => query.Where(vt =>
-                        vt.Name.ToLower().Contains(lowerSearch) ||
-                        vt.Description.ToLower().Contains(lowerSearch))
-                };
-            }
-
-            var vesselTypes = await query.ToListAsync();
-
-            return Ok(vesselTypes.Select(VesselTypeMapper.ToDTO));
+            var vesselTypes = await _service.GetAllAsync(search, filterBy);
+            return Ok(vesselTypes);
         }
 
         // ==============================
@@ -51,12 +33,9 @@ namespace TodoApi.Controllers.Vessels
         [HttpGet("{id}")]
         public async Task<ActionResult<VesselTypeDTO>> GetVesselType(long id)
         {
-            var vesselType = await _context.VesselTypes.FindAsync(id);
-
-            if (vesselType == null)
-                return NotFound();
-
-            return VesselTypeMapper.ToDTO(vesselType);
+            var vesselType = await _service.GetByIdAsync(id);
+            if (vesselType == null) return NotFound();
+            return vesselType;
         }
 
         // ==============================
@@ -65,14 +44,8 @@ namespace TodoApi.Controllers.Vessels
         [HttpPost]
         public async Task<ActionResult<VesselTypeDTO>> PostVesselType(CreateVesselTypeDTO dto)
         {
-            var vesselType = VesselTypeMapper.ToModel(dto);
-
-            _context.VesselTypes.Add(vesselType);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetVesselType),
-                new { id = vesselType.Id },
-                VesselTypeMapper.ToDTO(vesselType));
+            var created = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetVesselType), new { id = created.Id }, created);
         }
 
         // ==============================
@@ -81,37 +54,16 @@ namespace TodoApi.Controllers.Vessels
         [HttpPut("{id}")]
         public async Task<IActionResult> PutVesselType(long id, UpdateVesselTypeDTO dto)
         {
-            if (id != dto.Id)
-                return BadRequest();
-
-            var vesselType = await _context.VesselTypes.FindAsync(id);
-            if (vesselType == null)
-                return NotFound();
-
-            // Atualizar os campos
-            vesselType.Name = dto.Name;
-            vesselType.Description = dto.Description;
-            vesselType.Capacity = dto.Capacity;
-            vesselType.MaxRows = dto.MaxRows;
-            vesselType.MaxBays = dto.MaxBays;
-            vesselType.MaxTiers = dto.MaxTiers;
-
-            _context.Entry(vesselType).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-
+            var ok = await _service.UpdateAsync(id, dto);
+            if (!ok) return id != dto.Id ? BadRequest() : NotFound();
             return NoContent();
         }
         [HttpDelete("{id}")]
-public async Task<IActionResult> DeleteVesselType(long id)
-{
-    var vesselType = await _context.VesselTypes.FindAsync(id);
-    if (vesselType == null)
-        return NotFound();
-
-    _context.VesselTypes.Remove(vesselType);
-    await _context.SaveChangesAsync();
-
-    return NoContent();
-}
+        public async Task<IActionResult> DeleteVesselType(long id)
+        {
+            var ok = await _service.DeleteAsync(id);
+            if (!ok) return NotFound();
+            return NoContent();
+        }
     }
 }
