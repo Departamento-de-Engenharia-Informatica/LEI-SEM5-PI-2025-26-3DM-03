@@ -46,9 +46,12 @@ namespace TodoApi.Models.Vessels
                     Name = model.VesselType.Name,
                     Description = model.VesselType.Description,
                     Capacity = model.VesselType.Capacity,
-                    MaxRows = model.VesselType.MaxRows,
-                    MaxBays = model.VesselType.MaxBays,
-                    MaxTiers = model.VesselType.MaxTiers
+                    OperationalConstraints = model.VesselType.OperationalConstraints != null ? new OperationalConstraintsDTO
+                    {
+                        MaxRows = model.VesselType.OperationalConstraints.MaxRows,
+                        MaxBays = model.VesselType.OperationalConstraints.MaxBays,
+                        MaxTiers = model.VesselType.OperationalConstraints.MaxTiers
+                    } : new OperationalConstraintsDTO()
                 } : null,
                 Operator = model.Operator
             };
