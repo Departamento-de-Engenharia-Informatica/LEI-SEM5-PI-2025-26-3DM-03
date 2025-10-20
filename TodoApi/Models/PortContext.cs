@@ -5,6 +5,7 @@ using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
 using TodoApi.Models.ShippingOrganizations;
 using TodoApi.Models.Resources;
+using TodoApi.Models.VesselVisitNotifications;
 
 namespace TodoApi.Models
 {
@@ -28,6 +29,7 @@ namespace TodoApi.Models
         public DbSet<Dock> Docks { get; set; } = null!;
         public DbSet<ShippingAgent> ShippingAgents { get; set; } = null!;
         public DbSet<Resource> Resources { get; set; } = null!;
+    public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -227,6 +229,34 @@ namespace TodoApi.Models
                     OperationalCapacity = 20.0m,
                     AssignedArea = "Yard A",
                     SetupTimeMinutes = 15
+                }
+            );
+
+            // Seed sample Vessel Visit Notifications
+            modelBuilder.Entity<VesselVisitNotification>().HasData(
+                new VesselVisitNotification
+                {
+                    Id = 1L,
+                    VesselId = "1234567",
+                    AgentId = 1,
+                    ArrivalDate = System.DateTime.UtcNow.AddDays(3),
+                    Status = "Pending",
+                    ApprovedDockId = null,
+                    RejectionReason = null,
+                    DecisionTimestamp = null,
+                    OfficerId = null
+                },
+                new VesselVisitNotification
+                {
+                    Id = 2L,
+                    VesselId = "7654321",
+                    AgentId = 2,
+                    ArrivalDate = System.DateTime.UtcNow.AddDays(7),
+                    Status = "Pending",
+                    ApprovedDockId = null,
+                    RejectionReason = null,
+                    DecisionTimestamp = null,
+                    OfficerId = null
                 }
             );
         }
