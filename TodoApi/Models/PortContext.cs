@@ -41,6 +41,13 @@ namespace TodoApi.Models
                 entity.HasKey(v => v.Id);
                 entity.Property(v => v.Name).IsRequired().HasMaxLength(100);
                 entity.Property(v => v.Description).HasMaxLength(250);
+                // Owned value object: OperationalConstraints
+                entity.OwnsOne(typeof(TodoApi.Models.Vessels.ValueObjects.OperationalConstraints), "OperationalConstraints", oc =>
+                {
+                    oc.Property<int>("MaxRows").HasColumnName("MaxRows");
+                    oc.Property<int>("MaxBays").HasColumnName("MaxBays");
+                    oc.Property<int>("MaxTiers").HasColumnName("MaxTiers");
+                });
             });
 
             // Configuração da entidade Qualification
@@ -133,26 +140,8 @@ namespace TodoApi.Models
             //   Dados iniciais (seeding)
             // =======================
             modelBuilder.Entity<VesselType>().HasData(
-                new VesselType
-                {
-                    Id = 1,
-                    Name = "Container Ship",
-                    Description = "Large cargo ship for containers",
-                    Capacity = 50000,
-                    MaxRows = 12,
-                    MaxBays = 20,
-                    MaxTiers = 8
-                },
-                new VesselType
-                {
-                    Id = 2,
-                    Name = "Tanker",
-                    Description = "Carries liquids and oils",
-                    Capacity = 120000,
-                    MaxRows = 15,
-                    MaxBays = 25,
-                    MaxTiers = 9
-                }
+                new { Id = 1L, Name = "Container Ship", Description = "Large cargo ship for containers", Capacity = 50000, MaxRows = 12, MaxBays = 20, MaxTiers = 8 },
+                new { Id = 2L, Name = "Tanker", Description = "Carries liquids and oils", Capacity = 120000, MaxRows = 15, MaxBays = 25, MaxTiers = 9 }
             );
 
             modelBuilder.Entity<Qualification>().HasData(

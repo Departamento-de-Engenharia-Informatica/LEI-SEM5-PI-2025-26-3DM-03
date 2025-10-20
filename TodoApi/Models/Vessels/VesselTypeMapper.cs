@@ -3,26 +3,45 @@ namespace TodoApi.Models.Vessels
     public static class VesselTypeMapper
     {
         // Modelo → DTO (Read)
-        public static VesselTypeDTO ToDTO(VesselType model) => new()
+        public static VesselTypeDTO ToDTO(VesselType model)
         {
-            Id = model.Id,
-            Name = model.Name,
-            Description = model.Description,
-            Capacity = model.Capacity,
-            MaxRows = model.MaxRows,
-            MaxBays = model.MaxBays,
-            MaxTiers = model.MaxTiers
-        };
+            if (model == null) return null!;
 
-        // Create DTO → Modelo
-        public static VesselType ToModel(CreateVesselTypeDTO dto) => new(
-            dto.Name, dto.Description, dto.Capacity, dto.MaxRows, dto.MaxBays, dto.MaxTiers);
+            return new VesselTypeDTO
+            {
+                Id = model.Id,
+                Name = model.Name,
+                Description = model.Description,
+                Capacity = model.Capacity,
+                OperationalConstraints = new OperationalConstraintsDTO
+                {
+                    MaxRows = model.OperationalConstraints.MaxRows,
+                    MaxBays = model.OperationalConstraints.MaxBays,
+                    MaxTiers = model.OperationalConstraints.MaxTiers
+                }
+            };
+        }
 
-        // Update DTO → Modelo
-        public static VesselType ToModel(UpdateVesselTypeDTO dto) => new(
-            dto.Name, dto.Description, dto.Capacity, dto.MaxRows, dto.MaxBays, dto.MaxTiers)
+        // Create DTO → Modelo (factory)
+        public static VesselType ToModel(CreateVesselTypeDTO dto)
         {
-            Id = dto.Id
-        };
+            var constraints = TodoApi.Models.Vessels.ValueObjects.OperationalConstraints.Create(
+                dto.OperationalConstraints.MaxRows,
+                dto.OperationalConstraints.MaxBays,
+                dto.OperationalConstraints.MaxTiers);
+
+            return VesselType.Create(dto.Name, dto.Description, dto.Capacity, constraints);
+        }
+
+        // Update DTO → Modelo (used to update existing entity)
+        public static void MapToModel(UpdateVesselTypeDTO dto, VesselType model)
+        {
+            var constraints = TodoApi.Models.Vessels.ValueObjects.OperationalConstraints.Create(
+                dto.OperationalConstraints.MaxRows,
+                dto.OperationalConstraints.MaxBays,
+                dto.OperationalConstraints.MaxTiers);
+
+            model.Update(dto.Name, dto.Description, dto.Capacity, constraints);
+        }
     }
 }

@@ -1,30 +1,48 @@
 namespace TodoApi.Models.Vessels
 {
+    using TodoApi.Models.Vessels.ValueObjects;
+
+    // Aggregate Root: VesselType
     public class VesselType
     {
-        public long Id { get; set; }   // Primary Key
+        public long Id { get; private set; }
 
-        public string Name { get; set; } = string.Empty; // Nome do tipo (ex: Container Ship)
-        public string Description { get; set; } = string.Empty; // Texto explicativo
-        public int Capacity { get; set; } // Capacidade (TEU, passageiros)
+        public string Name { get; private set; } = string.Empty;
+        public string Description { get; private set; } = string.Empty;
+        public int Capacity { get; private set; }
 
-        // Restrições operacionais
-        public int MaxRows { get; set; }
-        public int MaxBays { get; set; }
-        public int MaxTiers { get; set; }
+        // Owned Value Object
+        public OperationalConstraints OperationalConstraints { get; private set; } = default!;
 
-        // Construtor vazio 
-        public VesselType() { }
+        // EF requires parameterless constructor
+        private VesselType() { }
 
-        // Construtor 
-        public VesselType(string name, string description, int capacity, int maxRows, int maxBays, int maxTiers)
+        // Factory method to enforce invariants
+        public static VesselType Create(string name, string description, int capacity, OperationalConstraints constraints)
         {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required", nameof(name));
+            if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+            if (constraints == null) throw new ArgumentNullException(nameof(constraints));
+
+            return new VesselType
+            {
+                Name = name,
+                Description = description ?? string.Empty,
+                Capacity = capacity,
+                OperationalConstraints = constraints
+            };
+        }
+
+        public void Update(string name, string description, int capacity, OperationalConstraints constraints)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required", nameof(name));
+            if (capacity < 0) throw new ArgumentOutOfRangeException(nameof(capacity));
+            if (constraints == null) throw new ArgumentNullException(nameof(constraints));
+
             Name = name;
-            Description = description;
+            Description = description ?? string.Empty;
             Capacity = capacity;
-            MaxRows = maxRows;
-            MaxBays = maxBays;
-            MaxTiers = maxTiers;
+            OperationalConstraints = constraints;
         }
     }
 }
