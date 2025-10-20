@@ -13,7 +13,7 @@ namespace TodoApi.Models.Resources
                 OperationalCapacity = resource.OperationalCapacity,
                 AssignedArea = resource.AssignedArea,
                 SetupTimeMinutes = resource.SetupTimeMinutes,
-                RequiredQualifications = resource.RequiredQualifications
+                RequiredQualifications = resource.RequiredQualifications?.Select(rq => rq.QualificationCode).ToList() ?? new List<string>()
             };
         }
 

@@ -12,11 +12,11 @@ namespace TodoApi.Models.Resources
         public decimal OperationalCapacity { get; set; }
         public string? AssignedArea { get; set; }
         public int? SetupTimeMinutes { get; set; }
-        public List<string> RequiredQualifications { get; private set; }
+    public List<ResourceQualification> RequiredQualifications { get; private set; }
 
         public Resource()
         {
-            RequiredQualifications = new List<string>();
+            RequiredQualifications = new List<ResourceQualification>();
             Status = "Active"; // Default status
         }
     }

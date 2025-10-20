@@ -113,7 +113,7 @@ namespace TodoApi.Models
                     rq.WithOwner().HasForeignKey("ResourceCode");
                     rq.Property<int>("Id");
                     rq.HasKey("Id");
-                    rq.Property(q => q).HasColumnName("QualificationCode").IsRequired().HasMaxLength(50);
+                    rq.Property(rqItem => rqItem.QualificationCode).HasColumnName("QualificationCode").IsRequired().HasMaxLength(50);
                     rq.ToTable("ResourceQualifications");
                 });
             });
