@@ -4,6 +4,7 @@ using TodoApi.Models.Qualifications;
 using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
 using TodoApi.Models.ShippingOrganizations;
+using TodoApi.Models.Resources;
 
 namespace TodoApi.Models
 {
@@ -22,10 +23,11 @@ namespace TodoApi.Models
         //   Tabelas do domínio
         // =======================
         public DbSet<VesselType> VesselTypes { get; set; } = null!;
-    public DbSet<Vessel> Vessels { get; set; } = null!;
+        public DbSet<Vessel> Vessels { get; set; } = null!;
         public DbSet<Qualification> Qualifications { get; set; } = null!;
         public DbSet<Dock> Docks { get; set; } = null!;
         public DbSet<ShippingAgent> ShippingAgents { get; set; } = null!;
+        public DbSet<Resource> Resources { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -91,20 +93,29 @@ namespace TodoApi.Models
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Configuração da entidade Vessel (IMO como chave natural)
-            modelBuilder.Entity<Vessel>(entity =>
-            {
-                entity.ToTable("Vessels");
-                entity.HasKey(v => v.Imo);
-                entity.Property(v => v.Imo).IsRequired().HasMaxLength(7);
-                entity.Property(v => v.Name).IsRequired().HasMaxLength(200);
-                entity.Property(v => v.Operator).HasMaxLength(200);
+            // Configuraçao da entidade Resource
 
-                // FK to VesselType
-                entity.HasOne(v => v.VesselType)
-                      .WithMany()
-                      .HasForeignKey(v => v.VesselTypeId)
-                      .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Resource>(entity =>
+            {
+                entity.ToTable("Resources");
+                entity.HasKey(r => r.Code);
+                entity.Property(r => r.Code).IsRequired().HasMaxLength(50);
+                entity.Property(r => r.Description).IsRequired().HasMaxLength(250);
+                entity.Property(r => r.Type).IsRequired().HasMaxLength(100);
+                entity.Property(r => r.Status).IsRequired().HasMaxLength(50);
+                entity.Property(r => r.OperationalCapacity).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(r => r.AssignedArea).HasMaxLength(100);
+                entity.Property(r => r.SetupTimeMinutes);
+
+                // Configuração da coleção de RequiredQualifications como uma tabela separada
+                entity.OwnsMany(r => r.RequiredQualifications, rq =>
+                {
+                    rq.WithOwner().HasForeignKey("ResourceCode");
+                    rq.Property<int>("Id");
+                    rq.HasKey("Id");
+                    rq.Property(q => q).HasColumnName("QualificationCode").IsRequired().HasMaxLength(50);
+                    rq.ToTable("ResourceQualifications");
+                });
             });
 
             modelBuilder.Entity<ShippingAgent>(e =>
@@ -196,7 +207,28 @@ namespace TodoApi.Models
                 }
             );
 
-
+            modelBuilder.Entity<Resource>().HasData(
+                new Resource
+                {
+                    Code = "CRANE_01",
+                    Description = "STS Crane 01",
+                    Type = "Crane",
+                    Status = "Active",
+                    OperationalCapacity = 50.0m,
+                    AssignedArea = "Dock 1",
+                    SetupTimeMinutes = 30
+                },
+                new Resource
+                {
+                    Code = "TRUCK_01",
+                    Description = "Yard Truck 01",
+                    Type = "Truck",
+                    Status = "Active",
+                    OperationalCapacity = 20.0m,
+                    AssignedArea = "Yard A",
+                    SetupTimeMinutes = 15
+                }
+            );
         }
     }
 }
