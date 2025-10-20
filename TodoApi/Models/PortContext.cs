@@ -29,7 +29,8 @@ namespace TodoApi.Models
         public DbSet<Dock> Docks { get; set; } = null!;
         public DbSet<ShippingAgent> ShippingAgents { get; set; } = null!;
         public DbSet<Resource> Resources { get; set; } = null!;
-    public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
+        public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
+        public DbSet<TodoApi.Models.Staff.StaffMember> StaffMembers { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -117,6 +118,36 @@ namespace TodoApi.Models
                     rq.HasKey("Id");
                     rq.Property(rqItem => rqItem.QualificationCode).HasColumnName("QualificationCode").IsRequired().HasMaxLength(50);
                     rq.ToTable("ResourceQualifications");
+                });
+            });
+
+            // Configuração da entidade StaffMember
+            modelBuilder.Entity<TodoApi.Models.Staff.StaffMember>(entity =>
+            {
+                entity.ToTable("StaffMembers");
+                entity.HasKey(s => s.MecanographicNumber);
+                entity.Property(s => s.MecanographicNumber).IsRequired().HasMaxLength(50);
+                entity.Property(s => s.ShortName).IsRequired().HasMaxLength(150);
+                entity.Property(s => s.Email).HasMaxLength(150);
+                entity.Property(s => s.PhoneNumber).HasMaxLength(50);
+                entity.Property(s => s.Status).HasMaxLength(50);
+                entity.Property(s => s.Active).IsRequired();
+
+                // owned OperationalWindow
+                entity.OwnsOne(typeof(TodoApi.Models.Staff.OperationalWindow), "OperationalWindow", ow =>
+                {
+                    ow.Property<System.TimeSpan>("StartTime").HasColumnName("StartTime");
+                    ow.Property<System.TimeSpan>("EndTime").HasColumnName("EndTime");
+                });
+
+                // owned qualifications collection
+                entity.OwnsMany<TodoApi.Models.Staff.StaffQualification>(s => s.Qualifications, sq =>
+                {
+                    sq.WithOwner().HasForeignKey("StaffMecanographicNumber");
+                    sq.Property<int>("Id");
+                    sq.HasKey("Id");
+                    sq.Property(q => q.QualificationCode).HasColumnName("QualificationCode").IsRequired().HasMaxLength(50);
+                    sq.ToTable("StaffQualifications");
                 });
             });
 
