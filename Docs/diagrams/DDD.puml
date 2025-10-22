@@ -258,6 +258,8 @@ package "ShippingOrganizationAggregate" {
   Representative "1" -- "1" RepresentativePhoneNumber: has >
 }
 
+Dock "1" -- "0..*" Resources : has >
+
 StorageArea "0..*" -- "0..*" Dock : may serve >
 StaffMember "0..*" -- "0..*" Qualification : possesses >
 Resource "0..*" -- "0..*" Qualification : requires >
@@ -283,7 +285,6 @@ VesselVisitNotification "1" -- "1" CrewInfo : has >
 VesselVisitNotification "1" -- "1" VesselRecord : for >
 VesselVisitNotification "1" -- "0..*" CargoManifest : has >
 VesselVisitNotification "0..1" -- "1" Dock : assigned to >
-VesselVisitNotification "0..*" -- "0..*" Resource : requires >
 AllowedVesselType ..> VesselType : references >
 VesselRecord ..> VesselType : references >
 
