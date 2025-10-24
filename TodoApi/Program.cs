@@ -39,6 +39,10 @@ builder.Services.AddScoped<TodoApi.Application.Services.Resources.IResourceServi
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IStaffRepository, TodoApi.Infrastructure.Repositories.EfStaffRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.Staff.IStaffService, TodoApi.Application.Services.Staff.StaffService>();
 
+// Shipping Agents (Organizations)
+builder.Services.AddScoped<TodoApi.Domain.Repositories.IShippingAgentRepository, TodoApi.Infrastructure.Repositories.EFShippingAgentRepository>();
+builder.Services.AddScoped<TodoApi.Application.Services.ShippingOrganizations.IShippingAgentService, TodoApi.Application.Services.ShippingOrganizations.ShippingAgentService>();
+
 
 // =====================================================
 // Swagger configuration (for API documentation/testing)

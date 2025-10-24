@@ -1,32 +1,38 @@
 using Microsoft.AspNetCore.Mvc;
+using TodoApi.Application.Services.ShippingOrganizations;
 using TodoApi.Models.ShippingOrganizations;
 
-namespace TodoApi.Controllers
+namespace TodoApi.Controllers.ShippingOrganizations
 {
     [ApiController]
     [Route("api/[controller]")]
     public class ShippingAgentsController : ControllerBase
     {
-        private static readonly List<ShippingAgent> _agents = new();
+        private readonly IShippingAgentService _service;
+
+        public ShippingAgentsController(IShippingAgentService service) => _service = service;
 
         [HttpPost]
         public async Task<ActionResult<ShippingAgentDTO>> Create(CreateShippingAgentDTO dto)
         {
-            if (dto.Representatives == null || dto.Representatives.Count < 1)
-            return BadRequest("At least one representative is required.");
-
-            var agent = ShippingAgentMapper.ToDomain(dto);
-            _agents.Add(agent);
-            var result = ShippingAgentMapper.ToDTO(agent);
-            return CreatedAtAction(nameof(GetByTaxNumber), new { taxNumber = agent.TaxNumber }, result);
+            try
+            {
+                var created = await _service.RegisterAsync(dto);
+                return CreatedAtAction(nameof(GetByTaxNumber),
+                    new { taxNumber = created.TaxNumber }, created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
-        [HttpGet("{taxNumber}")]
-        public ActionResult<ShippingAgentDTO> GetByTaxNumber(long taxNumber)
+        [HttpGet("{taxNumber:long}")]
+        public async Task<ActionResult<ShippingAgentDTO>> GetByTaxNumber(long taxNumber)
         {
-            var agent = _agents.FirstOrDefault(o => o.TaxNumber == taxNumber);
-            if (agent == null) return NotFound();
-            return ShippingAgentMapper.ToDTO(agent);
+            var org = await _service.GetByTaxNumberAsync(taxNumber);
+            if (org == null) return NotFound();
+            return org;
         }
     }
 }
