@@ -1,0 +1,50 @@
+@startuml C3_Manage_Resources_Process_View
+title C3 – Manage Resources (Component / Process Sequence)
+hide footbox
+
+actor "Port Authority Officer" as Officer
+participant "ResourcesController" as Controller
+participant "ResourceMapper" as Mapper
+participant "PortContext (EF Core)" as Context
+database "PLMS Database" as DB
+participant "External IAM Provider" as IAM
+
+== Create Resource ==
+Officer -> Controller : POST /api/Resources (CreateResourceDTO + Bearer)
+Controller -> IAM : Valida Token
+IAM --> Controller : Token OK
+Controller -> Mapper : Map to Resource entity
+Controller -> Context : Add(Resource) -> SaveChanges()
+Context -> DB : INSERT
+DB --> Context : OK
+Controller --> Officer : HTTP 201 Created (ResourceDTO)
+
+== Update Resource ==
+Officer -> Controller : PUT /api/Resources/{code} (UpdateResourceDTO)
+Controller -> IAM : Valida Token
+IAM --> Controller : Token OK
+Controller -> Context : Find(code) -> Update -> SaveChanges()
+Context -> DB : UPDATE
+DB --> Context : OK
+Controller --> Officer : HTTP 200 OK (ResourceDTO)
+
+== List Resources ==
+Officer -> Controller : GET /api/Resources
+Controller -> IAM : Valida Token
+IAM --> Controller : Token OK
+Controller -> Context : Query Resources
+Context -> DB : SELECT
+DB --> Context : Result
+Controller -> Mapper : Map to ResourceDTOs
+Controller --> Officer : HTTP 200 OK (JSON)
+
+== Deactivate Resource ==
+Officer -> Controller : PATCH /api/Resources/{code}/deactivate
+Controller -> IAM : Valida Token
+IAM --> Controller : Token OK
+Controller -> Context : Find(code) -> Update Status -> SaveChanges()
+Context -> DB : UPDATE
+DB --> Context : OK
+Controller --> Officer : HTTP 204 No Content
+
+@enduml

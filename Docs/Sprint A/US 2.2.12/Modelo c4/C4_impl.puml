@@ -1,0 +1,15 @@
+@startuml C4_Manage_Resources_Implementation_View
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+Container(api, "Port API", "ASP.NET Core Web API")
+
+Component(controller, "ResourcesController", "Controller", "Defines endpoints for resources (GET, POST, PUT, PATCH)")
+Component(mapper, "ResourceMapper", "Mapper/Service", "Maps DTOs to Resource model and vice versa")
+Component(db, "DbContext (PortContext)", "EF Core DbContext")
+
+Rel(controller, mapper, "uses")
+Rel(controller, db, "reads/writes")
+Rel(mapper, db, "uses")
+
+SHOW_LEGEND()
+@enduml

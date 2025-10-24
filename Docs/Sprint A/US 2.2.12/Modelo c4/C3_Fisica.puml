@@ -1,0 +1,16 @@
+@startuml C3_Manage_Resources_Physical_View
+title C3 – Manage Resources (Physical / Component Deployment)
+
+node "App Server (Docker Host)" as App {
+  component "Resources API (ASP.NET Core)" as API
+  component "ResourceMapper (Library)" as Mapper
+}
+
+node "DB Server" as DB {
+  database "PLMS Database (SQL Server)" as Database
+}
+
+API --> Mapper
+API --> Database
+
+@enduml

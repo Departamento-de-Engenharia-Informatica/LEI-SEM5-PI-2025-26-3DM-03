@@ -1,0 +1,12 @@
+@startuml C4_Manage_Resources_Logical_View
+title C4 - Logic Components (detailed)
+
+component "ResourcesController" as controller
+component "ResourceMapper" as mapper
+component "PortContext (DbContext)" as db
+
+controller --> mapper
+controller --> db
+mapper --> db
+
+@enduml

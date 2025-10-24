@@ -1,0 +1,19 @@
+@startuml C4_Manage_Resources_Process_View
+title C4 - Component Processes (detailed)
+
+start
+:HTTP POST /api/Resources -> ResourcesController.CreateResource(CreateResourceDTO);
+:ResourceMapper: Map DTO -> Resource model;
+:Validate if resource code already exists;
+if (Code exists?) then (yes)
+  :Return 409 Conflict;
+  stop
+else (no)
+  :Save Resource to PortContext;
+  :Persist changes to database;
+  :ResourceMapper: Map Resource -> ResourceDTO;
+  :Response: 201 Created with ResourceDTO;
+  stop
+endif
+
+@enduml

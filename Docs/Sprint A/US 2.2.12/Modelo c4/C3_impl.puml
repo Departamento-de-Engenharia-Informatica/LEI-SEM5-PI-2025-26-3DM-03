@@ -1,0 +1,30 @@
+@startuml C3_Manage_Resources_Implementation_View
+title C3 – Manage Resources (Implementation / Package View)
+left to right direction
+hide empty members
+
+package "Controllers.Resources" {
+  [ResourcesController]
+}
+
+package "Models.Resources" {
+  [Resource]
+  [ResourceDTO]
+  [CreateResourceDTO]
+  [UpdateResourceDTO]
+  [ResourceMapper]
+}
+
+package "Data" {
+  [PortContext]
+}
+
+ResourcesController --> ResourceMapper : usa para conversões
+ResourcesController --> PortContext : acede à BD (EF Core)
+ResourceMapper --> Resource : converte entidades
+ResourceMapper --> ResourceDTO
+ResourceMapper --> CreateResourceDTO
+ResourceMapper --> UpdateResourceDTO
+PortContext --> Resource : contém DbSet<>
+
+@enduml
