@@ -1,0 +1,29 @@
+@startuml C2_Manage_Resources_Implementation_View
+title C2 – Manage Resources (Implementation / Container View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "PLMS Deployment" {
+  node "Web Server" as Web
+  node "App Server" as App
+  node "Database Server" as DB
+}
+
+package "Containers" {
+  [Frontend Web App (React/Angular)]
+  [Resources Management API (ASP.NET Core)]
+  [PortContext (EF Core)]
+}
+
+Web --> Frontend Web App (React/Angular)
+App --> Resources Management API (ASP.NET Core)
+DB --> PortContext (EF Core)
+
+@enduml

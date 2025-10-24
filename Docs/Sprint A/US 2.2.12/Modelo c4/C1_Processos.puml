@@ -1,0 +1,13 @@
+@startuml C1_Manage_Resources_Process_View
+title C1 – Manage Resources (Context / Process Overview)
+
+actor "Port Authority Officer" as Officer
+rectangle "PLMS (Port Logistics Management System)" as PLMS
+
+Officer --> PLMS : Solicita gestão de Resources (UI)
+PLMS --> Officer : Resposta (lista / criação / atualização)
+
+' Autenticação externa
+PLMS --> "External IAM Provider (OAuth 2.0)" : Delegates auth
+
+@enduml
