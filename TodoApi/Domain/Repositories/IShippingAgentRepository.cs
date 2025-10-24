@@ -1,4 +1,4 @@
-// IShippingAgentRepository.cs
+using System.Threading.Tasks;
 using TodoApi.Models.ShippingOrganizations;
 
 namespace TodoApi.Domain.Repositories
@@ -7,7 +7,8 @@ namespace TodoApi.Domain.Repositories
     {
         Task<bool> ExistsByTaxNumberAsync(long taxNumber);
         Task AddAsync(ShippingAgent org);
-        Task<ShippingAgent?> GetByTaxNumberAsync(long taxNumber);
+        Task<ShippingAgent?> GetByTaxNumberAsync(long taxNumber, bool includeRepresentatives = false);
+
         Task SaveChangesAsync();
     }
 }
