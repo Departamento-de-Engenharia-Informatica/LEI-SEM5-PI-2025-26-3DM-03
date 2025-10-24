@@ -1,4 +1,7 @@
+using TodoApi.Models.Representatives;
+
 namespace TodoApi.Models.ShippingOrganizations
+
 {
     public class ShippingAgentDTO
     {

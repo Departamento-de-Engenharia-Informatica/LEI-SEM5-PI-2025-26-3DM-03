@@ -152,7 +152,7 @@ namespace TodoApi.Models
             });
 
             modelBuilder.Entity<ShippingAgent>(e =>
-            {
+{
                 e.HasKey(s => s.TaxNumber);
                 e.Property(s => s.LegalName).IsRequired().HasMaxLength(150);
                 e.Property(s => s.AlternativeName).IsRequired().HasMaxLength(150);
@@ -162,24 +162,24 @@ namespace TodoApi.Models
                 .IsRequired().HasMaxLength(20);
 
                 e.OwnsOne(s => s.Address, a =>
-                {
+    {
                     a.Property(p => p.Street).IsRequired().HasMaxLength(100);
                     a.Property(p => p.City).IsRequired().HasMaxLength(50);
                     a.Property(p => p.PostalCode).IsRequired().HasMaxLength(20);
                     a.Property(p => p.Country).IsRequired().HasMaxLength(50);
-                });
+    });
 
                 e.OwnsMany(s => s.Representatives, rep =>
-                {
-                    rep.WithOwner().HasForeignKey("ShippingAgentTaxNumber");
+    {
+        rep.WithOwner().HasForeignKey("ShippingAgentTaxNumber");
                     rep.Property<int>("Id"); rep.HasKey("Id");
                     rep.Property(r => r.Name).IsRequired().HasMaxLength(100);
                     rep.Property(r => r.CitizenID).IsRequired().HasMaxLength(50);
                     rep.Property(r => r.Nationality).IsRequired().HasMaxLength(50);
                     rep.Property(r => r.Email).IsRequired().HasMaxLength(100);
                     rep.Property(r => r.PhoneNumber).IsRequired().HasMaxLength(30);
-                });
     });
+});
 
                 // Configuração da entidade VesselVisitNotification e coleções relacionadas
                 modelBuilder.Entity<VesselVisitNotification>(entity =>

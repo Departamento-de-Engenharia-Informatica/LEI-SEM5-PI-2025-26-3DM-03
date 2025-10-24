@@ -1,11 +1,11 @@
-using System.Collections.Generic;
+using TodoApi.Models.Representatives;
 
 namespace TodoApi.Models.ShippingOrganizations
 {
     public class ShippingAgent
     {
-        public long TaxNumber { get; set; }           // PK
-        public string LegalName { get; set; } = string.Empty;       // NEW
+        public long TaxNumber { get; set; }
+        public string LegalName { get; set; } = string.Empty;
         public string AlternativeName { get; set; } = string.Empty;
         public ShippingAgentType Type { get; set; } = ShippingAgentType.Owner;
 

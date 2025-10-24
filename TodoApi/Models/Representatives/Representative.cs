@@ -1,12 +1,14 @@
-namespace TodoApi.Models.ShippingOrganizations
+namespace TodoApi.Models.Representatives
 {
     public class Representative
     {
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string CitizenID { get; set; } = string.Empty;
         public string Nationality { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
 
         public Representative() { }
 
@@ -15,8 +17,9 @@ namespace TodoApi.Models.ShippingOrganizations
             Name = name;
             CitizenID = citizenID;
             Nationality = nationality;
-            Email = email;  
+            Email = email;
             PhoneNumber = phoneNumber;
-        }   
+            IsActive = true;
+        }
     }
 }
