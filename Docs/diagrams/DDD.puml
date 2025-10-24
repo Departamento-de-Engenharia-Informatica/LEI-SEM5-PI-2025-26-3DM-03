@@ -1,4 +1,4 @@
-@startuml domain_model
+@startuml DDDmodel
 skinparam monochrome true
 skinparam packageStyle rectangle
 skinparam shadowing false
@@ -8,7 +8,11 @@ hide methods
 
 top to bottom direction
 
+' ==========================
+' AGGREGATE: Vessel
+' ==========================
 package "VesselAggregate" {
+  
 
   class VesselRecord <<AggregateRoot>> <<Entity>> { }
 
@@ -20,15 +24,14 @@ package "VesselAggregate" {
 
   VesselRecord "1"-- "1" IMOnumber: has >
   VesselRecord "1"-- "1" VesselName: has >
-  VesselRecord "1..*"-- "1" VesselRows: has >
-  VesselRecord "1..*"-- "1" VesselBays: has >
-  VesselRecord "1..*"-- "1" VesselTiers: has >
-  VesselRecord "1..*"-- "1" VesselTypeId: has >
+  VesselRecord "1"-- "1" VesselRows: has >
+  VesselRecord "1"-- "1" VesselBays: has >
+  VesselRecord "1"-- "1" VesselTiers: has >
+  VesselRecord "1"-- "1" VesselType: has >
 }
 
 package "VesselTypeAggregate" {
   class VesselType <<AggregateRoot>> <<Entity>> { }
-  class VesselTypeId <<ValueObject>> { }
   class TypeName <<ValueObject>> { }
   class TypeDescription <<ValueObject>> { }
   class Capacity <<ValueObject>> { }
@@ -36,15 +39,17 @@ package "VesselTypeAggregate" {
   class MaxBays <<ValueObject>> { }
   class MaxTiers <<ValueObject>> { }
 
-  VesselType "1"-- "1" VesselTypeId: has >
   VesselType "1"-- "1" TypeName: has >
-  VesselType "1"-- "0..*" TypeDescription: has >
+  VesselType "1"-- "1..*" TypeDescription: has >
   VesselType "1"-- "1" Capacity: has >
-  VesselType "1"-- "1" MaxRows: has >
+  VesselType "1"-- "1..*"MaxRows: has >
   VesselType "1"-- "1" MaxBays: has >
   VesselType "1"-- "1" MaxTiers: has >
+  VesselRecord "1" -- "1" VesselType : is of >
 }
-
+' ==========================
+' AGGREGATE: Vessel Visit
+' ==========================
 package "VesselVisitAggregate" {
   class VesselVisitNotification <<AggregateRoot>> <<Entity>> { }
 
@@ -62,10 +67,12 @@ package "VesselVisitAggregate" {
   class CrewInfo <<ValueObject>> {
     crewCaptain
     crewSize
-    crewNationality
   }
 }
 
+' ==========================
+' AGGREGATE: Cargo Manifest
+' ==========================
 package "CargoManifestAggregate" {
   class CargoManifest <<AggregateRoot>> <<Entity>> { }
 
@@ -78,7 +85,7 @@ package "CargoManifestAggregate" {
   class ManifestWeight <<ValueObject>> { }
 
   class ManifestEntry <<Entity>> { }
-  class EntryID <<ValueObject>> { }
+  class EntryNumber <<ValueObject>> { }
   class EntryWeight <<ValueObject>> { }
 
   class EntryPosition <<ValueObject>> {
@@ -98,17 +105,20 @@ package "CargoManifestAggregate" {
   }
 
   class Container <<Entity>> { }
-  class ContainerID <<ValueObject>> { }
   class IsoID <<ValueObject>> { }
   class ContainerSize <<ValueObject>> { }
   class ContainerWeight <<ValueObject>> { }
 
   CargoManifest "1"-- "1" ManifestID: has >
   CargoManifest "1"-- "1" ManifestType: has >
-  CargoManifest "1"-- "1" ManifestWeight: has >
-  CargoManifest "1" -- "1..*" ManifestEntry : includes >
+  CargoManifest "1" -- "*" ManifestEntry : includes >
+
+
 }
 
+' ==========================
+' AGGREGATE: Staff
+' ==========================
 package "StaffAggregate" {
   class StaffMember <<AggregateRoot>> <<Entity>> { }
 
@@ -133,10 +143,13 @@ package "StaffAggregate" {
   StaffMember "1"-- "1" StaffID: has >
   StaffMember "1"-- "1" StaffName: has >
   StaffMember "1"-- "1" ContactInfo: has >
-  StaffMember "1..*"-- "1" OperationalWindow: has >
+  StaffMember "1"-- "1" OperationalWindow: has >
   StaffMember "1"-- "1" StaffStatus: has >
 }
 
+' ==========================
+' AGGREGATE: Qualification
+' ==========================
 package "QualificationAggregate" {
   class Qualification <<AggregateRoot>> <<Entity>> { }
 
@@ -144,9 +157,12 @@ package "QualificationAggregate" {
   class QualificationDescription <<ValueObject>> { }
 
   Qualification "1"-- "1" QualificationCode: has >
-  Qualification "1"-- "0..*" QualificationDescription: has >
+  Qualification "1"-- "1..*" QualificationDescription: has >
 }
 
+' ==========================
+' AGGREGATE: Resource
+' ==========================
 package "ResourceAggregate" {
   class Resource <<AggregateRoot>> <<Entity>> { }
 
@@ -166,20 +182,17 @@ package "ResourceAggregate" {
     Truck
   }
 
-  class ResourceOperationalWindow <<ValueObject>> {
-    dayOfWeek
-    startTime
-    endTime
-  }
 
   Resource "1" -- "1" ResourceID: has >
   Resource "1" -- "1" ResourceDescription: has >
   Resource "1" -- "1" OperationalCapacity: has >
   Resource "1" -- "1" AvailabilityStatus: has >
   Resource "1" -- "1" ResourceType: has >
-  Resource "1" -- "1..*" ResourceOperationalWindow: has >
 }
 
+' ==========================
+' AGGREGATE: Dock
+' ==========================
 package "DockAggregate" {
   class Dock <<AggregateRoot>> <<Entity>> { }
 
@@ -190,20 +203,17 @@ package "DockAggregate" {
   class Depth <<ValueObject>> { }
   class MaxDraft <<ValueObject>> { }
 
-  class AllowedVesselType <<Entity>> {
-    vesselTypeId : VesselTypeId
-  }
-
   Dock "1" -- "1" DockID: has >
   Dock "1" -- "1" DockName: has >
   Dock "1" -- "1" Location: has >
   Dock "1" -- "1" Length: has >
   Dock "1" -- "1" Depth: has >
   Dock "1" -- "1" MaxDraft: has >
-
-  Dock "1" -- "0..*" AllowedVesselType : allows >
 }
 
+' ==========================
+' AGGREGATE: Storage Area
+' ==========================
 package "StorageAreaAggregate" {
   class StorageArea <<AggregateRoot>> <<Entity>> { }
 
@@ -223,6 +233,9 @@ package "StorageAreaAggregate" {
   StorageArea "1" -- "1" CurrentUtilization: has >
 }
 
+' ==========================
+' AGGREGATE: Shipping Organization
+' ==========================
 package "ShippingOrganizationAggregate" {
   class ShippingAgent <<AggregateRoot>> <<Entity>> { }
 
@@ -258,34 +271,46 @@ package "ShippingOrganizationAggregate" {
   Representative "1" -- "1" RepresentativePhoneNumber: has >
 }
 
-Dock "1" -- "0..*" Resources : has >
+' ==========================
+' RELATIONSHIPS (as no teu original)
+' ==========================
 
-StorageArea "0..*" -- "0..*" Dock : may serve >
-StaffMember "0..*" -- "0..*" Qualification : possesses >
-Resource "0..*" -- "0..*" Qualification : requires >
-ShippingAgent "1" -- "1..*" Representative : employs >
-ShippingAgent "1" -- "0..*" VesselRecord : represents >
-ShippingAgent "1" -- "0..*" VesselVisitNotification : submits >
-ManifestEntry "1" -- "1" EntryID : has >
+StorageArea "1" -- "0..*" Dock : may be constrained to serve >
+
+StaffMember "1..*" -- "0..*" Qualification : possesses >
+
+' Resource ties
+Resource "1..*" -- "1" Dock : may be assigned to >
+Resource "1..*" -- "1" StorageArea : may be assigned to >
+Resource "1..*" -- "0..*" Qualification : requires >
+
+' Shipping org structure
+ShippingAgent "1" -- "*" Representative : employs >
+ShippingAgent "1" -- "*" VesselRecord : manages >
+ShippingAgent "1" -- "*" VesselVisitNotification : submits >
+
+
+ManifestEntry "1" -- "1" EntryNumber : has >
 ManifestEntry "1" -- "1" EntryPosition : has >
 ManifestEntry "1" -- "1" DestinationOrCurrentLocation : has >
 ManifestEntry "1" -- "1" CargoType : has >
 ManifestEntry "1" -- "1" EntryWeight : has >
 ManifestEntry "1" -- "1" Container : includes >
+
 Container "1" -- "1" IsoID : has >
 Container "1" -- "1" ContainerSize : has >
 Container "1" -- "1" ContainerWeight : has >
-Container "1" -- "1" ContainerID : has >
 
+' Vessels in notifications
+VesselVisitNotification "1" -- "*" VesselRecord : includes >
+VesselVisitNotification "1" -- "1" CargoManifest : has >
 VesselVisitNotification "1" -- "1" VisitID : has >
 VesselVisitNotification "1" -- "1" ScheduledArrival : has >
 VesselVisitNotification "1" -- "1" ScheduledDeparture : has >
 VesselVisitNotification "1" -- "1" Status : has >
 VesselVisitNotification "1" -- "1" CrewInfo : has >
-VesselVisitNotification "1" -- "1" VesselRecord : for >
-VesselVisitNotification "1" -- "0..*" CargoManifest : has >
-VesselVisitNotification "0..1" -- "1" Dock : assigned to >
-AllowedVesselType ..> VesselType : references >
-VesselRecord ..> VesselType : references >
+VesselVisitNotification "1" -- "1" Dock : assigned to >
+VesselVisitNotification "1" -- "1..*" Resource : requires >
+
 
 @enduml
