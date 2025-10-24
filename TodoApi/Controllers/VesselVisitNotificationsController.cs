@@ -31,6 +31,43 @@ namespace TodoApi.Controllers
             return Ok(item);
         }
 
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] CreateVesselVisitNotificationDTO dto)
+        {
+            try
+            {
+                var created = await _service.CreateAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("Invalid container identifier"))
+            {
+                return BadRequest("Invalid container identifier");
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(long id, [FromBody] UpdateVesselVisitNotificationDTO dto)
+        {
+            try
+            {
+                var ok = await _service.UpdateAsync(id, dto);
+                if (!ok) return NotFound();
+                return Ok();
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("Invalid container identifier"))
+            {
+                return BadRequest("Invalid container identifier");
+            }
+        }
+
+        [HttpPost("{id}/submit")]
+        public async Task<IActionResult> Submit(long id)
+        {
+            var ok = await _service.SubmitAsync(id);
+            if (!ok) return NotFound();
+            return NoContent();
+        }
+
  
 [HttpPost("{id}/approve/{dockId}/{officerId}")]
 public async Task<IActionResult> Approve(long id, long dockId, long officerId)

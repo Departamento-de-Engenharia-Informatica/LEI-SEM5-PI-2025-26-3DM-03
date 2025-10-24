@@ -180,6 +180,33 @@ namespace TodoApi.Models
                     rep.Property(r => r.PhoneNumber).IsRequired().HasMaxLength(30);
                 });
     });
+
+                // Configuração da entidade VesselVisitNotification e coleções relacionadas
+                modelBuilder.Entity<VesselVisitNotification>(entity =>
+                {
+                    entity.ToTable("VesselVisitNotifications");
+                    entity.HasKey(v => v.Id);
+                    entity.Property(v => v.VesselId).IsRequired().HasMaxLength(50);
+                    entity.Property(v => v.AgentId).IsRequired();
+                    entity.Property(v => v.ArrivalDate).IsRequired();
+                    entity.Property(v => v.DepartureDate);
+                    entity.Property(v => v.Status).IsRequired().HasMaxLength(50);
+                    entity.Property(v => v.SubmissionTimestamp);
+                    entity.Property(v => v.ApprovedDockId);
+                    entity.Property(v => v.RejectionReason).HasMaxLength(500);
+                    entity.Property(v => v.DecisionTimestamp);
+                    entity.Property(v => v.OfficerId);
+
+                    entity.HasMany(v => v.CargoManifest)
+                          .WithOne()
+                          .HasForeignKey(c => c.VesselVisitNotificationId)
+                          .OnDelete(DeleteBehavior.Cascade);
+
+                    entity.HasMany(v => v.CrewMembers)
+                          .WithOne()
+                          .HasForeignKey(c => c.VesselVisitNotificationId)
+                          .OnDelete(DeleteBehavior.Cascade);
+                });
             // =======================
             //   Dados iniciais (seeding)
             // =======================
