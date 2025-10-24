@@ -58,14 +58,29 @@ namespace TodoApi.Controllers
             {
                 return BadRequest("Invalid container identifier");
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPost("{id}/submit")]
         public async Task<IActionResult> Submit(long id)
         {
-            var ok = await _service.SubmitAsync(id);
-            if (!ok) return NotFound();
-            return NoContent();
+            try
+            {
+                var ok = await _service.SubmitAsync(id);
+                if (!ok) return NotFound();
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (ArgumentException ex) when (ex.Message.Contains("Invalid container identifier"))
+            {
+                return BadRequest("Invalid container identifier");
+            }
         }
 
  

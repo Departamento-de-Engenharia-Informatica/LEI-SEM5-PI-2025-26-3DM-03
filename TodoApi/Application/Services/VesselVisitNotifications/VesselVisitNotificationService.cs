@@ -66,6 +66,12 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
                 .FirstOrDefaultAsync(v => v.Id == id);
             if (item == null) return false;
 
+            // Only allow updates when the notification is still in progress
+            if (!string.Equals(item.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Only notifications with status 'InProgress' can be updated.");
+            }
+
             // validate container codes if provided
             if (dto.CargoManifest != null)
             {
@@ -77,8 +83,48 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
             }
 
             VesselVisitNotificationMapper.UpdateFromDto(item, dto);
-            // keep status as InProgress
-            item.Status = item.Status ?? "InProgress";
+
+            // If caller requested a status change as part of the update, handle it here.
+            if (!string.IsNullOrWhiteSpace(dto.Status))
+            {
+                var requested = dto.Status.Trim();
+                // allow representative to request submission / approval pending
+                if (string.Equals(requested, "Submitted", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(requested, "ApprovalPending", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Validate required fields before allowing the transition
+                    if (string.IsNullOrWhiteSpace(item.VesselId))
+                        throw new InvalidOperationException("Vessel identifier is required before submission.");
+                    if (item.AgentId <= 0)
+                        throw new InvalidOperationException("Agent identifier is required before submission.");
+                    if (item.ArrivalDate == default)
+                        throw new InvalidOperationException("Arrival date is required before submission.");
+
+                    // Validate container codes if present
+                    if (item.CargoManifest != null)
+                    {
+                        foreach (var itm in item.CargoManifest)
+                        {
+                            if (string.IsNullOrWhiteSpace(itm.ContainerCode) || !Iso6346Regex.IsMatch(itm.ContainerCode))
+                                throw new ArgumentException("Invalid container identifier");
+                        }
+                    }
+
+                    // apply requested status and submission timestamp
+                    item.Status = string.Equals(requested, "ApprovalPending", StringComparison.OrdinalIgnoreCase) ? "ApprovalPending" : "Submitted";
+                    item.SubmissionTimestamp = DateTime.UtcNow;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Requested status change not allowed.");
+                }
+            }
+            else
+            {
+                // keep status as InProgress (do not elevate here)
+                item.Status = "InProgress";
+            }
+
             _context.VesselVisitNotifications.Update(item);
             await _context.SaveChangesAsync();
             return true;
@@ -86,8 +132,35 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
 
         public async Task<bool> SubmitAsync(long id)
         {
-            var item = await _context.VesselVisitNotifications.FindAsync(id);
+            var item = await _context.VesselVisitNotifications
+                .Include(v => v.CargoManifest)
+                .Include(v => v.CrewMembers)
+                .FirstOrDefaultAsync(v => v.Id == id);
             if (item == null) return false;
+
+            // Only allow submission when it's currently in progress
+            if (!string.Equals(item.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Only notifications with status 'InProgress' can be submitted.");
+            }
+
+            // Validate required fields before submission
+            if (string.IsNullOrWhiteSpace(item.VesselId))
+                throw new InvalidOperationException("Vessel identifier is required before submission.");
+            if (item.AgentId <= 0)
+                throw new InvalidOperationException("Agent identifier is required before submission.");
+            if (item.ArrivalDate == default)
+                throw new InvalidOperationException("Arrival date is required before submission.");
+
+            // Validate container codes if present
+            if (item.CargoManifest != null)
+            {
+                foreach (var itm in item.CargoManifest)
+                {
+                    if (string.IsNullOrWhiteSpace(itm.ContainerCode) || !Iso6346Regex.IsMatch(itm.ContainerCode))
+                        throw new ArgumentException("Invalid container identifier");
+                }
+            }
 
             item.Status = "Submitted";
             item.SubmissionTimestamp = DateTime.UtcNow;
