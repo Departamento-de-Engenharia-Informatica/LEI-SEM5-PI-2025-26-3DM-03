@@ -25,5 +25,8 @@ namespace TodoApi.Models.VesselVisitNotifications
         public DateTime? DepartureDate { get; set; }
         public List<ContainerItemDTO>? CargoManifest { get; set; }
         public List<CrewMemberDTO>? CrewMembers { get; set; }
+        // Optional: representative info. In production this should normally be derived from the authenticated user (JWT claims).
+        public string? SubmittedByRepresentativeEmail { get; set; }
+        public string? SubmittedByRepresentativeName { get; set; }
     }
 }

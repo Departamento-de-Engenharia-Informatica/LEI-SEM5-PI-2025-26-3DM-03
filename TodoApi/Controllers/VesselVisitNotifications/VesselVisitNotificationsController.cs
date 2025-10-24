@@ -17,9 +17,18 @@ namespace TodoApi.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] TodoApi.Application.Services.VesselVisitNotifications.VesselVisitNotificationFilterDTO? filter)
         {
-            var list = await _service.GetAllAsync();
+            // Try to obtain caller's ShippingAgent id from JWT claims (various common claim names supported)
+            long? callerAgentId = null;
+            try
+            {
+                var agentClaim = User.Claims.FirstOrDefault(c => c.Type == "agent_id" || c.Type == "agent_taxnumber" || c.Type == "agent" || c.Type == "taxNumber")?.Value;
+                if (!string.IsNullOrWhiteSpace(agentClaim) && long.TryParse(agentClaim, out var aid)) callerAgentId = aid;
+            }
+            catch { /* ignore, will not scope */ }
+
+            var list = await _service.GetAllAsync(filter, callerAgentId);
             return Ok(list);
         }
 
@@ -36,6 +45,15 @@ namespace TodoApi.Controllers
         {
             try
             {
+                // Prefer submitter info from authenticated user claims when available
+                try
+                {
+                    var email = User.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "rep_email")?.Value;
+                    var name = User.Claims.FirstOrDefault(c => c.Type == "name" || c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "rep_name")?.Value;
+                    if (!string.IsNullOrWhiteSpace(email)) dto.SubmittedByRepresentativeEmail = email;
+                    if (!string.IsNullOrWhiteSpace(name)) dto.SubmittedByRepresentativeName = name;
+                }
+                catch { }
                 var created = await _service.CreateAsync(dto);
                 return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
             }
@@ -69,7 +87,17 @@ namespace TodoApi.Controllers
         {
             try
             {
-                var ok = await _service.SubmitAsync(id);
+                // get submitter info from claims if available
+                string? email = null;
+                string? name = null;
+                try
+                {
+                    email = User.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "rep_email")?.Value;
+                    name = User.Claims.FirstOrDefault(c => c.Type == "name" || c.Type == System.Security.Claims.ClaimTypes.Name || c.Type == "rep_name")?.Value;
+                }
+                catch { }
+
+                var ok = await _service.SubmitAsync(id, email, name);
                 if (!ok) return NotFound();
                 return NoContent();
             }

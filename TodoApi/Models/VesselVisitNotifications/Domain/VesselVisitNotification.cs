@@ -11,6 +11,10 @@ namespace TodoApi.Models.VesselVisitNotifications
         public DateTime ArrivalDate { get; set; }
         public DateTime? DepartureDate { get; set; }
 
+        // Who submitted the VVN (representative info). We store email and name for auditing/visibility.
+        public string? SubmittedByRepresentativeEmail { get; set; }
+        public string? SubmittedByRepresentativeName { get; set; }
+
         // Navigation collections
         public List<ContainerItem> CargoManifest { get; set; } = new List<ContainerItem>();
         public List<CrewMember> CrewMembers { get; set; } = new List<CrewMember>();

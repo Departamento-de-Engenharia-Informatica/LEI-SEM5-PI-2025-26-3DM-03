@@ -18,13 +18,67 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
             _context = context;
         }
 
-        public async Task<IEnumerable<VesselVisitNotificationDTO>> GetAllAsync()
+        public async Task<IEnumerable<VesselVisitNotificationDTO>> GetAllAsync(VesselVisitNotificationFilterDTO? filter = null, long? callerAgentId = null)
         {
-            var list = await _context.VesselVisitNotifications
+            var query = _context.VesselVisitNotifications
                 .AsNoTracking()
                 .Include(v => v.CargoManifest)
                 .Include(v => v.CrewMembers)
-                .ToListAsync();
+                .AsQueryable();
+
+            // Scope to caller's ShippingAgent if provided (representatives can only see notifications for their agent)
+            if (callerAgentId.HasValue)
+            {
+                query = query.Where(v => v.AgentId == callerAgentId.Value);
+            }
+
+            if (filter != null)
+            {
+                if (!string.IsNullOrWhiteSpace(filter.VesselId))
+                {
+                    // partial match to help searching by vessel id
+                    var vessel = filter.VesselId.Trim();
+                    query = query.Where(v => v.VesselId.Contains(vessel));
+                }
+
+                if (!string.IsNullOrWhiteSpace(filter.Status))
+                {
+                    var status = filter.Status.Trim();
+                    query = query.Where(v => v.Status == status);
+                }
+
+                if (!string.IsNullOrWhiteSpace(filter.RepresentativeEmail))
+                {
+                    var email = filter.RepresentativeEmail.Trim().ToLower();
+                    query = query.Where(v => v.SubmittedByRepresentativeEmail != null && v.SubmittedByRepresentativeEmail.ToLower() == email);
+                }
+
+                if (filter.SubmittedFrom.HasValue)
+                {
+                    var from = filter.SubmittedFrom.Value;
+                    query = query.Where(v => v.SubmissionTimestamp.HasValue && v.SubmissionTimestamp.Value >= from);
+                }
+
+                if (filter.SubmittedTo.HasValue)
+                {
+                    var to = filter.SubmittedTo.Value;
+                    query = query.Where(v => v.SubmissionTimestamp.HasValue && v.SubmissionTimestamp.Value <= to);
+                }
+
+                // paging
+                var page = Math.Max(1, filter.Page);
+                var pageSize = Math.Clamp(filter.PageSize, 1, 200);
+
+                query = query.OrderByDescending(v => v.SubmissionTimestamp ?? v.ArrivalDate)
+                             .Skip((page - 1) * pageSize).Take(pageSize);
+            }
+            else
+            {
+                // default: return most recent 100 items
+                query = query.OrderByDescending(v => v.SubmissionTimestamp ?? v.ArrivalDate).Take(100);
+            }
+
+            var list = await query.ToListAsync();
             return list.Select(VesselVisitNotificationMapper.ToDTO);
         }
 
@@ -130,7 +184,7 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
             return true;
         }
 
-        public async Task<bool> SubmitAsync(long id)
+        public async Task<bool> SubmitAsync(long id, string? submitterEmail = null, string? submitterName = null)
         {
             var item = await _context.VesselVisitNotifications
                 .Include(v => v.CargoManifest)
@@ -164,6 +218,9 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
 
             item.Status = "Submitted";
             item.SubmissionTimestamp = DateTime.UtcNow;
+            // record submitter info if provided
+            if (!string.IsNullOrWhiteSpace(submitterEmail)) item.SubmittedByRepresentativeEmail = submitterEmail;
+            if (!string.IsNullOrWhiteSpace(submitterName)) item.SubmittedByRepresentativeName = submitterName;
             _context.VesselVisitNotifications.Update(item);
             await _context.SaveChangesAsync();
             return true;
