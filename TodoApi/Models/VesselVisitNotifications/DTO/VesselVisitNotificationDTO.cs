@@ -20,5 +20,7 @@ namespace TodoApi.Models.VesselVisitNotifications
         public string? RejectionReason { get; set; }
         public DateTime? DecisionTimestamp { get; set; }
         public long? OfficerId { get; set; }
+        public string? SubmittedByRepresentativeEmail { get; set; }
+        public string? SubmittedByRepresentativeName { get; set; }
     }
 }

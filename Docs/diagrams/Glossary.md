@@ -6,7 +6,8 @@
 | VesselAggregate | IMOnumber | Value Object | Vessel’s IMO identifier. |
 | VesselAggregate | VesselName | Value Object | Vessel’s name. |
 | VesselAggregate | VesselRows | Value Object | Number of rows in the vessel’s container grid. |
-| VesselAggregate | VesselBays | Value Object | Number of bays in the vessel’s container grid. |
+| VesselAggregate | VesselBays | Value Object | Number of bays in the vessel’s contai
+ner grid. |
 | VesselAggregate | VesselTiers | Value Object | Number of tiers in the vessel’s container grid. |
 | VesselAggregate | VesselTypeId | Value Object | Identifier of the associated vessel type. |
 | VesselTypeAggregate | VesselType | Aggregate Root, Entity | Classification describing constraints and characteristics of vessels. |

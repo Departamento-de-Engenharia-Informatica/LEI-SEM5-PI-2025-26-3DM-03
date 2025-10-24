@@ -24,6 +24,8 @@ namespace TodoApi.Models.VesselVisitNotifications
                 RejectionReason = model.RejectionReason,
                 DecisionTimestamp = model.DecisionTimestamp,
                 OfficerId = model.OfficerId
+                ,SubmittedByRepresentativeEmail = model.SubmittedByRepresentativeEmail
+                ,SubmittedByRepresentativeName = model.SubmittedByRepresentativeName
             };
         }
 
@@ -45,6 +47,9 @@ namespace TodoApi.Models.VesselVisitNotifications
                 DecisionTimestamp = dto.DecisionTimestamp,
                 OfficerId = dto.OfficerId
             };
+
+            model.SubmittedByRepresentativeEmail = dto.SubmittedByRepresentativeEmail;
+            model.SubmittedByRepresentativeName = dto.SubmittedByRepresentativeName;
 
             if (dto.CargoManifest != null)
             {
@@ -70,6 +75,9 @@ namespace TodoApi.Models.VesselVisitNotifications
                 DepartureDate = dto.DepartureDate,
                 Status = "InProgress"
             };
+
+            model.SubmittedByRepresentativeEmail = dto.SubmittedByRepresentativeEmail;
+            model.SubmittedByRepresentativeName = dto.SubmittedByRepresentativeName;
 
             if (dto.CargoManifest != null)
             {
