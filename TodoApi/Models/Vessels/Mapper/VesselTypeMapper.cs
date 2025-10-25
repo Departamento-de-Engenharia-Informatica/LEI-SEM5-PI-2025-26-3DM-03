@@ -13,12 +13,14 @@ namespace TodoApi.Models.Vessels
                 Name = model.Name,
                 Description = model.Description,
                 Capacity = model.Capacity,
-                OperationalConstraints = new OperationalConstraintsDTO
-                {
-                    MaxRows = model.OperationalConstraints.MaxRows,
-                    MaxBays = model.OperationalConstraints.MaxBays,
-                    MaxTiers = model.OperationalConstraints.MaxTiers
-                }
+                OperationalConstraints = model.OperationalConstraints != null
+                    ? new OperationalConstraintsDTO
+                    {
+                        MaxRows = model.OperationalConstraints.MaxRows,
+                        MaxBays = model.OperationalConstraints.MaxBays,
+                        MaxTiers = model.OperationalConstraints.MaxTiers
+                    }
+                    : new OperationalConstraintsDTO()
             };
         }
 

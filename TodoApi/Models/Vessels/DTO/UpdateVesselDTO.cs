@@ -1,7 +1,9 @@
 namespace TodoApi.Models.Vessels
 {
-    public class UpdateVesselDTO : CreateVesselDTO
+    public class UpdateVesselDTO
     {
-        // No additional fields; the Imo from CreateVesselDTO is used as identifier when needed
+        public string Name { get; set; } = string.Empty;
+        public long VesselTypeId { get; set; }
+        public string Operator { get; set; } = string.Empty;
     }
 }

@@ -45,22 +45,27 @@ namespace TodoApi.Controllers.Vessels
         }
 
         [HttpPut("{imo}")]
-        public async Task<IActionResult> PutVessel(string imo, UpdateVesselDTO dto)
-        {
-            try
-            {
-                await _vesselService.UpdateVesselAsync(imo, dto);
-                return NoContent();
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound();
-            }
-        }
+    public async Task<IActionResult> PutVessel(string imo, UpdateVesselDTO dto)
+    {
+    // valida formato + check digit da ROTA
+    if (!VesselMapper.IsValidImo(imo))
+        return BadRequest("Invalid IMO: must be 7 digits with correct check digit.");
+
+    try
+    {
+        await _vesselService.UpdateVesselAsync(imo, dto);
+        return NoContent();
+    }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(ex.Message);
+    }
+    catch (KeyNotFoundException)
+    {
+        return NotFound();
+    }
+    }
+
 
         [HttpDelete("{imo}")]
         public async Task<IActionResult> DeleteVessel(string imo)

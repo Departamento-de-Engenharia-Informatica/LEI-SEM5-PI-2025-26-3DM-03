@@ -63,25 +63,29 @@ namespace TodoApi.Application.Services.Vessels
         }
 
         public async Task UpdateVesselAsync(string imo, UpdateVesselDTO dto)
-        {
-            if (!IsValidImo(dto.Imo))
-                throw new ArgumentException("Invalid IMO format. It should be 7 digits.");
+{
+    
+    var routeDigits = new string(imo.Where(char.IsDigit).ToArray());
+    if (!IsValidImo(routeDigits))
+        throw new ArgumentException("Invalid IMO: must be 7 digits with correct check digit.");
 
-            var vessel = await _context.Set<Vessel>().FindAsync(imo);
-            if (vessel == null) 
-                throw new KeyNotFoundException("Vessel not found.");
+    var vessel = await _context.Set<Vessel>().FindAsync(routeDigits);
+    if (vessel == null)
+        throw new KeyNotFoundException("Vessel not found.");
 
-            var vt = await _context.VesselTypes.FindAsync(dto.VesselTypeId);
-            if (vt == null) 
-                throw new ArgumentException("Invalid VesselTypeId.");
+    
+    var vt = await _context.VesselTypes.FindAsync(dto.VesselTypeId);
+    if (vt == null)
+        throw new ArgumentException("Invalid VesselTypeId.");
 
-            vessel.Name = dto.Name;
-            vessel.VesselTypeId = dto.VesselTypeId;
-            vessel.Operator = dto.Operator;
+    vessel.Name = dto.Name?.Trim() ?? string.Empty;
+    vessel.VesselTypeId = dto.VesselTypeId;
+    vessel.Operator = dto.Operator?.Trim() ?? string.Empty;
 
-            _context.Entry(vessel).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
-        }
+    
+    await _context.SaveChangesAsync();
+}
+
 
         public async Task DeleteVesselAsync(string imo)
         {
