@@ -29,5 +29,17 @@ namespace Domain.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => OperationalConstraints.Create(1, -1, 1));
             Assert.Throws<ArgumentOutOfRangeException>(() => OperationalConstraints.Create(1, 1, -1));
         }
+
+        [Fact]
+        public void OperationalConstraints_EqualityAndComponents()
+        {
+            var a = OperationalConstraints.Create(2, 3, 4);
+            var b = OperationalConstraints.Create(2, 3, 4);
+            var c = OperationalConstraints.Create(2, 3, 5);
+
+            Assert.Equal(a, b);
+            Assert.NotEqual(a, c);
+            Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        }
     }
 }

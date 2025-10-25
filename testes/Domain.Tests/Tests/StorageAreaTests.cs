@@ -23,5 +23,17 @@ namespace Domain.Tests
             Assert.Contains(1, s.ServedDockIds);
             Assert.Equal(250.5, s.DockDistances[1]);
         }
+
+        [Fact]
+        public void DockDistances_DefaultsEmptyAndAllowsUpdates()
+        {
+            var s = new StorageArea();
+            Assert.NotNull(s.DockDistances);
+            Assert.Empty(s.DockDistances);
+
+            s.DockDistances[5] = 123.45;
+            Assert.Single(s.DockDistances);
+            Assert.Equal(123.45, s.DockDistances[5]);
+        }
     }
 }

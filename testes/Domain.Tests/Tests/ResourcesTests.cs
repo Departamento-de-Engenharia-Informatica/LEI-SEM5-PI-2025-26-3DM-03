@@ -14,5 +14,14 @@ namespace Domain.Tests
             r.RequiredQualifications.Add(new ResourceQualification { QualificationCode = "Q1" });
             Assert.Single(r.RequiredQualifications);
         }
+
+        [Fact]
+        public void RequiredQualifications_CanAddDuplicateCodes()
+        {
+            var r = new Resource();
+            r.RequiredQualifications.Add(new ResourceQualification { QualificationCode = "QX" });
+            r.RequiredQualifications.Add(new ResourceQualification { QualificationCode = "QX" });
+            Assert.Equal(2, r.RequiredQualifications.Count);
+        }
     }
 }

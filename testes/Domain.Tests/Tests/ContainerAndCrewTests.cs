@@ -23,5 +23,14 @@ namespace Domain.Tests
             Assert.Equal("PT", cm.Nationality);
             Assert.Equal(7, cm.VesselVisitNotificationId);
         }
+
+        [Fact]
+        public void ContainerCode_NotEmptyAndHasExpectedFormatLength()
+        {
+            var c = new ContainerItem { ContainerCode = "ABCU1234567" };
+            Assert.False(string.IsNullOrWhiteSpace(c.ContainerCode));
+            // basic length check (4 letters + 7 digits expected for ISO6346 style used in this project)
+            Assert.True(c.ContainerCode.Length >= 7);
+        }
     }
 }

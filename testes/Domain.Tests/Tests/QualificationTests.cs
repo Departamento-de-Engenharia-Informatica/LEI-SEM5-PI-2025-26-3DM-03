@@ -17,5 +17,12 @@ namespace Domain.Tests
             Assert.Equal("Q2", q2.Code);
             Assert.Equal("Desc", q2.Description);
         }
+
+        [Fact]
+        public void Qualification_AllowsEmptyDescription()
+        {
+            var q = new Qualification("CODE", string.Empty);
+            Assert.Equal(string.Empty, q.Description);
+        }
     }
 }

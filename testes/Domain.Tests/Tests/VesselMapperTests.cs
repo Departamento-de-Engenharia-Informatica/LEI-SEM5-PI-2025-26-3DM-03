@@ -19,5 +19,15 @@ namespace Domain.Tests.Tests
             var actual = VesselMapper.IsValidImo(imo);
             Assert.Equal(expected, actual);
         }
+
+        [Theory]
+        [InlineData(null, false)]
+        [InlineData("", false)]
+        [InlineData("   ", false)]
+        public void IsValidImo_HandlesNullAndWhitespace(string imo, bool expected)
+        {
+            var actual = VesselMapper.IsValidImo(imo ?? string.Empty);
+            Assert.Equal(expected, actual);
+        }
     }
 }

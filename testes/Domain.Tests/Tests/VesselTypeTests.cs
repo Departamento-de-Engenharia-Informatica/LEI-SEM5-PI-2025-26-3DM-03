@@ -37,5 +37,15 @@ namespace Domain.Tests
             Assert.Equal(20, vt.Capacity);
             Assert.Equal(newOc, vt.OperationalConstraints);
         }
+
+        [Fact]
+        public void Update_InvalidArguments_Throws()
+        {
+            var oc = OperationalConstraints.Create(1,1,1);
+            var vt = VesselType.Create("n","d",10, oc);
+            Assert.Throws<ArgumentException>(() => vt.Update("", "d", 1, oc));
+            Assert.Throws<ArgumentOutOfRangeException>(() => vt.Update("n", "d", -5, oc));
+            Assert.Throws<ArgumentNullException>(() => vt.Update("n","d", 1, null!));
+        }
     }
 }

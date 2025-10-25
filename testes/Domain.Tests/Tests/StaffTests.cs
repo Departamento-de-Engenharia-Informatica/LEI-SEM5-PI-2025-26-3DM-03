@@ -20,5 +20,13 @@ namespace Domain.Tests
             s.Qualifications.Add(new StaffQualification { QualificationCode = "Q1" });
             Assert.Single(s.Qualifications);
         }
+
+        [Fact]
+        public void OperationalWindow_StartBeforeEnd()
+        {
+            var s = new StaffMember();
+            s.OperationalWindow = new OperationalWindow { StartTime = TimeSpan.FromHours(6), EndTime = TimeSpan.FromHours(18) };
+            Assert.True(s.OperationalWindow.StartTime < s.OperationalWindow.EndTime);
+        }
     }
 }
