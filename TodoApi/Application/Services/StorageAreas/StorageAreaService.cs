@@ -1,58 +1,74 @@
 using TodoApi.Models.StorageAreas;
-using System.Collections.Concurrent;
+using TodoApi.Domain.Repositories;
 
 namespace TodoApi.Application.Services.StorageAreas
 {
     public class StorageAreaService : IStorageAreaService
     {
-        
-        private static readonly ConcurrentDictionary<int, StorageArea> _storageAreas = new();
-        private static int _nextId = 1;
+        private readonly IStorageAreaRepository _repository;
+        private readonly IDockRepository _dockRepository;
+
+        public StorageAreaService(IStorageAreaRepository repository, IDockRepository dockRepository)
+        {
+            _repository = repository;
+            _dockRepository = dockRepository;
+        }
 
         public async Task<StorageArea> RegisterStorageAreaAsync(CreateStorageAreaDTO dto)
         {
-            var area = new StorageArea
-            {
-                Id = _nextId++,
-                Type = Enum.TryParse<StorageAreaType>(dto.Type, true, out var t) ? t : StorageAreaType.Yard,
-                Location = dto.Location,
-                MaxCapacityTEU = dto.MaxCapacityTEU,
-                CurrentOccupancyTEU = dto.CurrentOccupancyTEU,
-                ServedDockIds = dto.ServedDockIds,
-                DockDistances = dto.DockDistances
-            };
+            var area = StorageAreaMapper.ToEntity(dto);
+
+            // Business rule: current occupancy cannot exceed max capacity
             if (area.CurrentOccupancyTEU > area.MaxCapacityTEU)
                 throw new InvalidOperationException("Current occupancy cannot exceed max capacity.");
-            _storageAreas[area.Id] = area;
+
+            // If ServedDockIds provided, validate they exist
+            if (area.ServedDockIds != null && area.ServedDockIds.Count > 0)
+            {
+                foreach (var dockId in area.ServedDockIds)
+                {
+                    var dock = await _dockRepository.GetByIdAsync(dockId);
+                    if (dock == null)
+                        throw new ArgumentException($"Served dock id {dockId} does not exist.");
+                }
+            }
+
+            await _repository.AddAsync(area);
             return area;
         }
 
         public async Task<StorageArea> UpdateStorageAreaAsync(int id, UpdateStorageAreaDTO dto)
         {
-            if (!_storageAreas.TryGetValue(id, out var area))
+            var area = await _repository.GetByIdAsync(id);
+            if (area == null)
                 throw new KeyNotFoundException("Storage area not found.");
-            if (dto.Location != null) area.Location = dto.Location;
-            if (dto.MaxCapacityTEU.HasValue) area.MaxCapacityTEU = dto.MaxCapacityTEU.Value;
-            if (dto.CurrentOccupancyTEU.HasValue)
+
+            // Apply updates (mapper enforces occupancy <= capacity)
+            StorageAreaMapper.UpdateEntityFromDTO(area, dto);
+
+            // If ServedDockIds provided, validate they exist
+            if (dto.ServedDockIds != null && dto.ServedDockIds.Count > 0)
             {
-                if (dto.CurrentOccupancyTEU.Value > area.MaxCapacityTEU)
-                    throw new InvalidOperationException("Current occupancy cannot exceed max capacity.");
-                area.CurrentOccupancyTEU = dto.CurrentOccupancyTEU.Value;
+                foreach (var dockId in dto.ServedDockIds)
+                {
+                    var dock = await _dockRepository.GetByIdAsync(dockId);
+                    if (dock == null)
+                        throw new ArgumentException($"Served dock id {dockId} does not exist.");
+                }
             }
-            if (dto.ServedDockIds != null) area.ServedDockIds = dto.ServedDockIds;
-            if (dto.DockDistances != null) area.DockDistances = dto.DockDistances;
+
+            await _repository.UpdateAsync(area);
             return area;
         }
 
         public async Task<StorageArea?> GetStorageAreaAsync(int id)
         {
-            _storageAreas.TryGetValue(id, out var area);
-            return area;
+            return await _repository.GetByIdAsync(id);
         }
 
         public async Task<IEnumerable<StorageArea>> GetAllStorageAreasAsync()
         {
-            return _storageAreas.Values;
+            return await _repository.GetAllAsync();
         }
     }
 }

@@ -6,6 +6,7 @@ using TodoApi.Models.Docks;
 using TodoApi.Models.ShippingOrganizations;
 using TodoApi.Models.Resources;
 using TodoApi.Models.VesselVisitNotifications;
+using TodoApi.Models.StorageAreas;
 
 namespace TodoApi.Models
 {
@@ -20,6 +21,12 @@ namespace TodoApi.Models
         {
         }
 
+        // Helper serializers used by ValueConverters (avoid optional args in expression trees)
+        private static string SerializeListInts(List<int> v) => System.Text.Json.JsonSerializer.Serialize(v);
+        private static List<int> DeserializeListInts(string v) => System.Text.Json.JsonSerializer.Deserialize<List<int>>(v) ?? new List<int>();
+        private static string SerializeDictIntDouble(Dictionary<int, double> v) => System.Text.Json.JsonSerializer.Serialize(v);
+        private static Dictionary<int, double> DeserializeDictIntDouble(string v) => System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, double>>(v) ?? new Dictionary<int, double>();
+
         // =======================
         //   Tabelas do domínio
         // =======================
@@ -31,6 +38,7 @@ namespace TodoApi.Models
         public DbSet<Resource> Resources { get; set; } = null!;
         public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
         public DbSet<TodoApi.Models.Staff.StaffMember> StaffMembers { get; set; } = null!;
+    public DbSet<StorageArea> StorageAreas { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -206,6 +214,29 @@ namespace TodoApi.Models
                           .WithOne()
                           .HasForeignKey(c => c.VesselVisitNotificationId)
                           .OnDelete(DeleteBehavior.Cascade);
+                });
+
+                // Configuração da entidade StorageArea
+                modelBuilder.Entity<StorageArea>(entity =>
+                {
+                    entity.ToTable("StorageAreas");
+                    entity.HasKey(sa => sa.Id);
+                    entity.Property(sa => sa.Type).IsRequired();
+                    entity.Property(sa => sa.Location).HasMaxLength(200);
+                    entity.Property(sa => sa.MaxCapacityTEU);
+                    entity.Property(sa => sa.CurrentOccupancyTEU);
+
+                    // Convert complex collections (list/dictionary) to JSON strings for simple storage
+                    var listConverter = new ValueConverter<List<int>, string>(
+                        v => SerializeListInts(v),
+                        v => DeserializeListInts(v));
+
+                    var dictConverter = new ValueConverter<Dictionary<int, double>, string>(
+                        v => SerializeDictIntDouble(v),
+                        v => DeserializeDictIntDouble(v));
+
+                    entity.Property(sa => sa.ServedDockIds).HasConversion(listConverter);
+                    entity.Property(sa => sa.DockDistances).HasConversion(dictConverter);
                 });
             // =======================
             //   Dados iniciais (seeding)

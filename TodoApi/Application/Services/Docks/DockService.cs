@@ -1,49 +1,28 @@
-using Microsoft.EntityFrameworkCore;
-using TodoApi.Models;
+using TodoApi.Domain.Repositories;
 using TodoApi.Models.Docks;
 
 namespace TodoApi.Application.Services.Docks
 {
     public class DockService : IDockService
     {
-        private readonly PortContext _context;
+        private readonly IDockRepository _dockRepository;
+        private readonly IVesselTypeRepository _vesselTypeRepository;
 
-        public DockService(PortContext context)
+        public DockService(IDockRepository dockRepository, IVesselTypeRepository vesselTypeRepository)
         {
-            _context = context;
+            _dockRepository = dockRepository;
+            _vesselTypeRepository = vesselTypeRepository;
         }
 
         public async Task<IEnumerable<DockDTO>> GetDocksAsync(string? name = null, long? vesselTypeId = null, string? location = null)
         {
-            var query = _context.Docks.Include(d => d.AllowedVesselTypes).AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                var n = name.ToLower();
-                query = query.Where(d => d.Name.ToLower().Contains(n));
-            }
-
-            if (!string.IsNullOrWhiteSpace(location))
-            {
-                var l = location.ToLower();
-                query = query.Where(d => d.Location.ToLower().Contains(l));
-            }
-
-            if (vesselTypeId.HasValue)
-            {
-                query = query.Where(d => d.AllowedVesselTypes.Any(v => v.Id == vesselTypeId.Value));
-            }
-
-            var docks = await query.ToListAsync();
+            var docks = await _dockRepository.GetAllAsync(name, vesselTypeId, location);
             return docks.Select(DockMapper.ToDTO);
         }
 
         public async Task<DockDTO?> GetDockAsync(long id)
         {
-            var dock = await _context.Docks
-                .Include(d => d.AllowedVesselTypes)
-                .FirstOrDefaultAsync(d => d.Id == id);
-
+            var dock = await _dockRepository.GetByIdAsync(id);
             return dock == null ? null : DockMapper.ToDTO(dock);
         }
 
@@ -60,19 +39,18 @@ namespace TodoApi.Application.Services.Docks
 
             if (dto.AllowedVesselTypeIds != null && dto.AllowedVesselTypeIds.Any())
             {
-                var vesselTypes = await _context.VesselTypes
-                    .Where(v => dto.AllowedVesselTypeIds.Contains(v.Id))
-                    .ToListAsync();
-
-                if (vesselTypes.Count != dto.AllowedVesselTypeIds.Count())
-                    throw new ArgumentException("One or more invalid vessel type IDs");
+                var vesselTypes = new List<TodoApi.Models.Vessels.VesselType>();
+                foreach (var id in dto.AllowedVesselTypeIds)
+                {
+                    var vt = await _vesselTypeRepository.GetByIdAsync(id);
+                    if (vt == null) throw new ArgumentException("One or more invalid vessel type IDs");
+                    vesselTypes.Add(vt);
+                }
 
                 dock.AllowedVesselTypes = vesselTypes;
             }
 
-            _context.Docks.Add(dock);
-            await _context.SaveChangesAsync();
-
+            await _dockRepository.AddAsync(dock);
             return DockMapper.ToDTO(dock);
         }
 
@@ -81,10 +59,7 @@ namespace TodoApi.Application.Services.Docks
             if (id != dto.Id)
                 throw new ArgumentException("ID mismatch");
 
-            var dock = await _context.Docks
-                .Include(d => d.AllowedVesselTypes)
-                .FirstOrDefaultAsync(d => d.Id == id);
-
+            var dock = await _dockRepository.GetByIdAsync(id);
             if (dock == null)
                 throw new KeyNotFoundException("Dock not found");
 
@@ -96,29 +71,29 @@ namespace TodoApi.Application.Services.Docks
 
             if (dto.AllowedVesselTypeIds != null)
             {
-                var vesselTypes = await _context.VesselTypes
-                    .Where(v => dto.AllowedVesselTypeIds.Contains(v.Id))
-                    .ToListAsync();
-
-                if (vesselTypes.Count != dto.AllowedVesselTypeIds.Count())
-                    throw new ArgumentException("One or more invalid vessel type IDs");
+                var vesselTypes = new List<TodoApi.Models.Vessels.VesselType>();
+                foreach (var vtId in dto.AllowedVesselTypeIds)
+                {
+                    var vt = await _vesselTypeRepository.GetByIdAsync(vtId);
+                    if (vt == null) throw new ArgumentException("One or more invalid vessel type IDs");
+                    vesselTypes.Add(vt);
+                }
 
                 dock.AllowedVesselTypes.Clear();
                 foreach (var vt in vesselTypes)
                     dock.AllowedVesselTypes.Add(vt);
             }
 
-            await _context.SaveChangesAsync();
+            await _dockRepository.UpdateAsync(dock);
         }
 
         public async Task DeleteDockAsync(long id)
         {
-            var dock = await _context.Docks.FindAsync(id);
+            var dock = await _dockRepository.GetByIdAsync(id);
             if (dock == null)
                 throw new KeyNotFoundException("Dock not found");
 
-            _context.Docks.Remove(dock);
-            await _context.SaveChangesAsync();
+            await _dockRepository.DeleteAsync(dock);
         }
     }
 }
