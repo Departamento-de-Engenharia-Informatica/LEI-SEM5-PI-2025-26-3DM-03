@@ -30,6 +30,9 @@ namespace TodoApi.Application.Services.Representatives
             var agent = await _repo.GetByTaxNumberAsync(taxNumber, includeRepresentatives: true)
                         ?? throw new KeyNotFoundException("Shipping agent not found.");
 
+            if (agent.Representatives.Any(r => r.CitizenID == dto.CitizenID))
+            throw new ArgumentException("A representative with this CitizenID already exists in this organization.");
+
             var rep = RepresentativeMapper.ToDomain(dto);
             agent.Representatives.Add(rep);
 
