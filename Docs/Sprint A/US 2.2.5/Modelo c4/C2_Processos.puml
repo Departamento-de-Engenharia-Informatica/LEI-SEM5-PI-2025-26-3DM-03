@@ -1,33 +1,34 @@
-@startuml C2_Register_ShippingAgents_Process_View
-!include <C4/C4_Container>
+@startuml C2_Register_ShippingAgents_SSD
+title C2 — System Sequence Diagram (Process View)
+autonumber
 
-title C2 – Register Shipping Agent Organizations (US 2.2.5)
+actor "Organization Representative" as Rep
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App" as Frontend
+participant "Shipping Agents API" as API
+database "PLMS Database" as DB
 
-Person(officer, "Port Authority Officer")
+== Submissão do registo ==
+Rep -> Frontend : Preenche formulário e submete
+Frontend -> API : POST /api/shipping-agents (CreateShippingAgentDTO)
+API -> API : Validar dados obrigatórios
+API -> DB : INSERT ShippingAgent + Representatives
+DB --> API : OK
+API --> Frontend : 201 Created (ShippingAgentDTO)
+Frontend --> Rep : Mostra confirmação de registo
 
-System_Boundary(sys, "Port Logistics Management System (PLMS)") {
-  Container(api, "Shipping Agents Management API (TodoApi)", "C#", "Handles registration of organizations")
-  ContainerDb(db, "PLMS Database", "SQL / EF Core", "ShippingAgents, Representatives; Address (owned)")
-}
+== Revisão pelo Officer ==
+Officer -> Frontend : Consulta registos pendentes
+Frontend -> API : GET /api/shipping-agents/pending
+API -> DB : SELECT pending registrations
+DB --> API : Lista de pendentes
+API --> Frontend : JSON (registos pendentes)
+Frontend --> Officer : Mostra lista
 
-System_Ext(mail, "Email Gateway", "SMTP / Provider API")
-System_Ext(sms, "SMS Gateway", "Provider API (optional)")
-
-Rel(officer, api, "POST /api/ShippingAgents (CreateShippingAgentDTO)", "HTTPS / JSON")
-Rel(api, db, "INSERT ShippingAgent + Representatives", "EF Core")
-Rel(api, mail, "Send confirmation email", "SMTP / API")
-Rel(api, sms, "Send confirmation SMS (optional)", "HTTPS")
-
-note right of api
-1) Controller receives CreateShippingAgentDTO  
-2) (Service) Validates required fields:  
-   • TaxNumber > 0 and unique  
-   • LegalName and AlternativeName  
-   • Complete Address (Street, City, PostalCode, Country)  
-   • ≥ 1 Representative with (Name, CitizenID, Nationality, Email, PhoneNumber)  
-3) (Service) Maps → domain (ShippingAgent + Representatives)  
-4) (Repository) AddAsync + SaveChangesAsync (EF Core)  
-5) (API) Sends notification (email / SMS)  
-6) Returns 201 Created (ShippingAgentDTO)
-end note
+Officer -> Frontend : Aprova ou solicita alterações
+Frontend -> API : PUT /api/shipping-agents/{id}/approve | request-changes
+API -> DB : UPDATE status / remarks
+DB --> API : OK
+API --> Frontend : Confirmação
+Frontend --> Officer : Mostra resultado da ação
 @enduml

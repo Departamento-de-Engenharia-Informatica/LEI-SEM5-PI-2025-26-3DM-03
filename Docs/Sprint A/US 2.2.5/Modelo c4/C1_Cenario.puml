@@ -1,18 +1,14 @@
-@startuml C1 - Context (US Register Shipping Agent Organizations)
-!include <C4/C4_Container>
+@startuml
+title C1 — Contexto | Vista de Cenários — UC: Register Shipping Agent Organization
 
+actor "Port Authority Officer" as PortOfficer
+actor "Shipping Agent Representative" as Rep
 
-Person(portOfficer, "Port Authority Officer", "Manages port and registers shipping agents")
-Person(representative, "Shipping Agent Representative", "Represents the shipping organization")
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+  usecase "Register Shipping Agent Organization" as UC_Register
+}
 
-System(plms, "Port Logistics Management System", "Backoffice + Port API")
-
-System_Ext(mail, "Email Gateway", "Email notifications")
-System_Ext(sms, "SMS Gateway", "SMS notifications")
-
-Rel(portOfficer, plms, "Registers shipping agent organizations (API)")
-Rel(representative, plms, "Submits organization data")
-Rel(plms, mail, "Sends notifications via email", "SMTP/Provider API")
-Rel(plms, sms, "Sends notifications via SMS", "Provider API")
+Rep --> UC_Register
+PortOfficer --> UC_Register
 
 @enduml

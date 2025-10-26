@@ -1,33 +1,37 @@
 @startuml C3_Register_Shipping_Agents_Process_View
 title C3 – Register Shipping Agents (Process View / System Sequence Diagram)
 hide footbox
+autonumber
 
 actor "Organization Representative" as Rep
 participant "ShippingAgentsController\n(API Layer)" as Controller
-participant "ShippingAgentService\n(Business rules)" as Service
+participant "ShippingAgentService\n(Application Logic)" as Service
 participant "ShippingAgentMapper\n(DTO ↔ Domain)" as Mapper
-participant "IShippingAgentRepository\n(Abstraction)" as Repo
+participant "IShippingAgentRepository\n(Domain Port)" as Repo
+participant "EfShippingAgentRepository\n(Infra Adapter)" as RepoImpl
 participant "PortContext\n(Entity Framework Core)" as Context
-database "Database System\n(SQL / SQLite)" as DB
-participant "NotificationService\n(Email / SMS)" as Notif
+database "PLMS Database\n(SQL / EF Core)" as DB
 
-Rep -> Controller : POST /api/ShippingAgents (CreateShippingAgentDTO + JWT)
+' === Fluxo principal ===
+Rep -> Controller : POST /api/ShippingAgents\n(CreateShippingAgentDTO + JWT)
 Controller -> Service : RegisterAsync(dto)
 
-Service -> Service : validate required fields\n(TaxNumber unique, names, address, ≥1 representative)
+Service -> Service : Validate fields\n(TaxNumber unique, mandatory fields, ≥1 Representative)
 Service -> Mapper : ToDomain(dto)
 Mapper --> Service : ShippingAgent (domain)
 
 Service -> Repo : AddAsync(ShippingAgent)
-Repo -> Context : Add(entity) + SaveChangesAsync()
-Context -> DB : INSERT ShippingAgents + Representatives
+Repo -> RepoImpl : Call implementation
+RepoImpl -> Context : Add(entity)\nSaveChangesAsync()
+Context -> DB : INSERT ShippingAgent + Representatives
 DB --> Context : OK
-Context --> Repo : OK
+Context --> RepoImpl : OK
+RepoImpl --> Repo : OK
 Repo --> Service : OK
 
+Service -> Mapper : ToDTO(ShippingAgent)
+Mapper --> Service : ShippingAgentDTO
 Service --> Controller : ShippingAgentDTO
-Controller -> Notif : Send confirmation (Email/SMS)
-Notif --> Controller : OK
+Controller --> Rep : HTTP 201 Created\n(ShippingAgentDTO)
 
-Controller --> Rep : HTTP 201 Created (ShippingAgentDTO)
 @enduml

@@ -1,17 +1,11 @@
 @startuml C1_Context_Logic
-!include <C4/C4_Container>
+!include <C4/C4_Context>
 
-title Level 1 - Context Diagram (Logic) - US 2.2.5
+title C1 — Contexto | Vista Lógica — US 2.2.5 Register Shipping Agent Organization
 
-Person(portOfficer, "Port Authority Officer")
+Person(portOfficer, "Port Authority Officer", "Registers and manages shipping agent organizations")
+System(systemPlms, "Port Logistics Management System (PLMS)", "Manages port operations and agent registrations")
 
-System_Boundary(portSystem, "Port Logistics Management System") {
-    System(portApi, "Port Management API", "Port entities management")
-}
-
-ContainerDb(database, "Port Database", "SQL Server", "Stores shipping agents data")
-
-Rel(portOfficer, portApi, "CRUD Shipping Agents", "HTTPS/JSON")
-Rel(portApi, database, "Reads/Writes", "EF Core")
+Rel(portOfficer, systemPlms, "Performs CRUD operations on Shipping Agents", "HTTPS/JSON")
 
 @enduml

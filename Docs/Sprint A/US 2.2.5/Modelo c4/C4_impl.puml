@@ -1,5 +1,5 @@
 @startuml C4_Register_Shipping_Agents_Implementation_View
-title C4 – Register Shipping Agents (Implementation / Package View – Shipping Organizations)
+title C4 – Register Shipping Agents (Implementation / Package & Class View)
 left to right direction
 hide empty members
 
@@ -7,10 +7,15 @@ skinparam package {
   BackgroundColor White
   BorderColor Black
   FontColor Black
+  FontStyle bold
 }
-skinparam arrow {
-  Color Black
-}
+skinparam arrow { 
+  Color Black 
+  }
+
+' ================================
+' Pacotes por camada
+' ================================
 
 package "Controllers.ShippingOrganizations" {
   [ShippingAgentsController]
@@ -30,30 +35,33 @@ package "Domain.Repositories" {
 
 package "Models.ShippingOrganizations" {
   [ShippingAgent]
+  [ShippingAgentType <<Value Object>>]
+  [Address <<Value Object>>]
+  [Representative]
   [ShippingAgentDTO]
   [CreateShippingAgentDTO]
-  [Address]
-  [Representative]
-  [ShippingAgentType]
 }
 
 package "Infrastructure.Data" {
-  [PortContext]
+  [PortContext <<DbContext>>]
+  [EfShippingAgentRepository <<implements IShippingAgentRepository>>]
 }
 
-
-[ShippingAgentsController] --> [ShippingAgentService]
-[ShippingAgentService] --> [ShippingAgentMapper]
-[ShippingAgentService] --> [IShippingAgentRepository]
-[IShippingAgentRepository] --> [PortContext]
+' ================================
+' Dependências
+' ================================
+[ShippingAgentsController] --> [ShippingAgentService] : uses
+[ShippingAgentService] --> [ShippingAgentMapper] : maps DTO↔Domain
+[ShippingAgentService] --> [IShippingAgentRepository] : depends on interface
+[EfShippingAgentRepository] -up-|> [IShippingAgentRepository]
+[EfShippingAgentRepository] --> [PortContext]
 
 [ShippingAgentMapper] --> [ShippingAgent]
 [ShippingAgentMapper] --> [ShippingAgentDTO]
 [ShippingAgentMapper] --> [CreateShippingAgentDTO]
 
-
-[ShippingAgent] --> [ShippingAgentType] : uses
-
 [ShippingAgent] --> [Address]
 [ShippingAgent] --> [Representative]
+[ShippingAgent] --> [ShippingAgentType]
+
 @enduml

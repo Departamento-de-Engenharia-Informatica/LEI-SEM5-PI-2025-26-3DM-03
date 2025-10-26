@@ -1,50 +1,106 @@
 @startuml C4_Register_Shipping_Agents_Logical_View
-title C4 – Port Logistics Management System (PLMS) – Logical Deployment View (Shipping Agents)
+title C4 — Código | Vista Lógica — Shipping Agents Management API (componentes/classes)
 left to right direction
+hide empty members
 
-skinparam node {
-  BackgroundColor White
-  BorderColor Black
-  FontColor Black
-}
-skinparam cloud {
-  BackgroundColor LightGray
-  BorderColor Black
-  FontColor Black
-}
-skinparam database {
-  BackgroundColor Wheat
-  BorderColor Black
-  FontColor Black
-}
-skinparam artifact {
-  BackgroundColor HoneyDew
-  BorderColor Black
-  FontColor Black
-}
+skinparam package { 
+  BackgroundColor White;
+   BorderColor Black; 
+   FontColor Black; 
+   FontStyle bold
+    }
+skinparam class   { 
+  BackgroundColor White; 
+  BorderColor Black; 
+  FontColor Black 
+  }
 
-actor "Organization Representative" as Rep
-actor "Port Authority Officer" as Officer
-
-node "User Device\n(Laptop / Browser)" as Client {
-  artifact "Frontend Web App\n(React / Angular)" as Frontend
+package "Controllers.ShippingOrganizations" {
+  class ShippingAgentsController {
+    + Post(dto: CreateShippingAgentDTO) : ActionResult<ShippingAgentDTO>
+    + GetByTaxNumber(taxNumber: long) : ActionResult<ShippingAgentDTO>
+  }
 }
 
-node "Application Server\n(Docker Container / IIS)" as AppServer {
-  artifact "Shipping Agents Management API\n(ASP.NET Core Web API)" as API
+package "Application.Services.ShippingOrganizations" {
+  class ShippingAgentService {
+    + RegisterAsync(dto: CreateShippingAgentDTO) : Task<ShippingAgentDTO>
+    + GetByTaxNumberAsync(taxNumber: long) : Task<ShippingAgentDTO?>
+    - _repo : IShippingAgentRepository
+    - _mapper : ShippingAgentMapper
+  }
 }
 
-node "Database Server\n(SQL / SQLite)" as DBServer {
-  database "PLMS Database" as Database
+package "Application.Mapping" {
+  class ShippingAgentMapper {
+    + ToDomain(dto: CreateShippingAgentDTO) : ShippingAgent
+    + ToDTO(model: ShippingAgent) : ShippingAgentDTO
+  }
 }
 
-cloud "External IAM Provider\n(SSO / OAuth 2.0 / OIDC)" as IAM
-cloud "Email/SMS Providers\n(SMTP / REST API)" as Notif
+package "Domain.Repositories" {
+  interface IShippingAgentRepository {
+    + ExistsByTaxNumberAsync(taxNumber: long) : Task<bool>
+    + AddAsync(agent: ShippingAgent) : Task
+    + GetByTaxNumberAsync(taxNumber: long, includeRepresentatives: bool = false) : Task<ShippingAgent?>
+    + SaveChangesAsync() : Task
+  }
+}
 
-Rep --> Frontend : Register organization (HTTPS)
-Officer --> Frontend : Review / validate (HTTPS)
-Frontend --> IAM : User login (OIDC PKCE)
-Frontend --> API : REST (JSON/HTTPS, JWT bearer)
-API --> Database : CRUD via EF Core (SQL)
-API --> Notif : Confirmation Email/SMS
+package "Models.ShippingOrganizations" {
+  class ShippingAgent {
+    + TaxNumber : long
+    + LegalName : string
+    + AlternativeName : string
+    + Type : ShippingAgentType
+    + Address : Address
+    + Representatives : List<Representative>
+  }
+  class ShippingAgentType <<Value Object>> { 
+    + Value : string
+     }
+  class Address <<Value Object>> {
+     + Street : string;
+    + City : string;
+     + PostalCode : string; 
+     + Country : string 
+     }
+  class Representative { 
+    + Name : string; 
+    + CitizenID : string; 
+    + Nationality : string; 
+    + PhoneNumber : string
+     }
+
+  class ShippingAgentDTO { 
+    + ... 
+    }
+  class CreateShippingAgentDTO { 
+    + ... 
+    }
+}
+
+package "Infrastructure.Data" {
+  class PortContext <<DbContext>> { 
+    + ShippingAgents : DbSet<ShippingAgent> 
+    }
+  class EfShippingAgentRepository <<implements IShippingAgentRepository>> { 
+    - _ctx : PortContext 
+    }
+}
+
+' Relações (lógicas)
+ShippingAgentsController --> ShippingAgentService
+ShippingAgentService --> ShippingAgentMapper
+ShippingAgentService --> IShippingAgentRepository
+EfShippingAgentRepository -up-|> IShippingAgentRepository
+EfShippingAgentRepository --> PortContext
+
+ShippingAgentMapper --> ShippingAgent
+ShippingAgentMapper --> ShippingAgentDTO
+ShippingAgentMapper --> CreateShippingAgentDTO
+
+ShippingAgent --> ShippingAgentType
+ShippingAgent *-- Address
+ShippingAgent *-- Representative
 @enduml

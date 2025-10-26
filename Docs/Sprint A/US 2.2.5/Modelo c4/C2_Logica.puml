@@ -12,11 +12,6 @@ skinparam database {
   BorderColor Black
   FontColor Black
 }
-skinparam cloud {
-  BackgroundColor LightGray
-  BorderColor Black
-  FontColor Black
-}
 skinparam actor {
   BackgroundColor CornflowerBlue
   FontColor White
@@ -27,9 +22,6 @@ skinparam actor {
 actor "Organization Representative" as Representative
 actor "Port Authority Officer" as Officer
 
-' === Sistema Externo ===
-cloud "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
-
 ' === Sistema em foco ===
 rectangle "Port Logistics Management System (PLMS)" as PLMS {
   rectangle "Frontend Web Application\n(React / Angular)" as Frontend
@@ -38,10 +30,9 @@ rectangle "Port Logistics Management System (PLMS)" as PLMS {
 }
 
 ' === Relações ===
-Representative --> Frontend : Submete registo (HTTPS)
-Officer --> Frontend : Consulta e valida organizações
-Frontend --> API : Chamadas REST (JSON)
-API --> DB : Operações CRUD (Entity Framework Core)
-API --> IAM : Autenticação e Autorização
+Representative --> Frontend : Submete registo\n(HTTPS / JSON)
+Officer --> Frontend : Consulta e valida registos\n(HTTPS / JSON)
+Frontend --> API : Requisições REST\n(HTTP / JSON)
+API --> DB : CRUD Shipping Agents\n(Entity Framework Core)
 
 @enduml

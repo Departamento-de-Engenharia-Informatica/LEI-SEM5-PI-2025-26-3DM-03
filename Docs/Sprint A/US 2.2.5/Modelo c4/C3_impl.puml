@@ -3,17 +3,20 @@ title C3 – Register Shipping Agents (Implementation / Package & Class View)
 left to right direction
 hide empty members
 
-skinparam package {
-  BackgroundColor White
-  BorderColor Black
-  FontColor Black
-}
-skinparam class {
-  BackgroundColor White
-  BorderColor Black
-  FontColor Black
-}
+skinparam package { 
+  BackgroundColor White;
+   BorderColor Black;
+    FontColor Black 
+    }
+skinparam class   { 
+  BackgroundColor White;
+   BorderColor Black;
+    FontColor Black 
+    }
 
+' =======================
+' Controllers
+' =======================
 package "Controllers.ShippingOrganizations" {
   class ShippingAgentsController {
     + Post(dto: CreateShippingAgentDTO) : ActionResult<ShippingAgentDTO>
@@ -21,11 +24,15 @@ package "Controllers.ShippingOrganizations" {
   }
 }
 
+' =======================
+' Application
+' =======================
 package "Application.Services.ShippingOrganizations" {
   class ShippingAgentService {
     + RegisterAsync(dto: CreateShippingAgentDTO) : Task<ShippingAgentDTO>
     + GetByTaxNumberAsync(taxNumber: long) : Task<ShippingAgentDTO?>
     - _repo : IShippingAgentRepository
+    - _mapper : ShippingAgentMapper
   }
 }
 
@@ -36,6 +43,9 @@ package "Application.Mapping" {
   }
 }
 
+' =======================
+' Domain
+' =======================
 package "Domain.Repositories" {
   interface IShippingAgentRepository {
     + ExistsByTaxNumberAsync(taxNumber: long) : Task<bool>
@@ -57,14 +67,12 @@ package "Models.ShippingOrganizations" {
 
   class ShippingAgentType <<Value Object>> {
     + Value : string
-    + Owner() : ShippingAgentType
-    + Operator() : ShippingAgentType
     + ToString() : string
     + implicit operator string(ShippingAgentType)
     + implicit operator ShippingAgentType(string)
   }
 
-  class Address {
+  class Address <<Value Object>> {
     + Street : string
     + City : string
     + PostalCode : string
@@ -75,7 +83,6 @@ package "Models.ShippingOrganizations" {
     + Name : string
     + CitizenID : string
     + Nationality : string
-    + Email : string
     + PhoneNumber : string
   }
 
@@ -102,23 +109,36 @@ ShippingAgent --> ShippingAgentType : uses
 ShippingAgent *-- Address
 ShippingAgent *-- Representative
 
+' =======================
+' Infrastructure
+' =======================
 package "Infrastructure.Data" {
   class PortContext {
     + ShippingAgents : DbSet<ShippingAgent>
     + SaveChangesAsync() : Task<int>
   }
+
+  class EfShippingAgentRepository {
+    - _ctx : PortContext
+    + ExistsByTaxNumberAsync(taxNumber: long) : Task<bool>
+    + AddAsync(agent: ShippingAgent) : Task
+    + GetByTaxNumberAsync(taxNumber: long, includeRepresentatives: bool = false) : Task<ShippingAgent?>
+    + SaveChangesAsync() : Task
+  }
 }
 
-' Relationships
+' =======================
+' Relationships (camadas)
+' =======================
 ShippingAgentsController --> ShippingAgentService
 ShippingAgentService --> IShippingAgentRepository
 ShippingAgentService --> ShippingAgentMapper
-IShippingAgentRepository --> PortContext
+
+EfShippingAgentRepository -up-|> IShippingAgentRepository
+EfShippingAgentRepository --> PortContext
+
 ShippingAgentMapper --> ShippingAgent
 ShippingAgentMapper --> ShippingAgentDTO
 ShippingAgentMapper --> CreateShippingAgentDTO
 
-
-ShippingAgent *-- Address
-ShippingAgent *-- Representative
 @enduml

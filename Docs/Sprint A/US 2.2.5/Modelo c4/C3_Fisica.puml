@@ -1,5 +1,5 @@
 @startuml C3_Register_ShippingAgents_Physical_View
-title C3 – Register Shipping Agents (Physical View)
+title C3 – Register Shipping Agents (Physical / Deployment View)
 left to right direction
 
 skinparam node {
@@ -12,31 +12,37 @@ skinparam artifact {
   BorderColor Black
   FontColor Black
 }
-
-node "Shipping Agents Management API\n(ASP.NET Core Application)" as API {
-  artifact "TodoApi.Controllers.dll" as Controllers
-  artifact "TodoApi.Application.Services.dll" as AppServices
-  artifact "TodoApi.Application.Mapping.dll" as Mapping
-  artifact "TodoApi.Domain.Repositories.dll" as DomainRepos
-  artifact "TodoApi.Infrastructure.Data.dll" as InfraData
-  artifact "EFCore.dll" as EFCore
-  artifact "Program.cs / Startup.cs" as Startup
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
 }
 
-node "Runtime Environment\n(.NET 8 SDK / Docker Container)" as Runtime {
-  artifact "ASP.NET Core Hosting" as Hosting
+' ========= Nós / Ambientes =========
+node "Docker Host\n(Linux VM / Kubernetes Node)" as DockerHost {
+  node "Container: PLMS API\n(.NET 8 + Kestrel)\nport 8080" as ApiContainer {
+    artifact "TodoApi.Controllers.dll" as Controllers
+    artifact "TodoApi.Application.Services.dll" as AppServices
+    artifact "TodoApi.Application.Mapping.dll" as Mapping
+    artifact "TodoApi.Domain.Repositories.dll" as DomainRepos
+    artifact "TodoApi.Infrastructure.Data.dll" as InfraData
+    artifact "EFCore (NuGet)" as EFCore
+    artifact "Program.cs (Minimal Hosting)" as Program
+  }
 }
 
-database "PLMS Database\n(SQL / EF Core)" as DB
-cloud "Email / SMS Providers\n(SMTP / API)" as Notif
+node "DB Server\n(SQL Server Instance)\nport 1433" as DbServer {
+  database "PLMS Database\n(SQL / EF Core)" as DB
+}
 
-Hosting --> API : Hosts the ASP.NET Core application
-Controllers --> AppServices : Calls ShippingAgentService
-AppServices --> Mapping : Uses ShippingAgentMapper
-AppServices --> DomainRepos : Uses IShippingAgentRepository
-DomainRepos --> InfraData : Implemented via PortContext
-InfraData --> EFCore : ORM
-API --> DB : Connection String / EF Core
-API --> Notif : Sends email / SMS notifications
-Startup --> Hosting : Configuration and startup
+' ========= Ligações físicas =========
+ApiContainer -down-> DbServer : TCP 1433\nConnection String (trusted/secret)
+
+' ========= Relações internas (alto nível – informativas) =========
+Controllers --> AppServices : calls
+AppServices --> DomainRepos : depends on (interface)
+InfraData -up-|> DomainRepos : implements
+InfraData --> EFCore : ORM provider
+Program --> ApiContainer : hosts/bootstraps
+
 @enduml

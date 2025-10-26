@@ -53,7 +53,6 @@ package "Application" as P_App {
 ' ======================
 ' Dependências
 ' ======================
-[PortContext <<EF Core DbContext>>]
 
 [ShippingAgentsController] --> [ShippingAgentMapper] : usa para conversões DTO↔Domínio
 [ShippingAgentsController] --> [PortContext] : acede à BD (EF Core)
