@@ -1,0 +1,82 @@
+@startuml C2_View_VesselVisitNotifications_Implementation_View
+title C2 – View Vessel Visit Notifications Status (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Pacotes principais
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    [VesselVisitNotificationsController]
+  }
+}
+
+together {
+  package "Application" as P_App {
+    package "Services.VesselVisitNotifications" as P_Services {
+      [VesselVisitNotificationService]
+      [VesselVisitNotificationFilterDTO]
+    }
+  }
+}
+
+together {
+  package "Domain" as P_Domain {
+    package "Repositories" as P_Repositories {
+      [IVesselVisitNotificationRepository]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "VesselVisitNotifications" as P_Models_VVN {
+      [VesselVisitNotification]
+      [VesselVisitNotificationDTO]
+      [CreateVesselVisitNotificationDTO]
+      [UpdateVesselVisitNotificationDTO]
+      [VesselVisitNotificationMapper]
+      [ContainerItem]
+      [CrewMember]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[VesselVisitNotificationsController] --> [VesselVisitNotificationService] : usa
+[VesselVisitNotificationService] --> [VesselVisitNotificationMapper]
+[VesselVisitNotificationService] --> [PortContext]
+[VesselVisitNotificationService] --> [VesselVisitNotificationFilterDTO]
+
+[VesselVisitNotificationMapper] --> [VesselVisitNotification]
+[VesselVisitNotificationMapper] --> [VesselVisitNotificationDTO]
+[VesselVisitNotificationMapper] --> [CreateVesselVisitNotificationDTO]
+[VesselVisitNotificationMapper] --> [UpdateVesselVisitNotificationDTO]
+
+[VesselVisitNotification] --> [ContainerItem]
+[VesselVisitNotification] --> [CrewMember]
+
+[PortContext] --> [VesselVisitNotification] : DbSet e configuração EF Core
+
+@enduml

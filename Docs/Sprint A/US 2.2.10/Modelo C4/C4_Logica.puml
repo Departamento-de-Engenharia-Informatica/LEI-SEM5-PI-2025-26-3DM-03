@@ -1,0 +1,137 @@
+@startuml C4_View_VesselVisitNotifications_Logical_View
+title C4 — Código | Vista Lógica — Vessel Visit Notifications Management API (componentes/classes)
+left to right direction
+hide empty members
+
+skinparam package { 
+  BackgroundColor White;
+  BorderColor Black; 
+  FontColor Black; 
+  FontStyle bold
+}
+skinparam class { 
+  BackgroundColor White; 
+  BorderColor Black; 
+  FontColor Black 
+}
+
+' ===========================
+' Controllers
+' ===========================
+package "Controllers.VesselVisitNotifications" {
+  class VesselVisitNotificationsController {
+    + GetAll(filter: VesselVisitNotificationFilterDTO) : Task<IActionResult>
+    + GetById(id: long) : Task<IActionResult>
+    + Create(dto: CreateVesselVisitNotificationDTO) : Task<IActionResult>
+    + Update(id: long, dto: UpdateVesselVisitNotificationDTO) : Task<IActionResult>
+    + Submit(id: long) : Task<IActionResult>
+    + Approve(id: long, dockId: long, officerId: long) : Task<IActionResult>
+    + Reject(id: long, officerId: long, reason: string) : Task<IActionResult>
+  }
+}
+
+' ===========================
+' Application Layer
+' ===========================
+package "Application.Services.VesselVisitNotifications" {
+  class VesselVisitNotificationService {
+    + GetAllAsync(filter: VesselVisitNotificationFilterDTO?, callerAgentId: long?) : Task<IEnumerable<VesselVisitNotificationDTO>>
+    + GetByIdAsync(id: long) : Task<VesselVisitNotificationDTO?>
+    + CreateAsync(dto: CreateVesselVisitNotificationDTO) : Task<VesselVisitNotificationDTO>
+    + UpdateAsync(id: long, dto: UpdateVesselVisitNotificationDTO) : Task<bool>
+    + SubmitAsync(id: long, submitterEmail: string?, submitterName: string?) : Task<bool>
+    + ApproveAsync(id: long, dockId: long, officerId: long) : Task<bool>
+    + RejectAsync(id: long, officerId: long, reason: string) : Task<bool>
+    - _context : PortContext
+  }
+
+  class VesselVisitNotificationFilterDTO {
+    + VesselId : string?
+    + Status : string?
+    + RepresentativeEmail : string?
+    + SubmittedFrom : DateTime?
+    + SubmittedTo : DateTime?
+    + Page : int
+    + PageSize : int
+  }
+}
+
+' ===========================
+' Mapping
+' ===========================
+package "Application.Mapping" {
+  class VesselVisitNotificationMapper {
+    + ToDTO(model: VesselVisitNotification) : VesselVisitNotificationDTO
+    + ToModel(dto: CreateVesselVisitNotificationDTO) : VesselVisitNotification
+    + UpdateFromDto(model: VesselVisitNotification, dto: UpdateVesselVisitNotificationDTO) : void
+  }
+}
+
+' ===========================
+' Domain Models
+' ===========================
+package "Models.VesselVisitNotifications" {
+  class VesselVisitNotification {
+    + Id : long
+    + VesselId : string
+    + AgentId : long
+    + ArrivalDate : DateTime
+    + DepartureDate : DateTime?
+    + Status : string
+    + SubmissionTimestamp : DateTime?
+    + ApprovedDockId : long?
+    + RejectionReason : string?
+    + DecisionTimestamp : DateTime?
+    + OfficerId : long?
+    + SubmittedByRepresentativeEmail : string?
+    + SubmittedByRepresentativeName : string?
+    + CargoManifest : List<ContainerItem>
+    + CrewMembers : List<CrewMember>
+  }
+
+  class ContainerItem {
+    + Id : int
+    + ContainerCode : string
+    + CargoType : string?
+    + IsForUnloading : bool
+  }
+
+  class CrewMember {
+    + Id : int
+    + Name : string
+    + CitizenId : string
+    + Nationality : string
+  }
+
+  class VesselVisitNotificationDTO { + ... }
+  class CreateVesselVisitNotificationDTO { + ... }
+  class UpdateVesselVisitNotificationDTO { + ... }
+}
+
+' ===========================
+' Infrastructure
+' ===========================
+package "Infrastructure.Data" {
+  class PortContext <<DbContext>> {
+    + VesselVisitNotifications : DbSet<VesselVisitNotification>
+    + SaveChangesAsync() : Task<int>
+  }
+}
+
+' ===========================
+' Relações Lógicas
+' ===========================
+VesselVisitNotificationsController --> VesselVisitNotificationService
+VesselVisitNotificationService --> VesselVisitNotificationMapper
+VesselVisitNotificationService --> VesselVisitNotificationFilterDTO
+VesselVisitNotificationService --> PortContext
+
+VesselVisitNotificationMapper --> VesselVisitNotification
+VesselVisitNotificationMapper --> VesselVisitNotificationDTO
+VesselVisitNotificationMapper --> CreateVesselVisitNotificationDTO
+VesselVisitNotificationMapper --> UpdateVesselVisitNotificationDTO
+
+VesselVisitNotification *-- ContainerItem
+VesselVisitNotification *-- CrewMember
+
+@enduml
