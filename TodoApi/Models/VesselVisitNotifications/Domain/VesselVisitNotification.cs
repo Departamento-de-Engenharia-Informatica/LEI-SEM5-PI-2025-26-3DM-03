@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using FrameworkDDD.Common;
 
 namespace TodoApi.Models.VesselVisitNotifications
 {
-    public class VesselVisitNotification
+    public class VesselVisitNotification : IAggregateRoot
     {
         public long Id { get; set; }
         public string VesselId { get; set; } = string.Empty; // could be IMO or external id
