@@ -50,5 +50,11 @@ namespace TodoApi.Models.ShippingOrganizations
 
         // Conversão implícita de string -> VO
         public static implicit operator ShippingAgentType(string v) => new ShippingAgentType(v);
+
+        // Override GetHashCode to match underlying canonical string's hashcode
+        public override int GetHashCode()
+        {
+            return Value?.GetHashCode() ?? 0;
+        }
     }
 }
