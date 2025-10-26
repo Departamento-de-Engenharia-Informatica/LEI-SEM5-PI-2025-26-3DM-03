@@ -1,29 +1,29 @@
-@startuml C2_Manage_Vessel_Types_Process_View
-title C2 – Manage Vessel Types (Process View – Create Vessel Type)
+    @startuml C2_Manage_Vessel_Types_Process_View
+    title C2 – Manage Vessel Types (Process View – Create Vessel Type)
 
-actor "Port Authority Officer" as Officer
-participant "Frontend Web Application\n(React / Angular)" as Frontend
-participant "Vessel Types Management API\n(ASP.NET Core Web API)" as API
-participant "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
-database "PLMS Database\n(SQL / EF Core)" as DB
-
-
-Officer -> Frontend : Login (Credenciais)
-Frontend -> IAM : Solicita token de autenticação
-IAM --> Frontend : Retorna Access Token (JWT)
+    actor "Port Authority Officer" as Officer
+    participant "Frontend Web Application\n(React / Angular)" as Frontend
+    participant "Vessel Types Management API\n(ASP.NET Core Web API)" as API
+    participant "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
+    database "PLMS Database\n(SQL / EF Core)" as DB
 
 
-Officer -> Frontend : Submete formulário (novo tipo de navio)
-Frontend -> API : POST /api/VesselTypes (JSON + Token JWT)
-API -> IAM : Valida Token (OAuth 2.0)
-IAM --> API : Token válido
+    Officer -> Frontend : Login (Credenciais)
+    Frontend -> IAM : Solicita token de autenticação
+    IAM --> Frontend : Retorna Access Token (JWT)
 
 
-API -> DB : INSERT INTO VesselTypes (...)
-DB --> API : Confirma inserção (OK)
+    Officer -> Frontend : Submete formulário (novo tipo de navio)
+    Frontend -> API : POST /api/VesselTypes (JSON + Token JWT)
+    API -> IAM : Valida Token (OAuth 2.0)
+    IAM --> API : Token válido
 
 
-API --> Frontend : HTTP 201 Created + VesselTypeDTO
-Frontend --> Officer : Mostra confirmação e novo tipo de navio
+    API -> DB : INSERT INTO VesselTypes (...)
+    DB --> API : Confirma inserção (OK)
 
-@enduml
+
+    API --> Frontend : HTTP 201 Created + VesselTypeDTO
+    Frontend --> Officer : Mostra confirmação e novo tipo de navio
+
+    @enduml
