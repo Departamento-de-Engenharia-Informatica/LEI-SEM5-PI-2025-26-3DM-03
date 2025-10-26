@@ -1,0 +1,30 @@
+@startuml C3_impl
+title C3 — Componentes internos (Vessels)
+
+package "TodoApi.Controllers.Vessels" {
+  component "VesselsController"
+}
+
+package "TodoApi.Application.Services.Vessels" {
+  interface "IVesselService"
+  component "VesselService"
+}
+
+package "TodoApi.Models.Vessels" {
+  class Vessel
+  class CreateVesselDTO
+  class UpdateVesselDTO
+  class VesselDTO
+  class VesselMapper <<static>>
+}
+
+package "TodoApi.Models" {
+  class PortContext
+}
+
+VesselsController --> IVesselService
+VesselService ..|> IVesselService
+VesselService --> PortContext : EF Core
+VesselService --> VesselMapper
+VesselMapper --> VesselDTO
+@enduml

@@ -1,0 +1,77 @@
+@startuml C2_Processos
+title C2 — Sequências (US 2.2.2)
+
+actor Officer
+participant Controller as "VesselsController"
+participant Service as "VesselService"
+database DB as "PortContext/DB"
+
+== Create ==
+Officer -> Controller: POST /api/Vessels (CreateVesselDTO)
+Controller -> Service: CreateVesselAsync(dto)
+Service -> Service: IsValidImo(dto.Imo)?
+alt inválido
+  Service --> Controller: ArgumentException
+  Controller --> Officer: 400
+else válido
+  Service -> DB: FindAsync(VesselTypeId)
+  DB --> Service: VesselType|null
+  alt null
+    Service --> Controller: ArgumentException
+    Controller --> Officer: 400
+  else ok
+    Service -> Service: ToModel(dto)
+    Service -> DB: Add + SaveChanges
+    Service -> DB: Load reference VesselType
+    Service --> Controller: VesselDTO
+    Controller --> Officer: 201 Created
+  end
+end
+
+== Update ==
+Officer -> Controller: PUT /api/Vessels/{imo}
+Controller -> Service: UpdateVesselAsync(imo,dto)
+Service -> Service: limpar dígitos + IsValidImo(...)
+alt inválido
+  Service --> Controller: ArgumentException
+  Controller --> Officer: 400
+else
+  Service -> DB: FindAsync(Vessel by IMO)
+  DB --> Service: entity|null
+  alt null
+    Service --> Controller: KeyNotFoundException
+    Controller --> Officer: 404
+  else
+    Service -> DB: FindAsync(VesselTypeId)
+    alt inválido
+      Service --> Controller: ArgumentException
+      Controller --> Officer: 400
+    else
+      Service -> Service: aplicar alterações
+      Service -> DB: SaveChanges
+      Controller --> Officer: 204 No Content
+    end
+  end
+end
+
+== Search ==
+Officer -> Controller: GET /api/Vessels?imo&name&operator
+Controller -> Service: GetVesselsAsync(...)
+Service -> DB: query Include(VesselType) + Where(...)
+DB --> Service: List<Vessel>
+Service -> Service: map ToDTO
+Service --> Controller: [VesselDTO]
+Controller --> Officer: 200
+
+== Delete ==
+Officer -> Controller: DELETE /api/Vessels/{imo}
+Controller -> Service: DeleteVesselAsync(imo)
+Service -> DB: FindAsync(imo)
+alt not found
+  Service --> Controller: KeyNotFoundException
+  Controller --> Officer: 404
+else
+  Service -> DB: Remove + SaveChanges
+  Controller --> Officer: 204
+end
+@enduml

@@ -1,0 +1,25 @@
+@startuml C4_Processos
+title C4 — Sequência detalhada (GetAll com filtros)
+
+actor Client
+participant Controller as "StorageAreasController"
+participant Service as "StorageAreaService"
+participant Repo as "EfStorageAreaRepository"
+database DB as "PortContext/DB"
+
+Client -> Controller: GET /api/StorageAreas?type&location&servedDockId
+Controller -> Service: GetAllStorageAreasAsync()
+Service -> Repo: GetAllAsync(type, location, servedDockId)
+Repo -> DB: SELECT StorageAreas
+note right of Repo
+- if type: WHERE Type == parsed(type)
+- if location: WHERE Location LIKE '%loc%'
+- if servedDockId: WHERE ServedDockIds CONTAINS id
+  (ValueConverter JSON → List<int>)
+end note
+DB --> Repo: IEnumerable<StorageArea>
+Repo --> Service
+Service -> Service: map ToDTO(...)
+Service --> Controller: IEnumerable<StorageAreaDTO>
+Controller --> Client: 200 OK [DTO...]
+@enduml

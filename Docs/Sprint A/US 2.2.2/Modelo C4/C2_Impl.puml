@@ -1,0 +1,22 @@
+@startuml C2_impl
+title C2 — Containers (implementação) — Vessels
+
+node "Client" as Client {
+  component "Port Ops Web UI\n(React/Swagger/Postman)" as Web
+}
+
+node "Port Operations API\nASP.NET Core" as Api {
+  component "VesselsController\n(Web API)" as Ctrl
+  component "VesselService\n(Application)" as App
+  component "VesselMapper/DTOs" as Map
+}
+
+node "Persistence\nEF Core" as Persistence {
+  database "PortContext\n(SQL DB)" as DB
+}
+
+Client --> Ctrl : HTTP/JSON
+Ctrl --> App
+App --> DB : EF Core (DbSet<Vessel>, Include(VesselType))
+App --> Map
+@enduml

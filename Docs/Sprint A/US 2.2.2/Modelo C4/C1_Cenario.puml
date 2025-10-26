@@ -1,0 +1,22 @@
+@startuml C1_Cenario
+title C1 — Contexto do Sistema (US 2.2.2 - Vessels)
+
+actor "Port Authority Officer" as Officer
+rectangle "Port Operations API\n(TodoApi)" as System {
+}
+
+rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
+cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
+
+Officer --> WebUI : usa
+WebUI --> System : HTTP/REST
+Officer --> System : (alternativo) REST direto
+System .. IdP : valida tokens (futuro/fora do escopo)
+
+note bottom of System
+- Objetivo: gerir navios (CRUD)
+- Pesquisa por IMO, name, operator
+- Valida formato e check digit do IMO
+- Associa ao VesselType
+end note
+@enduml

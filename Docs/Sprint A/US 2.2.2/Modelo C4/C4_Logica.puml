@@ -1,0 +1,30 @@
+@startuml C4_Logica
+title C4 — Camadas Lógicas (Vessels)
+
+package Controllers {
+  [VesselsController]
+}
+package Application {
+  [VesselService]
+  [IVesselService]
+}
+package Domain {
+  [Vessel]
+  [VesselType]
+}
+package Infrastructure {
+  [PortContext / EF Core]
+}
+package DTOs_Mappers {
+  [CreateVesselDTO]
+  [UpdateVesselDTO]
+  [VesselDTO]
+  [VesselMapper]
+}
+
+[VesselsController] --> [IVesselService]
+[VesselService] ..> [PortContext / EF Core]
+[VesselService] ..> [VesselMapper]
+[VesselMapper] ..> [VesselDTO]
+[Domain] .. [PortContext / EF Core] : mapeado por
+@enduml

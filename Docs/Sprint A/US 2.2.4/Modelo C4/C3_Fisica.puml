@@ -1,0 +1,21 @@
+@startuml C3_Fisica
+title C3 — Física / Deployment (Storage Areas)
+
+node "Workstation (Officer)" as Client {
+  artifact "Browser / Postman"
+}
+
+node "DMZ" {
+  node "App Server" {
+    component "Port Operations API\nASP.NET Core" as API
+  }
+}
+
+node "Data Center" {
+  database "SQL Database\n(PortContext)" as DB
+}
+
+Client --> API : HTTPS 443
+API --> DB : TCP 1433/5432 (SGBD)
+
+@enduml

@@ -1,0 +1,49 @@
+@startuml C3_Processos
+title C3 — Sequência detalhada (Validação IMO)
+
+actor Officer
+participant C as "VesselsController"
+participant S as "VesselService"
+participant DB as "PortContext/DB"
+
+== POST ==
+Officer -> C: POST /api/Vessels (CreateVesselDTO)
+C -> S: CreateVesselAsync(dto)
+S -> S: IsValidImo(dto.Imo)?
+alt inválido
+  S --> C: ArgumentException
+  C --> Officer: 400
+else
+  S -> DB: FindAsync(VesselTypeId)
+  DB --> S: ok/null
+  alt null
+    S --> C: ArgumentException
+    C --> Officer: 400
+  else
+    S -> DB: Add + SaveChanges
+    S -> DB: Load VesselType
+    C --> Officer: 201 Created
+  end
+end
+
+== PUT ==
+Officer -> C: PUT /api/Vessels/{imo} (UpdateVesselDTO)
+C -> S: UpdateVesselAsync(imo,dto)
+S -> S: digits = onlyDigits(imo); IsValidImo(digits)?
+alt inválido
+  S --> C: ArgumentException
+  C --> Officer: 400
+else
+  S -> DB: FindAsync(Vessel by digits)
+  DB --> S: entity|null
+  alt null
+    S --> C: KeyNotFoundException
+    C --> Officer: 404
+  else
+    S -> DB: FindAsync(dto.VesselTypeId) ? ok:400
+    S -> S: aplicar alterações
+    S -> DB: SaveChanges
+    C --> Officer: 204
+  end
+end
+@enduml

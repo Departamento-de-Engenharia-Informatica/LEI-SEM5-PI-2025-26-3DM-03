@@ -1,0 +1,21 @@
+@startuml C1_Cenario
+title C1 — Contexto do Sistema (US 2.2.4 - Storage Areas)
+
+actor "Port Authority Officer" as Officer
+rectangle "Port Operations API\n(TodoApi)" as System {
+}
+
+rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
+cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
+
+Officer --> WebUI : usa
+WebUI --> System : HTTP/REST
+Officer --> System : (alternativo) chama REST direto
+System .. IdP : valida tokens (futuro/fora do escopo)
+
+note bottom of System
+- Objetivo: registar/atualizar áreas de armazenamento
+- Consultar/listar com filtros
+- Garantir regras de capacidade/ocupação
+end note
+@enduml

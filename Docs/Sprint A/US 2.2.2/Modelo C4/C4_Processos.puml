@@ -1,0 +1,25 @@
+@startuml C4_Processos
+title C4 — Sequência detalhada (GetVessels com filtros)
+
+actor Client
+participant Controller as "VesselsController"
+participant Service as "VesselService"
+database DB as "PortContext/DB"
+
+Client -> Controller: GET /api/Vessels?imo&name&operator
+Controller -> Service: GetVesselsAsync(imo,name,operator)
+Service -> DB: _context.Set<Vessel>().Include(VesselType)
+opt imo
+  Service -> DB: Where(v => v.Imo.Contains(imo))
+end
+opt name
+  Service -> DB: Where(v => ToLower(Name) contains)
+end
+opt operator
+  Service -> DB: Where(v => ToLower(Operator) contains)
+end
+DB --> Service: List<Vessel>
+Service -> Service: Select(VesselMapper.ToDTO)
+Service --> Controller: IEnumerable<VesselDTO>
+Controller --> Client: 200 OK [VesselDTO...]
+@enduml

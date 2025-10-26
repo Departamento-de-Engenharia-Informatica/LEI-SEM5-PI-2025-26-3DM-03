@@ -1,0 +1,68 @@
+@startuml C4_impl
+title C4 — Código (classes principais) — Vessels
+
+package "TodoApi.Models.Vessels" {
+  class Vessel {
+    + string Imo
+    + string Name
+    + long VesselTypeId
+    + VesselType? VesselType
+    + string Operator
+  }
+
+  class CreateVesselDTO {
+    + string Imo
+    + string Name
+    + long VesselTypeId
+    + string Operator
+  }
+
+  class UpdateVesselDTO {
+    + string Name
+    + long VesselTypeId
+    + string Operator
+  }
+
+  class VesselDTO {
+    + string Imo
+    + string Name
+    + long VesselTypeId
+    + VesselTypeDTO? VesselType
+    + string Operator
+  }
+
+  class VesselMapper {
+    + static bool IsValidImo(string)
+    + static Vessel ToModel(CreateVesselDTO)
+    + static VesselDTO ToDTO(Vessel)
+  }
+}
+
+package "TodoApi.Application.Services.Vessels" {
+  interface IVesselService {
+    + Task<IEnumerable<VesselDTO>> GetVesselsAsync(string?, string?, string?)
+    + Task<VesselDTO?> GetVesselAsync(string)
+    + Task<VesselDTO> CreateVesselAsync(CreateVesselDTO)
+    + Task UpdateVesselAsync(string, UpdateVesselDTO)
+    + Task DeleteVesselAsync(string)
+    + bool IsValidImo(string)
+  }
+  class VesselService
+}
+
+package "TodoApi.Controllers.Vessels" {
+  class VesselsController
+}
+
+package "TodoApi.Models" {
+  class PortContext
+}
+
+VesselService ..|> IVesselService
+VesselsController --> IVesselService
+VesselService --> PortContext
+VesselService --> VesselMapper
+VesselMapper --> VesselDTO
+Vessel --> VesselType
+
+@enduml

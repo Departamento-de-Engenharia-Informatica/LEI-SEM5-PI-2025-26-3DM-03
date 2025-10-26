@@ -1,0 +1,89 @@
+@startuml C4_impl
+title C4 — Código (classes principais) — Storage Areas
+
+package "TodoApi.Models.StorageAreas" {
+  enum StorageAreaType { Yard; Warehouse }
+
+  class StorageArea {
+    + int Id
+    + StorageAreaType Type
+    + string Location
+    + int MaxCapacityTEU
+    + int CurrentOccupancyTEU
+    + List<int> ServedDockIds
+    + Dictionary<int,double> DockDistances
+  }
+
+  class CreateStorageAreaDTO {
+    + string Type
+    + string Location
+    + int MaxCapacityTEU
+    + int CurrentOccupancyTEU
+    + List<int> ServedDockIds
+    + Dictionary<int,double> DockDistances
+  }
+
+  class UpdateStorageAreaDTO {
+    + string Location
+    + int? MaxCapacityTEU
+    + int? CurrentOccupancyTEU
+    + List<int>? ServedDockIds
+    + Dictionary<int,double>? DockDistances
+  }
+
+  class StorageAreaDTO {
+    + int Id
+    + string? Type
+    + string? Location
+    + int MaxCapacityTEU
+    + int CurrentOccupancyTEU
+    + List<int> ServedDockIds
+    + Dictionary<int,double> DockDistances
+  }
+
+  class StorageAreaMapper {
+    + static StorageArea ToEntity(CreateStorageAreaDTO)
+    + static void UpdateEntityFromDTO(StorageArea, UpdateStorageAreaDTO)
+    + static StorageAreaDTO ToDTO(StorageArea)
+  }
+}
+
+package "TodoApi.Application.Services.StorageAreas" {
+  interface IStorageAreaService {
+    + Task<StorageArea> RegisterStorageAreaAsync(CreateStorageAreaDTO)
+    + Task<StorageArea> UpdateStorageAreaAsync(int, UpdateStorageAreaDTO)
+    + Task<StorageArea?> GetStorageAreaAsync(int)
+    + Task<IEnumerable<StorageArea>> GetAllStorageAreasAsync()
+  }
+  class StorageAreaService
+}
+
+package "TodoApi.Domain.Repositories" {
+  interface IStorageAreaRepository {
+    + Task<IEnumerable<StorageArea>> GetAllAsync(string?, string?, int?)
+    + Task<StorageArea?> GetByIdAsync(int)
+    + Task AddAsync(StorageArea)
+    + Task UpdateAsync(StorageArea)
+    + Task DeleteAsync(StorageArea)
+    + Task SaveChangesAsync()
+  }
+  interface IDockRepository
+}
+
+package "TodoApi.Infrastructure.Repositories" {
+  class EfStorageAreaRepository
+}
+
+package "TodoApi.Controllers.StorageAreas" {
+  class StorageAreasController
+}
+
+StorageAreaService ..|> IStorageAreaService
+EfStorageAreaRepository ..|> IStorageAreaRepository
+StorageAreasController --> IStorageAreaService
+StorageAreaService --> IStorageAreaRepository
+StorageAreaService --> IDockRepository : valida docks
+StorageAreaService --> StorageAreaMapper
+StorageAreaMapper --> StorageAreaDTO
+StorageAreaMapper --> StorageArea
+@enduml
