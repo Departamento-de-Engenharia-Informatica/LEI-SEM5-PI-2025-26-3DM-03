@@ -1,17 +1,43 @@
-@startuml
-title Processos principais - US 2.2.3 Manage Docks
+@startuml C2_Processos
+title C2 — Sequências por Caso
 
-start
-:Port Officer opens Dock management UI (or uses API);
-:Sends POST /api/Docks with CreateDockDTO;
-if (valid data?) then (yes)
-  :API validates and maps DTO -> Dock model;
-  :API queries VesselType ids and populates relations;
-  :API saves Dock to DB;
-  :API returns 201 Created with DockDTO;
-else (no)
-  :API returns 400 Bad Request with validation errors;
-endif
-stop
+actor Officer
+participant Controller as "DocksController"
+participant Service as "DockService"
+database DB as "PortContext/DB"
+participant VTRepo as "VesselTypeRepository"
+participant DockRepo as "EfDockRepository"
 
+== Create ==
+Officer -> Controller: POST /api/Docks (CreateDockDTO)
+Controller -> Service: CreateDockAsync(dto)
+Service -> VTRepo: GetByIdAsync(vesselTypeId)*
+VTRepo --> Service: VesselType*
+Service -> DockRepo: AddAsync(Dock)
+DockRepo -> DB: INSERTs (+ M:N)
+DB --> DockRepo
+DockRepo --> Service
+Service --> Controller: DockDTO
+Controller --> Officer: 201 Created
+
+== Update ==
+Officer -> Controller: PUT /api/Docks/{id}
+Controller -> Service: UpdateDockAsync(id,dto)
+Service -> DockRepo: GetByIdAsync(id)
+DockRepo -> DB: SELECT + include
+DB --> DockRepo
+Service -> VTRepo: GetByIdAsync(vesselTypeId)*
+VTRepo --> Service: ok
+Service -> DockRepo: UpdateAsync(Dock)
+DockRepo -> DB: UPDATE + link table
+Controller --> Officer: 204
+
+== Search ==
+Officer -> Controller: GET /api/Docks?filters
+Controller -> Service: GetDocksAsync(...)
+Service -> DockRepo: GetAllAsync(...)
+DockRepo -> DB: SELECT with filters
+DB --> DockRepo
+Service --> Controller: [DockDTO...]
+Controller --> Officer: 200
 @enduml

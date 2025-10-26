@@ -1,14 +1,17 @@
-@startuml
-!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+@startuml C2_Logica
+title C2 — Lógica entre Containers
 
-Person(portOfficer, "Port Authority Officer")
-System_Boundary(s1, "Port Management System") {
-  Container(api, "Port API", "ASP.NET Core Web API", "Exposes endpoints for docks, vessel types, and other resources")
-  Container(db, "Database", "EF Core / InMemory or SQL", "Persists docks, vessel types, relations")
+rectangle API {
+  [Controller] --> [Service]
+  [Service] --> [Mapper/DTO]
 }
+rectangle Persistence {
+  [Service] --> [DockRepository]
+  [Service] --> [VesselTypeRepository]
+  [DockRepository] --> [DB]
+  [VesselTypeRepository] --> [DB]
+}
+actor Officer
+Officer --> [Controller] : REST calls
 
-Rel(portOfficer, api, "Manage docks: create, update, list, search")
-Rel(api, db, "Reads/Writes")
-
-SHOW_LEGEND()
 @enduml

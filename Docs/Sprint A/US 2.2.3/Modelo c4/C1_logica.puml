@@ -1,12 +1,16 @@
-@startuml
-!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+@startuml C1_Logica
+title C1 — Lógica de Contexto
 
-Person(portOfficer, "Port Authority Officer")
-System(api, "Port API", "REST API")
-System(vesselRegistry, "Vessel Registry Service", "Service managing vessel records and types")
+skinparam rectangle {
+  BackgroundColor<<Boundary>> #EEF
+  BorderColor<<Boundary>> #66A
+}
 
-Rel(portOfficer, api, "Manage docks (create/update/search)")
-Rel(api, vesselRegistry, "References vessel types when assigning allowed types")
+actor "Port Authority Officer" as Officer
+rectangle "Port Ops Web UI" as WebUI <<Boundary>>
+rectangle "Port Operations API\n(TodoApi)" as API <<Boundary>>
 
-SHOW_LEGEND()
+Officer --> WebUI : CRUD Docks
+WebUI --> API : REST/JSON
+API : Registo/Atualização/Pesquisa\nValidação mínima\nMapeamento DTO<->Modelo
 @enduml

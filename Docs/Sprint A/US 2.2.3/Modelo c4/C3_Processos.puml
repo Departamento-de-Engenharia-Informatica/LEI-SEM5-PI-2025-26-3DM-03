@@ -1,16 +1,28 @@
-@startuml
-title C3 - Processos (Assign Allowed Vessel Types)
+@startuml C3_Processos
+title C3 — Sequência (UpdateDock)
 
-start
-:Receive Create/UpdateDockDTO with AllowedVesselTypeIds;
-:For each id -> query VesselType repository;
-if (VesselType exists?) then (yes)
-  :Add to Dock.AllowedVesselTypes;
-else (no)
-  :Return 400 Bad Request (invalid vessel type id);
-endif
-:Persist Dock;
-:Return DockDTO;
-stop
+actor Officer
+participant Controller as "DocksController"
+participant Service as "DockService"
+participant Repo as "IDockRepository"
+participant VT as "IVesselTypeRepository"
 
+Officer -> Controller: PUT /api/Docks/{id} (UpdateDockDTO)
+Controller -> Service: UpdateDockAsync(id,dto)
+Service -> Service: validar (id == dto.Id)\nse não → throw ArgumentException
+Service -> Repo: GetByIdAsync(id)
+Repo --> Service: Dock|null
+Service -> Service: se null → throw KeyNotFoundException
+opt AllowedVesselTypeIds fornecidos
+  loop para cada vtId
+    Service -> VT: GetByIdAsync(vtId)
+    VT --> Service: VesselType|null
+    Service -> Service: se null → throw ArgumentException
+  end
+  Service -> Service: dock.AllowedVesselTypes = novos
+end
+Service -> Repo: UpdateAsync(dock)
+Repo --> Service: OK
+Service --> Controller: void
+Controller --> Officer: 204 No Content
 @enduml

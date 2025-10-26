@@ -1,16 +1,28 @@
-@startuml
-!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+@startuml C2_impl
+title C2 — Containers (implementação)
 
-Person(portOfficer, "Port Officer")
-System_Boundary(s1, "Port Management System") {
-  Container(webApp, "Web UI / Swagger", "React / Swagger UI", "UI for officers")
-  Container(api, "Port API", "ASP.NET Core Web API", "Business logic for docks and vessel types")
-  ContainerDb(db, "Database", "EF Core / SQL", "Persists domain entities")
+node "Client" as Client {
+  component "Port Ops Web UI\n(React/Swagger/Postman)" as Web
 }
 
-Rel(portOfficer, webApp, "Uses")
-Rel(webApp, api, "Calls")
-Rel(api, db, "Reads/Writes")
+node "Port Operations API\nASP.NET Core" as Api {
+  component "DocksController\n(Web API)" as Ctrl
+  component "DockService\n(Application)" as App
+  component "DockMapper/DTOs" as Map
+}
 
-SHOW_LEGEND()
+node "Persistence\nEF Core" as Persistence {
+  component "EfDockRepository\n(IDockRepository)" as DockRepo
+  component "IVesselTypeRepository" as VTRepo
+  database "PortContext\n(SQL DB)" as DB
+}
+
+Client --> Ctrl : HTTP/JSON
+Ctrl --> App
+App --> DockRepo
+App --> VTRepo
+DockRepo --> DB
+VTRepo --> DB
+App --> Map
+
 @enduml

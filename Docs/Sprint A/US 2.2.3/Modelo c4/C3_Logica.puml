@@ -1,12 +1,18 @@
-@startuml
-title C3 - Logical Components
+@startuml C3_Logica
+title C3 — Lógica de dependências
 
-component "Dock (Aggregate)" as dockAgg
-component "VesselType (Aggregate)" as vesselTypeAgg
-component "DockService" as dockService
-component "DockRepository" as dockRepo
+[DocksController] --> [DockService]
+[DockService] --> [IDockRepository]
+[DockService] --> [IVesselTypeRepository]
+[DockService] --> [DockMapper]
+[DockMapper] --> [DockDTO]
+[DockDTO] --> [VesselTypeDTO]
+[Dock] --> [VesselType]
 
-dockService --> dockRepo
-dockService --> vesselTypeAgg : validate allowed types
-
+note bottom
+- Controller apenas orquestra HTTP.
+- Service concentra regras e lookups.
+- Repositórios abstraem EF Core.
+- Mapper transforma Model → DTO.
+end note
 @enduml

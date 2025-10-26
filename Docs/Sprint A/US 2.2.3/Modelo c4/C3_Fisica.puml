@@ -1,14 +1,21 @@
-@startuml
-title C3 - Physical Diagram (placeholder)
+@startuml C3_Fisica
+title C3 — Física / Deployment
 
-' This diagram should show physical deployment nodes (API server, DB server, etc.)
-node "API Server" as apiNode {
-  [Port API]
-}
-node "Database Server" as dbNode {
-  [Database]
+node "Workstation (Officer)" as Client {
+  artifact "Browser / Postman"
 }
 
-Rel(apiNode, dbNode, "connects to")
+node "DMZ" {
+  node "App Server" {
+    component "Port Operations API\nASP.NET Core" as API
+  }
+}
+
+node "Data Center" {
+  database "SQL Database\n(PortContext)" as DB
+}
+
+Client --> API : HTTPS 443
+API --> DB : TCP 1433/5432 (conforme SGBD)
 
 @enduml

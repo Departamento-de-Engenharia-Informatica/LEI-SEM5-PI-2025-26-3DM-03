@@ -1,13 +1,20 @@
-@startuml
-!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-LAYOUT_WITH_LEGEND()
+@startuml C1_Cenario
+title C1 — Contexto do Sistema (US 2.2.3 - Docks)
 
-Person(portOfficer, "Port Authority Officer", "Registers and manages docks (berths) and their allowed vessel types")
-System_Boundary(s1, "Port Management System") {
-  System(api, "Port API", "REST API exposing port resources (vessels, docks, qualifications)")
+actor "Port Authority Officer" as Officer
+rectangle "Port Operations API\n(TodoApi)" as System {
 }
 
-Rel(portOfficer, api, "Uses")
+cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
+rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
 
-SHOW_LEGEND()
+Officer --> WebUI : usa
+WebUI --> System : HTTP/REST
+Officer --> System : (alternativo) chama REST direto
+System .. IdP : valida tokens (opcional/futuro)
+
+note bottom of System
+- Objetivo: registar/atualizar docks
+- Expor consulta/filtragem
+end note
 @enduml

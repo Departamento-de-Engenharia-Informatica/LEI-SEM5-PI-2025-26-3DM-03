@@ -1,15 +1,36 @@
-@startuml
-title C4 - Logic Components (detailed)
+@startuml C4_Logica
+title C4 — Camadas Lógicas
 
-component "DocksController" as controller
-component "DockMapper" as mapper
-component "DockService" as service
-component "DockRepository" as repo
-component "PortContext (DbContext)" as db
+package Controllers {
+  [DocksController]
+}
+package Application {
+  [DockService]
+  [IDockService]
+}
+package Domain {
+  [Dock]
+  [VesselType]
+  [IDockRepository]
+  [IVesselTypeRepository]
+}
+package Infrastructure {
+  [EfDockRepository]
+  [PortContext / EF Core]
+}
+package DTOs_&_Mappers {
+  [CreateDockDTO]
+  [UpdateDockDTO]
+  [DockDTO]
+  [VesselTypeDTO]
+  [DockMapper]
+}
 
-controller --> mapper
-mapper --> service
-service --> repo
-repo --> db
+[DocksController] --> [IDockService]
+[DockService] ..> [IDockRepository]
+[DockService] ..> [IVesselTypeRepository]
+[DockService] ..> [DockMapper]
+[EfDockRepository] ..> [PortContext / EF Core]
+[DockMapper] ..> [DockDTO]
 
 @enduml

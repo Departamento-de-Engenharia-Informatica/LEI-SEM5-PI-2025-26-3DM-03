@@ -1,11 +1,31 @@
-@startuml
-title C1 - Processos (Resumo)
+@startuml C1_Processos
+title C1 — Processos (high level)
 
 start
-:Port Officer opens management UI/Swagger;
-:Requests list of docks (GET /api/Docks);
-:Filters by name/vesselType/location;
-:Selects a dock to edit or clicks create new;
-stop
+:Officer escolhe ação;
 
+partition "Criar Dock" {
+  :Preenche Name/Location/\nLength/Depth/MaxDraft;\nSeleciona VesselTypes;
+  :POST /api/Docks;
+  if (IDs VesselType válidos?) then (sim)
+    :201 Created;
+  else (não)
+    :400 Bad Request;
+  endif
+}
+
+partition "Atualizar Dock" {
+  :PUT /api/Docks/{id} com UpdateDockDTO;
+  if (id == dto.Id?) then (sim)
+    :204 No Content;
+  else (não)
+    :400 ID mismatch;
+  endif
+}
+
+partition "Pesquisar/Filtrar" {
+  :GET /api/Docks?name&vesselTypeId&location;
+  :200 OK [DockDTO...];
+}
+stop
 @enduml
