@@ -1,0 +1,46 @@
+@startuml C4_Manage_Vessels_Physical_Implementation_View
+title C4 – Vista Física / Implementação – Manage Vessels
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+' ======================
+' INFRAESTRUTURA FÍSICA
+' ======================
+
+node "Officer Workstation" as WS {
+  artifact "Browser / Postman" as Client
+}
+
+node "DMZ Network" as DMZ {
+  node "Application Server\n(Docker Container / IIS)" as AppServer {
+    component "Port Operations API\n(Vessels Endpoints)" as API
+  }
+}
+
+node "Data Center" as DC {
+  database "PLMS Database\n(SQL Server / InMemory – Dev)" as DB
+}
+
+' ======================
+' CONEXÕES FÍSICAS
+' ======================
+
+Client --> API : HTTPS (TCP 443)
+API --> DB : EF Core (TCP 1433 / 5432)
+
+@enduml
