@@ -1,8 +1,10 @@
 using TodoApi.Models.Representatives;
+using FrameworkDDD.Common;
+
 
 namespace TodoApi.Models.ShippingOrganizations
 {
-    public class ShippingAgent
+    public class ShippingAgent : IAggregateRoot
     {
         public long TaxNumber { get; set; }
         public string LegalName { get; set; } = string.Empty;

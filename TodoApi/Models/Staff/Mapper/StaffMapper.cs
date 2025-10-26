@@ -31,11 +31,9 @@ namespace TodoApi.Models.Staff
 
             if (dto.StartTime.HasValue || dto.EndTime.HasValue)
             {
-                model.OperationalWindow = new OperationalWindow
-                {
-                    StartTime = dto.StartTime ?? System.TimeSpan.Zero,
-                    EndTime = dto.EndTime ?? System.TimeSpan.Zero
-                };
+                var start = dto.StartTime ?? System.TimeSpan.Zero;
+                var end = dto.EndTime ?? System.TimeSpan.Zero;
+                model.OperationalWindow = OperationalWindow.Create(start, end);
             }
 
             foreach (var q in dto.Qualifications)
@@ -56,11 +54,9 @@ namespace TodoApi.Models.Staff
 
             if (dto.StartTime.HasValue || dto.EndTime.HasValue)
             {
-                model.OperationalWindow = new OperationalWindow
-                {
-                    StartTime = dto.StartTime ?? System.TimeSpan.Zero,
-                    EndTime = dto.EndTime ?? System.TimeSpan.Zero
-                };
+                var start = dto.StartTime ?? System.TimeSpan.Zero;
+                var end = dto.EndTime ?? System.TimeSpan.Zero;
+                model.OperationalWindow = OperationalWindow.Create(start, end);
             }
             else
             {
