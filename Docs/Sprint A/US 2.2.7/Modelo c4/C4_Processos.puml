@@ -1,0 +1,19 @@
+@startuml C4_Review_VVN_Process_Details
+title C4 – Process Details (Approve/Reject Decision)
+
+actor Officer
+
+Officer -> VesselVisitNotificationsController : POST /{id}/approve (dto)
+VesselVisitNotificationsController -> VVNService : Approve(id, dto)
+VVNService -> EfVvnRepository : GetById(id)
+EfVvnRepository -> PortContext : Query
+PortContext --> EfVvnRepository : VVN
+EfVvnRepository --> VVNService : VVN
+VVNService -> EfVvnRepository : Update VVN (Status, DecisionTimestamp...)
+EfVvnRepository -> PortContext : SaveChanges
+PortContext --> EfVvnRepository : OK
+EfVvnRepository --> VVNService : OK
+VVNService --> VesselVisitNotificationsController : OK
+VesselVisitNotificationsController --> Officer : 204 No Content
+
+@enduml

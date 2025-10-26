@@ -1,0 +1,41 @@
+@startuml C1_Review_VVN_Process_View
+title C1 – Process View — Approve / Reject Workflow
+
+participant Agent as "Shipping Agent Rep"
+participant Officer as "Port Authority Officer"
+participant API as "PLMS API (VesselVisitNotificationsController)"
+participant Service as "VVN Service"
+participant Repo as "VVN Repository"
+participant DB as "PortContext / DB"
+
+Agent -> API: Submit VVN (status=Submitted)
+API -> Service: Save/forward
+Service -> Repo: Add/Update VVN
+Repo -> DB: Save
+DB --> Repo: OK
+Repo --> Service: OK
+Service --> API: Created
+
+Officer -> API: GET /pending
+API -> Service: GetPending
+Service -> Repo: Query pending
+Repo -> DB: Query
+DB --> Repo: Results
+Repo --> Service: Results
+Service --> API: Return list
+API --> Officer: List
+
+Officer -> API: POST /{id}/approve {approvedDockId, officerId}
+API -> Service: Approve(id, dto)
+Service -> Repo: GetById(id)
+Repo -> DB: Query
+DB --> Repo: VVN
+Repo --> Service: VVN
+Service -> Repo: Update VVN (Status=Approved, DecisionTimestamp, ApprovedDockId, OfficerId)
+Repo -> DB: Save
+DB --> Repo: OK
+Repo --> Service: OK
+Service --> API: Success (204)
+API --> Officer: 204 No Content
+
+@enduml

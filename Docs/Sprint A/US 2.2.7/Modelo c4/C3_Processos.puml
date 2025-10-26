@@ -1,0 +1,13 @@
+@startuml C3_Review_VVN_Process_View
+title C3 – Physical / Deployment Processes — Review/Decision for VVN
+
+node "Client (Officer UI / Agent UI)" as Client
+node "PLMS API (ASP.NET Core)" as API
+node "Authentication / IAM" as IAM
+node "Database (SQL/SQLite/Postgres)" as DB
+
+Client --> API : REST calls (list / approve / reject / submit)
+API --> IAM : Validate token
+API --> DB : EF Core (PortContext) read/write
+
+@enduml

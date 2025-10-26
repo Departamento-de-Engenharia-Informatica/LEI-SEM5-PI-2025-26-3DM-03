@@ -1,0 +1,20 @@
+@startuml C2_Review_VVN_Logical_Components
+title C2 – Logical Components — Review/Decision
+
+package "API" {
+  [VesselVisitNotificationsController]
+}
+package "Application" {
+  [VVNService]
+  [VVNMapper]
+}
+package "Infrastructure" {
+  [EfVvnRepository]
+  [PortContext]
+}
+
+VesselVisitNotificationsController --> VVNService
+VVNService --> EfVvnRepository
+EfVvnRepository --> PortContext
+
+@enduml

@@ -1,0 +1,21 @@
+@startuml C1_Review_VVN_Logical_View
+title C1 – Logical View — Review/Decision for VVN
+
+package "API Layer" {
+  [VesselVisitNotificationsController] as Controller
+}
+package "Application" {
+  [VesselVisitNotificationService] as Service
+  [Mappers] as Mapper
+}
+package "Domain / Data" {
+  [VesselVisitNotification Repository] as Repo
+  [PortContext (EF Core)] as Db
+}
+
+Controller --> Service : review/approve/reject requests
+Service --> Repo : get/update VVN
+Service --> Mapper : map DTO ↔ model
+Repo --> Db : persist changes
+
+@enduml

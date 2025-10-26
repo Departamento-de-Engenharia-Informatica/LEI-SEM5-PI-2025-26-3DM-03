@@ -1,0 +1,21 @@
+@startuml C4_Review_VVN_Component_View
+title C4 – Component View — Review/Decision for VVN
+
+package "API Layer" {
+  [VesselVisitNotificationsController] as Controller
+}
+package "Application Layer" {
+  [VesselVisitNotificationService] as Service
+  [VVN Mappers] as Mapper
+}
+package "Domain/Infra" {
+  [EfVvnRepository] as Repo
+  [PortContext] as Db
+}
+
+Controller --> Service
+Service --> Mapper
+Service --> Repo
+Repo --> Db
+
+@enduml

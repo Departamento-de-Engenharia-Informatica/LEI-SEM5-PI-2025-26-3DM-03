@@ -1,0 +1,11 @@
+@startuml C2_Review_VVN_Processes
+title C2 – Processes (How components collaborate)
+
+actor Officer
+
+Officer -> VesselVisitNotificationsController : list/approve/reject
+VesselVisitNotificationsController -> VVNService : Approve/Reject
+VVNService -> EfVvnRepository : GetById / Update
+EfVvnRepository -> PortContext : SaveChanges
+
+@enduml

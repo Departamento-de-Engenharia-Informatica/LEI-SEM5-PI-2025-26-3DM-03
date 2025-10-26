@@ -1,0 +1,11 @@
+@startuml C2_Review_VVN_Container_View
+title C2 – Container (Deployment) View — Review/Decision for VVN
+
+node "Client (Web UI / Postman)" as Client
+node "PLMS API (ASP.NET Core)" as API
+node "Database (SQL/SQLite/Postgres)" as DB
+
+Client --> API : REST calls (/api/VesselVisitNotifications/*)
+API --> DB : EF Core (PortContext)
+
+@enduml

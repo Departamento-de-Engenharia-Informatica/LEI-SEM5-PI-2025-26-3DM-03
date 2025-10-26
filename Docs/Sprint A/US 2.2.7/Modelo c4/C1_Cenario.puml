@@ -1,0 +1,29 @@
+@startuml C1_Review_VVN_Scenario_View
+title C1 – Review, Approve or Reject Vessel Visit Notifications (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Port Authority Officer" as Officer
+actor "Shipping Agent Representative" as Agent
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Pending Notifications" as UC_List
+  usecase "Review Notification Details" as UC_Review
+  usecase "Approve Notification (assign dock)" as UC_Approve
+  usecase "Reject Notification (provide reason)" as UC_Reject
+}
+
+Officer --> UC_List
+Officer --> UC_Review
+Officer --> UC_Approve
+Officer --> UC_Reject
+
+Agent --> UC_Review
+Agent --> UC_List
+
+@enduml

@@ -1,0 +1,17 @@
+@startuml
+title Mapeamento C2 -> C3 (componentes vs. infra)
+
+' Map logical containers to physical infra
+package "Containers / Components (C2)" {
+  [API Container] as API
+  [DB Container] as DB
+}
+package "Physical/Infra (C3)" {
+  [VM / Kubernetes] as Infra
+  [SQL Database Service] as SQL
+}
+
+API -> Infra
+DB -> SQL
+
+@enduml
