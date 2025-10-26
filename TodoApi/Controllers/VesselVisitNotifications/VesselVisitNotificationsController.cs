@@ -19,7 +19,7 @@ namespace TodoApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] TodoApi.Application.Services.VesselVisitNotifications.VesselVisitNotificationFilterDTO? filter)
         {
-            // Try to obtain caller's ShippingAgent id from JWT claims (various common claim names supported)
+          
             long? callerAgentId = null;
             try
             {
@@ -45,7 +45,7 @@ namespace TodoApi.Controllers
         {
             try
             {
-                // Prefer submitter info from authenticated user claims when available
+               
                 try
                 {
                     var email = User.Claims.FirstOrDefault(c => c.Type == "email" || c.Type == System.Security.Claims.ClaimTypes.Email || c.Type == "rep_email")?.Value;
