@@ -1,0 +1,44 @@
+@startuml C4_View_VesselVisitNotifications_Process_View
+title C4 – View Vessel Visit Notifications (Process View – Filter & List)
+hide footbox
+autonumber
+
+actor "Shipping Agent Representative" as Rep
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Vessel Visit Notifications API\n(ASP.NET Core)" as API
+participant "VesselVisitNotificationService\n(Application Logic)" as Service
+participant "PortContext\n(Entity Framework Core)" as Context
+database "PLMS Database\n(SQL / EF Core)" as DB
+
+== Authentication ==
+Rep -> Frontend : Login (credentials)
+Frontend -> API : Authorization: Bearer <JWT>
+
+== Request Notifications ==
+Rep -> Frontend : Request to view VVNs\n(Filter by vessel, status, representative, time)
+Frontend -> API : GET /api/vessel-visit-notifications?filters
+note right of Frontend
+  Possible filters:
+  - vessel (partial name or IMO)
+  - status (Pending, Approved, Rejected, InProgress)
+  - representative (email)
+  - time range (SubmittedFrom / SubmittedTo)
+end note
+
+== Processing Request ==
+API -> Service : GetAllAsync(filter, callerAgentId)
+Service -> Context : Build LINQ query\n(Include CargoManifest, CrewMembers)
+Service -> Context : Apply filters and execute query
+Context -> DB : SELECT ... FROM VesselVisitNotifications\nWHERE AgentId = ? AND filters…
+DB --> Context : List<VesselVisitNotification>
+Context --> Service : Domain list
+
+== Mapping ==
+Service -> Service : Map results to DTOs
+Service --> API : IEnumerable<VesselVisitNotificationDTO>
+
+== Response ==
+API --> Frontend : HTTP 200 OK (JSON list)
+Frontend --> Rep : Display filtered list of notifications
+
+@enduml

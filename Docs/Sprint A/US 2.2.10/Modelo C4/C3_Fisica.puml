@@ -1,0 +1,49 @@
+@startuml C3_View_VesselVisitNotifications_Physical_View
+title C3 – View Vessel Visit Notifications (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+' ========= Nós / Ambientes =========
+node "Docker Host\n(Linux VM / Kubernetes Node)" as DockerHost {
+  node "Container: PLMS VesselVisitNotifications API\n(.NET 8 + Kestrel)\nport 8080" as ApiContainer {
+    artifact "TodoApi.Controllers.dll" as Controllers
+    artifact "TodoApi.Application.Services.VesselVisitNotifications.dll" as Services
+    artifact "TodoApi.Models.VesselVisitNotifications.dll" as Models
+    artifact "TodoApi.Domain.Repositories.dll" as DomainRepos
+    artifact "TodoApi.Infrastructure.Data.dll" as InfraData
+    artifact "EFCore (NuGet)" as EFCore
+    artifact "Program.cs (Minimal Hosting)" as Program
+  }
+}
+
+node "DB Server\n(SQL Server Instance)\nport 1433" as DbServer {
+  database "PLMS Database\n(SQL / EF Core)" as DB
+}
+
+' ========= Ligações físicas =========
+ApiContainer -down-> DbServer : TCP 1433\nConnection String (trusted/secret)
+
+' ========= Relações internas (alto nível – informativas) =========
+Controllers --> Services : calls
+Services --> Models : usa DTOs e entidades
+Services --> DomainRepos : depende de interfaces
+InfraData -up-|> DomainRepos : implementa repositórios
+InfraData --> EFCore : ORM provider
+Program --> ApiContainer : hosts/bootstraps API
+
+@enduml

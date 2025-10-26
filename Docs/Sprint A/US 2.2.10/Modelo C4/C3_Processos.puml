@@ -1,0 +1,37 @@
+@startuml C3_View_VesselVisitNotifications_Process_View
+title C3 – View Vessel Visit Notifications (Process View / System Sequence Diagram)
+hide footbox
+autonumber
+
+actor "Shipping Agent Representative" as Rep
+participant "VesselVisitNotificationsController\n(API Layer)" as Controller
+participant "VesselVisitNotificationService\n(Application Logic)" as Service
+participant "PortContext\n(Entity Framework Core)" as Context
+database "PLMS Database\n(SQL / EF Core)" as DB
+
+' === Fluxo principal ===
+Rep -> Controller : GET /api/VesselVisitNotifications\n(?filter=vessel,status,repEmail,time)
+Controller -> Service : GetAllAsync(filter, callerAgentId)
+
+Service -> Context : Build LINQ query\n(Include CargoManifest, CrewMembers)
+Service -> Context : Apply filters (VesselId, Status, RepresentativeEmail, Time range)
+Service -> Context : Execute query (ToListAsync)
+Context -> DB : SELECT * FROM VesselVisitNotifications\nWHERE AgentId = callerAgentId AND filters…
+DB --> Context : Lista de VVNs
+Context --> Service : List<VesselVisitNotification>
+
+Service -> Service : Map to DTOs\n(VesselVisitNotificationMapper.ToDTO)
+Service --> Controller : IEnumerable<VesselVisitNotificationDTO>
+Controller --> Rep : HTTP 200 OK\n(JSON list of notifications)
+
+' === Possíveis filtros adicionais ===
+note right of Service
+  Filtros possíveis:
+  • VesselId (parcial)
+  • Status (InProgress, Pending, Approved, Rejected)
+  • RepresentativeEmail
+  • SubmittedFrom / SubmittedTo
+  • Paginação (Page, PageSize)
+end note
+
+@enduml

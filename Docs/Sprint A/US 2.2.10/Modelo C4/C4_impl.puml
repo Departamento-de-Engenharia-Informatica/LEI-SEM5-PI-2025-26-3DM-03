@@ -1,0 +1,64 @@
+@startuml C4_View_VesselVisitNotifications_Implementation_View
+title C4 – View Vessel Visit Notifications (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow { 
+  Color Black 
+}
+
+' ================================
+' Pacotes por camada
+' ================================
+
+package "Controllers.VesselVisitNotifications" {
+  [VesselVisitNotificationsController]
+}
+
+package "Application.Services.VesselVisitNotifications" {
+  [VesselVisitNotificationService]
+  [VesselVisitNotificationFilterDTO]
+}
+
+package "Application.Mapping" {
+  [VesselVisitNotificationMapper]
+}
+
+package "Models.VesselVisitNotifications" {
+  [VesselVisitNotification]
+  [ContainerItem]
+  [CrewMember]
+  [VesselVisitNotificationDTO]
+  [CreateVesselVisitNotificationDTO]
+  [UpdateVesselVisitNotificationDTO]
+  [ContainerItemDTO]
+  [CrewMemberDTO]
+}
+
+package "Infrastructure.Data" {
+  [PortContext <<DbContext>>]
+}
+
+' ================================
+' Dependências
+' ================================
+[VesselVisitNotificationsController] --> [VesselVisitNotificationService] : uses
+[VesselVisitNotificationService] --> [VesselVisitNotificationMapper] : maps DTO↔Domain
+[VesselVisitNotificationService] --> [VesselVisitNotificationFilterDTO] : filters/searches
+[VesselVisitNotificationService] --> [PortContext] : queries EF Core
+
+[VesselVisitNotificationMapper] --> [VesselVisitNotification]
+[VesselVisitNotificationMapper] --> [VesselVisitNotificationDTO]
+[VesselVisitNotificationMapper] --> [CreateVesselVisitNotificationDTO]
+[VesselVisitNotificationMapper] --> [UpdateVesselVisitNotificationDTO]
+
+[VesselVisitNotification] --> [ContainerItem]
+[VesselVisitNotification] --> [CrewMember]
+
+@enduml

@@ -1,0 +1,13 @@
+@startuml C1 - Process View (US View Vessel Visit Notifications Status)
+!include <C4/C4_Container>
+
+Person(rep, "Shipping Agent Representative")
+System(api, "Port API")
+
+rep -> api : 1. GET /api/VesselVisitNotifications\n(?vesselId, ?status, ?representativeEmail, ?from, ?to)
+api --> rep : 2. 200 OK (List<VesselVisitNotificationDTO>)
+
+rep -> api : 3. GET /api/VesselVisitNotifications/{id}
+api --> rep : 4. 200 OK (VesselVisitNotificationDTO)
+
+@enduml

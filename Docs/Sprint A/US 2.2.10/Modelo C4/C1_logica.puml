@@ -1,0 +1,11 @@
+@startuml C1_Context_Logic
+!include <C4/C4_Context>
+
+title C1 — Contexto | Vista Lógica — US 2.2.X View Vessel Visit Notifications Status
+
+Person(rep, "Shipping Agent Representative", "Views and tracks the status of submitted Vessel Visit Notifications")
+System(systemPlms, "Port Logistics Management System (PLMS)", "Manages vessel visit notifications and port operations")
+
+Rel(rep, systemPlms, "Queries and filters Vessel Visit Notifications by vessel, status, representative, and time", "HTTPS/JSON (REST API)")
+
+@enduml
