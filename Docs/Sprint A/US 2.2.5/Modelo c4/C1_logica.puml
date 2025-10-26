@@ -1,25 +1,17 @@
-@startuml C1 - Lógica (US Registo de Organizações)
+@startuml C1_Context_Logic
 !include <C4/C4_Container>
 
-Person(rep, "Organization Representative")
-Person(admin, "Port Admin")
+title Level 1 - Context Diagram (Logic) - US 2.2.5
 
-System(plms, "PLMS", "Port Logistics Management System")
+Person(portOfficer, "Port Authority Officer")
 
-Boundary(rules, "Regras de Negócio") {
-  SystemDb(reqs, "Requisitos da US", "Regras mínimas")
+System_Boundary(portSystem, "Port Logistics Management System") {
+    System(portApi, "Port Management API", "Port entities management")
 }
 
-Rel(rep, plms, "Submete registo")
-Rel(admin, plms, "Consulta / aprova")
-Rel(plms, reqs, "Valida regras")
+ContainerDb(database, "Port Database", "SQL Server", "Stores shipping agents data")
 
-' Regras explícitas
-' (Mostradas como notas de alto nível)
-note right of reqs
-- Org: TaxNumber (ID), LegalName, AlternativeName, Address
-- Mínimo 1 Representative
-- Representative: Name, CitizenID, Nationality, Email, Phone
-- Email/Phone usados em notificações/autenticação
-end note
+Rel(portOfficer, portApi, "CRUD Shipping Agents", "HTTPS/JSON")
+Rel(portApi, database, "Reads/Writes", "EF Core")
+
 @enduml

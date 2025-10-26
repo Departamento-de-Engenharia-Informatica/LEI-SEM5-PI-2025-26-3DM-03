@@ -45,9 +45,15 @@ together {
   }
 }
 
+package "Application" as P_App {
+    package "Services" as P_App_Services {
+        [ShippingAgentService]
+    }
+}
 ' ======================
 ' Dependências
 ' ======================
+[PortContext <<EF Core DbContext>>]
 
 [ShippingAgentsController] --> [ShippingAgentMapper] : usa para conversões DTO↔Domínio
 [ShippingAgentsController] --> [PortContext] : acede à BD (EF Core)
@@ -63,5 +69,10 @@ together {
 [ShippingAgent] --> [Address]
 [ShippingAgent] --> [Representative]
 [ShippingAgent] --> [ShippingAgentType]
+
+[ShippingAgentsController] --> [ShippingAgentService] : usa
+[ShippingAgentService] --> [ShippingAgentMapper]
+[ShippingAgentService] --> [IShippingAgentRepository]
+[IShippingAgentRepository] --> [PortContext]
 
 @enduml

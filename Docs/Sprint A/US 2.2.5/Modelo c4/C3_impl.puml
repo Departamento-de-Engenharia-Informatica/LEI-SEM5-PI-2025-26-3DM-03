@@ -1,0 +1,124 @@
+@startuml C3_Register_Shipping_Agents_Implementation_View
+title C3 – Register Shipping Agents (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+
+package "Controllers.ShippingOrganizations" {
+  class ShippingAgentsController {
+    + Post(dto: CreateShippingAgentDTO) : ActionResult<ShippingAgentDTO>
+    + GetByTaxNumber(taxNumber: long) : ActionResult<ShippingAgentDTO>
+  }
+}
+
+package "Application.Services.ShippingOrganizations" {
+  class ShippingAgentService {
+    + RegisterAsync(dto: CreateShippingAgentDTO) : Task<ShippingAgentDTO>
+    + GetByTaxNumberAsync(taxNumber: long) : Task<ShippingAgentDTO?>
+    - _repo : IShippingAgentRepository
+  }
+}
+
+package "Application.Mapping" {
+  class ShippingAgentMapper {
+    + ToDomain(dto: CreateShippingAgentDTO) : ShippingAgent
+    + ToDTO(model: ShippingAgent) : ShippingAgentDTO
+  }
+}
+
+package "Domain.Repositories" {
+  interface IShippingAgentRepository {
+    + ExistsByTaxNumberAsync(taxNumber: long) : Task<bool>
+    + AddAsync(agent: ShippingAgent) : Task
+    + GetByTaxNumberAsync(taxNumber: long, includeRepresentatives: bool = false) : Task<ShippingAgent?>
+    + SaveChangesAsync() : Task
+  }
+}
+
+package "Models.ShippingOrganizations" {
+  class ShippingAgent {
+    + TaxNumber : long
+    + LegalName : string
+    + AlternativeName : string
+    + Type : ShippingAgentType
+    + Address : Address
+    + Representatives : List<Representative>
+  }
+
+  class ShippingAgentType <<Value Object>> {
+    + Value : string
+    + Owner() : ShippingAgentType
+    + Operator() : ShippingAgentType
+    + ToString() : string
+    + implicit operator string(ShippingAgentType)
+    + implicit operator ShippingAgentType(string)
+  }
+
+  class Address {
+    + Street : string
+    + City : string
+    + PostalCode : string
+    + Country : string
+  }
+
+  class Representative {
+    + Name : string
+    + CitizenID : string
+    + Nationality : string
+    + Email : string
+    + PhoneNumber : string
+  }
+
+  class ShippingAgentDTO {
+    + TaxNumber : long
+    + LegalName : string
+    + AlternativeName : string
+    + Type : string
+    + Address : Address
+    + Representatives : List<Representative>
+  }
+
+  class CreateShippingAgentDTO {
+    + TaxNumber : long
+    + LegalName : string
+    + AlternativeName : string
+    + Type : string
+    + Address : Address
+    + Representatives : List<Representative>
+  }
+}
+
+ShippingAgent --> ShippingAgentType : uses
+ShippingAgent *-- Address
+ShippingAgent *-- Representative
+
+package "Infrastructure.Data" {
+  class PortContext {
+    + ShippingAgents : DbSet<ShippingAgent>
+    + SaveChangesAsync() : Task<int>
+  }
+}
+
+' Relationships
+ShippingAgentsController --> ShippingAgentService
+ShippingAgentService --> IShippingAgentRepository
+ShippingAgentService --> ShippingAgentMapper
+IShippingAgentRepository --> PortContext
+ShippingAgentMapper --> ShippingAgent
+ShippingAgentMapper --> ShippingAgentDTO
+ShippingAgentMapper --> CreateShippingAgentDTO
+
+
+ShippingAgent *-- Address
+ShippingAgent *-- Representative
+@enduml

@@ -7,49 +7,53 @@ skinparam package {
   BackgroundColor White
   BorderColor Black
   FontColor Black
-  FontStyle bold
 }
 skinparam arrow {
   Color Black
 }
 
-' ======================
-' Estrutura do domínio ShippingOrganizations
-' ======================
-
 package "Controllers.ShippingOrganizations" {
   [ShippingAgentsController]
+}
+
+package "Application.Services.ShippingOrganizations" {
+  [ShippingAgentService]
+}
+
+package "Application.Mapping" {
+  [ShippingAgentMapper]
+}
+
+package "Domain.Repositories" {
+  [IShippingAgentRepository]
 }
 
 package "Models.ShippingOrganizations" {
   [ShippingAgent]
   [ShippingAgentDTO]
   [CreateShippingAgentDTO]
-  [ShippingAgentMapper]
   [Address]
   [Representative]
   [ShippingAgentType]
 }
 
-package "Data" {
+package "Infrastructure.Data" {
   [PortContext]
 }
 
-' ======================
-' Relações
-' ======================
 
-[ShippingAgentsController] --> [ShippingAgentMapper] : usa para conversões
-[ShippingAgentsController] --> [PortContext] : acede à BD (EF Core)
+[ShippingAgentsController] --> [ShippingAgentService]
+[ShippingAgentService] --> [ShippingAgentMapper]
+[ShippingAgentService] --> [IShippingAgentRepository]
+[IShippingAgentRepository] --> [PortContext]
 
-[ShippingAgentMapper] --> [ShippingAgent] : converte entidades
+[ShippingAgentMapper] --> [ShippingAgent]
 [ShippingAgentMapper] --> [ShippingAgentDTO]
 [ShippingAgentMapper] --> [CreateShippingAgentDTO]
 
+
+[ShippingAgent] --> [ShippingAgentType] : uses
+
 [ShippingAgent] --> [Address]
 [ShippingAgent] --> [Representative]
-[ShippingAgent] --> [ShippingAgentType]
-
-[PortContext] --> [ShippingAgent] : contém DbSet<>
-
 @enduml

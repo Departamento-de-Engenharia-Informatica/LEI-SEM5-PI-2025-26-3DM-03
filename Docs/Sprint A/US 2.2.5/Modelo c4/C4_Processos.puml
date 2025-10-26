@@ -5,35 +5,48 @@ hide footbox
 actor "Organization Representative" as Rep
 participant "Frontend Web App\n(React / Angular)" as Frontend
 participant "Shipping Agents Management API\n(ASP.NET Core)" as API
-participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+participant "ShippingAgentService\n(Business rules)" as Service
+participant "ShippingAgentMapper\n(DTO ↔ Domain)" as Mapper
+participant "IShippingAgentRepository\n(Abstraction)" as Repo
+participant "PortContext\n(Entity Framework Core)" as Context
 database "PLMS Database\n(SQL / SQLite)" as DB
 participant "Notification Providers\n(Email / SMS)" as Notif
+participant "ASP.NET Auth Middleware\n(JWT validation)" as Auth
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
 
-== Autenticação ==
-Rep -> Frontend : Inicia sessão (credenciais)
-Frontend -> IAM : Solicita Token OAuth 2.0
-IAM --> Frontend : Retorna Access Token (JWT)
+== Authentication ==
+Rep -> Frontend : Sign in (credentials)
+Frontend -> IAM : OAuth2/OIDC (PKCE)
+IAM --> Frontend : Access Token (JWT)
+Frontend -> API : Authorization: Bearer <JWT>
+API -> Auth : Validate JWT (signature/claims)
+Auth --> API : OK
 
-== Submissão de Organização ==
-Rep -> Frontend : Preenche e submete formulário\n(TaxNumber, LegalName, AlternativeName,\nAddress, Representatives[≥1], Type)
+== Submit Organization ==
+Rep -> Frontend : Fill & submit form\n(TaxNumber, LegalName, AlternativeName,\nAddress, Representatives[≥1], Type)
 Frontend -> API : POST /api/ShippingAgents\n(JSON + Bearer Token)
-API -> IAM : Valida token JWT
-IAM --> API : Token válido
 
-== Validação e Mapeamento ==
-API -> API : Valida obrigatórios:\n- TaxNumber, LegalName, AlternativeName, Address\n- ≥1 Representative (Name, CitizenID, Nationality, Email, Phone)\n- Formatos Email/Phone
-API -> API : Mapeia DTO → Entidade (ShippingAgent)
+== Validation & Mapping ==
+API -> Service : RegisterAsync(dto)
+Service -> Service : Validate required fields\n- TaxNumber unique, names, address\n- ≥1 Representative (Name, CitizenID, Nationality, Email, Phone)
+Service -> Mapper : ToDomain(dto)
+Mapper --> Service : ShippingAgent
 
-== Persistência ==
-API -> DB : INSERT INTO ShippingAgents (...)\nINSERT INTO Representatives (...)
-DB --> API : Confirmação (OK)
+== Persistence ==
+Service -> Repo : AddAsync(ShippingAgent)
+Repo -> Context : Add + SaveChangesAsync()
+Context -> DB : INSERT ShippingAgents + Representatives
+DB --> Context : OK
+Context --> Repo : OK
+Repo --> Service : OK
 
-== Notificações ==
-API -> Notif : Envia confirmação (Email/SMS) ao representante
-Notif --> API : Entrega aceite
+== Notifications ==
+API -> Notif : Send confirmation (Email/SMS)
+Notif --> API : Accepted
 
-== Resposta ==
-API --> Frontend : HTTP 201 Created (ShippingAgentDTO)
-Frontend --> Rep : Mostra confirmação (organização registada)
+== Response ==
+Service --> API : ShippingAgentDTO
+API --> Frontend : 201 Created (ShippingAgentDTO)
+Frontend --> Rep : Show confirmation
 
 @enduml

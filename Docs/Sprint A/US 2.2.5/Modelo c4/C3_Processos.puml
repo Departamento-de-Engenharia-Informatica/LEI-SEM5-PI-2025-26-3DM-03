@@ -4,22 +4,30 @@ hide footbox
 
 actor "Organization Representative" as Rep
 participant "ShippingAgentsController\n(API Layer)" as Controller
-participant "ShippingAgentMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "ShippingAgentService\n(Business rules)" as Service
+participant "ShippingAgentMapper\n(DTO ↔ Domain)" as Mapper
+participant "IShippingAgentRepository\n(Abstraction)" as Repo
 participant "PortContext\n(Entity Framework Core)" as Context
 database "Database System\n(SQL / SQLite)" as DB
 participant "NotificationService\n(Email / SMS)" as Notif
 
-Rep -> Controller : POST /api/ShippingAgents (CreateShippingAgentDTO)
-Controller -> Mapper : Converte DTO → Entidade ShippingAgent
-Mapper --> Controller : Retorna Entidade ShippingAgent
+Rep -> Controller : POST /api/ShippingAgents (CreateShippingAgentDTO + JWT)
+Controller -> Service : RegisterAsync(dto)
 
-Controller -> Context : Adiciona ShippingAgent e chama SaveChanges()
-Context -> DB : INSERT INTO ShippingAgents (...)
-DB --> Context : Confirma inserção
+Service -> Service : validate required fields\n(TaxNumber unique, names, address, ≥1 representative)
+Service -> Mapper : ToDomain(dto)
+Mapper --> Service : ShippingAgent (domain)
 
-Controller -> Notif : Envia notificações de confirmação (Email/SMS)
-Notif --> Controller : Confirma envio
+Service -> Repo : AddAsync(ShippingAgent)
+Repo -> Context : Add(entity) + SaveChangesAsync()
+Context -> DB : INSERT ShippingAgents + Representatives
+DB --> Context : OK
+Context --> Repo : OK
+Repo --> Service : OK
+
+Service --> Controller : ShippingAgentDTO
+Controller -> Notif : Send confirmation (Email/SMS)
+Notif --> Controller : OK
 
 Controller --> Rep : HTTP 201 Created (ShippingAgentDTO)
-
 @enduml

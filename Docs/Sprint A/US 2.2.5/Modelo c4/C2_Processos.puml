@@ -1,34 +1,33 @@
 @startuml C2_Register_ShippingAgents_Process_View
-title C2 – Register Shipping Agents (Processes / Containers)
 !include <C4/C4_Container>
 
-Person(rep, "Organization Representative", "Submete o registo da organização")
+title C2 – Register Shipping Agent Organizations (US 2.2.5)
+
+Person(officer, "Port Authority Officer")
 
 System_Boundary(sys, "Port Logistics Management System (PLMS)") {
-  Container(api, "Shipping Agents Management API\n(TodoApi - ASP.NET Core)", "C#", "Endpoints REST para gestão de organizações")
-  ContainerDb(db, "PLMS Database", "SQL / SQLite", "ShippingAgents, Representatives; Address (owned)")
-  Container(bg, "Notification Worker (opcional)", "C#", "Envio assíncrono de notificações")
+  Container(api, "Shipping Agents Management API (TodoApi)", "C#", "Handles registration of organizations")
+  ContainerDb(db, "PLMS Database", "SQL / EF Core", "ShippingAgents, Representatives; Address (owned)")
 }
 
 System_Ext(mail, "Email Gateway", "SMTP / Provider API")
-System_Ext(sms, "SMS Gateway", "Provider API")
+System_Ext(sms, "SMS Gateway", "Provider API (optional)")
 
-Rel(rep, api, "POST /api/ShippingAgents", "JSON / HTTPS")
-Rel(api, db, "Persistência (EF Core)", "SQL")
-Rel(api, mail, "Email de confirmação", "SMTP/API")
-Rel(api, sms, "SMS de confirmação (opcional)", "HTTPS")
-Rel(api, bg, "Publica tarefa de notificação", "mensagem/fila")
+Rel(officer, api, "POST /api/ShippingAgents (CreateShippingAgentDTO)", "HTTPS / JSON")
+Rel(api, db, "INSERT ShippingAgent + Representatives", "EF Core")
+Rel(api, mail, "Send confirmation email", "SMTP / API")
+Rel(api, sms, "Send confirmation SMS (optional)", "HTTPS")
 
-' Passos de processo (resumo)
 note right of api
-1) Recebe CreateShippingAgentDTO
-2) Valida obrigatórios:
-   - TaxNumber (ID), LegalName, AlternativeName, Address
-   - ≥ 1 Representative (Name, CitizenID, Nationality, Email, Phone)
-3) Mapeia → ShippingAgent (domínio)
-4) Guarda via EF Core
-5) Dispara notificações (email/SMS)
-6) HTTP 201 Created (ShippingAgentDTO)
+1) Controller receives CreateShippingAgentDTO  
+2) (Service) Validates required fields:  
+   • TaxNumber > 0 and unique  
+   • LegalName and AlternativeName  
+   • Complete Address (Street, City, PostalCode, Country)  
+   • ≥ 1 Representative with (Name, CitizenID, Nationality, Email, PhoneNumber)  
+3) (Service) Maps → domain (ShippingAgent + Representatives)  
+4) (Repository) AddAsync + SaveChangesAsync (EF Core)  
+5) (API) Sends notification (email / SMS)  
+6) Returns 201 Created (ShippingAgentDTO)
 end note
-
 @enduml

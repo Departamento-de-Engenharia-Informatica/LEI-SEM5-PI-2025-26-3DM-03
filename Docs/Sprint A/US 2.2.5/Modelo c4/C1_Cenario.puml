@@ -1,17 +1,18 @@
-@startuml C1 - Contexto (US Registo de Organizações)
+@startuml C1 - Context (US Register Shipping Agent Organizations)
 !include <C4/C4_Container>
 
-Person(admin, "Port Admin", "Gere o porto e aprova organizações")
-Person(rep, "Organization Representative", "Submete o registo da organização")
 
-System(plms, "Port Logistics Management System", "Backoffice + API do porto")
+Person(portOfficer, "Port Authority Officer", "Manages port and registers shipping agents")
+Person(representative, "Shipping Agent Representative", "Represents the shipping organization")
 
-System_Ext(mail, "Email Gateway", "Envio de emails")
-System_Ext(sms, "SMS Gateway", "Envio de SMS")
+System(plms, "Port Logistics Management System", "Backoffice + Port API")
 
-Rel(rep, plms, "Submete registo de organização (API)")
-Rel(admin, plms, "Consulta e aprova")
-Rel(plms, mail, "Notifica por email", "SMTP/Provider API")
-Rel(plms, sms, "Notifica por SMS", "Provider API")
+System_Ext(mail, "Email Gateway", "Email notifications")
+System_Ext(sms, "SMS Gateway", "SMS notifications")
+
+Rel(portOfficer, plms, "Registers shipping agent organizations (API)")
+Rel(representative, plms, "Submits organization data")
+Rel(plms, mail, "Sends notifications via email", "SMTP/Provider API")
+Rel(plms, sms, "Sends notifications via SMS", "Provider API")
 
 @enduml

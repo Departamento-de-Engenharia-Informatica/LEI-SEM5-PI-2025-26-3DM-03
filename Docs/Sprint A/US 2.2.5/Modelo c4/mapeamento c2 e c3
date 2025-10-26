@@ -1,12 +1,11 @@
 @startuml Mapping_C2_to_C3_Register_Shipping_Agents
-title Mapeamento entre C2 (Lógica) e C3 (Implementação) – Register Shipping Agents
+title Mapping between C2 (Logical) and C3 (Implementation) – Register Shipping Agents
 left to right direction
 
 skinparam package {
   BackgroundColor White
   BorderColor Black
   FontColor Black
-  FontStyle bold
 }
 
 package "C2 – Logical View" {
@@ -18,32 +17,40 @@ package "C2 – Logical View" {
 
 package "C3 – Implementation View" {
   [ShippingAgentsController]
+  [ShippingAgentService]
   [ShippingAgentMapper]
+  [IShippingAgentRepository]
   [PortContext]
+  [Entity Framework Core]
   [ShippingAgent]
   [CreateShippingAgentDTO]
   [ShippingAgentDTO]
   [Address]
   [Representative]
   [ShippingAgentType]
-  [Entity Framework Core]
   [ASP.NET Auth Middleware]
   [NotificationService]
 }
 
-' ===== Mapeamentos =====
-
+' Logical → Implementation mappings
 [Shipping Agents Management API] --> [ShippingAgentsController]
+[Shipping Agents Management API] --> [ShippingAgentService]
 [Shipping Agents Management API] --> [ShippingAgentMapper]
-[Shipping Agents Management API] --> [PortContext]
-[Shipping Agents Management API] --> [ShippingAgent]
-[Shipping Agents Management API] --> [CreateShippingAgentDTO]
-[Shipping Agents Management API] --> [ShippingAgentDTO]
+[Shipping Agents Management API] --> [IShippingAgentRepository]
 
 [PLMS Database] --> [Entity Framework Core]
-[PLMS Database] --> [PortContext]
+[Entity Framework Core] --> [PortContext]
+[PortContext] --> [ShippingAgent]
 
 [External IAM Provider] --> [ASP.NET Auth Middleware]
 [Notification Services (Email/SMS)] --> [NotificationService]
+
+' Data contracts / domain
+[ShippingAgentsController] --> [CreateShippingAgentDTO]
+[ShippingAgentsController] --> [ShippingAgentDTO]
+[ShippingAgentMapper] --> [ShippingAgent]
+[ShippingAgent] --> [Address]
+[ShippingAgent] --> [Representative]
+[ShippingAgent] --> [ShippingAgentType]
 
 @enduml
