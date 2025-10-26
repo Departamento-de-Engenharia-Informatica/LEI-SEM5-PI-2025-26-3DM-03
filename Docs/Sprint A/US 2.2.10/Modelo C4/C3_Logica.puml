@@ -1,0 +1,32 @@
+@startuml C3_VesselVisitNotificationsAPI_Logical_Components
+!include <C4/C4_Component>
+
+title C3 — Componentes (Vista Lógica) — Vessel Visit Notifications API
+
+' ==== Contexto externo mínimo ====
+Container(web, "Frontend Web App", "React/Angular", "UI para consulta e filtragem de VVNs")
+ContainerDb(db, "PLMS Database", "SQL / EF Core", "VesselVisitNotifications, ContainerItems, CrewMembers")
+
+' ==== Container em foco ====
+Container_Boundary(api, "Vessel Visit Notifications API (ASP.NET Core)") {
+  Component(controller, "VesselVisitNotificationsController", "ASP.NET Core MVC",
+            "Endpoints REST: listar/filtrar, obter detalhe, criar, atualizar, submeter, aprovar, rejeitar")
+  Component(service, "VesselVisitNotificationService", "Application Layer",
+            "Orquestra regras e consultas (filtros: vessel, status, representante, datas; paginação)")
+  Component(mapper, "VesselVisitNotificationMapper", "Mapping", "DTO ↔ Domain")
+  Component(context, "PortContext", "EF Core DbContext", "Acesso direto às tabelas de VVNs")
+  ' Opcional (existe no domínio, mas o service atual usa DbContext direto)
+  Component(repoIface, "IVesselVisitNotificationRepository", "Domain Port", "Contrato alternativo para acesso a dados (opcional)")
+}
+
+' ==== Relações (fluxo principal) ====
+Rel(web, controller, "HTTP/JSON")
+Rel(controller, service, "chama")
+Rel(service, mapper, "mapeia DTO→Domain/Domain→DTO")
+Rel(service, context, "queries/updates (LINQ + Includes)", "EF Core")
+Rel(context, db, "CRUD", "SQL")
+
+' Opcional: quando existir implementação baseada em repositório
+Rel(service, repoIface, "usa (alternativo ao DbContext)", "C#")
+
+@enduml

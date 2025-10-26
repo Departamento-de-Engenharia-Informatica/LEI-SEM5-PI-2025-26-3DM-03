@@ -1,0 +1,13 @@
+@startuml C3_CreateSubmit_VVN_Physical_View
+title C3 – Physical / Infra View — Create/Submit VVN
+
+node "Client (Agent UI)" as Client
+node "API (PLMS)" as API
+node "Auth (IAM)" as IAM
+node "Database" as DB
+
+Client -> API : HTTPS REST
+API -> IAM : Validate token
+API -> DB : EF Core operations
+
+@enduml

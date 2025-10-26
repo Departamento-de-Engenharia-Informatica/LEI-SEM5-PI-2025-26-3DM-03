@@ -1,0 +1,21 @@
+@startuml C1_CreateSubmit_VVN_Logical_View
+title C1 – Logical View — Create/Submit VVN
+
+package "API Layer" {
+  [VesselVisitNotificationsController]
+}
+package "Application" {
+  [VvnService]
+  [Mappers]
+}
+package "Domain / Data" {
+  [Vvn Repository]
+  [PortContext (EF Core)]
+}
+
+VesselVisitNotificationsController --> VvnService : create/update/submit
+VvnService --> "Vvn Mapper" : map DTO ↔ Model
+VvnService --> Vvn Repository : persist
+Vvn Repository --> PortContext : EF Core
+
+@enduml

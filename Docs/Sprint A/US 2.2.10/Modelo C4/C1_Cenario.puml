@@ -1,0 +1,14 @@
+@startuml
+title C1 — Contexto | Vista de Cenários — UC: View Vessel Visit Notifications Status
+
+actor "Port Authority Officer" as PortOfficer
+actor "Shipping Agent Representative" as Rep
+
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+  usecase "View Vessel Visit Notifications Status" as UC_View
+}
+
+Rep --> UC_View
+PortOfficer --> UC_View
+
+@enduml

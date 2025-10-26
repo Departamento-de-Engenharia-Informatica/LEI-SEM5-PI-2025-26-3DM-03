@@ -1,0 +1,21 @@
+@startuml C4_CreateSubmit_VVN_Logical_Components
+title C4 – Logical Components (detailed)
+
+package "API Layer" {
+  [VesselVisitNotificationsController]
+}
+package "Application Layer" {
+  [VvnService]
+  [Vvn Mapper]
+}
+package "Infrastructure" {
+  [EfVvnRepository]
+  [PortContext]
+}
+
+VesselVisitNotificationsController --> VvnService
+VvnService --> EfVvnRepository
+VvnService --> "DockService / DockRepository" : check dock refs
+EfVvnRepository --> PortContext
+
+@enduml

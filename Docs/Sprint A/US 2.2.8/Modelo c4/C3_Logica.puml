@@ -1,0 +1,16 @@
+@startuml C3_CreateSubmit_VVN_Logical_View
+title C3 – Logical / Deployment Mapping for Create/Submit VVN
+
+left to right direction
+
+actor "Shipping Agent Representative" as Agent
+
+rectangle "PLMS API (ASP.NET Core)" as API
+database "Database (SQL / InMemory)" as DB
+rectangle "Identity / IAM" as IAM
+
+Agent --> API : REST calls (create/update/submit)
+API --> IAM : token validation
+API --> DB : EF Core (PortContext)
+
+@enduml
