@@ -1,5 +1,5 @@
 @startuml C3_Manage_Representatives_Logical_View
-title C3 – Manage Representatives API (Logical View)
+title C3 — Componentes | Vista Lógica — Manage Representatives API
 left to right direction
 hide empty members
 
@@ -25,23 +25,17 @@ rectangle "Port Logistics Management System (PLMS)" as PLMS {
   rectangle "Representatives Management API\n(ASP.NET Core Web API)" as API
   rectangle "RepresentativeService\n(Business rules & validation)" as Service
   rectangle "RepresentativeMapper\n(DTO ↔ Domain)" as Mapper
-  rectangle "IShippingAgentRepository\n(Abstraction)" as Repo
+  rectangle "IShippingAgentRepository\n(Domain abstraction)" as Repo
   rectangle "PortContext\n(Entity Framework Core)" as Context
 }
 
-database "Database System\n(SQL / SQLite)" as DB
-rectangle "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
-rectangle "Notification Services\n(Email / SMS)" as Notif
+database "PLMS Database\n(SQL / EF Core)" as DB
 
-Officer --> IAM : obtains access token (OAuth 2.0)
-Officer --> API : POST/PUT/POST(deactivate)\n/api/ShippingAgents/{taxNumber}/Representatives (Bearer JWT)
-
-API --> Service : Create/Update/Deactivate
-Service --> Mapper : map DTOs ↔ Representative
-Service --> Repo : Load org by taxNumber\n+ SaveChangesAsync
-Repo --> Context : EF Core operations
-Context --> DB : persist Representatives (scoped to org)
-
-API --> Notif : optional notifications to reps (email/SMS)
+Officer --> API : Manage representatives\n(Create / Update / Deactivate)
+API --> Service : Calls RepresentativeService
+Service --> Mapper : Maps DTOs ↔ Domain models
+Service --> Repo : Access organization & reps
+Repo --> Context : EF Core data operations
+Context --> DB : Persist Representatives data
 
 @enduml

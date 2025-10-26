@@ -1,5 +1,5 @@
 @startuml C4_Manage_Representatives_Implementation_View
-title C4 – Manage Representatives (Implementation / Package View – Representatives)
+title C4 — Implementação | Manage Representatives (Package View)
 left to right direction
 hide empty members
 
@@ -45,6 +45,7 @@ package "Models.ShippingOrganizations" {
 
 package "Infrastructure.Data" {
   [PortContext]
+  [EfShippingAgentRepository]
 }
 
 ' ======================
@@ -54,7 +55,9 @@ package "Infrastructure.Data" {
 [RepresentativesController] --> [RepresentativeService]
 [RepresentativeService] --> [RepresentativeMapper]
 [RepresentativeService] --> [IShippingAgentRepository]
-[IShippingAgentRepository] --> [PortContext]
+
+[EfShippingAgentRepository] -up-|> [IShippingAgentRepository]
+[EfShippingAgentRepository] --> [PortContext]
 
 [RepresentativeMapper] --> [Representative]
 [RepresentativeMapper] --> [RepresentativeDTO]

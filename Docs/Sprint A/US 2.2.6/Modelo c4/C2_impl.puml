@@ -61,7 +61,6 @@ package "Domain.Repositories" as P_Repos {
 ' Dependencies
 ' ======================
 
-[PortContext <<EF Core DbContext>>]
 
 [RepresentativesController] --> [RepresentativeService] : uses
 [RepresentativeService] --> [IShippingAgentRepository] : accesses agents and reps

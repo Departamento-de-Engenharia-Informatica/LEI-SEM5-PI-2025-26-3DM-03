@@ -1,27 +1,31 @@
-@startuml C1 - Context (US Manage Representatives)
-!include <C4/C4_Container>
+@startuml
+title C1 — Contexto | Vista de Cenários — UC: Manage Representatives
 
-' === Actors ===
-Person(portOfficer, "Port Authority Officer", "Creates, updates and deactivates representatives")
-Person(repUser, "Shipping Agent Representative", "Acts on behalf of the organization")
+actor "Port Authority Officer" as Officer
+actor "Shipping Agent Representative" as Representative
 
-' === System in scope ===
-System(plms, "Port Logistics Management System", "Backoffice + Port API")
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+  usecase "Create Representative" as UC_Create
+  usecase "Update Representative" as UC_Update
+  usecase "Deactivate Representative" as UC_Deactivate
+  usecase "View Representatives" as UC_View
+}
 
-' === External systems ===
-System_Ext(mail, "Email Gateway", "Email notifications")
-System_Ext(sms, "SMS Gateway", "SMS notifications")
+Officer --> UC_Create
+Officer --> UC_Update
+Officer --> UC_Deactivate
+Officer --> UC_View
 
-' === Relationships ===
-Rel(portOfficer, plms, "Manage representatives (create, update, deactivate) via API")
-Rel(repUser, plms, "Receives account updates / activation")
-Rel(plms, mail, "Sends notifications to representatives", "SMTP/Provider API")
-Rel(plms, sms, "Sends SMS notifications (optional)", "Provider API")
+Representative --> UC_View
 
-' Optional note to highlight the rule
-'note right of plms
-'  Exactly one organization per representative at any time.
-'  (Enforced by service validations)
-'end note
+note right of UC_Create
+  Officer can create new representatives 
+  and assign them to existing organizations.
+end note
+
+note right of UC_Deactivate
+  Deactivation prevents login but 
+  preserves representative history.
+end note
 
 @enduml

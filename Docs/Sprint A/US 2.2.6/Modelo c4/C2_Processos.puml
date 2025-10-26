@@ -1,44 +1,72 @@
-@startuml C2_Manage_Representatives_Process_View
-!include <C4/C4_Container>
+@startuml C2_Manage_Representatives_SSD
+title C2 — System Sequence Diagram (Vista de Processos) — Manage Representatives
+autonumber
+hide footbox
 
-title C2 – Manage Representatives (US 2.2.6)
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App" as Frontend
+participant "Representatives Management API" as API
+participant "RepresentativeService" as Service
+participant "RepresentativeMapper" as Mapper
+participant "IShippingAgentRepository" as Repo
+participant "PortContext (EF Core)" as Context
+database "PLMS Database" as DB
 
-Person(officer, "Port Authority Officer")
+== Create Representative ==
+Officer -> Frontend : Fill and submit form (CreateRepresentativeDTO)
+Frontend -> API : POST /api/shipping-agents/{taxNumber}/representatives
+API -> Service : CreateRepresentative(dto)
+Service -> Repo : Check if organization exists (taxNumber)
+Repo -> Context : SELECT ShippingAgent
+Context -> DB : Query by TaxNumber
+DB --> Context : Result
+Context --> Repo : Organization found
+Service -> Mapper : ToDomain(dto)
+Mapper --> Service : Representative (domain)
+Service -> Repo : AddRepresentative(ShippingAgent, Representative)
+Repo -> Context : INSERT Representative
+Context -> DB : Save Representative
+DB --> Context : OK
+Context --> Repo : OK
+Repo --> Service : OK
+Service -> Mapper : ToDTO(Representative)
+Mapper --> Service : RepresentativeDTO
+Service --> API : RepresentativeDTO
+API --> Frontend : 201 Created (RepresentativeDTO)
+Frontend --> Officer : Confirmation shown
 
-System_Boundary(sys, "Port Logistics Management System (PLMS)") {
-  Container(api, "Representatives Management API (TodoApi)", "C#", "Create, Update, Deactivate representatives of an organization")
-  ContainerDb(db, "PLMS Database", "SQL / EF Core", "ShippingAgents, Representatives")
-}
+== Update Representative ==
+Officer -> Frontend : Update form fields
+Frontend -> API : PUT /api/shipping-agents/{taxNumber}/representatives/{id}
+API -> Service : UpdateRepresentative(dto)
+Service -> Repo : GetRepresentative(id)
+Repo -> Context : SELECT Representative
+Context -> DB : Load data
+DB --> Context : OK
+Context --> Repo : Representative found
+Service -> Mapper : Apply updates
+Mapper --> Service : Updated Representative
+Service -> Repo : SaveChangesAsync()
+Repo -> Context : UPDATE Representative
+Context -> DB : Save
+DB --> Context : OK
+Service --> API : Updated RepresentativeDTO
+API --> Frontend : 200 OK
 
-System_Ext(mail, "Email Gateway", "SMTP / Provider API (optional)")
+== Deactivate Representative ==
+Officer -> Frontend : Deactivate request
+Frontend -> API : POST /api/shipping-agents/{taxNumber}/representatives/{id}/deactivate
+API -> Service : DeactivateRepresentative(id)
+Service -> Repo : GetRepresentative(id)
+Repo -> Context : SELECT Representative
+Context -> DB : Load data
+DB --> Context : Representative found
+Service -> Repo : Set IsActive = false
+Repo -> Context : UPDATE Representative
+Context -> DB : Save
+DB --> Context : OK
+Service --> API : 204 No Content
+API --> Frontend : Confirmation message
+Frontend --> Officer : Representative deactivated
 
-' Endpoints
-Rel(officer, api, "POST /api/ShippingAgents/{taxNumber}/Representatives (CreateRepresentativeDTO)", "HTTPS / JSON")
-Rel(officer, api, "PUT /api/ShippingAgents/{taxNumber}/Representatives/{id} (UpdateRepresentativeDTO)", "HTTPS / JSON")
-Rel(officer, api, "POST /api/ShippingAgents/{taxNumber}/Representatives/{id}/deactivate", "HTTPS")
-
-' Persistence & notifications
-Rel(api, db, "CRUD Representatives scoped by taxNumber", "EF Core")
-Rel(api, mail, "Notify representative about changes (optional)", "SMTP / API")
-
-note right of api
-1) Controller receives request with {taxNumber} scope
-2) (Service) Validates:
-   • Organization with taxNumber exists
-   • Required fields: Name, CitizenID, Nationality, Email, PhoneNumber
-   • (Rule) Exactly one organization per representative
-     - Operations are scoped to {taxNumber}
-     - Reject duplicate CitizenID within the same organization
-3) (Service) Maps DTO ↔ Domain (Representative)
-4) (Repository) SaveChangesAsync (EF Core)
-5) (API) Optional email notification
-
-Responses:
-• Create → 201 Created (RepresentativeDTO)
-• Update → 200 OK (RepresentativeDTO)
-• Deactivate → 204 No Content (IsActive=false)
-Errors:
-• 400 Bad Request (validation)
-• 404 Not Found (organization or representative)
-end note
 @enduml

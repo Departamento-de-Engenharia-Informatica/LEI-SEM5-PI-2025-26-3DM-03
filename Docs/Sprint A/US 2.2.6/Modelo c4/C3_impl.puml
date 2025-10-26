@@ -3,16 +3,16 @@ title C3 – Manage Representatives (Implementation / Package & Class View)
 left to right direction
 hide empty members
 
-skinparam package {
-  BackgroundColor White
-  BorderColor Black
-  FontColor Black
-}
-skinparam class {
-  BackgroundColor White
-  BorderColor Black
-  FontColor Black
-}
+skinparam package { 
+  BackgroundColor White;
+   BorderColor Black;
+    FontColor Black 
+    }
+skinparam class   { 
+  BackgroundColor White;
+   BorderColor Black;
+    FontColor Black 
+    }
 
 ' =======================
 ' CONTROLLERS
@@ -118,6 +118,11 @@ package "Infrastructure.Data" {
     + ShippingAgents : DbSet<ShippingAgent>
     + SaveChangesAsync() : Task<int>
   }
+  class EfShippingAgentRepository {
+    - _ctx : PortContext
+    + GetByTaxNumberAsync(taxNumber: long, includeRepresentatives: bool = false) : Task<ShippingAgent?>
+    + SaveChangesAsync() : Task
+  }
 }
 
 ' =======================
@@ -126,11 +131,14 @@ package "Infrastructure.Data" {
 RepresentativesController --> RepresentativeService
 RepresentativeService --> IShippingAgentRepository
 RepresentativeService --> RepresentativeMapper
-IShippingAgentRepository --> PortContext
+
+EfShippingAgentRepository -up-|> IShippingAgentRepository
+EfShippingAgentRepository --> PortContext
+
 RepresentativeMapper --> Representative
 RepresentativeMapper --> RepresentativeDTO
 RepresentativeMapper --> CreateRepresentativeDTO
 RepresentativeMapper --> UpdateRepresentativeDTO
-ShippingAgent *-- Representative
 
+ShippingAgent *-- Representative
 @enduml

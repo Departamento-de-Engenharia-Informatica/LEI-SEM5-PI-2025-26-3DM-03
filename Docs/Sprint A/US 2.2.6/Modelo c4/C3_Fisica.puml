@@ -12,6 +12,11 @@ skinparam artifact {
   BorderColor Black
   FontColor Black
 }
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
 
 ' === API Layer ===
 node "Representatives Management API\n(ASP.NET Core Application)" as API {
@@ -20,8 +25,8 @@ node "Representatives Management API\n(ASP.NET Core Application)" as API {
   artifact "TodoApi.Application.Mapping.dll" as Mapping
   artifact "TodoApi.Domain.Repositories.dll" as DomainRepos
   artifact "TodoApi.Infrastructure.Data.dll" as InfraData
-  artifact "EFCore.dll" as EFCore
-  artifact "Program.cs / Startup.cs" as Startup
+  artifact "EFCore (NuGet Package)" as EFCore
+  artifact "Program.cs (Minimal Hosting)" as Program
 }
 
 ' === Runtime Environment ===
@@ -29,19 +34,17 @@ node "Runtime Environment\n(.NET 8 SDK / Docker Container)" as Runtime {
   artifact "ASP.NET Core Hosting" as Hosting
 }
 
-' === External / Infrastructure ===
+' === Database Server ===
 database "PLMS Database\n(SQL / EF Core)" as DB
-cloud "Email Providers\n(SMTP / API)" as Notif
 
 ' === Relations ===
-Hosting --> API : Hosts the ASP.NET Core application
+Hosting --> API : Hosts ASP.NET Core app
 Controllers --> AppServices : Calls RepresentativeService
 AppServices --> Mapping : Uses RepresentativeMapper
 AppServices --> DomainRepos : Uses IShippingAgentRepository
 DomainRepos --> InfraData : Implemented via PortContext
 InfraData --> EFCore : ORM for persistence
 API --> DB : Connection via EF Core (ShippingAgents + Representatives)
-API --> Notif : Sends optional email notifications
-Startup --> Hosting : Application configuration and startup
+Program --> Hosting : Bootstraps and configures app
 
 @enduml
