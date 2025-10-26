@@ -1,21 +1,22 @@
-```plantuml
 @startuml C1_Logica
 title C1 — Logical View (US 2.2.9)
 
-package "Port Operations" {
-  [VesselVisitNotification API]
-  [Docks]
-  [Shipping Agents]
+actor "Shipping Agent Representative" as Rep
+
+package "Port Operations System" {
+  [VesselVisitNotifications API]
+  [VesselVisitNotification Service]
+  [PortContext (Database)]
 }
 
-actor "Port Authority Officer" as Officer
-actor "Representative" as Rep
-
-Rep --> [VesselVisitNotification API] : submit VVN
-Officer --> [VesselVisitNotification API] : approve/reject
+Rep --> [VesselVisitNotifications API] : edit / submit VVN
+[VesselVisitNotifications API] --> [VesselVisitNotification Service] : validation + update
+[VesselVisitNotification Service] --> [PortContext (Database)] : EF Core persistence
 
 note right
-Simple logical view: submission by representatives; decision by officers; data persisted in Docks/Entities
+Logical flow:
+Representative updates a notification still in progress.
+System validates, saves, and optionally transitions it
+to "ApprovalPending" or keeps as "InProgress".
 end note
-
 @enduml

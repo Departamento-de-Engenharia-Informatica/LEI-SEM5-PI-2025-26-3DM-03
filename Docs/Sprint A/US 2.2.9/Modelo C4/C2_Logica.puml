@@ -1,22 +1,20 @@
-```plantuml
 @startuml C2_Logica
 title C2 — Logical Container View (US 2.2.9)
 
-package "API" {
+package "API Layer" {
   [VesselVisitNotificationsController]
 }
 
-package "Application" {
+package "Application Layer" {
   [VesselVisitNotificationService]
 }
 
-package "Persistence" {
-  [VesselVisitNotificationRepository]
+package "Infrastructure Layer" {
+  [EfVesselVisitNotificationRepository]
   [PortContext]
 }
 
-[VesselVisitNotificationsController] -> [VesselVisitNotificationService] : calls
-[VesselVisitNotificationService] -> [VesselVisitNotificationRepository] : reads/writes
-[VesselVisitNotificationRepository] -> [PortContext] : EF Core
-
+[VesselVisitNotificationsController] --> [VesselVisitNotificationService] : invokes
+[VesselVisitNotificationService] --> [EfVesselVisitNotificationRepository] : CRUD operations
+[EfVesselVisitNotificationRepository] --> [PortContext] : EF Core
 @enduml

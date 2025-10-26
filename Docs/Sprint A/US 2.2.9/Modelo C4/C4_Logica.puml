@@ -1,16 +1,18 @@
-```plantuml
 @startuml C4_Logica
-title C4 — Component Logic (US 2.2.9)
+title C4 — Component Logic (US 2.2.9 – Edit/Complete Vessel Visit Notifications)
 
-component VesselVisitNotificationsController
-component VesselVisitNotificationService
-component VesselVisitNotificationRepository
+component "VesselVisitNotificationsController" as Controller
+component "VesselVisitNotificationService" as Service
+component "EfVesselVisitNotificationRepository" as Repo
 
-VesselVisitNotificationsController -> VesselVisitNotificationService : Submit/Approve/Reject
-VesselVisitNotificationService -> VesselVisitNotificationRepository : CRUD
+Controller -> Service : PUT /api/VesselVisitNotifications/{id}\nPOST /api/VesselVisitNotifications/{id}/submit
+Service -> Repo : Get / Update / Save
 
 note bottom
-Core logic: domain validations, state transition rules, officer authorization.
+Core logic:
+- Validation: Only status "InProgress" can be modified.
+- Update cargo, crew, and dates.
+- Submit transitions status to "Submitted" or "ApprovalPending".
 end note
 
 @enduml

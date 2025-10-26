@@ -1,16 +1,35 @@
-```plantuml
 @startuml C4_Processos
-title C4 — Sequência Detalhada (US 2.2.9)
+title C4 — Detailed Sequence (US 2.2.9 – Edit/Complete Vessel Visit Notification)
+hide footbox
 
-actor Representative
-actor Officer
+actor "Shipping Agent Representative" as Rep
+participant "VesselVisitNotificationsController" as Controller
+participant "VesselVisitNotificationService" as Service
+participant "EfVesselVisitNotificationRepository" as Repo
+database "PortContext" as Db
 
-Representative -> VesselVisitNotificationsController : POST /submit
-VesselVisitNotificationsController -> VesselVisitNotificationService : Submit(dto)
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
+== Update Notification ==
+Rep -> Controller : PUT /api/VesselVisitNotifications/{id}\n(UpdateVesselVisitNotificationDTO)
+activate Controller
+Controller -> Service : UpdateAsync(id, dto)
+activate Service
+Service -> Repo : GetByIdAsync(id)
+Repo --> Service : VesselVisitNotification
+Service -> Repo : UpdateAsync(entity)
+Repo -> Db : SaveChanges()
+deactivate Service
+Controller --> Rep : 204 No Content
 
-Officer -> VesselVisitNotificationsController : POST /{id}/approve/{dockId}/{officerId}
-VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(id,dockId,officerId)
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Update(status=Approved)
+== Submit Notification ==
+Rep -> Controller : POST /api/VesselVisitNotifications/{id}/submit
+activate Controller
+Controller -> Service : SubmitAsync(id, email?, name?)
+activate Service
+Service -> Repo : GetByIdAsync(id)
+Repo --> Service : VesselVisitNotification
+Service -> Repo : UpdateAsync(status="Submitted", timestamp)
+Repo -> Db : SaveChanges()
+deactivate Service
+Controller --> Rep : 204 No Content
 
 @enduml

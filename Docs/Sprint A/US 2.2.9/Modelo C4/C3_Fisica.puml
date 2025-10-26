@@ -1,16 +1,21 @@
-```plantuml
 @startuml C3_Fisica
-title C3 — Physical View / Deployment (US 2.2.9)
+title C3 — Physical Deployment View (US 2.2.9 – Edit/Complete Vessel Visit Notifications)
 
-node "API Server" as ApiNode
-database "SQL Database" as SqlDb
-cloud "Identity Provider (Auth)" as IdP
+node "API Server\n(ASP.NET Core 8.0)" as ApiNode {
+  component "TodoApi" as TodoApi
+}
 
-ApiNode --> SqlDb : TCP/5432 (EF Core)
-ApiNode .. IdP : HTTPS (JWT)
+database "PortContext Database\n(SQL / InMemory during tests)" as SqlDb
+cloud "Identity Provider\n(AuthN/AuthZ via JWT)" as IdP
+
+TodoApi --> SqlDb : EF Core (TCP 1433)
+TodoApi .. IdP : HTTPS (JWT validation)
 
 note bottom
-Typical deployment: API in App Service / Container; SQL in managed instance; external IdP.
+Deployment summary:
+- ASP.NET Core API hosted in Docker or App Service.
+- EF Core used for persistence (SQL or InMemory).
+- JWT authentication via external Identity Provider.
 end note
 
 @enduml

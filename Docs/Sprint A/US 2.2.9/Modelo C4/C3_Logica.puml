@@ -1,21 +1,26 @@
-```plantuml
 @startuml C3_Logica
-title C3 — Detailed Logical View (US 2.2.9)
+title C3 — Logical Class Relationships (US 2.2.9 – Edit/Complete Vessel Visit Notifications)
 
 class VesselVisitNotification {
-  +id: long
-  +vesselId: long
-  +agentId: long
-  +status: string
-  +approvedDockId: long?
+  +Id: long
+  +VesselId: string
+  +AgentId: long
+  +ArrivalDate: DateTime
+  +DepartureDate: DateTime?
+  +Status: string
+  +SubmissionTimestamp: DateTime?
 }
 
 class VesselVisitNotificationService {
-  +Submit(dto)
-  +Approve(id,dockId,officerId)
-  +Reject(id,officerId,reason)
+  +UpdateAsync(id, dto)
+  +SubmitAsync(id, submitterEmail?, submitterName?)
 }
 
-VesselVisitNotificationService ..> VesselVisitNotification : manages
+VesselVisitNotificationService ..> VesselVisitNotification : updates & validates
+
+note right
+Only notifications with Status = "InProgress"
+can be modified or submitted by representatives.
+end note
 
 @enduml

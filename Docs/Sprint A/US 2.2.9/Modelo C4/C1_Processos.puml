@@ -1,22 +1,19 @@
-```plantuml
 @startuml C1_Processos
-title C1 — Processos (US 2.2.9)
+title C1 — Process View (US 2.2.9)
 
-actor "Representative" as Rep
-actor "Port Authority Officer" as Officer
+actor "Shipping Agent Representative" as Rep
 
-Rep -> System : Create VVN (submit)
+Rep -> System : Update or Complete Vessel Visit Notification
 activate System
-System -> Repository : persist VVN (status: Submitted)
-deactivate System
-
-Officer -> System : Review VVN
-activate System
-System -> Repository : update VVN (Approved/Rejected)
+System -> Repository : Fetch VVN by ID
+System -> Repository : Update details (cargo, crew, times)
+System -> Repository : Persist changes (EF Core)
 deactivate System
 
 note bottom
-Processo: submit -> review -> decision (approve/reject)
+Process:
+1. Representative edits notification (while InProgress)
+2. System validates and updates data
+3. Optionally sets status = "ApprovalPending"
 end note
-
 @enduml

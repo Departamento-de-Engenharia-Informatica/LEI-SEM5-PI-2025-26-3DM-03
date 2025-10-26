@@ -1,23 +1,19 @@
-```plantuml
 @startuml C1_Cenario
-title C1 — System Context (US 2.2.9 - Review/Approve/Reject Vessel Visits)
+title C1 — System Context (US 2.2.9 - Edit/Complete Vessel Visit Notifications)
 
-actor "Port Authority Officer" as Officer
-actor "Shipping Agent / Representative" as Agent
+actor "Shipping Agent Representative" as Rep
 rectangle "Port Operations API\n(TodoApi)" as System {
 }
 
-rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
+rectangle "Port Ops Web UI\n(Swagger / SPA / Postman)" as WebUI
 cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
 
-Agent --> WebUI : submits VVN
-WebUI --> System : HTTP/REST
-Officer --> WebUI : uses
-Officer --> System : approve/reject VVN (HTTP/REST)
-System .. IdP : validates tokens
+Rep --> WebUI : edits or completes\nVessel Visit Notification (VVN)
+WebUI --> System : HTTP / REST (PUT /api/VesselVisitNotifications/{id})
+System .. IdP : validates JWT tokens
 
 note bottom of System
-- Goal: allow review and decision on Vessel Visit Notifications
-- Flows: submit -> review -> approve/reject -> (downstream events)
+Goal: allow representatives to update or complete
+Vessel Visit Notifications while status = "InProgress".
 end note
 @enduml

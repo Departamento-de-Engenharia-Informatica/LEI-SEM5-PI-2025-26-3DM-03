@@ -1,24 +1,21 @@
-```plantuml
 @startuml C2_Processos
-title C2 — Sequence / Processes (US 2.2.9)
+title C2 — Sequence / Process View (US 2.2.9 - Edit/Complete Vessel Visit Notification)
+hide footbox
 
-actor "Representative" as Rep
-actor "Port Authority Officer" as Officer
+actor "Shipping Agent Representative" as Rep
+participant "VesselVisitNotificationsController" as Controller
+participant "VesselVisitNotificationService" as Service
+participant "EfVesselVisitNotificationRepository" as Repo
+database "PortContext" as Db
 
-Rep -> VesselVisitNotificationsController : POST /submit
-activate VesselVisitNotificationsController
-VesselVisitNotificationsController -> VesselVisitNotificationService : SubmitVVN(dto)
-activate VesselVisitNotificationService
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
-deactivate VesselVisitNotificationService
-deactivate VesselVisitNotificationsController
-
-Officer -> VesselVisitNotificationsController : POST /{id}/approve/{dockId}/{officerId}
-activate VesselVisitNotificationsController
-VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(id,dockId,officerId)
-activate VesselVisitNotificationService
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Update status -> Approved
-deactivate VesselVisitNotificationService
-deactivate VesselVisitNotificationsController
-
+Rep -> Controller : PUT /api/VesselVisitNotifications/{id}\n(UpdateVesselVisitNotificationDTO)
+activate Controller
+Controller -> Service : UpdateAsync(id, dto)
+activate Service
+Service -> Repo : GetByIdAsync(id)
+Repo --> Service : VesselVisitNotification
+Service -> Repo : UpdateAsync(model)
+Repo -> Db : SaveChanges()
+deactivate Service
+Controller --> Rep : 204 No Content
 @enduml

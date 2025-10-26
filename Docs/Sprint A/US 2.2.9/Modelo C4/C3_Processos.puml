@@ -1,16 +1,35 @@
-```plantuml
 @startuml C3_Processos
-title C3 — Fluxos de Processo (US 2.2.9)
+title C3 — Process Flow (US 2.2.9 – Edit/Complete Vessel Visit Notification)
+hide footbox
 
-actor Representative
-actor Officer
+actor "Shipping Agent Representative" as Rep
+participant "VesselVisitNotificationsController" as Controller
+participant "VesselVisitNotificationService" as Service
+participant "EfVesselVisitNotificationRepository" as Repo
+database "PortContext" as Db
 
-Representative -> VesselVisitNotificationsController : submitVVN(dto)
-VesselVisitNotificationsController -> VesselVisitNotificationService : Submit(dto)
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
+== Update Notification ==
+Rep -> Controller : PUT /api/VesselVisitNotifications/{id} (UpdateVesselVisitNotificationDTO)
+activate Controller
+Controller -> Service : UpdateAsync(id, dto)
+activate Service
+Service -> Repo : GetByIdAsync(id)
+Repo --> Service : VVN entity
+Service -> Repo : UpdateAsync(entity)
+Repo -> Db : SaveChanges()
+deactivate Service
+Controller --> Rep : 204 No Content
 
-Officer -> VesselVisitNotificationsController : approve(id,dockId,officerId)
-VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(...)
-VesselVisitNotificationService -> VesselVisitNotificationRepository : Update status
+== Submit Notification ==
+Rep -> Controller : POST /api/VesselVisitNotifications/{id}/submit
+activate Controller
+Controller -> Service : SubmitAsync(id, email?, name?)
+activate Service
+Service -> Repo : GetByIdAsync(id)
+Repo --> Service : VVN entity
+Service -> Repo : UpdateAsync(status="Submitted", timestamp)
+Repo -> Db : SaveChanges()
+deactivate Service
+Controller --> Rep : 204 No Content
 
 @enduml

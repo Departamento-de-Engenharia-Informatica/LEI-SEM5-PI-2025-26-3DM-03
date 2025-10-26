@@ -1,26 +1,32 @@
-```plantuml
 @startuml C4_Impl
-title C4 — Components and Detailed Implementation (US 2.2.9)
+title C4 — Components and Detailed Implementation (US 2.2.9 – Edit/Complete Vessel Visit Notifications)
 
-package "API" {
+package "API Layer" {
   [VesselVisitNotificationsController]
 }
 
-package "Application" {
+package "Application Layer" {
   [VesselVisitNotificationService]
 }
 
-package "Domain" {
+package "Domain Layer" {
   [VesselVisitNotification]
+  [CrewMember]
+  [ContainerItem]
 }
 
-package "Infrastructure" {
-  [VesselVisitNotificationRepository]
+package "Infrastructure Layer" {
+  [EfVesselVisitNotificationRepository]
   [PortContext]
 }
 
-[VesselVisitNotificationsController] -> [VesselVisitNotificationService]
-[VesselVisitNotificationService] -> [VesselVisitNotificationRepository]
-[VesselVisitNotificationRepository] -> [PortContext]
+[VesselVisitNotificationsController] -> [VesselVisitNotificationService] : handles requests (PUT / POST /submit)
+[VesselVisitNotificationService] -> [EfVesselVisitNotificationRepository] : CRUD + validation
+[EfVesselVisitNotificationRepository] -> [PortContext] : EF Core persistence
+
+note bottom
+Implements: Edit and Submit Vessel Visit Notifications while status = "InProgress".
+Technologies: ASP.NET Core 8.0, EF Core, C#, REST API.
+end note
 
 @enduml

@@ -1,18 +1,21 @@
-```plantuml
 @startuml C3_Impl
-title C3 — Implementation (US 2.2.9)
+title C3 — Implementation View (US 2.2.9 – Edit/Complete VVN)
 
 component "VesselVisitNotificationsController" as Controller
 component "VesselVisitNotificationService" as Service
-component "VesselVisitNotificationRepository" as Repo
+component "EfVesselVisitNotificationRepository" as Repo
 database "PortContext (EF Core)" as Db
 
-Controller -> Service : calls
-Service -> Repo : calls
-Repo -> Db : SQL
+Controller -> Service : calls Update / Submit
+Service -> Repo : CRUD operations
+Repo -> Db : SaveChanges()
 
 note right
-Technologies: ASP.NET Core 8, EF Core, C#, xUnit (tests).
+Technologies:
+- ASP.NET Core 8 (API)
+- Entity Framework Core
+- C# / .NET 8
+- xUnit for Unit Testing
 end note
 
 @enduml
