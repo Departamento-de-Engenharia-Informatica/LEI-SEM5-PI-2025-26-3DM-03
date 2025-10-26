@@ -11,7 +11,7 @@ participant "External IAM Provider" as IAM
 
 == Create Qualification ==
 Officer -> Controller : POST /api/Qualifications (QualificationDTO + Bearer)
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Mapper : Map to Qualification entity
 Controller -> Context : Add(Qualification) -> SaveChanges()
@@ -21,7 +21,7 @@ Controller --> Officer : HTTP 201 Created (QualificationDTO)
 
 == Update Qualification ==
 Officer -> Controller : PUT /api/Qualifications/{code} (QualificationDTO)
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Context : Find(code) -> Update -> SaveChanges()
 Context -> DB : UPDATE
@@ -30,7 +30,7 @@ Controller --> Officer : HTTP 200 OK (QualificationDTO)
 
 == List Qualifications ==
 Officer -> Controller : GET /api/Qualifications
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Context : Query Qualifications
 Context -> DB : SELECT

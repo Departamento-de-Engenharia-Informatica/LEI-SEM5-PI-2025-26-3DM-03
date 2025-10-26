@@ -6,9 +6,9 @@ participant "Frontend Web App\n(React / Angular)" as Frontend
 participant "Qualifications Management API\n(ASP.NET Core)" as API
 database "PLMS Database\n(SQL / InMemory)" as DB
 
-Officer -> Frontend : Acede UI de Qualifications
+Officer -> Frontend : Opens Qualifications UI
 Frontend -> API : GET/POST/PUT /api/Qualifications
 API -> DB : CRUD Operations (EF Core)
-API -> "External IAM Provider" : Valida Token
+API -> "External IAM Provider" : Validates Token
 
 @enduml

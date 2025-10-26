@@ -8,39 +8,39 @@ participant "Qualifications Management API\n(ASP.NET Core)" as API
 participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
 database "PLMS Database\n(SQL / InMemory)" as DB
 
-== Autenticação ==
-Officer -> Frontend : Inicia sessão (credenciais)
-Frontend -> IAM : Solicita Token OAuth 2.0
-IAM --> Frontend : Retorna Access Token (JWT)
+== Authentication ==
+Officer -> Frontend : Sign in (credentials)
+Frontend -> IAM : Requests OAuth 2.0 Token
+IAM --> Frontend : Returns Access Token (JWT)
 
-== Gestão de Qualifications ==
-Officer -> Frontend : Abre painel de Qualifications
+== Qualifications Management ==
+Officer -> Frontend : Opens Qualifications dashboard
 Frontend -> API : GET /api/Qualifications (Bearer Token)
-API -> IAM : Valida token JWT
-IAM --> API : Token válido
+API -> IAM : Validates JWT token
+IAM --> API : Token valid
 API -> DB : SELECT * FROM Qualifications
-DB --> API : Lista de QualificationDTO
+DB --> API : List of QualificationDTO
 API --> Frontend : HTTP 200 OK (JSON)
-Frontend --> Officer : Apresenta lista
+Frontend --> Officer : Presents list
 
-== Criação de Qualification ==
-Officer -> Frontend : Preenche formulário (código, descrição)
+== Create Qualification ==
+Officer -> Frontend : Fill form (code, description)
 Frontend -> API : POST /api/Qualifications (JSON + Bearer Token)
-API -> IAM : Valida token JWT
-IAM --> API : Token válido
+API -> IAM : Validates JWT token
+IAM --> API : Token valid
 API -> DB : INSERT INTO Qualifications (...)
-DB --> API : Confirmação (OK)
+DB --> API : Confirmation (OK)
 API --> Frontend : HTTP 201 Created (QualificationDTO)
-Frontend --> Officer : Confirma criação
+Frontend --> Officer : Confirms creation
 
-== Atualização de Qualification ==
-Officer -> Frontend : Edita Qualification existente
+== Update Qualification ==
+Officer -> Frontend : Edit existing Qualification
 Frontend -> API : PUT /api/Qualifications/{code} (JSON + Bearer Token)
-API -> IAM : Valida token JWT
-IAM --> API : Token válido
+API -> IAM : Validates JWT token
+IAM --> API : Token valid
 API -> DB : UPDATE Qualifications SET ... WHERE code = ...
-DB --> API : Confirmação (OK)
+DB --> API : Confirmation (OK)
 API --> Frontend : HTTP 200 OK (QualificationDTO)
-Frontend --> Officer : Confirma alteração
+Frontend --> Officer : Confirms update
 
 @enduml

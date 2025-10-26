@@ -13,10 +13,10 @@ skinparam arrow {
   Color Black
 }
 
-' ======================
-' Estrutura do domínio Qualifications
-' ======================
-
+'' ======================
+'' Qualifications domain structure
+'' ======================
+''
 package "Controllers.Qualifications" {
   [QualificationsController]
 }
@@ -33,16 +33,16 @@ package "Data" {
   [PortContext]
 }
 
-' ======================
-' Relações
-' ======================
-
-[QualificationsController] --> [QualificationMapper] : usa para conversões
-[QualificationsController] --> [PortContext] : acede à BD (EF Core)
-[QualificationMapper] --> [Qualification] : converte entidades
+' '' ======================
+' '' Relationships
+' '' ======================
+' 
+[QualificationsController] --> [QualificationMapper] : used for conversions
+[QualificationsController] --> [PortContext] : accesses DB (EF Core)
+[QualificationMapper] --> [Qualification] : converts entities
 [QualificationMapper] --> [QualificationDTO]
 [QualificationMapper] --> [CreateQualificationDTO]
 [QualificationMapper] --> [UpdateQualificationDTO]
-[PortContext] --> [Qualification] : contém DbSet<>
+[PortContext] --> [Qualification] : contains DbSet<>
 
 @enduml

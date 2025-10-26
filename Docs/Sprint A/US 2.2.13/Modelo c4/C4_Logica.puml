@@ -44,10 +44,10 @@ node "Database Server\n(SQL Server / InMemoryDB)" as DBServer {
 
 cloud "External IAM Provider\n(SSO / OAuth 2.0 / OpenId Connect)" as IAM
 
-' === Relações ===
-Officer --> Frontend : Acede via Browser (HTTPS)
-Frontend --> API : Requisições REST (JSON/HTTPS)
-API --> IAM : Valida Token (OAuth 2.0)
+' === Relationships ===
+Officer --> Frontend : Accesses via Browser (HTTPS)
+Frontend --> API : REST requests (JSON/HTTPS)
+API --> IAM : Validates Token (OAuth 2.0)
 API --> Database : CRUD via EF Core (SQL)
 
 @enduml

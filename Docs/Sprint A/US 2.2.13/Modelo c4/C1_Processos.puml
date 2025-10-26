@@ -4,10 +4,10 @@ title C1 – Manage Qualifications (Context / Process Overview)
 actor "Port Authority Officer" as Officer
 rectangle "PLMS (Port Logistics Management System)" as PLMS
 
-Officer --> PLMS : Solicita gestão de Qualifications (UI)
-PLMS --> Officer : Resposta (lista / criação / atualização)
+Officer --> PLMS : Requests Qualification management (UI)
+PLMS --> Officer : Response (list / create / update)
 
-' Autenticação externa
+' External authentication
 PLMS --> "External IAM Provider (OAuth 2.0)" : Delegates auth
 
 @enduml
