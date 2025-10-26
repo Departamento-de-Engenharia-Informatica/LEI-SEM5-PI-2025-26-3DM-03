@@ -1,28 +1,20 @@
-@startuml C3_Processos
-title C3 — Sequência (UpdateDock)
+@startuml C3_Manage_Docks_Process_View
+title C3 – Manage Docks (Process View / System Sequence Diagram)
+hide footbox
 
-actor Officer
-participant Controller as "DocksController"
-participant Service as "DockService"
-participant Repo as "IDockRepository"
-participant VT as "IVesselTypeRepository"
+actor "Port Authority Officer" as Officer
+participant "DocksController\n(API Layer)" as Controller
+participant "DockMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / InMemory)" as DB
 
-Officer -> Controller: PUT /api/Docks/{id} (UpdateDockDTO)
-Controller -> Service: UpdateDockAsync(id,dto)
-Service -> Service: validar (id == dto.Id)\nse não → throw ArgumentException
-Service -> Repo: GetByIdAsync(id)
-Repo --> Service: Dock|null
-Service -> Service: se null → throw KeyNotFoundException
-opt AllowedVesselTypeIds fornecidos
-  loop para cada vtId
-    Service -> VT: GetByIdAsync(vtId)
-    VT --> Service: VesselType|null
-    Service -> Service: se null → throw ArgumentException
-  end
-  Service -> Service: dock.AllowedVesselTypes = novos
-end
-Service -> Repo: UpdateAsync(dock)
-Repo --> Service: OK
-Service --> Controller: void
-Controller --> Officer: 204 No Content
+Officer -> Controller : POST /api/Docks (CreateDockDTO)
+Controller -> Mapper : Converte DTO para Entidade Dock
+Mapper --> Controller : Retorna Entidade Dock
+Controller -> Context : Adiciona Dock e chama SaveChanges()
+Context -> DB : INSERT INTO Docks (...)
+DB --> Context : Confirma inserção
+Controller --> Officer : HTTP 201 Created (DockDTO)
+
 @enduml
+

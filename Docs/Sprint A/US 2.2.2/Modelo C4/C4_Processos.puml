@@ -1,25 +1,38 @@
-@startuml C4_Processos
-title C4 — Sequência detalhada (GetVessels com filtros)
+@startuml C4_Manage_Vessels_Process_View
+title C4 – Manage Vessels (Process View – Create Vessel)
+hide footbox
 
-actor Client
-participant Controller as "VesselsController"
-participant Service as "VesselService"
-database DB as "PortContext/DB"
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Vessels Management API\n(ASP.NET Core)" as API
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+database "PLMS Database\n(SQL / InMemory)" as DB
 
-Client -> Controller: GET /api/Vessels?imo&name&operator
-Controller -> Service: GetVesselsAsync(imo,name,operator)
-Service -> DB: _context.Set<Vessel>().Include(VesselType)
-opt imo
-  Service -> DB: Where(v => v.Imo.Contains(imo))
+== Autenticação ==
+Officer -> Frontend : Inicia sessão (credenciais)
+Frontend -> IAM : Solicita Token OAuth 2.0
+IAM --> Frontend : Retorna Access Token (JWT)
+
+== Criação de Vessel ==
+Officer -> Frontend : Submete formulário (dados do novo vessel)
+Frontend -> API : POST /api/Vessels (JSON + Bearer Token)
+API -> IAM : Valida token JWT
+IAM --> API : Token válido
+
+== Validação IMO ==
+API -> API : Valida formato IMO (7 dígitos + check digit)
+alt IMO Inválido
+  API --> Frontend : HTTP 400 BadRequest
+  Frontend --> Officer : Mostra erro (IMO inválido)
+else IMO Válido
+  == Persistência ==
+  API -> DB : INSERT INTO Vessels (...)
+  DB --> API : Confirmação (OK)
+  
+  == Resposta ==
+  API --> Frontend : HTTP 201 Created (VesselDTO)
+  Frontend --> Officer : Mostra confirmação (vessel criado)
 end
-opt name
-  Service -> DB: Where(v => ToLower(Name) contains)
-end
-opt operator
-  Service -> DB: Where(v => ToLower(Operator) contains)
-end
-DB --> Service: List<Vessel>
-Service -> Service: Select(VesselMapper.ToDTO)
-Service --> Controller: IEnumerable<VesselDTO>
-Controller --> Client: 200 OK [VesselDTO...]
+
 @enduml
+

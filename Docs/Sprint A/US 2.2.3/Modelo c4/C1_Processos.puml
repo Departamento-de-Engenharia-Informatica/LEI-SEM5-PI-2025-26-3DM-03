@@ -1,31 +1,22 @@
-@startuml C1_Processos
-title C1 — Processos (high level)
+@startuml C1_Manage_Docks_Process_View
+title C1 – Manage Docks (Process View)
 
-start
-:Officer escolhe ação;
+actor "Port Authority Officer" as Officer
+participant "DocksController\n(API Layer)" as Controller
+participant "DockMapper\n(Data Mapper)" as Mapper
+participant "PortContext\n(EF Core)" as Context
+database "Database\n(SQL / InMemory)" as DB
 
-partition "Criar Dock" {
-  :Preenche Name/Location/\nLength/Depth/MaxDraft;\nSeleciona VesselTypes;
-  :POST /api/Docks;
-  if (IDs VesselType válidos?) then (sim)
-    :201 Created;
-  else (não)
-    :400 Bad Request;
-  endif
-}
+Officer -> Controller : POST /api/Docks\n(CreateDockDTO)
+Controller -> Mapper : Converte DTO → Entidade de Domínio
+Mapper --> Controller : Retorna objeto Dock
 
-partition "Atualizar Dock" {
-  :PUT /api/Docks/{id} com UpdateDockDTO;
-  if (id == dto.Id?) then (sim)
-    :204 No Content;
-  else (não)
-    :400 ID mismatch;
-  endif
-}
+Controller -> Context : Adiciona entidade Dock
+Context -> DB : Persiste dados (SaveChanges)
+DB --> Context : Confirma inserção
+Context --> Controller : OK
 
-partition "Pesquisar/Filtrar" {
-  :GET /api/Docks?name&vesselTypeId&location;
-  :200 OK [DockDTO...];
-}
-stop
+Controller --> Officer : HTTP 201 Created\n(DockDTO)
+
 @enduml
+

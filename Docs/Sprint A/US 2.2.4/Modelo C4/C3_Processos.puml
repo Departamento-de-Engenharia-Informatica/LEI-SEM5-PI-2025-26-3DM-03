@@ -1,34 +1,25 @@
-@startuml C3_Processos
-title C3 — Sequência detalhada (UpdateStorageArea)
+@startuml C3_Manage_Storage_Areas_Process_View
+title C3 – Manage Storage Areas (Process View / System Sequence Diagram)
+hide footbox
 
-actor Officer
-participant C as "StorageAreasController"
-participant S as "StorageAreaService"
-participant R as "IStorageAreaRepository"
-participant D as "IDockRepository"
+actor "Port Authority Officer" as Officer
+participant "StorageAreasController\n(API Layer)" as Controller
+participant "StorageAreaMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / InMemory)" as DB
 
-Officer -> C: PUT /api/StorageAreas/{id} (UpdateStorageAreaDTO)
-C -> S: UpdateStorageAreaAsync(id,dto)
-S -> R: GetByIdAsync(id)
-R --> S: area|null
-alt area == null
-  S --> C: KeyNotFoundException
-  C --> Officer: 404 Not Found
-else
-  S -> S: UpdateEntityFromDTO(area,dto)\n(Occupancy <= Capacity?)\n(throw se inválido)
-  opt dto.ServedDockIds fornecidos
-    loop cada dockId
-      S -> D: GetByIdAsync(dockId)
-      D --> S: Dock|null
-      alt null
-        S --> C: ArgumentException
-        C --> Officer: 400 Bad Request
-      end
-    end
-  end
-  S -> R: UpdateAsync(area)
-  R --> S: OK
-  S --> C: area
-  C --> Officer: 200 OK (StorageAreaDTO)
+Officer -> Controller : POST /api/StorageAreas (CreateStorageAreaDTO)
+Controller -> Mapper : Converte DTO para Entidade StorageArea
+Mapper --> Controller : Retorna Entidade StorageArea
+Controller -> Controller : Valida regra (occupancy ≤ capacity)
+alt Validação Falha
+  Controller --> Officer : HTTP 400 BadRequest
+else Validação OK
+  Controller -> Context : Adiciona StorageArea e chama SaveChanges()
+  Context -> DB : INSERT INTO StorageAreas (...)
+  DB --> Context : Confirma inserção
+  Controller --> Officer : HTTP 201 Created (StorageAreaDTO)
 end
+
 @enduml
+

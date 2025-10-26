@@ -1,0 +1,21 @@
+@startuml C1_Manage_Storage_Areas_Process_View
+title C1 – Manage Storage Areas (Process View)
+
+actor "Port Authority Officer" as Officer
+participant "StorageAreasController\n(API Layer)" as Controller
+participant "StorageAreaMapper\n(Data Mapper)" as Mapper
+participant "PortContext\n(EF Core)" as Context
+database "Database\n(SQL / InMemory)" as DB
+
+Officer -> Controller : POST /api/StorageAreas\n(CreateStorageAreaDTO)
+Controller -> Mapper : Converte DTO → Entidade de Domínio
+Mapper --> Controller : Retorna objeto StorageArea
+
+Controller -> Context : Adiciona entidade StorageArea
+Context -> DB : Persiste dados (SaveChanges)
+DB --> Context : Confirma inserção
+Context --> Controller : OK
+
+Controller --> Officer : HTTP 201 Created\n(StorageAreaDTO)
+
+@enduml

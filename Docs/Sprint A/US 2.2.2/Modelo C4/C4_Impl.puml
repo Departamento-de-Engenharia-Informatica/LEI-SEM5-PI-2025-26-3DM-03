@@ -1,68 +1,87 @@
-@startuml C4_impl
-title C4 — Código (classes principais) — Vessels
+@startuml C4_Manage_Vessels_Implementation_View
+title C4 – Manage Vessels (Code / Class Implementation View)
 
-package "TodoApi.Models.Vessels" {
-  class Vessel {
-    + string Imo
-    + string Name
-    + long VesselTypeId
-    + VesselType? VesselType
-    + string Operator
-  }
-
-  class CreateVesselDTO {
-    + string Imo
-    + string Name
-    + long VesselTypeId
-    + string Operator
-  }
-
-  class UpdateVesselDTO {
-    + string Name
-    + long VesselTypeId
-    + string Operator
-  }
-
-  class VesselDTO {
-    + string Imo
-    + string Name
-    + long VesselTypeId
-    + VesselTypeDTO? VesselType
-    + string Operator
-  }
-
-  class VesselMapper {
-    + static bool IsValidImo(string)
-    + static Vessel ToModel(CreateVesselDTO)
-    + static VesselDTO ToDTO(Vessel)
-  }
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
 }
 
-package "TodoApi.Application.Services.Vessels" {
-  interface IVesselService {
-    + Task<IEnumerable<VesselDTO>> GetVesselsAsync(string?, string?, string?)
-    + Task<VesselDTO?> GetVesselAsync(string)
-    + Task<VesselDTO> CreateVesselAsync(CreateVesselDTO)
-    + Task UpdateVesselAsync(string, UpdateVesselDTO)
-    + Task DeleteVesselAsync(string)
-    + bool IsValidImo(string)
-  }
-  class VesselService
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
 }
 
 package "TodoApi.Controllers.Vessels" {
-  class VesselsController
+  class VesselsController {
+    -PortContext _context
+    +GetVessels()
+    +GetVessel(imo)
+    +PostVessel(CreateVesselDTO)
+    +PutVessel(imo, UpdateVesselDTO)
+    +DeleteVessel(imo)
+  }
+}
+
+package "TodoApi.Models.Vessels" {
+  class Vessel {
+    +string Imo <<PK>>
+    +string Name
+    +int VesselTypeId <<FK>>
+    +string Operator
+    +VesselType VesselType
+  }
+  
+  class VesselType {
+    +int Id <<PK>>
+    +string Name
+    +string Description
+  }
+  
+  class VesselDTO {
+    +string Imo
+    +string Name
+    +VesselTypeDTO VesselType
+    +string Operator
+  }
+  
+  class CreateVesselDTO {
+    +string Imo
+    +string Name
+    +int VesselTypeId
+    +string Operator
+  }
+  
+  class UpdateVesselDTO {
+    +string Name
+    +int VesselTypeId
+    +string Operator
+  }
+  
+  class VesselMapper {
+    +{static} ToDTO(Vessel): VesselDTO
+    +{static} ToEntity(CreateVesselDTO): Vessel
+    +{static} UpdateEntity(Vessel, UpdateVesselDTO)
+    +{static} IsValidImo(string): bool
+  }
 }
 
 package "TodoApi.Models" {
-  class PortContext
+  class PortContext {
+    +DbSet<Vessel> Vessels
+    +DbSet<VesselType> VesselTypes
+    +SaveChangesAsync()
+  }
 }
 
-VesselService ..|> IVesselService
-VesselsController --> IVesselService
-VesselService --> PortContext
-VesselService --> VesselMapper
+VesselsController --> PortContext
+VesselsController --> VesselMapper
+VesselMapper --> Vessel
 VesselMapper --> VesselDTO
+VesselMapper --> CreateVesselDTO
+VesselMapper --> UpdateVesselDTO
 Vessel --> VesselType
 
 @enduml
+

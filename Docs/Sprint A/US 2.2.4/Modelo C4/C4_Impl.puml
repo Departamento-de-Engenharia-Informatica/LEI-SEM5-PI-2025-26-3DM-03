@@ -1,89 +1,96 @@
-@startuml C4_impl
-title C4 — Código (classes principais) — Storage Areas
+@startuml C4_Manage_Storage_Areas_Implementation_View
+title C4 – Manage Storage Areas (Code / Class Implementation View)
 
-package "TodoApi.Models.StorageAreas" {
-  enum StorageAreaType { Yard; Warehouse }
-
-  class StorageArea {
-    + int Id
-    + StorageAreaType Type
-    + string Location
-    + int MaxCapacityTEU
-    + int CurrentOccupancyTEU
-    + List<int> ServedDockIds
-    + Dictionary<int,double> DockDistances
-  }
-
-  class CreateStorageAreaDTO {
-    + string Type
-    + string Location
-    + int MaxCapacityTEU
-    + int CurrentOccupancyTEU
-    + List<int> ServedDockIds
-    + Dictionary<int,double> DockDistances
-  }
-
-  class UpdateStorageAreaDTO {
-    + string Location
-    + int? MaxCapacityTEU
-    + int? CurrentOccupancyTEU
-    + List<int>? ServedDockIds
-    + Dictionary<int,double>? DockDistances
-  }
-
-  class StorageAreaDTO {
-    + int Id
-    + string? Type
-    + string? Location
-    + int MaxCapacityTEU
-    + int CurrentOccupancyTEU
-    + List<int> ServedDockIds
-    + Dictionary<int,double> DockDistances
-  }
-
-  class StorageAreaMapper {
-    + static StorageArea ToEntity(CreateStorageAreaDTO)
-    + static void UpdateEntityFromDTO(StorageArea, UpdateStorageAreaDTO)
-    + static StorageAreaDTO ToDTO(StorageArea)
-  }
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
 }
 
-package "TodoApi.Application.Services.StorageAreas" {
-  interface IStorageAreaService {
-    + Task<StorageArea> RegisterStorageAreaAsync(CreateStorageAreaDTO)
-    + Task<StorageArea> UpdateStorageAreaAsync(int, UpdateStorageAreaDTO)
-    + Task<StorageArea?> GetStorageAreaAsync(int)
-    + Task<IEnumerable<StorageArea>> GetAllStorageAreasAsync()
-  }
-  class StorageAreaService
-}
-
-package "TodoApi.Domain.Repositories" {
-  interface IStorageAreaRepository {
-    + Task<IEnumerable<StorageArea>> GetAllAsync(string?, string?, int?)
-    + Task<StorageArea?> GetByIdAsync(int)
-    + Task AddAsync(StorageArea)
-    + Task UpdateAsync(StorageArea)
-    + Task DeleteAsync(StorageArea)
-    + Task SaveChangesAsync()
-  }
-  interface IDockRepository
-}
-
-package "TodoApi.Infrastructure.Repositories" {
-  class EfStorageAreaRepository
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
 }
 
 package "TodoApi.Controllers.StorageAreas" {
-  class StorageAreasController
+  class StorageAreasController {
+    -PortContext _context
+    +GetStorageAreas()
+    +GetStorageArea(id)
+    +PostStorageArea(CreateStorageAreaDTO)
+    +PutStorageArea(id, UpdateStorageAreaDTO)
+    +DeleteStorageArea(id)
+  }
 }
 
-StorageAreaService ..|> IStorageAreaService
-EfStorageAreaRepository ..|> IStorageAreaRepository
-StorageAreasController --> IStorageAreaService
-StorageAreaService --> IStorageAreaRepository
-StorageAreaService --> IDockRepository : valida docks
-StorageAreaService --> StorageAreaMapper
-StorageAreaMapper --> StorageAreaDTO
+package "TodoApi.Models.StorageAreas" {
+  class StorageArea {
+    +int Id <<PK>>
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class StorageAreaDTO {
+    +int Id
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class CreateStorageAreaDTO {
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class UpdateStorageAreaDTO {
+    +int Id
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class StorageAreaMapper {
+    +{static} ToDTO(StorageArea): StorageAreaDTO
+    +{static} ToEntity(CreateStorageAreaDTO): StorageArea
+    +{static} UpdateEntity(StorageArea, UpdateStorageAreaDTO)
+    +{static} ValidateCapacity(StorageArea): bool
+  }
+}
+
+package "TodoApi.Models" {
+  class PortContext {
+    +DbSet<StorageArea> StorageAreas
+    +DbSet<Dock> Docks
+    +SaveChangesAsync()
+  }
+}
+
+StorageAreasController --> PortContext
+StorageAreasController --> StorageAreaMapper
 StorageAreaMapper --> StorageArea
+StorageAreaMapper --> StorageAreaDTO
+StorageAreaMapper --> CreateStorageAreaDTO
+StorageAreaMapper --> UpdateStorageAreaDTO
+
+note right of StorageAreaMapper::ValidateCapacity
+  Enforces business rule:
+  CurrentOccupancyTEU ≤ MaxCapacityTEU
+end note
+
 @enduml
+

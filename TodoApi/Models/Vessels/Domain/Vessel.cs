@@ -1,6 +1,8 @@
+using FrameworkDDD.Common;
+
 namespace TodoApi.Models.Vessels
 {
-    public class Vessel
+    public class Vessel : IAggregateRoot
     {
         
         public string Imo { get; set; } = string.Empty;

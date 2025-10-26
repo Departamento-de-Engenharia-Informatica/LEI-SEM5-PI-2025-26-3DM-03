@@ -1,8 +1,9 @@
+using FrameworkDDD.Common;
 using TodoApi.Models.Vessels;
 
 namespace TodoApi.Models.Docks
 {
-    public class Dock
+    public class Dock : IAggregateRoot
     {
         public long Id { get; set; }
 

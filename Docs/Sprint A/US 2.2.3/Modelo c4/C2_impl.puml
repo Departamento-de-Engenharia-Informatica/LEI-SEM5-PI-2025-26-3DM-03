@@ -1,28 +1,59 @@
-@startuml C2_impl
-title C2 — Containers (implementação)
+@startuml C2_Manage_Docks_Implementation_View
+title C2 – Manage Docks (Implementation / Package View)
+left to right direction
+hide empty members
 
-node "Client" as Client {
-  component "Port Ops Web UI\n(React/Swagger/Postman)" as Web
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
 }
 
-node "Port Operations API\nASP.NET Core" as Api {
-  component "DocksController\n(Web API)" as Ctrl
-  component "DockService\n(Application)" as App
-  component "DockMapper/DTOs" as Map
+' ======================
+' Pacotes (lado a lado)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "Docks" as P_Controllers_Docks {
+      [DocksController]
+    }
+  }
 }
 
-node "Persistence\nEF Core" as Persistence {
-  component "EfDockRepository\n(IDockRepository)" as DockRepo
-  component "IVesselTypeRepository" as VTRepo
-  database "PortContext\n(SQL DB)" as DB
+together {
+  package "Models" as P_Models {
+    package "Docks" as P_Models_Docks {
+      [Dock]
+      [DockDTO]
+      [CreateDockDTO]
+      [UpdateDockDTO]
+      [DockMapper]
+    }
+  }
 }
 
-Client --> Ctrl : HTTP/JSON
-Ctrl --> App
-App --> DockRepo
-App --> VTRepo
-DockRepo --> DB
-VTRepo --> DB
-App --> Map
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[DocksController] --> [DockMapper] : usa para conversões
+[DocksController] --> [PortContext] : acede à BD (EF Core)
+
+[DockMapper] --> [Dock] : mapeia entidades
+[DockMapper] --> [DockDTO] : mapeia DTOs
+[DockMapper] --> [CreateDockDTO]
+[DockMapper] --> [UpdateDockDTO]
 
 @enduml
+

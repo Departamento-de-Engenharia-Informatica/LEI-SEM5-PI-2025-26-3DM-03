@@ -1,41 +1,91 @@
-@startuml C3_impl
-title C3 — Componentes internos (Storage Areas)
+@startuml C3_Manage_Storage_Areas_Implementation_View
+title C3 – Manage Storage Areas API (Implementation / Component View)
+left to right direction
+hide empty members
 
-package "TodoApi.Controllers.StorageAreas" {
-  component "StorageAreasController"
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
 }
 
-package "TodoApi.Application.Services.StorageAreas" {
-  interface "IStorageAreaService"
-  component "StorageAreaService"
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
 }
 
-package "TodoApi.Domain.Repositories" {
-  interface "IStorageAreaRepository"
-  interface "IDockRepository"
+package "Controllers" {
+  class StorageAreasController {
+    +GetStorageAreas()
+    +GetStorageArea(id)
+    +PostStorageArea(dto)
+    +PutStorageArea(id, dto)
+    +DeleteStorageArea(id)
+  }
 }
 
-package "TodoApi.Infrastructure.Repositories" {
-  component "EfStorageAreaRepository"
-  component "EfDockRepository"
+package "Models" {
+  class StorageArea {
+    +int Id
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class StorageAreaDTO {
+    +int Id
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class CreateStorageAreaDTO {
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class UpdateStorageAreaDTO {
+    +int Id
+    +string Type
+    +string Location
+    +int MaxCapacityTEU
+    +int CurrentOccupancyTEU
+    +List<int> ServedDockIds
+    +Dictionary<int, decimal> DockDistances
+  }
+  
+  class StorageAreaMapper {
+    +ToDTO(StorageArea)
+    +ToEntity(CreateStorageAreaDTO)
+    +UpdateEntity(StorageArea, UpdateStorageAreaDTO)
+  }
 }
 
-package "TodoApi.Models.StorageAreas" {
-  class StorageArea
-  class CreateStorageAreaDTO
-  class UpdateStorageAreaDTO
-  class StorageAreaDTO
-  class StorageAreaMapper <<static>>
-  enum StorageAreaType
+package "Data" {
+  class PortContext {
+    +DbSet<StorageArea> StorageAreas
+    +DbSet<Dock> Docks
+  }
 }
 
-StorageAreasController --> IStorageAreaService
-StorageAreaService ..|> IStorageAreaService
-StorageAreaService --> IStorageAreaRepository
-StorageAreaService --> IDockRepository : valida ServedDockIds
-EfStorageAreaRepository ..|> IStorageAreaRepository
-
+StorageAreasController --> StorageAreaMapper
+StorageAreasController --> PortContext
+StorageAreaMapper --> StorageArea
 StorageAreaMapper --> StorageAreaDTO
-StorageAreaMapper --> StorageArea : ToEntity/Update
+StorageAreaMapper --> CreateStorageAreaDTO
+StorageAreaMapper --> UpdateStorageAreaDTO
 
 @enduml
+

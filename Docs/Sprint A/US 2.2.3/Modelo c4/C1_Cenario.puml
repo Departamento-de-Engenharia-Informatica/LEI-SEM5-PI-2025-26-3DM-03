@@ -1,20 +1,40 @@
-@startuml C1_Cenario
-title C1 — Contexto do Sistema (US 2.2.3 - Docks)
+@startuml C1_Manage_Docks_Scenario_View
+title C1 – Manage Docks (Scenario View)
 
-actor "Port Authority Officer" as Officer
-rectangle "Port Operations API\n(TodoApi)" as System {
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
 }
 
-cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
-rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
+actor "Port Authority Officer" as Officer
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Register Dock" as UC_Create
+  usecase "Update Dock" as UC_Update
+  usecase "View Docks" as UC_View
+  usecase "Delete Dock" as UC_Delete
+  usecase "Search Docks" as UC_Search
+  usecase "Assign Vessel Types" as UC_AssignVesselTypes
+}
 
-Officer --> WebUI : usa
-WebUI --> System : HTTP/REST
-Officer --> System : (alternativo) chama REST direto
-System .. IdP : valida tokens (opcional/futuro)
+Officer --> UC_Create
+Officer --> UC_Update
+Officer --> UC_View
+Officer --> UC_Delete
+Officer --> UC_Search
+Officer --> UC_AssignVesselTypes
 
-note bottom of System
-- Objetivo: registar/atualizar docks
-- Expor consulta/filtragem
+note right of UC_Create
+  Includes physical characteristics:
+  length, depth, max draft
 end note
+
+note right of UC_AssignVesselTypes
+  Specifies allowed vessel types
+  for each dock
+end note
+
 @enduml
+

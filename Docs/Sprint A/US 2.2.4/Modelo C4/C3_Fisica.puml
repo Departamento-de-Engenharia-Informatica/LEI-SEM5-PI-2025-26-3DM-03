@@ -1,21 +1,41 @@
-@startuml C3_Fisica
-title C3 — Física / Deployment (Storage Areas)
+@startuml C3_Manage_Storage_Areas_Physical_View
+title C3 – Manage Storage Areas (Physical / Deployment View)
+left to right direction
 
-node "Workstation (Officer)" as Client {
-  artifact "Browser / Postman"
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
 }
 
-node "DMZ" {
-  node "App Server" {
-    component "Port Operations API\nASP.NET Core" as API
-  }
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
 }
 
-node "Data Center" {
-  database "SQL Database\n(PortContext)" as DB
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
 }
 
-Client --> API : HTTPS 443
-API --> DB : TCP 1433/5432 (SGBD)
+actor "Port Authority Officer" as Officer
+
+node "User Device\n(Browser)" as Client {
+  artifact "Web Browser"
+}
+
+node "Application Server\n(Docker / .NET 8)" as AppSrv {
+  artifact "Storage Areas Management API\n(ASP.NET Core)"
+  artifact "Entity Framework Core"
+}
+
+node "Database Server\n(SQL Server)" as DBSrv {
+  database "PLMS Database"
+}
+
+Officer --> Client : Acede via HTTPS
+Client --> AppSrv : REST API Calls (HTTPS)
+AppSrv --> DBSrv : TCP/IP (SQL Protocol)
 
 @enduml
+

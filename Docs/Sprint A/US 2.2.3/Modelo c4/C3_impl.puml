@@ -1,46 +1,91 @@
-@startuml C3_impl
-title C3 — Componentes internos (Docks)
+@startuml C3_Manage_Docks_Implementation_View
+title C3 – Manage Docks API (Implementation / Component View)
+left to right direction
+hide empty members
 
-package "TodoApi.Controllers.Docks" {
-  component "DocksController"
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
 }
 
-package "TodoApi.Application.Services.Docks" {
-  interface "IDockService"
-  component "DockService"
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
 }
 
-package "TodoApi.Domain.Repositories" {
-  interface "IDockRepository"
-  interface "IVesselTypeRepository"
+package "Controllers" {
+  class DocksController {
+    +GetDocks()
+    +GetDock(id)
+    +PostDock(dto)
+    +PutDock(id, dto)
+    +DeleteDock(id)
+  }
 }
 
-package "TodoApi.Infrastructure.Repositories" {
-  component "EfDockRepository"
+package "Models" {
+  class Dock {
+    +int Id
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<VesselType> AllowedVesselTypes
+  }
+  
+  class DockDTO {
+    +int Id
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<VesselTypeDTO> AllowedVesselTypes
+  }
+  
+  class CreateDockDTO {
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<int> AllowedVesselTypeIds
+  }
+  
+  class UpdateDockDTO {
+    +int Id
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<int> AllowedVesselTypeIds
+  }
+  
+  class DockMapper {
+    +ToDTO(Dock)
+    +ToEntity(CreateDockDTO)
+    +UpdateEntity(Dock, UpdateDockDTO)
+  }
 }
 
-package "TodoApi.Models.Docks" {
-  class Dock
-  class CreateDockDTO
-  class UpdateDockDTO
-  class DockDTO
-  class DockMapper <<static>>
+package "Data" {
+  class PortContext {
+    +DbSet<Dock> Docks
+    +DbSet<VesselType> VesselTypes
+  }
 }
 
-package "TodoApi.Models.Vessels" {
-  class VesselType
-  class VesselTypeDTO
-}
-
-DocksController --> IDockService
-DockService ..|> IDockService
-DockService --> IDockRepository
-DockService --> IVesselTypeRepository
-EfDockRepository ..|> IDockRepository
-
-DockService --> DockMapper
+DocksController --> DockMapper
+DocksController --> PortContext
+DockMapper --> Dock
 DockMapper --> DockDTO
-Dock --> "0..*" VesselType
-DockMapper --> VesselTypeDTO
+DockMapper --> CreateDockDTO
+DockMapper --> UpdateDockDTO
 
 @enduml
+

@@ -1,99 +1,97 @@
-@startuml C4_impl
-title C4 — Código (classes principais)
+@startuml C4_Manage_Docks_Implementation_View
+title C4 – Manage Docks (Code / Class Implementation View)
 
-package "TodoApi.Models.Vessels" {
-  class VesselType {
-    + long Id
-    + string Name
-    ..(outros)..
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "TodoApi.Controllers.Docks" {
+  class DocksController {
+    -PortContext _context
+    +GetDocks()
+    +GetDock(id)
+    +PostDock(CreateDockDTO)
+    +PutDock(id, UpdateDockDTO)
+    +DeleteDock(id)
   }
-  class VesselTypeDTO
 }
 
 package "TodoApi.Models.Docks" {
   class Dock {
-    + long Id
-    + string Name
-    + string Location
-    + double Length
-    + double Depth
-    + double MaxDraft
-    + ICollection<VesselType> AllowedVesselTypes
+    +int Id <<PK>>
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +ICollection<VesselType> AllowedVesselTypes
   }
-
-  class CreateDockDTO {
-    + string Name
-    + string Location
-    + double Length
-    + double Depth
-    + double MaxDraft
-    + IEnumerable<long> AllowedVesselTypeIds
+  
+  class VesselType {
+    +int Id <<PK>>
+    +string Name
+    +string Description
   }
-
-  class UpdateDockDTO {
-    + long Id
-    + string Name
-    + string Location
-    + double Length
-    + double Depth
-    + double MaxDraft
-    + IEnumerable<long> AllowedVesselTypeIds
-  }
-
+  
   class DockDTO {
-    + long Id
-    + string Name
-    + string Location
-    + double Length
-    + double Depth
-    + double MaxDraft
-    + IEnumerable<VesselTypeDTO> AllowedVesselTypes
+    +int Id
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<VesselTypeDTO> AllowedVesselTypes
   }
-
+  
+  class CreateDockDTO {
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<int> AllowedVesselTypeIds
+  }
+  
+  class UpdateDockDTO {
+    +int Id
+    +string Name
+    +string Location
+    +decimal Length
+    +decimal Depth
+    +decimal MaxDraft
+    +List<int> AllowedVesselTypeIds
+  }
+  
   class DockMapper {
-    + static DockDTO ToDTO(Dock)
+    +{static} ToDTO(Dock): DockDTO
+    +{static} ToEntity(CreateDockDTO): Dock
+    +{static} UpdateEntity(Dock, UpdateDockDTO)
   }
 }
 
-package "TodoApi.Application.Services.Docks" {
-  interface IDockService {
-    + Task<IEnumerable<DockDTO>> GetDocksAsync(string?, long?, string?)
-    + Task<DockDTO?> GetDockAsync(long)
-    + Task<DockDTO> CreateDockAsync(CreateDockDTO)
-    + Task UpdateDockAsync(long, UpdateDockDTO)
-    + Task DeleteDockAsync(long)
+package "TodoApi.Models" {
+  class PortContext {
+    +DbSet<Dock> Docks
+    +DbSet<VesselType> VesselTypes
+    +SaveChangesAsync()
   }
-  class DockService
 }
 
-package "TodoApi.Domain.Repositories" {
-  interface IDockRepository {
-    + Task<IEnumerable<Dock>> GetAllAsync(string?, long?, string?)
-    + Task<Dock?> GetByIdAsync(long)
-    + Task AddAsync(Dock)
-    + Task UpdateAsync(Dock)
-    + Task DeleteAsync(Dock)
-    + Task SaveChangesAsync()
-  }
-  interface IVesselTypeRepository
-}
-
-package "TodoApi.Infrastructure.Repositories" {
-  class EfDockRepository
-}
-
-package "TodoApi.Controllers.Docks" {
-  class DocksController
-}
-
-Dock "0..*" -u- "0..*" VesselType : AllowedVesselTypes
+DocksController --> PortContext
+DocksController --> DockMapper
+DockMapper --> Dock
 DockMapper --> DockDTO
-DockMapper --> VesselTypeDTO
-DockService ..|> IDockService
-EfDockRepository ..|> IDockRepository
-DocksController --> IDockService
-DockService --> IDockRepository
-DockService --> IVesselTypeRepository
-DockService --> DockMapper
+DockMapper --> CreateDockDTO
+DockMapper --> UpdateDockDTO
+Dock "0..*" --> "0..*" VesselType : AllowedVesselTypes
 
 @enduml
+

@@ -1,30 +1,54 @@
-@startuml C4_Logica
-title C4 — Camadas Lógicas (Vessels)
+@startuml C4_Manage_Vessels_Logical_View
+title C4 – Port Logistics Management System (PLMS) – Logical Deployment View
+left to right direction
 
-package Controllers {
-  [VesselsController]
-}
-package Application {
-  [VesselService]
-  [IVesselService]
-}
-package Domain {
-  [Vessel]
-  [VesselType]
-}
-package Infrastructure {
-  [PortContext / EF Core]
-}
-package DTOs_Mappers {
-  [CreateVesselDTO]
-  [UpdateVesselDTO]
-  [VesselDTO]
-  [VesselMapper]
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
 }
 
-[VesselsController] --> [IVesselService]
-[VesselService] ..> [PortContext / EF Core]
-[VesselService] ..> [VesselMapper]
-[VesselMapper] ..> [VesselDTO]
-[Domain] .. [PortContext / EF Core] : mapeado por
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+' === Nós principais ===
+actor "Port Authority Officer" as Officer
+
+node "User Device\n(Laptop / Browser)" as Client {
+  artifact "Frontend Web App\n(React / Angular)" as Frontend
+}
+
+node "Application Server\n(Docker Container / IIS)" as AppServer {
+  artifact "Vessels Management API\n(ASP.NET Core Web API)" as API
+}
+
+node "Database Server\n(SQL Server / InMemoryDB)" as DBServer {
+  database "PLMS Database" as Database
+}
+
+cloud "External IAM Provider\n(SSO / OAuth 2.0 / OpenID Connect)" as IAM
+
+' === Relações ===
+Officer --> Frontend : Acede via Browser (HTTPS)
+Frontend --> API : Requisições REST (JSON/HTTPS)
+API --> IAM : Valida Token (OAuth 2.0)
+API --> Database : CRUD via EF Core (SQL)
+
 @enduml
+

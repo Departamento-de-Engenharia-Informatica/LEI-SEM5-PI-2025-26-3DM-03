@@ -1,21 +1,46 @@
-@startuml C1_Cenario
-title C1 — Contexto do Sistema (US 2.2.4 - Storage Areas)
+@startuml C1_Manage_Storage_Areas_Scenario_View
+title C1 – Manage Storage Areas (Scenario View)
 
-actor "Port Authority Officer" as Officer
-rectangle "Port Operations API\n(TodoApi)" as System {
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
 }
 
-rectangle "Port Ops Web UI\n(Swagger/Postman/SPA)" as WebUI
-cloud "Identity Provider\n(AuthN/AuthZ)" as IdP
+actor "Port Authority Officer" as Officer
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Register Storage Area" as UC_Create
+  usecase "Update Storage Area" as UC_Update
+  usecase "View Storage Areas" as UC_View
+  usecase "Delete Storage Area" as UC_Delete
+  usecase "Search Storage Areas" as UC_Search
+  usecase "Assign Served Docks" as UC_AssignDocks
+  usecase "Record Dock Distances" as UC_RecordDistances
+}
 
-Officer --> WebUI : usa
-WebUI --> System : HTTP/REST
-Officer --> System : (alternativo) chama REST direto
-System .. IdP : valida tokens (futuro/fora do escopo)
+Officer --> UC_Create
+Officer --> UC_Update
+Officer --> UC_View
+Officer --> UC_Delete
+Officer --> UC_Search
+Officer --> UC_AssignDocks
+Officer --> UC_RecordDistances
 
-note bottom of System
-- Objetivo: registar/atualizar áreas de armazenamento
-- Consultar/listar com filtros
-- Garantir regras de capacidade/ocupação
+note right of UC_Create
+  Includes: type, location,
+  max capacity, current occupancy
 end note
+
+note right of UC_Update
+  Enforces: occupancy ≤ capacity
+end note
+
+note right of UC_AssignDocks
+  Default: serves all docks
+  Optional: specific docks only
+end note
+
 @enduml
+

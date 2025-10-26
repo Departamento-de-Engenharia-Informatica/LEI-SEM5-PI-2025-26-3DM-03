@@ -1,25 +1,39 @@
-@startuml C4_Processos
-title C4 — Sequência detalhada (GetAll com filtros)
+@startuml C4_Manage_Storage_Areas_Process_View
+title C4 – Manage Storage Areas (Process View – Create Storage Area)
+hide footbox
 
-actor Client
-participant Controller as "StorageAreasController"
-participant Service as "StorageAreaService"
-participant Repo as "EfStorageAreaRepository"
-database DB as "PortContext/DB"
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Storage Areas Management API\n(ASP.NET Core)" as API
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+database "PLMS Database\n(SQL / InMemory)" as DB
 
-Client -> Controller: GET /api/StorageAreas?type&location&servedDockId
-Controller -> Service: GetAllStorageAreasAsync()
-Service -> Repo: GetAllAsync(type, location, servedDockId)
-Repo -> DB: SELECT StorageAreas
-note right of Repo
-- if type: WHERE Type == parsed(type)
-- if location: WHERE Location LIKE '%loc%'
-- if servedDockId: WHERE ServedDockIds CONTAINS id
-  (ValueConverter JSON → List<int>)
-end note
-DB --> Repo: IEnumerable<StorageArea>
-Repo --> Service
-Service -> Service: map ToDTO(...)
-Service --> Controller: IEnumerable<StorageAreaDTO>
-Controller --> Client: 200 OK [DTO...]
+== Autenticação ==
+Officer -> Frontend : Inicia sessão (credenciais)
+Frontend -> IAM : Solicita Token OAuth 2.0
+IAM --> Frontend : Retorna Access Token (JWT)
+
+== Criação de Storage Area ==
+Officer -> Frontend : Submete formulário (dados do storage area)
+Frontend -> API : POST /api/StorageAreas (JSON + Bearer Token)
+API -> IAM : Valida token JWT
+IAM --> API : Token válido
+
+== Validação de Regras de Negócio ==
+API -> API : Valida regra: CurrentOccupancyTEU ≤ MaxCapacityTEU
+API -> API : Valida ServedDockIds (se fornecidos)
+alt Validação Falha
+  API --> Frontend : HTTP 400 BadRequest
+  Frontend --> Officer : Mostra erro (validação)
+else Validação OK
+  == Persistência ==
+  API -> DB : INSERT INTO StorageAreas (...)
+  DB --> API : Confirmação (OK)
+  
+  == Resposta ==
+  API --> Frontend : HTTP 201 Created (StorageAreaDTO)
+  Frontend --> Officer : Mostra confirmação (storage area criado)
+end
+
 @enduml
+

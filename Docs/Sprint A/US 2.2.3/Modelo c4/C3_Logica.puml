@@ -1,18 +1,44 @@
-@startuml C3_Logica
-title C3 — Lógica de dependências
+@startuml C3_Manage_Docks_Logical_View
+title C3 – Manage Docks API (Logical View)
+left to right direction
+hide empty members
 
-[DocksController] --> [DockService]
-[DockService] --> [IDockRepository]
-[DockService] --> [IVesselTypeRepository]
-[DockService] --> [DockMapper]
-[DockMapper] --> [DockDTO]
-[DockDTO] --> [VesselTypeDTO]
-[Dock] --> [VesselType]
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  FontColor White
+  BorderColor Black
+}
 
-note bottom
-- Controller apenas orquestra HTTP.
-- Service concentra regras e lookups.
-- Repositórios abstraem EF Core.
-- Mapper transforma Model → DTO.
-end note
+actor "Port Authority Officer" as Officer
+
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+  
+  rectangle "Docks Management API\n(ASP.NET Core Web API)" as API
+  rectangle "DockMapper\n(Conversão DTO ↔ Model)" as Mapper
+  rectangle "PortContext\n(Entity Framework Core)" as Context
+}
+
+database "Database System\n(SQL / InMemory)" as DB
+rectangle "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
+
+' === RELAÇÕES ===
+Officer --> API : CRUD de Docks (HTTP/JSON)
+Officer --> IAM : Autentica-se via OAuth 2.0
+API --> IAM : Validação de token
+API --> Mapper : Conversão de objetos
+API --> Context : Operações de leitura/escrita (EF Core)
+Context --> DB : Persistência de dados
+
 @enduml
+

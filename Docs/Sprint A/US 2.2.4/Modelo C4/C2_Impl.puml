@@ -1,27 +1,59 @@
-@startuml C2_impl
-title C2 — Containers (implementação) — Storage Areas
+@startuml C2_Manage_Storage_Areas_Implementation_View
+title C2 – Manage Storage Areas (Implementation / Package View)
+left to right direction
+hide empty members
 
-node "Client" as Client {
-  component "Port Ops Web UI\n(React/Swagger/Postman)" as Web
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
 }
 
-node "Port Operations API\nASP.NET Core" as Api {
-  component "StorageAreasController\n(Web API)" as Ctrl
-  component "StorageAreaService\n(Application)" as App
-  component "StorageAreaMapper/DTOs" as Map
+' ======================
+' Pacotes (lado a lado)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "StorageAreas" as P_Controllers_StorageAreas {
+      [StorageAreasController]
+    }
+  }
 }
 
-node "Persistence\nEF Core" as Persistence {
-  component "EfStorageAreaRepository\n(IStorageAreaRepository)" as AreaRepo
-  component "EfDockRepository\n(IDockRepository)" as DockRepo
-  database "PortContext\n(SQL DB)" as DB
+together {
+  package "Models" as P_Models {
+    package "StorageAreas" as P_Models_StorageAreas {
+      [StorageArea]
+      [StorageAreaDTO]
+      [CreateStorageAreaDTO]
+      [UpdateStorageAreaDTO]
+      [StorageAreaMapper]
+    }
+  }
 }
 
-Client --> Ctrl : HTTP/JSON
-Ctrl --> App
-App --> AreaRepo
-App --> DockRepo : valida docks servidos
-AreaRepo --> DB
-DockRepo --> DB
-App --> Map
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[StorageAreasController] --> [StorageAreaMapper] : usa para conversões
+[StorageAreasController] --> [PortContext] : acede à BD (EF Core)
+
+[StorageAreaMapper] --> [StorageArea] : mapeia entidades
+[StorageAreaMapper] --> [StorageAreaDTO] : mapeia DTOs
+[StorageAreaMapper] --> [CreateStorageAreaDTO]
+[StorageAreaMapper] --> [UpdateStorageAreaDTO]
+
 @enduml
+

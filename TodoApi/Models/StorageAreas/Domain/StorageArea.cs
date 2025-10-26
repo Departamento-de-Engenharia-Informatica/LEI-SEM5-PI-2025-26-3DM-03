@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FrameworkDDD.Common;
 
 namespace TodoApi.Models.StorageAreas
 {
@@ -8,11 +9,11 @@ namespace TodoApi.Models.StorageAreas
         Warehouse
     }
 
-    public class StorageArea
+    public class StorageArea : IAggregateRoot
     {
         public int Id { get; set; } // Unique identifier
         public StorageAreaType Type { get; set; }
-        public string Location { get; set; } // Location within the port
+    public string Location { get; set; } = string.Empty; // Location within the port
         public int MaxCapacityTEU { get; set; } // Maximum capacity in TEUs
         public int CurrentOccupancyTEU { get; set; } // Current occupancy in TEUs
 
