@@ -54,12 +54,12 @@ namespace TodoApi.Models
                 entity.HasKey(v => v.Id);
                 entity.Property(v => v.Name).IsRequired().HasMaxLength(100);
                 entity.Property(v => v.Description).HasMaxLength(250);
-                // Owned value object: OperationalConstraints
-                entity.OwnsOne(typeof(TodoApi.Models.Vessels.ValueObjects.OperationalConstraints), "OperationalConstraints", oc =>
+                // Owned value object: OperationalConstraints (map the actual VO properties)
+                entity.OwnsOne(v => v.OperationalConstraints, oc =>
                 {
-                    oc.Property<int>("MaxRows").HasColumnName("MaxRows");
-                    oc.Property<int>("MaxBays").HasColumnName("MaxBays");
-                    oc.Property<int>("MaxTiers").HasColumnName("MaxTiers");
+                    oc.Property(o => o.MaxRows).HasColumnName("MaxRows");
+                    oc.Property(o => o.MaxBays).HasColumnName("MaxBays");
+                    oc.Property(o => o.MaxTiers).HasColumnName("MaxTiers");
                 });
             });
 
