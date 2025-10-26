@@ -7,6 +7,18 @@ package "Controllers.Qualifications" {
   [QualificationsController]
 }
 
+package "Application.Services.Qualifications" {
+  [QualificationService]
+}
+
+package "Domain.Repositories" {
+  [IQualificationRepository]
+}
+
+package "Infrastructure.Repositories" {
+  [EfQualificationRepository]
+}
+
 package "Models.Qualifications" {
   [Qualification]
   [QualificationDTO]
@@ -19,12 +31,16 @@ package "Data" {
   [PortContext]
 }
 
-QualificationsController --> QualificationMapper : used for conversions
-QualificationsController --> PortContext : accesses DB (EF Core)
-QualificationMapper --> Qualification : converts entities
+' === RELATIONSHIPS ===
+QualificationsController --> QualificationService
+QualificationService --> IQualificationRepository
+IQualificationRepository <|-- EfQualificationRepository
+EfQualificationRepository --> PortContext
+QualificationService --> QualificationMapper : uses
+QualificationMapper --> Qualification
 QualificationMapper --> QualificationDTO
 QualificationMapper --> CreateQualificationDTO
 QualificationMapper --> UpdateQualificationDTO
-PortContext --> Qualification : contains DbSet<>
+PortContext --> Qualification : DbSet<>
 
 @enduml

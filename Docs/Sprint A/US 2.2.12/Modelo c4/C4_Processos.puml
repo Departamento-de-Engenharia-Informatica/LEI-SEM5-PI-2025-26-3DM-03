@@ -1,47 +1,56 @@
 @startuml C4_Manage_Resources_Process_View
-title C4 - Component Processes View (US 2.2.12 - Manage Resources)
+title C4 – Manage Resources (Process View – Create / Update / List / Deactivate Resources)
+hide footbox
 
-start
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Resources Management API\n(ASP.NET Core)" as API
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+database "PLMS Database\n(SQL / InMemory)" as DB
 
-:'POST /api/Resources' request;
-:ResourcesController -> CreateResource(CreateResourceDTO);
-:ResourceService: Validate if resource code already exists;
-if (Code exists?) then (yes)
-  :Return 409 Conflict;
-  stop
-else (no)
-  :ResourceMapper: Map DTO -> Resource Model;
-  :EfResourceRepository: Save Resource to PortContext;
-  :Persist changes to database;
-  :ResourceMapper: Map Resource -> ResourceDTO;
-  :Return 201 Created (ResourceDTO);
-endif
+== Authentication ==
+Officer -> Frontend : Sign in (credentials)
+Frontend -> IAM : Requests OAuth 2.0 Token
+IAM --> Frontend : Returns Access Token (JWT)
 
-split
-:'PUT /api/Resources/{code}' request;
-:ResourcesController -> UpdateResource(UpdateResourceDTO);
-:ResourceService: Fetch resource by code;
-if (Resource exists?) then (no)
-  :Return 404 Not Found;
-  stop
-else (yes)
-  :ResourceMapper: Update existing Resource with new values;
-  :EfResourceRepository: Save changes to PortContext;
-  :Return 204 No Content;
-endif
-split again
-:'PUT /api/Resources/{code}/deactivate' request;
-:ResourcesController -> DeactivateResource(code);
-:ResourceService: Fetch resource by code;
-if (Resource exists?) then (no)
-  :Return 404 Not Found;
-  stop
-else (yes)
-  :Update resource status to "Inactive";
-  :EfResourceRepository: Save changes to PortContext;
-  :Return 204 No Content;
-endif
-end split
+== List Resources ==
+Officer -> Frontend : Opens Resources dashboard
+Frontend -> API : GET /api/Resources (Bearer Token)
+API -> IAM : Validates JWT Token
+IAM --> API : Token valid
+API -> DB : SELECT * FROM Resources
+DB --> API : Returns list
+API --> Frontend : HTTP 200 OK (JSON)
+Frontend --> Officer : Displays resource list
 
-stop
+== Create Resource ==
+Officer -> Frontend : Fill form (code, description, type, capacity)
+Frontend -> API : POST /api/Resources (JSON + Bearer Token)
+API -> IAM : Validates JWT Token
+IAM --> API : Token valid
+API -> DB : INSERT INTO Resources (...)
+DB --> API : Confirmation
+API --> Frontend : HTTP 201 Created (ResourceDTO)
+Frontend --> Officer : Shows creation confirmation
+
+== Update Resource ==
+Officer -> Frontend : Edit existing Resource
+Frontend -> API : PUT /api/Resources/{code} (JSON + Bearer Token)
+API -> IAM : Validates JWT Token
+IAM --> API : Token valid
+API -> DB : UPDATE Resources SET ... WHERE Code = ...
+DB --> API : Confirmation
+API --> Frontend : HTTP 204 No Content
+Frontend --> Officer : Shows update success
+
+== Deactivate Resource ==
+Officer -> Frontend : Deactivate Resource
+Frontend -> API : PUT /api/Resources/{code}/deactivate (Bearer Token)
+API -> IAM : Validates JWT Token
+IAM --> API : Token valid
+API -> DB : UPDATE Resources SET Status = 'Inactive' WHERE Code = ...
+DB --> API : Confirmation
+API --> Frontend : HTTP 204 No Content
+Frontend --> Officer : Shows deactivation confirmation
+
 @enduml

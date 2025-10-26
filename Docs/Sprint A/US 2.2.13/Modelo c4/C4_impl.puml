@@ -1,5 +1,5 @@
 @startuml C4_Manage_Qualifications_Implementation_View
-title C4 – Manage Qualifications (Implementation / Package View)
+title C4 – Manage Qualifications (Implementation / Component View)
 left to right direction
 hide empty members
 
@@ -13,12 +13,24 @@ skinparam arrow {
   Color Black
 }
 
-'' ======================
-'' Qualifications domain structure
-'' ======================
-''
+' ======================
+'   Qualifications domain structure
+' ======================
+
 package "Controllers.Qualifications" {
   [QualificationsController]
+}
+
+package "Application.Services.Qualifications" {
+  [QualificationService]
+}
+
+package "Domain.Repositories" {
+  [IQualificationRepository]
+}
+
+package "Infrastructure.Repositories" {
+  [EfQualificationRepository]
 }
 
 package "Models.Qualifications" {
@@ -33,16 +45,19 @@ package "Data" {
   [PortContext]
 }
 
-' '' ======================
-' '' Relationships
-' '' ======================
-' 
-[QualificationsController] --> [QualificationMapper] : used for conversions
-[QualificationsController] --> [PortContext] : accesses DB (EF Core)
-[QualificationMapper] --> [Qualification] : converts entities
-[QualificationMapper] --> [QualificationDTO]
-[QualificationMapper] --> [CreateQualificationDTO]
-[QualificationMapper] --> [UpdateQualificationDTO]
-[PortContext] --> [Qualification] : contains DbSet<>
+' ======================
+'   Relationships
+' ======================
+
+QualificationsController --> QualificationService
+QualificationService --> IQualificationRepository
+IQualificationRepository <|-- EfQualificationRepository
+EfQualificationRepository --> PortContext
+QualificationService --> QualificationMapper : uses
+QualificationMapper --> Qualification
+QualificationMapper --> QualificationDTO
+QualificationMapper --> CreateQualificationDTO
+QualificationMapper --> UpdateQualificationDTO
+PortContext --> Qualification : DbSet<>
 
 @enduml

@@ -3,6 +3,7 @@ title C2 – Manage Qualifications (Implementation / Container View)
 left to right direction
 hide empty members
 
+' === STYLE ===
 skinparam package {
   BackgroundColor White
   BorderColor Black
@@ -10,20 +11,24 @@ skinparam package {
   FontStyle bold
 }
 
+' === DEPLOYMENT NODES ===
 package "PLMS Deployment" {
   node "Web Server" as Web
   node "App Server" as App
   node "Database Server" as DB
 }
 
+' === CONTAINERS ===
 package "Containers" {
-  [Frontend Web App (React/Angular)]
-  [Qualifications Management API (ASP.NET Core)]
-  [PortContext (EF Core)]
+  [Frontend Web App (React/Angular)] as Frontend
+  [Qualifications Management API (ASP.NET Core)] as API
+  [PortContext (EF Core)] as Context
 }
 
-Web --> Frontend Web App (React/Angular)
-App --> Qualifications Management API (ASP.NET Core)
-DB --> PortContext (EF Core)
+' === RELATIONSHIPS ===
+Web --> Frontend : Hosts static SPA (HTTPS)
+Frontend --> API : REST / JSON
+API --> Context : EF Core Operations
+Context --> DB : SQL Persistence
 
 @enduml

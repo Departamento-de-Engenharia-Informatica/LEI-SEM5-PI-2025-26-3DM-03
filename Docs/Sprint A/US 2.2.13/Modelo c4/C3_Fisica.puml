@@ -6,11 +6,11 @@ node "App Server (Docker Host)" as App {
   component "QualificationMapper (Library)" as Mapper
 }
 
-node "DB Server" as DB {
-  database "PLMS Database (SQL Server)" as Database
+node "DB Server (SQL Server)" as DB {
+  database "PLMS Database" as Database
 }
 
-API --> Mapper
-API --> Database
+API --> Mapper : uses for DTO ↔ Model conversion
+API --> Database : connects via EF Core
 
 @enduml

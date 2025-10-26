@@ -10,37 +10,37 @@ database "PLMS Database\n(SQL / InMemory)" as DB
 
 == Authentication ==
 Officer -> Frontend : Sign in (credentials)
-Frontend -> IAM : Requests OAuth 2.0 Token
+Frontend -> IAM : Requests OAuth 2.0 token
 IAM --> Frontend : Returns Access Token (JWT)
 
-== Qualifications Management ==
+== List Qualifications ==
 Officer -> Frontend : Opens Qualifications dashboard
 Frontend -> API : GET /api/Qualifications (Bearer Token)
-API -> IAM : Validates JWT token
+API -> IAM : Validates JWT Token
 IAM --> API : Token valid
 API -> DB : SELECT * FROM Qualifications
-DB --> API : List of QualificationDTO
+DB --> API : Returns list
 API --> Frontend : HTTP 200 OK (JSON)
-Frontend --> Officer : Presents list
+Frontend --> Officer : Displays list
 
 == Create Qualification ==
 Officer -> Frontend : Fill form (code, description)
 Frontend -> API : POST /api/Qualifications (JSON + Bearer Token)
-API -> IAM : Validates JWT token
+API -> IAM : Validates JWT Token
 IAM --> API : Token valid
-API -> DB : INSERT INTO Qualifications (...)
-DB --> API : Confirmation (OK)
+API -> DB : INSERT Qualification
+DB --> API : Confirmation
 API --> Frontend : HTTP 201 Created (QualificationDTO)
-Frontend --> Officer : Confirms creation
+Frontend --> Officer : Shows confirmation
 
 == Update Qualification ==
-Officer -> Frontend : Edit existing Qualification
+Officer -> Frontend : Edit Qualification
 Frontend -> API : PUT /api/Qualifications/{code} (JSON + Bearer Token)
-API -> IAM : Validates JWT token
+API -> IAM : Validates JWT Token
 IAM --> API : Token valid
-API -> DB : UPDATE Qualifications SET ... WHERE code = ...
-DB --> API : Confirmation (OK)
-API --> Frontend : HTTP 200 OK (QualificationDTO)
-Frontend --> Officer : Confirms update
+API -> DB : UPDATE Qualification SET Description = ...
+DB --> API : Confirmation
+API --> Frontend : HTTP 204 No Content
+Frontend --> Officer : Shows update success
 
 @enduml

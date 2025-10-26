@@ -4,38 +4,43 @@ hide footbox
 
 actor "Port Authority Officer" as Officer
 participant "QualificationsController" as Controller
+participant "QualificationService" as Service
 participant "QualificationMapper" as Mapper
 participant "PortContext (EF Core)" as Context
 database "PLMS Database" as DB
 participant "External IAM Provider" as IAM
 
 == Create Qualification ==
-Officer -> Controller : POST /api/Qualifications (QualificationDTO + Bearer)
+Officer -> Controller : POST /api/Qualifications (CreateQualificationDTO + Bearer)
 Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
-Controller -> Mapper : Map to Qualification entity
-Controller -> Context : Add(Qualification) -> SaveChanges()
+Controller -> Service : CreateAsync(dto)
+Service -> Mapper : Map to Qualification entity
+Service -> Context : Add(Qualification) -> SaveChanges()
 Context -> DB : INSERT
 DB --> Context : OK
+Service -> Mapper : Map to QualificationDTO
 Controller --> Officer : HTTP 201 Created (QualificationDTO)
 
 == Update Qualification ==
-Officer -> Controller : PUT /api/Qualifications/{code} (QualificationDTO)
+Officer -> Controller : PUT /api/Qualifications/{code} (UpdateQualificationDTO)
 Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
-Controller -> Context : Find(code) -> Update -> SaveChanges()
+Controller -> Service : UpdateAsync(code, dto)
+Service -> Context : Find(code) -> Update -> SaveChanges()
 Context -> DB : UPDATE
 DB --> Context : OK
-Controller --> Officer : HTTP 200 OK (QualificationDTO)
+Controller --> Officer : HTTP 204 No Content
 
 == List Qualifications ==
 Officer -> Controller : GET /api/Qualifications
 Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
-Controller -> Context : Query Qualifications
+Controller -> Service : GetAllAsync()
+Service -> Context : SELECT * FROM Qualifications
 Context -> DB : SELECT
 DB --> Context : Result
-Controller -> Mapper : Map to QualificationDTOs
+Service -> Mapper : Map to QualificationDTOs
 Controller --> Officer : HTTP 200 OK (JSON)
 
 @enduml
