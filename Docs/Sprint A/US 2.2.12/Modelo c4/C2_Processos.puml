@@ -6,9 +6,9 @@ participant "Frontend Web App\n(React / Angular)" as Frontend
 participant "Resources Management API\n(ASP.NET Core)" as API
 database "PLMS Database\n(SQL / InMemory)" as DB
 
-Officer -> Frontend : Acede UI de Resources
+Officer -> Frontend : Opens Resources UI
 Frontend -> API : GET/POST/PUT /api/Resources
 API -> DB : CRUD Operations (EF Core)
-API -> "External IAM Provider" : Valida Token
+API -> "External IAM Provider" : Validates Token
 
 @enduml

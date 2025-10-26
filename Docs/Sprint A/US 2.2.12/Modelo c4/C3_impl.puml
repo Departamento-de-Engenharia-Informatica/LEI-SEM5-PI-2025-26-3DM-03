@@ -19,12 +19,12 @@ package "Data" {
   [PortContext]
 }
 
-ResourcesController --> ResourceMapper : usa para conversões
-ResourcesController --> PortContext : acede à BD (EF Core)
-ResourceMapper --> Resource : converte entidades
+ResourcesController --> ResourceMapper : used for conversions
+ResourcesController --> PortContext : accesses DB (EF Core)
+ResourceMapper --> Resource : converts entities
 ResourceMapper --> ResourceDTO
 ResourceMapper --> CreateResourceDTO
 ResourceMapper --> UpdateResourceDTO
-PortContext --> Resource : contém DbSet<>
+PortContext --> Resource : contains DbSet<>
 
 @enduml

@@ -11,7 +11,7 @@ participant "External IAM Provider" as IAM
 
 == Create Resource ==
 Officer -> Controller : POST /api/Resources (CreateResourceDTO + Bearer)
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Mapper : Map to Resource entity
 Controller -> Context : Add(Resource) -> SaveChanges()
@@ -21,7 +21,7 @@ Controller --> Officer : HTTP 201 Created (ResourceDTO)
 
 == Update Resource ==
 Officer -> Controller : PUT /api/Resources/{code} (UpdateResourceDTO)
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Context : Find(code) -> Update -> SaveChanges()
 Context -> DB : UPDATE
@@ -30,7 +30,7 @@ Controller --> Officer : HTTP 200 OK (ResourceDTO)
 
 == List Resources ==
 Officer -> Controller : GET /api/Resources
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Context : Query Resources
 Context -> DB : SELECT
@@ -40,7 +40,7 @@ Controller --> Officer : HTTP 200 OK (JSON)
 
 == Deactivate Resource ==
 Officer -> Controller : PATCH /api/Resources/{code}/deactivate
-Controller -> IAM : Valida Token
+Controller -> IAM : Validate Token
 IAM --> Controller : Token OK
 Controller -> Context : Find(code) -> Update Status -> SaveChanges()
 Context -> DB : UPDATE

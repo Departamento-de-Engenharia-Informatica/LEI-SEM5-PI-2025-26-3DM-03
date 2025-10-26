@@ -38,8 +38,8 @@ rectangle "Port Logistics Management System (PLMS)" as PLMS {
 
 ' === Relações ===
 Officer --> Frontend : Interage via Browser (HTTPS)
-Frontend --> API : Chamadas REST (JSON)
-API --> DB : Operações CRUD (Entity Framework Core)
-API --> IAM : Autenticação e Autorização
+Frontend --> API : REST calls (JSON)
+API --> DB : CRUD operations (Entity Framework Core)
+API --> IAM : Authentication and Authorization
 
 @enduml
