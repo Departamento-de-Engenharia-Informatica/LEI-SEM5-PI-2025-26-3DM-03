@@ -7,6 +7,18 @@ package "Controllers.Resources" {
   [ResourcesController]
 }
 
+package "Application.Services.Resources" {
+  [ResourceService]
+}
+
+package "Domain.Repositories" {
+  [IResourceRepository]
+}
+
+package "Infrastructure.Repositories" {
+  [EfResourceRepository]
+}
+
 package "Models.Resources" {
   [Resource]
   [ResourceDTO]
@@ -19,12 +31,16 @@ package "Data" {
   [PortContext]
 }
 
-ResourcesController --> ResourceMapper : used for conversions
-ResourcesController --> PortContext : accesses DB (EF Core)
-ResourceMapper --> Resource : converts entities
+' === RELATIONSHIPS ===
+ResourcesController --> ResourceService
+ResourceService --> IResourceRepository
+IResourceRepository <|-- EfResourceRepository
+EfResourceRepository --> PortContext
+ResourceService --> ResourceMapper : uses
+ResourceMapper --> Resource
 ResourceMapper --> ResourceDTO
 ResourceMapper --> CreateResourceDTO
 ResourceMapper --> UpdateResourceDTO
-PortContext --> Resource : contains DbSet<>
+PortContext --> Resource : DbSet<>
 
 @enduml

@@ -6,11 +6,11 @@ node "App Server (Docker Host)" as App {
   component "ResourceMapper (Library)" as Mapper
 }
 
-node "DB Server" as DB {
-  database "PLMS Database (SQL Server)" as Database
+node "DB Server (SQL Server)" as DB {
+  database "PLMS Database" as Database
 }
 
-API --> Mapper
-API --> Database
+API --> Mapper : uses
+API --> Database : connects via EF Core
 
 @enduml

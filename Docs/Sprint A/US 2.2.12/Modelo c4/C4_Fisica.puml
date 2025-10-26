@@ -3,8 +3,8 @@ title C4 – Manage Resources (Physical / Deployment View)
 
 node "Kubernetes Cluster / VM" as Cluster {
   folder "PLMS Namespace" {
-    container "Resources API (Docker)" as API
-    container "Frontend (Static SPA)" as Frontend
+    node "Resources API (Docker)" as API
+    node "Frontend (Static SPA)" as Frontend
   }
 }
 
@@ -12,7 +12,7 @@ node "RDS / SQL Server Instance" as RDS {
   database "PLMS Database" as Database
 }
 
-API --> Database
-Frontend --> API
+Frontend --> API : REST / HTTPS
+API --> Database : EF Core / SQL
 
 @enduml

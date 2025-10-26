@@ -3,13 +3,16 @@
 
 Container(api, "Port API", "ASP.NET Core Web API")
 
-Component(controller, "ResourcesController", "Controller", "Defines endpoints for resources (GET, POST, PUT, PATCH)")
-Component(mapper, "ResourceMapper", "Mapper/Service", "Maps DTOs to Resource model and vice versa")
-Component(db, "DbContext (PortContext)", "EF Core DbContext")
+Component(controller, "ResourcesController", "Controller", "Defines endpoints for managing Resources (GET, POST, PUT, PATCH)")
+Component(service, "ResourceService", "Service", "Contains business logic for Resource management")
+Component(repository, "EfResourceRepository", "Repository", "Handles data persistence via EF Core")
+Component(mapper, "ResourceMapper", "Mapper", "Maps DTOs to domain models and vice versa")
+Component(dbcontext, "PortContext", "DbContext", "Entity Framework Core context")
 
-Rel(controller, mapper, "uses")
-Rel(controller, db, "reads/writes")
-Rel(mapper, db, "uses")
+Rel(controller, service, "calls")
+Rel(service, mapper, "uses for conversion")
+Rel(service, repository, "uses")
+Rel(repository, dbcontext, "reads/writes")
 
 SHOW_LEGEND()
 @enduml

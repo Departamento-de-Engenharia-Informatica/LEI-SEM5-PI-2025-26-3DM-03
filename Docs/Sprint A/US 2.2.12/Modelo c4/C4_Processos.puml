@@ -1,19 +1,47 @@
 @startuml C4_Manage_Resources_Process_View
-title C4 - Component Processes (detailed)
+title C4 - Component Processes View (US 2.2.12 - Manage Resources)
 
 start
-:HTTP POST /api/Resources -> ResourcesController.CreateResource(CreateResourceDTO);
-:ResourceMapper: Map DTO -> Resource model;
-:Validate if resource code already exists;
+
+:'POST /api/Resources' request;
+:ResourcesController -> CreateResource(CreateResourceDTO);
+:ResourceService: Validate if resource code already exists;
 if (Code exists?) then (yes)
   :Return 409 Conflict;
   stop
 else (no)
-  :Save Resource to PortContext;
+  :ResourceMapper: Map DTO -> Resource Model;
+  :EfResourceRepository: Save Resource to PortContext;
   :Persist changes to database;
   :ResourceMapper: Map Resource -> ResourceDTO;
-  :Response: 201 Created with ResourceDTO;
-  stop
+  :Return 201 Created (ResourceDTO);
 endif
 
+split
+:'PUT /api/Resources/{code}' request;
+:ResourcesController -> UpdateResource(UpdateResourceDTO);
+:ResourceService: Fetch resource by code;
+if (Resource exists?) then (no)
+  :Return 404 Not Found;
+  stop
+else (yes)
+  :ResourceMapper: Update existing Resource with new values;
+  :EfResourceRepository: Save changes to PortContext;
+  :Return 204 No Content;
+endif
+split again
+:'PUT /api/Resources/{code}/deactivate' request;
+:ResourcesController -> DeactivateResource(code);
+:ResourceService: Fetch resource by code;
+if (Resource exists?) then (no)
+  :Return 404 Not Found;
+  stop
+else (yes)
+  :Update resource status to "Inactive";
+  :EfResourceRepository: Save changes to PortContext;
+  :Return 204 No Content;
+endif
+end split
+
+stop
 @enduml

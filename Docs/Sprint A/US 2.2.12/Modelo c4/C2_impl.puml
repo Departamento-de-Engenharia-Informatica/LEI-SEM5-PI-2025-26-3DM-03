@@ -17,13 +17,14 @@ package "PLMS Deployment" {
 }
 
 package "Containers" {
-  [Frontend Web App (React/Angular)]
-  [Resources Management API (ASP.NET Core)]
-  [PortContext (EF Core)]
+  [Frontend Web App (React/Angular)] as Frontend
+  [Resources Management API (ASP.NET Core)] as API
+  [PortContext (EF Core)] as Context
 }
 
-Web --> Frontend Web App (React/Angular)
-App --> Resources Management API (ASP.NET Core)
-DB --> PortContext (EF Core)
+Web --> Frontend
+Frontend --> API
+API --> Context
+Context --> DB
 
 @enduml
