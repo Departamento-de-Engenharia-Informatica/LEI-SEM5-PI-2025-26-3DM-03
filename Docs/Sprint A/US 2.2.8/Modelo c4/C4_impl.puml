@@ -1,0 +1,21 @@
+@startuml C4_CreateSubmit_VVN_Component_View
+title C4 – Component View — Create/Submit VVN
+
+package "API Layer" {
+  [VesselVisitNotificationsController]
+}
+package "Application" {
+  [VvnService]
+  [Vvn Mappers]
+}
+package "Infra" {
+  [EfVvnRepository]
+  [PortContext]
+}
+
+VesselVisitNotificationsController --> VvnService
+VvnService --> Vvn Mappers
+VvnService --> EfVvnRepository
+EfVvnRepository --> PortContext
+
+@enduml

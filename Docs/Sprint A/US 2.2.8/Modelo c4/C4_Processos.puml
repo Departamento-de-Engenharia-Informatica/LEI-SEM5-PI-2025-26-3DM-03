@@ -1,0 +1,28 @@
+@startuml C4_CreateSubmit_VVN_Process_Details
+title C4 – Process Details (Create/Submit VVN)
+
+actor Agent
+
+Agent -> VesselVisitNotificationsController : POST /api/VesselVisitNotifications
+VesselVisitNotificationsController -> VvnService : Create(dto)
+VvnService -> EfVvnRepository : Add / Save
+EfVvnRepository -> PortContext : SaveChanges
+PortContext --> EfVvnRepository : OK
+EfVvnRepository --> VvnService : OK
+VvnService --> VesselVisitNotificationsController : Created
+VesselVisitNotificationsController --> Agent : 201 Created
+
+Agent -> VesselVisitNotificationsController : POST /{id}/submit
+VesselVisitNotificationsController -> VvnService : Submit(id)
+VvnService -> EfVvnRepository : GetById
+EfVvnRepository -> PortContext : Query
+PortContext --> EfVvnRepository : VVN
+EfVvnRepository --> VvnService : VVN
+VvnService -> EfVvnRepository : Update status=Submitted
+EfVvnRepository -> PortContext : SaveChanges
+PortContext --> EfVvnRepository : OK
+EfVvnRepository --> VvnService : OK
+VvnService --> VesselVisitNotificationsController : 204 No Content
+VesselVisitNotificationsController --> Agent : 204 No Content
+
+@enduml

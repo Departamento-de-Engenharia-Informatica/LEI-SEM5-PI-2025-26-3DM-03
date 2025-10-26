@@ -1,0 +1,41 @@
+@startuml C1_CreateSubmit_VVN_Process_View
+title C1 – Process View — Create → Update → Submit VVN
+
+participant Agent as "Shipping Agent Rep"
+participant API as "PLMS API (VesselVisitNotificationsController)"
+participant Service as "VVN Service"
+participant Repo as "VVN Repository"
+participant DB as "PortContext / DB"
+
+Agent -> API: POST /api/VesselVisitNotifications (Create)
+API -> Service: Create(dto)
+Service -> Repo: Add
+Repo -> DB: Save
+DB --> Repo: OK
+Repo --> Service: Created
+Service --> API: 201 Created
+API --> Agent: 201 Created
+
+Agent -> API: PUT /api/VesselVisitNotifications/{id} (Update InProgress)
+API -> Service: Update(id, dto)
+Service -> Repo: Update
+Repo -> DB: Save
+DB --> Repo: OK
+Repo --> Service: OK
+Service --> API: 204 No Content
+API --> Agent: 204 No Content
+
+Agent -> API: POST /api/VesselVisitNotifications/{id}/submit
+API -> Service: Submit(id, dto)
+Service -> Repo: GetById
+Repo -> DB: Query
+DB --> Repo: VVN
+Repo --> Service: VVN
+Service -> Repo: Update status=Submitted, SubmissionTimestamp
+Repo -> DB: Save
+DB --> Repo: OK
+Repo --> Service: OK
+Service --> API: 204 No Content
+API --> Agent: 204 No Content
+
+@enduml

@@ -1,0 +1,27 @@
+@startuml C1_CreateSubmit_VVN_Scenario_View
+title C1 – Create & Submit Vessel Visit Notification (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Shipping Agent Representative" as Agent
+actor "Port Authority Officer" as Officer
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Create VVN" as UC_Create
+  usecase "Update VVN (InProgress)" as UC_Update
+  usecase "Submit VVN" as UC_Submit
+  usecase "View VVN Status" as UC_View
+}
+
+Agent --> UC_Create
+Agent --> UC_Update
+Agent --> UC_Submit
+Agent --> UC_View
+Officer --> UC_View
+
+@enduml

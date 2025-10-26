@@ -1,0 +1,20 @@
+@startuml C2_CreateSubmit_VVN_Logical_Components
+title C2 – Logical Components — Create/Submit VVN
+
+package "API" {
+  [VesselVisitNotificationsController]
+}
+package "Application" {
+  [VvnService]
+  [VvnMapper]
+}
+package "Infrastructure" {
+  [EfVvnRepository]
+  [PortContext]
+}
+
+VesselVisitNotificationsController --> VvnService
+VvnService --> EfVvnRepository
+EfVvnRepository --> PortContext
+
+@enduml

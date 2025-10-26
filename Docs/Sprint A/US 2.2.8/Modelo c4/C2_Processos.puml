@@ -1,0 +1,11 @@
+@startuml C2_CreateSubmit_VVN_Processes
+title C2 – Processes (component collaboration)
+
+actor Agent
+
+Agent -> VesselVisitNotificationsController : create/update/submit
+VesselVisitNotificationsController -> VvnService : Create/Update/Submit
+VvnService -> EfVvnRepository : Add/Get/Update
+EfVvnRepository -> PortContext : SaveChanges
+
+@enduml
