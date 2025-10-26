@@ -1,0 +1,36 @@
+@startuml C1_Processos
+title C1 — Processos (US 2.2.2)
+
+start
+:Officer escolhe ação;
+
+partition "Criar Vessel" {
+  :Preenche IMO, Name, VesselTypeId, Operator;
+  :POST /api/Vessels;
+  if (IMO válido?) then (sim)
+    :201 Created (DTO);
+  else (não)
+    :400 Bad Request;
+  endif
+}
+
+partition "Atualizar Vessel" {
+  :PUT /api/Vessels/{imo};
+  if (IMO válido?) then (sim)
+    :204 No Content;
+  else (não)
+    :400 Bad Request;
+  endif
+}
+
+partition "Consultar" {
+  :GET /api/Vessels?imo&name&operator;
+  :200 OK [VesselDTO...];
+}
+
+partition "Eliminar" {
+  :DELETE /api/Vessels/{imo};
+  :204 No Content | 404;
+}
+stop
+@enduml

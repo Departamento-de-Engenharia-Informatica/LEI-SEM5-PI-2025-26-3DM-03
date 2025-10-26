@@ -1,0 +1,16 @@
+@startuml C3_Logica
+title C3 — Lógica de dependências (Vessels)
+
+[VesselsController] --> [VesselService]
+[VesselService] --> [PortContext / EF Core]
+[VesselService] --> [VesselMapper]
+[VesselMapper] --> [VesselDTO]
+[Vessel] --> [VesselType] : FK VesselTypeId
+
+note bottom
+- Controller: endpoints e códigos HTTP.
+- Service: regras (IMO válido; existência do VesselType).
+- PortContext: persistência via EF Core.
+- Mapper: Model ⇄ DTO e validação de IMO.
+end note
+@enduml

@@ -1,0 +1,13 @@
+@startuml C2_Logica
+title C2 — Lógica entre Containers (US 2.2.2)
+
+actor Officer
+rectangle API {
+  [VesselsController] --> [VesselService]
+  [VesselService] --> [Mapper/DTO]
+}
+rectangle Persistence {
+  [VesselService] --> [PortContext / EF Core]
+}
+Officer --> [VesselsController] : REST calls
+@enduml
