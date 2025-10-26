@@ -1,0 +1,34 @@
+@startuml C4_Logica
+title C4 — Camadas Lógicas (Storage Areas)
+
+package Controllers {
+  [StorageAreasController]
+}
+package Application {
+  [StorageAreaService]
+  [IStorageAreaService]
+}
+package Domain {
+  [StorageArea]
+  [StorageAreaType]
+  [IStorageAreaRepository]
+  [IDockRepository]
+}
+package Infrastructure {
+  [EfStorageAreaRepository]
+  [PortContext / EF Core]
+}
+package DTOs_Mappers {
+  [CreateStorageAreaDTO]
+  [UpdateStorageAreaDTO]
+  [StorageAreaDTO]
+  [StorageAreaMapper]
+}
+
+[StorageAreasController] --> [IStorageAreaService]
+[StorageAreaService] ..> [IStorageAreaRepository]
+[StorageAreaService] ..> [IDockRepository]
+[StorageAreaService] ..> [StorageAreaMapper]
+[EfStorageAreaRepository] ..> [PortContext / EF Core]
+[StorageAreaMapper] ..> [StorageAreaDTO]
+@enduml

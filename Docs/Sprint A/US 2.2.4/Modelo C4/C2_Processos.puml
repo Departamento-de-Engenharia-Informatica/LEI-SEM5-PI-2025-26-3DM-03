@@ -1,0 +1,72 @@
+@startuml C2_Processos
+title C2 — Sequências (US 2.2.4)
+
+actor Officer
+participant Controller as "StorageAreasController"
+participant Service as "StorageAreaService"
+participant AreaRepo as "IStorageAreaRepository"
+participant DockRepo as "IDockRepository"
+database DB as "PortContext/DB"
+
+== Create ==
+Officer -> Controller: POST /api/StorageAreas (CreateStorageAreaDTO)
+Controller -> Service: RegisterStorageAreaAsync(dto)
+Service -> Service: ToEntity(dto) + regra\n(occupancy <= capacity)?
+alt inválido
+  Service --> Controller: lança InvalidOperationException
+  Controller --> Officer: 400/422
+else válido
+  opt dto.ServedDockIds
+    loop cada dockId
+      Service -> DockRepo: GetByIdAsync(dockId)
+      DockRepo -> DB: SELECT Dock
+      DB --> DockRepo
+      DockRepo --> Service: Dock|null
+      alt null
+        Service --> Controller: ArgumentException
+        Controller --> Officer: 400
+      end
+    end
+  end
+  Service -> AreaRepo: AddAsync(area)
+  AreaRepo -> DB: INSERT + conversões JSON
+  DB --> AreaRepo
+  AreaRepo --> Service
+  Service --> Controller: entity
+  Controller --> Officer: 201 Created (DTO)
+end
+
+== Update ==
+Officer -> Controller: PUT /api/StorageAreas/{id} (UpdateStorageAreaDTO)
+Controller -> Service: UpdateStorageAreaAsync(id,dto)
+Service -> AreaRepo: GetByIdAsync(id)
+AreaRepo -> DB: SELECT
+DB --> AreaRepo
+AreaRepo --> Service: area|null
+alt null
+  Service --> Controller: KeyNotFoundException
+  Controller --> Officer: 404
+else existe
+  Service -> Service: UpdateEntityFromDTO(area,dto)\n(occupancy <= capacity)?
+  alt ids docks fornecidos
+    loop cada dockId
+      Service -> DockRepo: GetByIdAsync(dockId)
+      DockRepo --> Service: Dock|null
+      alt null
+        Service --> Controller: ArgumentException
+        Controller --> Officer: 400
+      end
+    end
+  end
+  Service -> AreaRepo: UpdateAsync(area)
+  AreaRepo -> DB: UPDATE
+  Controller --> Officer: 200 OK (DTO)
+end
+
+== Search ==
+Officer -> Controller: GET /api/StorageAreas?type&location&servedDockId
+Controller -> Service: GetAllStorageAreasAsync()
+Service -> AreaRepo: GetAllAsync(filters)
+AreaRepo -> DB: SELECT + WHERE (type/location/servedDockId)
+DB --> AreaRepo --> Service --> Controller --> Officer: 200 OK [DTO...]
+@enduml

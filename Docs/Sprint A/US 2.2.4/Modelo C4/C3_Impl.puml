@@ -1,0 +1,41 @@
+@startuml C3_impl
+title C3 — Componentes internos (Storage Areas)
+
+package "TodoApi.Controllers.StorageAreas" {
+  component "StorageAreasController"
+}
+
+package "TodoApi.Application.Services.StorageAreas" {
+  interface "IStorageAreaService"
+  component "StorageAreaService"
+}
+
+package "TodoApi.Domain.Repositories" {
+  interface "IStorageAreaRepository"
+  interface "IDockRepository"
+}
+
+package "TodoApi.Infrastructure.Repositories" {
+  component "EfStorageAreaRepository"
+  component "EfDockRepository"
+}
+
+package "TodoApi.Models.StorageAreas" {
+  class StorageArea
+  class CreateStorageAreaDTO
+  class UpdateStorageAreaDTO
+  class StorageAreaDTO
+  class StorageAreaMapper <<static>>
+  enum StorageAreaType
+}
+
+StorageAreasController --> IStorageAreaService
+StorageAreaService ..|> IStorageAreaService
+StorageAreaService --> IStorageAreaRepository
+StorageAreaService --> IDockRepository : valida ServedDockIds
+EfStorageAreaRepository ..|> IStorageAreaRepository
+
+StorageAreaMapper --> StorageAreaDTO
+StorageAreaMapper --> StorageArea : ToEntity/Update
+
+@enduml

@@ -1,0 +1,16 @@
+@startuml C1_Logica
+title C1 — Lógica de Contexto (US 2.2.4)
+
+skinparam rectangle {
+  BackgroundColor<<Boundary>> #EEF
+  BorderColor<<Boundary>> #66A
+}
+
+actor "Port Authority Officer" as Officer
+rectangle "Port Ops Web UI" as WebUI <<Boundary>>
+rectangle "Port Operations API\n(TodoApi)" as API <<Boundary>>
+
+Officer --> WebUI : CRUD Storage Areas
+WebUI --> API : REST/JSON
+API : Registo/Atualização/Pesquisa\nValidação capacidade ≥ ocupação\nAssociação a Docks (ServedDockIds)
+@enduml

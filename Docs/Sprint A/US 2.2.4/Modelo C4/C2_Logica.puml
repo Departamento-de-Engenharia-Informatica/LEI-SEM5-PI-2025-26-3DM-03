@@ -1,0 +1,16 @@
+@startuml C2_Logica
+title C2 — Lógica entre Containers (US 2.2.4)
+
+actor Officer
+rectangle API {
+  [StorageAreasController] --> [StorageAreaService]
+  [StorageAreaService] --> [Mapper/DTO]
+}
+rectangle Persistence {
+  [StorageAreaService] --> [IStorageAreaRepository]
+  [StorageAreaService] --> [IDockRepository] : valida ServedDockIds
+  [IStorageAreaRepository] --> [DB]
+  [IDockRepository] --> [DB]
+}
+Officer --> [StorageAreasController] : REST calls
+@enduml

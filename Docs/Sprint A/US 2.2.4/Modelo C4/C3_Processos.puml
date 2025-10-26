@@ -1,0 +1,34 @@
+@startuml C3_Processos
+title C3 — Sequência detalhada (UpdateStorageArea)
+
+actor Officer
+participant C as "StorageAreasController"
+participant S as "StorageAreaService"
+participant R as "IStorageAreaRepository"
+participant D as "IDockRepository"
+
+Officer -> C: PUT /api/StorageAreas/{id} (UpdateStorageAreaDTO)
+C -> S: UpdateStorageAreaAsync(id,dto)
+S -> R: GetByIdAsync(id)
+R --> S: area|null
+alt area == null
+  S --> C: KeyNotFoundException
+  C --> Officer: 404 Not Found
+else
+  S -> S: UpdateEntityFromDTO(area,dto)\n(Occupancy <= Capacity?)\n(throw se inválido)
+  opt dto.ServedDockIds fornecidos
+    loop cada dockId
+      S -> D: GetByIdAsync(dockId)
+      D --> S: Dock|null
+      alt null
+        S --> C: ArgumentException
+        C --> Officer: 400 Bad Request
+      end
+    end
+  end
+  S -> R: UpdateAsync(area)
+  R --> S: OK
+  S --> C: area
+  C --> Officer: 200 OK (StorageAreaDTO)
+end
+@enduml
