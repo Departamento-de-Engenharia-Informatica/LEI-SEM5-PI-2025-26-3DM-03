@@ -13,7 +13,7 @@ namespace Domain.Tests
             s.MecanographicNumber = "M1";
             s.ShortName = "Short";
             s.Email = "a@b";
-            s.OperationalWindow = new OperationalWindow { StartTime = TimeSpan.FromHours(8), EndTime = TimeSpan.FromHours(17) };
+            s.OperationalWindow = OperationalWindow.Create(TimeSpan.FromHours(8), TimeSpan.FromHours(17));
             Assert.Equal("M1", s.MecanographicNumber);
             Assert.Equal("Available", s.Status);
             Assert.True(s.Active);
@@ -25,7 +25,7 @@ namespace Domain.Tests
         public void OperationalWindow_StartBeforeEnd()
         {
             var s = new StaffMember();
-            s.OperationalWindow = new OperationalWindow { StartTime = TimeSpan.FromHours(6), EndTime = TimeSpan.FromHours(18) };
+            s.OperationalWindow = OperationalWindow.Create(TimeSpan.FromHours(6), TimeSpan.FromHours(18));
             Assert.True(s.OperationalWindow.StartTime < s.OperationalWindow.EndTime);
         }
 
