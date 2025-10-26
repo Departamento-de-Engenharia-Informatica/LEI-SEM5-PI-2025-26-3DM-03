@@ -1,0 +1,33 @@
+@startuml C3_OperatingStaffAPI_Logical_Components
+!include <C4/C4_Component>
+
+title C3 — Componentes (Vista Lógica) — Operating Staff Management API
+
+' ==== Contexto externo mínimo ====
+Container(web, "Frontend Web App", "React/Angular", "UI para gestão de Operating Staff")
+ContainerDb(db, "PLMS Database", "SQL / EF Core", "Tabelas: StaffMembers, StaffQualifications, Qualifications")
+
+' ==== Container em foco ====
+Container_Boundary(api, "Operating Staff Management API (ASP.NET Core)") {
+  Component(controller, "StaffController", "ASP.NET Core MVC", "Endpoints REST: listar, obter, criar, atualizar, desativar")
+  Component(service, "StaffService", "Application Layer", "Orquestra regras de negócio de Operating Staff")
+  Component(mapper, "StaffMapper", "Mapping", "DTO ↔ Domain (Create/Update/StaffDTO)")
+  Component(repoIface, "IStaffRepository", "Domain Port", "Contrato de acesso a dados de Staff")
+  Component(repoImpl, "EfStaffRepository", "Infrastructure Adapter (EF Core)", "Implementa o repositório")
+  ' (opcional/futuro) validações adicionais
+  Component(validator, "StaffValidator", "Application/Domain", "Regras: unicidade, janela operacional válida, status permitido")
+}
+
+' ==== Relações (fluxo principal) ====
+Rel(web, controller, "HTTP/JSON")
+Rel(controller, service, "chama")
+Rel(service, validator, "valida")
+Rel(service, mapper, "mapeia DTO↔Domain")
+Rel(service, repoIface, "usa (depende de)")
+Rel(repoImpl, repoIface, "implementa", "C#")
+Rel(repoImpl, db, "CRUD via EF Core", "SQL")
+
+' opcional: o impl pode usar o mapper para projeções
+Rel(repoImpl, mapper, "usa (opcional)")
+
+@enduml

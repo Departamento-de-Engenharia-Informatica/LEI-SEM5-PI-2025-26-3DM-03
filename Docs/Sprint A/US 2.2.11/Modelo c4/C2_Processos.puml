@@ -1,0 +1,44 @@
+@startuml C2_Manage_OperatingStaff_SSD
+title C2 — System Sequence Diagram (Process View)
+autonumber
+
+actor "Logistics Operator" as Operator
+actor "Port Authority Officer" as Officer
+participant "Frontend Web App" as Frontend
+participant "Staff Management API" as API
+database "PLMS Database" as DB
+
+== Registo de novo membro de staff ==
+Operator -> Frontend : Preenche formulário com dados do staff
+Frontend -> API : POST /api/staff (CreateStaffDTO)
+API -> API : Validar dados obrigatórios e unicidade (MecanographicNumber)
+API -> DB : INSERT StaffMember + Qualifications + OperationalWindow
+DB --> API : OK
+API --> Frontend : 201 Created (StaffDTO)
+Frontend --> Operator : Mostra confirmação de criação
+
+== Atualização de dados ==
+Operator -> Frontend : Edita dados do staff
+Frontend -> API : PUT /api/staff/{mecanographic} (UpdateStaffDTO)
+API -> DB : UPDATE StaffMember + Qualifications + Window
+DB --> API : OK
+API --> Frontend : 204 No Content
+Frontend --> Operator : Mostra confirmação de atualização
+
+== Desativação de staff ==
+Operator -> Frontend : Solicita desativação
+Frontend -> API : PATCH /api/staff/{mecanographic}/deactivate
+API -> DB : UPDATE StaffMember SET Active=false, Status='Unavailable'
+DB --> API : OK
+API --> Frontend : 204 No Content
+Frontend --> Operator : Mostra staff marcado como inativo
+
+== Consulta e filtragem ==
+Officer -> Frontend : Consulta lista de staff
+Frontend -> API : GET /api/staff?search={text}&filterBy={status}
+API -> DB : SELECT StaffMembers + Qualifications (filtros aplicados)
+DB --> API : Lista de staff
+API --> Frontend : JSON ([StaffDTO])
+Frontend --> Officer : Mostra lista de staff filtrada
+
+@enduml

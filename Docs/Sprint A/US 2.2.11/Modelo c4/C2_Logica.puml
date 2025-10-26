@@ -1,0 +1,106 @@
+@startuml C2_Manage_OperatingStaff_Implementation_View
+title C2 – Manage Operating Staff (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+
+
+together {
+  package "Controllers" as P_Controllers {
+    package "Staff" as P_Controllers_Staff {
+      [StaffController]
+    }
+  }
+}
+
+together {
+  package "Application" as P_App {
+    package "Services" as P_App_Services {
+      [IStaffService]
+      [StaffService]
+    }
+  }
+}
+
+together {
+  package "Domain" as P_Domain {
+    package "Repositories" as P_Domain_Repos {
+      [IStaffRepository]
+    }
+  }
+}
+
+together {
+  package "Infrastructure" as P_Infra {
+    package "Repositories" as P_Infra_Repos {
+      [EfStaffRepository]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "Staff" as P_Models_Staff {
+      [StaffMember]
+      [OperationalWindow]
+      [StaffQualification]
+      [StaffDTO]
+      [CreateStaffDTO]
+      [UpdateStaffDTO]
+      [StaffMapper]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+' Controller usa o serviço e os DTOs
+[StaffController] --> [IStaffService] : usa
+[StaffController] --> [StaffDTO]
+[StaffController] --> [CreateStaffDTO]
+[StaffController] --> [UpdateStaffDTO]
+
+' Serviço orquestra repositório e mapper
+[StaffService] --> [IStaffRepository]
+[StaffService] --> [StaffMapper]
+[StaffService] --> [StaffMember]
+
+' Infra: implementação EF do repositório
+[EfStaffRepository] -[#black,dashed]-> [IStaffRepository] : implements
+[EfStaffRepository] --> [PortContext]
+
+' Repositório (contrato) depende do contexto (via implementação)
+[IStaffRepository] --> [PortContext] : (via EF)
+
+' Mapper liga DTOs a entidades
+[StaffMapper] --> [StaffMember]
+[StaffMapper] --> [OperationalWindow]
+[StaffMapper] --> [StaffQualification]
+[StaffMapper] --> [StaffDTO]
+[StaffMapper] --> [CreateStaffDTO]
+[StaffMapper] --> [UpdateStaffDTO]
+
+' Modelagem de entidade e value objects
+[PortContext] --> [StaffMember] : DbSet/Configuração
+[StaffMember] --> [OperationalWindow]
+[StaffMember] --> [StaffQualification]
+
+@enduml

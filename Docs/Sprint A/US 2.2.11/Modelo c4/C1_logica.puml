@@ -1,0 +1,14 @@
+@startuml C1_Context_Logic
+!include <C4/C4_Context>
+
+title C1 — Contexto | Vista Lógica — US 2.2.11 Manage Operating Staff
+
+Person(logisticsOperator, "Logistics Operator", "Registers, updates, deactivates and searches Operating Staff")
+Person(portOfficer, "Port Authority Officer", "Consults staff information for planning and coordination")
+
+System(systemPlms, "Port Logistics Management System (PLMS)", "Manages port resources, including Operating Staff")
+
+Rel(logisticsOperator, systemPlms, "Performs CRUD operations on Operating Staff", "HTTPS/JSON")
+Rel(portOfficer, systemPlms, "Consults staff data (read-only)", "HTTPS/JSON")
+
+@enduml

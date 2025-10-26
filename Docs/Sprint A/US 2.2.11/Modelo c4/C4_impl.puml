@@ -1,0 +1,73 @@
+@startuml C4_Manage_Operating_Staff_Implementation_View
+title C4 – Manage Operating Staff (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow { 
+  Color Black 
+}
+
+' ================================
+' Pacotes por camada
+' ================================
+
+package "Controllers.Staff" {
+  [StaffController]
+}
+
+package "Application.Services.Staff" {
+  [IStaffService]
+  [StaffService]
+}
+
+package "Application.Mapping" {
+  [StaffMapper]
+}
+
+package "Domain.Repositories" {
+  [IStaffRepository]
+}
+
+package "Models.Staff" {
+  [StaffMember]
+  [OperationalWindow <<Value Object>>]
+  [StaffQualification]
+  [StaffDTO]
+  [CreateStaffDTO]
+  [UpdateStaffDTO]
+}
+
+package "Infrastructure.Repositories" {
+  [EfStaffRepository <<implements IStaffRepository>>]
+}
+
+package "Data" {
+  [PortContext <<DbContext>>]
+}
+
+' ================================
+' Dependências
+' ================================
+[StaffController] --> [IStaffService] : uses
+[StaffService] -up-|> [IStaffService]
+[StaffService] --> [IStaffRepository] : depends on interface
+[StaffService] --> [StaffMapper]
+
+[EfStaffRepository] -up-|> [IStaffRepository]
+[EfStaffRepository] --> [PortContext]
+
+[StaffMapper] --> [StaffMember]
+[StaffMapper] --> [StaffDTO]
+[StaffMapper] --> [CreateStaffDTO]
+[StaffMapper] --> [UpdateStaffDTO]
+
+[StaffMember] --> [OperationalWindow]
+[StaffMember] --> [StaffQualification]
+
+@enduml

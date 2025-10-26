@@ -1,0 +1,176 @@
+@startuml C3_Manage_OperatingStaff_Implementation_View
+title C3 – Manage Operating Staff (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package { 
+  BackgroundColor White;
+  BorderColor Black;
+  FontColor Black;
+}
+skinparam class { 
+  BackgroundColor White;
+  BorderColor Black;
+  FontColor Black;
+}
+
+' =======================
+' Controllers
+' =======================
+package "Controllers.Staff" {
+  class StaffController {
+    + GetStaff(search: string?, filterBy: string?) : Task<ActionResult<IEnumerable<StaffDTO>>>
+    + GetStaffMember(mecanographic: string) : Task<ActionResult<StaffDTO>>
+    + PostStaff(dto: CreateStaffDTO) : Task<ActionResult<StaffDTO>>
+    + PutStaff(mecanographic: string, dto: UpdateStaffDTO) : Task<IActionResult>
+    + DeactivateStaff(mecanographic: string) : Task<IActionResult>
+  }
+}
+
+' =======================
+' Application
+' =======================
+package "Application.Services.Staff" {
+  interface IStaffService {
+    + GetAllAsync(search: string?, filterBy: string?) : Task<List<StaffDTO>>
+    + GetByMecanographicNumberAsync(mecanographicNumber: string) : Task<StaffDTO?>
+    + CreateAsync(dto: CreateStaffDTO) : Task<StaffDTO>
+    + UpdateAsync(mecanographicNumber: string, dto: UpdateStaffDTO) : Task
+    + DeactivateAsync(mecanographicNumber: string) : Task
+  }
+
+  class StaffService {
+    - _repository : IStaffRepository
+    + GetAllAsync(search: string?, filterBy: string?) : Task<List<StaffDTO>>
+    + GetByMecanographicNumberAsync(mecanographicNumber: string) : Task<StaffDTO?>
+    + CreateAsync(dto: CreateStaffDTO) : Task<StaffDTO>
+    + UpdateAsync(mecanographicNumber: string, dto: UpdateStaffDTO) : Task
+    + DeactivateAsync(mecanographicNumber: string) : Task
+  }
+}
+
+package "Application.Mapping" {
+  class StaffMapper {
+    + ToDTO(model: StaffMember) : StaffDTO
+    + ToModel(dto: CreateStaffDTO) : StaffMember
+    + UpdateModel(model: StaffMember, dto: UpdateStaffDTO) : void
+  }
+}
+
+' =======================
+' Domain
+' =======================
+package "Domain.Repositories" {
+  interface IStaffRepository {
+    + GetAllAsync(search: string?, filterBy: string?) : Task<List<StaffMember>>
+    + GetByMecanographicNumberAsync(mecanographicNumber: string) : Task<StaffMember?>
+    + AddAsync(staff: StaffMember) : Task
+    + UpdateAsync(staff: StaffMember) : Task
+    + ExistsAsync(mecanographicNumber: string) : Task<bool>
+    + SaveChangesAsync() : Task
+  }
+}
+
+package "Models.Staff" {
+  class StaffMember {
+    + MecanographicNumber : string
+    + ShortName : string
+    + Email : string
+    + PhoneNumber : string
+    + OperationalWindow : OperationalWindow
+    + Status : string
+    + Active : bool
+    + Qualifications : List<StaffQualification>
+  }
+
+  class OperationalWindow {
+    + StartTime : TimeSpan
+    + EndTime : TimeSpan
+  }
+
+  class StaffQualification {
+    + Id : int
+    + QualificationCode : string
+  }
+
+  class StaffDTO {
+    + MecanographicNumber : string
+    + ShortName : string
+    + Email : string
+    + PhoneNumber : string
+    + StartTime : TimeSpan?
+    + EndTime : TimeSpan?
+    + Status : string
+    + Active : bool
+    + Qualifications : List<string>
+  }
+
+  class CreateStaffDTO {
+    + MecanographicNumber : string
+    + ShortName : string
+    + Email : string
+    + PhoneNumber : string
+    + StartTime : TimeSpan?
+    + EndTime : TimeSpan?
+    + Qualifications : List<string>
+  }
+
+  class UpdateStaffDTO {
+    + ShortName : string
+    + Email : string
+    + PhoneNumber : string
+    + StartTime : TimeSpan?
+    + EndTime : TimeSpan?
+    + Status : string
+    + Active : bool
+    + Qualifications : List<string>
+  }
+}
+
+StaffMember *-- OperationalWindow
+StaffMember *-- StaffQualification
+
+' =======================
+' Infrastructure
+' =======================
+package "Infrastructure.Repositories" {
+  class EfStaffRepository {
+    - _ctx : PortContext
+    + GetAllAsync(search: string?, filterBy: string?) : Task<List<StaffMember>>
+    + GetByMecanographicNumberAsync(mecanographicNumber: string) : Task<StaffMember?>
+    + AddAsync(staff: StaffMember) : Task
+    + UpdateAsync(staff: StaffMember) : Task
+    + ExistsAsync(mecanographicNumber: string) : Task<bool>
+    + SaveChangesAsync() : Task
+  }
+}
+
+package "Data" {
+  class PortContext {
+    + StaffMembers : DbSet<StaffMember>
+    + SaveChangesAsync() : Task<int>
+  }
+}
+
+' =======================
+' Relationships (camadas)
+' =======================
+StaffController --> IStaffService
+StaffService -up-|> IStaffService
+StaffService --> IStaffRepository
+EfStaffRepository -up-|> IStaffRepository
+EfStaffRepository --> PortContext
+
+StaffService --> StaffMapper
+StaffMapper --> StaffMember
+StaffMapper --> StaffDTO
+StaffMapper --> CreateStaffDTO
+StaffMapper --> UpdateStaffDTO
+
+StaffController --> StaffDTO
+StaffController --> CreateStaffDTO
+StaffController --> UpdateStaffDTO
+
+PortContext --> StaffMember
+
+@enduml

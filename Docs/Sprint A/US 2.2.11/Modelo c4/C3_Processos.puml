@@ -1,0 +1,121 @@
+@startuml C3_Manage_Operating_Staff_Process_View
+title C3 – Manage Operating Staff (Process View / System Sequence Diagram)
+hide footbox
+autonumber
+
+actor "Logistics Operator" as Operator
+actor "Port Authority Officer" as Officer
+participant "StaffController\n(API Layer)" as Controller
+participant "StaffService\n(Application Logic)" as Service
+participant "StaffMapper\n(DTO ↔ Domain)" as Mapper
+participant "IStaffRepository\n(Domain Port)" as Repo
+participant "EfStaffRepository\n(Infra Adapter)" as RepoImpl
+participant "PortContext\n(Entity Framework Core)" as Context
+database "PLMS Database\n(SQL / EF Core)" as DB
+
+' === Create (Register new staff) ===
+Operator -> Controller : POST /api/Staff\n(CreateStaffDTO + JWT)
+Controller -> Service : CreateAsync(dto)
+
+Service -> Repo : ExistsAsync(dto.MecanographicNumber)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Any(e => e.MecanographicNumber == dto.MecanographicNumber)
+Context --> RepoImpl : false
+RepoImpl --> Repo : false
+Repo --> Service : false
+
+Service -> Service : Validate mandatory fields\n(StartTime < EndTime ?)\n(Status default = \"Available\")
+Service -> Mapper : ToModel(dto)
+Mapper --> Service : StaffMember (domain)
+
+Service -> Repo : AddAsync(staff)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Add(entity)\nSaveChangesAsync()
+Context -> DB : INSERT StaffMember\n+ StaffQualifications\n+ OperationalWindow
+DB --> Context : OK
+Context --> RepoImpl : OK
+RepoImpl --> Repo : OK
+Repo --> Service : OK
+
+Service -> Mapper : ToDTO(staff)
+Mapper --> Service : StaffDTO
+Service --> Controller : StaffDTO
+Controller --> Operator : HTTP 201 Created\n(StaffDTO)
+
+' === Update (Edit staff details) ===
+Operator -> Controller : PUT /api/Staff/{mec}\n(UpdateStaffDTO + JWT)
+Controller -> Service : UpdateAsync(mec, dto)
+
+Service -> Repo : GetByMecanographicNumberAsync(mec)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Find/FirstOrDefault
+Context --> RepoImpl : StaffMember | null
+RepoImpl --> Repo : StaffMember | null
+Repo --> Service : StaffMember | null
+
+Service -> Service : if null → throw NotFound
+Service -> Mapper : UpdateModel(staff, dto)
+Mapper --> Service : void
+Service -> Repo : UpdateAsync(staff)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Update(entity)\nSaveChangesAsync()
+Context -> DB : UPDATE StaffMember\n(+ replace StaffQualifications, OperationalWindow)
+DB --> Context : OK
+Context --> RepoImpl : OK
+RepoImpl --> Repo : OK
+Repo --> Service : OK
+Service --> Controller : (no body)
+Controller --> Operator : HTTP 204 No Content
+
+' === Deactivate (Soft delete) ===
+Operator -> Controller : PATCH /api/Staff/{mec}/deactivate\n(JWT)
+Controller -> Service : DeactivateAsync(mec)
+
+Service -> Repo : GetByMecanographicNumberAsync(mec)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Find
+Context --> RepoImpl : StaffMember | null
+RepoImpl --> Repo : StaffMember | null
+Repo --> Service : StaffMember | null
+
+Service -> Service : if null → throw NotFound\nelse staff.Active=false; staff.Status=\"Unavailable\"
+Service -> Repo : SaveChangesAsync()
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : SaveChangesAsync()
+Context -> DB : UPDATE StaffMember SET Active=false, Status='Unavailable'
+DB --> Context : OK
+Context --> RepoImpl : OK
+RepoImpl --> Repo : OK
+Repo --> Service : OK
+Service --> Controller : (no body)
+Controller --> Operator : HTTP 204 No Content
+
+' === Get by Mecanographic Number ===
+Operator -> Controller : GET /api/Staff/{mec}
+Controller -> Service : GetByMecanographicNumberAsync(mec)
+Service -> Repo : GetByMecanographicNumberAsync(mec)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Find/Include(Qualifications)
+Context --> RepoImpl : StaffMember | null
+RepoImpl --> Repo : StaffMember | null
+Repo --> Service : StaffMember | null
+Service -> Mapper : ToDTO(staff)
+Mapper --> Service : StaffDTO
+Service --> Controller : StaffDTO | NotFound
+Controller --> Operator : HTTP 200 OK (StaffDTO)\n| 404 Not Found
+
+' === List & Filter (Officer read-only) ===
+Officer -> Controller : GET /api/Staff?search={text}&filterBy={status}
+Controller -> Service : GetAllAsync(search, filterBy)
+Service -> Repo : GetAllAsync(search, filterBy)
+Repo -> RepoImpl : call implementation
+RepoImpl -> Context : Query with filters/pagination
+Context --> RepoImpl : List<StaffMember>
+RepoImpl --> Repo : List<StaffMember>
+Repo --> Service : List<StaffMember>
+Service -> Mapper : ToDTO(*) map each
+Mapper --> Service : List<StaffDTO>
+Service --> Controller : List<StaffDTO>
+Controller --> Officer : HTTP 200 OK ([StaffDTO])
+
+@enduml

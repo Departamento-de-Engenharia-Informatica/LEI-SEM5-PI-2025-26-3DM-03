@@ -1,0 +1,57 @@
+@startuml C3_Manage_OperatingStaff_Physical_View
+title C3 – Manage Operating Staff (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+' ========= Nós / Ambientes =========
+node "Docker Host\n(Linux VM / Kubernetes Node)" as DockerHost {
+  node "Container: PLMS API\n(.NET 8 + Kestrel)\nport 8080" as ApiContainer {
+    artifact "TodoApi.Controllers (StaffController)" as Controllers
+    artifact "TodoApi.Application.Services (IStaffService, StaffService)" as AppServices
+    artifact "TodoApi.Models.Staff\n(StaffMember, OperationalWindow, StaffQualification,\nCreate/Update/StaffDTO, StaffMapper)" as ModelsStaff
+    artifact "TodoApi.Domain.Repositories (IStaffRepository)" as DomainRepos
+    artifact "TodoApi.Infrastructure.Repositories (EfStaffRepository)" as InfraRepos
+    artifact "TodoApi.Data (PortContext)" as DataLayer
+    artifact "EFCore (NuGet)" as EFCore
+    artifact "Program.cs (Minimal Hosting + DI + Swagger Dev)" as Program
+  }
+}
+
+node "DB Server\n(SQL Server Instance)\nport 1433" as DbServer {
+  database "PLMS Database\n(EF Core)\n• Dev: InMemory\n• Prod: SQL Server" as DB
+}
+
+' ========= Ligações físicas =========
+ApiContainer -down-> DbServer : TCP 1433\nEF Core provider / connection string (Prod)
+
+' ========= Relações internas (alto nível – informativas) =========
+Controllers --> AppServices : calls
+AppServices --> DomainRepos : depends on (interface)
+InfraRepos -up-|> DomainRepos : implements
+InfraRepos --> DataLayer : uses (DbContext)
+DataLayer --> EFCore : ORM provider
+Program --> ApiContainer : hosts/bootstraps
+AppServices --> ModelsStaff : uses DTOs/Mapper/Entities
+Controllers --> ModelsStaff : input/output DTOs
+InfraRepos --> ModelsStaff : entity mappings
+
+' ========= Nota de execução =========
+' Em desenvolvimento a app usa EF Core InMemory (sem DB externa).
+' Em produção, o repositório EF aponta para SQL Server no DB Server.
+
+@enduml

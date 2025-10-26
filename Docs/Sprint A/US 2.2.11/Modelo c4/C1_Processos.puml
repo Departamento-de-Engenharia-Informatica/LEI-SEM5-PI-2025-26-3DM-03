@@ -1,0 +1,24 @@
+@startuml C1 - Process View (US Manage Operating Staff)
+!include <C4/C4_Container>
+
+Person(operator, "Logistics Operator")
+System(api, "Port API")
+
+' --- CRUD de Operating Staff ---
+
+operator -> api : 1. POST /api/Staff\n(CreateStaffDTO)
+api --> operator : 2. 201 Created (StaffDTO)
+
+operator -> api : 3. GET /api/Staff/{mecanographic}
+api --> operator : 4. 200 OK (StaffDTO)
+
+operator -> api : 5. PUT /api/Staff/{mecanographic}\n(UpdateStaffDTO)
+api --> operator : 6. 204 No Content
+
+operator -> api : 7. PATCH /api/Staff/{mecanographic}/deactivate
+api --> operator : 8. 204 No Content
+
+operator -> api : 9. GET /api/Staff?search={text}&filterBy={status}
+api --> operator : 10. 200 OK ([StaffDTO])
+
+@enduml
