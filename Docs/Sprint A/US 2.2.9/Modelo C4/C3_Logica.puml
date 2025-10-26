@@ -1,0 +1,21 @@
+```plantuml
+@startuml C3_Logica
+title C3 — Detailed Logical View (US 2.2.9)
+
+class VesselVisitNotification {
+  +id: long
+  +vesselId: long
+  +agentId: long
+  +status: string
+  +approvedDockId: long?
+}
+
+class VesselVisitNotificationService {
+  +Submit(dto)
+  +Approve(id,dockId,officerId)
+  +Reject(id,officerId,reason)
+}
+
+VesselVisitNotificationService ..> VesselVisitNotification : manages
+
+@enduml

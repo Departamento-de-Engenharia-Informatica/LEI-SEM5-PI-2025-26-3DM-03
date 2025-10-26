@@ -1,0 +1,16 @@
+```plantuml
+@startuml C3_Fisica
+title C3 — Physical View / Deployment (US 2.2.9)
+
+node "API Server" as ApiNode
+database "SQL Database" as SqlDb
+cloud "Identity Provider (Auth)" as IdP
+
+ApiNode --> SqlDb : TCP/5432 (EF Core)
+ApiNode .. IdP : HTTPS (JWT)
+
+note bottom
+Typical deployment: API in App Service / Container; SQL in managed instance; external IdP.
+end note
+
+@enduml

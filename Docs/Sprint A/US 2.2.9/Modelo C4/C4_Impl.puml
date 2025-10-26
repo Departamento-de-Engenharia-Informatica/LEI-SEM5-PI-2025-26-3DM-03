@@ -1,0 +1,26 @@
+```plantuml
+@startuml C4_Impl
+title C4 — Components and Detailed Implementation (US 2.2.9)
+
+package "API" {
+  [VesselVisitNotificationsController]
+}
+
+package "Application" {
+  [VesselVisitNotificationService]
+}
+
+package "Domain" {
+  [VesselVisitNotification]
+}
+
+package "Infrastructure" {
+  [VesselVisitNotificationRepository]
+  [PortContext]
+}
+
+[VesselVisitNotificationsController] -> [VesselVisitNotificationService]
+[VesselVisitNotificationService] -> [VesselVisitNotificationRepository]
+[VesselVisitNotificationRepository] -> [PortContext]
+
+@enduml

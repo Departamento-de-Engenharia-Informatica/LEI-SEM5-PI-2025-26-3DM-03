@@ -1,0 +1,16 @@
+```plantuml
+@startuml C3_Processos
+title C3 — Fluxos de Processo (US 2.2.9)
+
+actor Representative
+actor Officer
+
+Representative -> VesselVisitNotificationsController : submitVVN(dto)
+VesselVisitNotificationsController -> VesselVisitNotificationService : Submit(dto)
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
+
+Officer -> VesselVisitNotificationsController : approve(id,dockId,officerId)
+VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(...)
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Update status
+
+@enduml

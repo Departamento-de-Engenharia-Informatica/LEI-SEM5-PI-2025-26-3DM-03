@@ -1,0 +1,16 @@
+```plantuml
+@startuml C4_Logica
+title C4 — Component Logic (US 2.2.9)
+
+component VesselVisitNotificationsController
+component VesselVisitNotificationService
+component VesselVisitNotificationRepository
+
+VesselVisitNotificationsController -> VesselVisitNotificationService : Submit/Approve/Reject
+VesselVisitNotificationService -> VesselVisitNotificationRepository : CRUD
+
+note bottom
+Core logic: domain validations, state transition rules, officer authorization.
+end note
+
+@enduml

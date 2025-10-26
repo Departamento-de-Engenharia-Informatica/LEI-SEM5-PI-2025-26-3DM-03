@@ -1,0 +1,21 @@
+```plantuml
+@startuml C1_Logica
+title C1 — Logical View (US 2.2.9)
+
+package "Port Operations" {
+  [VesselVisitNotification API]
+  [Docks]
+  [Shipping Agents]
+}
+
+actor "Port Authority Officer" as Officer
+actor "Representative" as Rep
+
+Rep --> [VesselVisitNotification API] : submit VVN
+Officer --> [VesselVisitNotification API] : approve/reject
+
+note right
+Simple logical view: submission by representatives; decision by officers; data persisted in Docks/Entities
+end note
+
+@enduml

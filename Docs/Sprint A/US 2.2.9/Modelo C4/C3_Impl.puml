@@ -1,0 +1,18 @@
+```plantuml
+@startuml C3_Impl
+title C3 — Implementation (US 2.2.9)
+
+component "VesselVisitNotificationsController" as Controller
+component "VesselVisitNotificationService" as Service
+component "VesselVisitNotificationRepository" as Repo
+database "PortContext (EF Core)" as Db
+
+Controller -> Service : calls
+Service -> Repo : calls
+Repo -> Db : SQL
+
+note right
+Technologies: ASP.NET Core 8, EF Core, C#, xUnit (tests).
+end note
+
+@enduml

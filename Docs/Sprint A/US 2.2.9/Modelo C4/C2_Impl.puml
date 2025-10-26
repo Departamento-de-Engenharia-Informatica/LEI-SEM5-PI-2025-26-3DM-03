@@ -1,0 +1,19 @@
+```plantuml
+@startuml C2_Impl
+title C2 — Container / Implementation (US 2.2.9)
+
+node "Web server (API)" as ApiServer {
+  component "TodoApi (ASP.NET Core)" as TodoApi
+}
+
+database "PortContext (SQL)" as Db
+
+TodoApi --> Db : EF Core (VesselVisitNotifications table)
+
+note left of TodoApi
+Controllers: VesselVisitNotificationsController
+Services: IVesselVisitNotificationService -> VesselVisitNotificationService
+Repositories: VesselVisitNotificationRepository
+end note
+
+@enduml

@@ -1,0 +1,22 @@
+```plantuml
+@startuml C1_Processos
+title C1 — Processos (US 2.2.9)
+
+actor "Representative" as Rep
+actor "Port Authority Officer" as Officer
+
+Rep -> System : Create VVN (submit)
+activate System
+System -> Repository : persist VVN (status: Submitted)
+deactivate System
+
+Officer -> System : Review VVN
+activate System
+System -> Repository : update VVN (Approved/Rejected)
+deactivate System
+
+note bottom
+Processo: submit -> review -> decision (approve/reject)
+end note
+
+@enduml

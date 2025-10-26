@@ -1,0 +1,16 @@
+```plantuml
+@startuml C4_Processos
+title C4 — Sequência Detalhada (US 2.2.9)
+
+actor Representative
+actor Officer
+
+Representative -> VesselVisitNotificationsController : POST /submit
+VesselVisitNotificationsController -> VesselVisitNotificationService : Submit(dto)
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
+
+Officer -> VesselVisitNotificationsController : POST /{id}/approve/{dockId}/{officerId}
+VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(id,dockId,officerId)
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Update(status=Approved)
+
+@enduml

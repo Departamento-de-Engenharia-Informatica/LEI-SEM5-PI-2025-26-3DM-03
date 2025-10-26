@@ -1,0 +1,24 @@
+```plantuml
+@startuml C2_Processos
+title C2 — Sequence / Processes (US 2.2.9)
+
+actor "Representative" as Rep
+actor "Port Authority Officer" as Officer
+
+Rep -> VesselVisitNotificationsController : POST /submit
+activate VesselVisitNotificationsController
+VesselVisitNotificationsController -> VesselVisitNotificationService : SubmitVVN(dto)
+activate VesselVisitNotificationService
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Add + Save
+deactivate VesselVisitNotificationService
+deactivate VesselVisitNotificationsController
+
+Officer -> VesselVisitNotificationsController : POST /{id}/approve/{dockId}/{officerId}
+activate VesselVisitNotificationsController
+VesselVisitNotificationsController -> VesselVisitNotificationService : Approve(id,dockId,officerId)
+activate VesselVisitNotificationService
+VesselVisitNotificationService -> VesselVisitNotificationRepository : Update status -> Approved
+deactivate VesselVisitNotificationService
+deactivate VesselVisitNotificationsController
+
+@enduml
