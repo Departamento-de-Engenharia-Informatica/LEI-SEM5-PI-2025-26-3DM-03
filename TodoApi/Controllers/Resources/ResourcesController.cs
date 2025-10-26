@@ -15,6 +15,7 @@ namespace TodoApi.Controllers.Resources
             _service = service;
         }
 
+        // GET: api/Resources
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ResourceDTO>>> GetResources()
         {
@@ -22,6 +23,7 @@ namespace TodoApi.Controllers.Resources
             return Ok(resources);
         }
 
+        // GET: api/Resources/{code}
         [HttpGet("{code}")]
         public async Task<ActionResult<ResourceDTO>> GetResource(string code)
         {
@@ -29,6 +31,7 @@ namespace TodoApi.Controllers.Resources
             return resource is null ? NotFound() : Ok(resource);
         }
 
+        // POST: api/Resources
         [HttpPost]
         public async Task<ActionResult<ResourceDTO>> CreateResource(CreateResourceDTO dto)
         {
@@ -36,6 +39,7 @@ namespace TodoApi.Controllers.Resources
             return CreatedAtAction(nameof(GetResource), new { code = resource.Code }, resource);
         }
 
+        // PUT: api/Resources/{code}
         [HttpPut("{code}")]
         public async Task<IActionResult> UpdateResource(string code, UpdateResourceDTO dto)
         {
@@ -43,7 +47,8 @@ namespace TodoApi.Controllers.Resources
             return NoContent();
         }
 
-        [HttpPatch("{code}/deactivate")]
+        // PUT: api/Resources/{code}/deactivate
+        [HttpPut("{code}/deactivate")]
         public async Task<IActionResult> DeactivateResource(string code)
         {
             await _service.DeactivateAsync(code);
