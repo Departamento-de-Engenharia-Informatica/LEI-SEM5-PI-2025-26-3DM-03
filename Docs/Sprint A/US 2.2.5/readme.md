@@ -93,7 +93,7 @@ Additional clarifications:
 POST /api/ShippingAgents
 {
   "taxNumber": 123456789,
-  "lastName": "Atlantic Shipping Co.",
+  "legalName": "Atlantic Shipping Co.",
   "alternativeName": "Atlantic Logistics",
   "type": "Owner",
   "address": {
