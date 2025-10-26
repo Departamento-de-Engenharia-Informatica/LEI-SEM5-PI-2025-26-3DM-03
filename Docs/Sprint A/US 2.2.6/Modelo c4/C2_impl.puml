@@ -1,0 +1,78 @@
+@startuml C2_Manage_Representatives_Implementation_View
+title C2 – Manage Representatives (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Packages (side by side)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "Representatives" as P_Controllers_Rep {
+      [RepresentativesController]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "Representatives" as P_Models_Rep {
+      [Representative]
+      [RepresentativeDTO]
+      [CreateRepresentativeDTO]
+      [UpdateRepresentativeDTO]
+      [RepresentativeMapper]
+    }
+
+    package "ShippingOrganizations" as P_Models_Shipping {
+      [ShippingAgent]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+package "Application" as P_App {
+  package "Services" as P_App_Services {
+      [RepresentativeService]
+  }
+}
+
+package "Domain.Repositories" as P_Repos {
+    [IShippingAgentRepository]
+}
+
+' ======================
+' Dependencies
+' ======================
+
+[PortContext <<EF Core DbContext>>]
+
+[RepresentativesController] --> [RepresentativeService] : uses
+[RepresentativeService] --> [IShippingAgentRepository] : accesses agents and reps
+[RepresentativeService] --> [RepresentativeMapper] : maps DTO ↔ domain
+[IShippingAgentRepository] --> [PortContext] : persistence layer
+
+[RepresentativeMapper] --> [Representative]
+[RepresentativeMapper] --> [RepresentativeDTO]
+[RepresentativeMapper] --> [CreateRepresentativeDTO]
+[RepresentativeMapper] --> [UpdateRepresentativeDTO]
+
+[ShippingAgent] --> [Representative] : 1..* association (one org has many reps)
+
+@enduml

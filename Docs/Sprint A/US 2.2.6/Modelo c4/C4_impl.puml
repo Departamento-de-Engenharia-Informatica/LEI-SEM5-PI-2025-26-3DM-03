@@ -1,0 +1,66 @@
+@startuml C4_Manage_Representatives_Implementation_View
+title C4 – Manage Representatives (Implementation / Package View – Representatives)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Packages
+' ======================
+
+package "Controllers.Representatives" {
+  [RepresentativesController]
+}
+
+package "Application.Services.Representatives" {
+  [RepresentativeService]
+}
+
+package "Application.Mapping" {
+  [RepresentativeMapper]
+}
+
+package "Domain.Repositories" {
+  [IShippingAgentRepository]
+}
+
+package "Models.Representatives" {
+  [Representative]
+  [RepresentativeDTO]
+  [CreateRepresentativeDTO]
+  [UpdateRepresentativeDTO]
+}
+
+package "Models.ShippingOrganizations" {
+  [ShippingAgent]
+}
+
+package "Infrastructure.Data" {
+  [PortContext]
+}
+
+' ======================
+' Dependencies
+' ======================
+
+[RepresentativesController] --> [RepresentativeService]
+[RepresentativeService] --> [RepresentativeMapper]
+[RepresentativeService] --> [IShippingAgentRepository]
+[IShippingAgentRepository] --> [PortContext]
+
+[RepresentativeMapper] --> [Representative]
+[RepresentativeMapper] --> [RepresentativeDTO]
+[RepresentativeMapper] --> [CreateRepresentativeDTO]
+[RepresentativeMapper] --> [UpdateRepresentativeDTO]
+
+[ShippingAgent] --> [Representative] : contains
+
+@enduml

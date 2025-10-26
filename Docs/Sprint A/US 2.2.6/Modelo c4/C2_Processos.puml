@@ -1,0 +1,44 @@
+@startuml C2_Manage_Representatives_Process_View
+!include <C4/C4_Container>
+
+title C2 – Manage Representatives (US 2.2.6)
+
+Person(officer, "Port Authority Officer")
+
+System_Boundary(sys, "Port Logistics Management System (PLMS)") {
+  Container(api, "Representatives Management API (TodoApi)", "C#", "Create, Update, Deactivate representatives of an organization")
+  ContainerDb(db, "PLMS Database", "SQL / EF Core", "ShippingAgents, Representatives")
+}
+
+System_Ext(mail, "Email Gateway", "SMTP / Provider API (optional)")
+
+' Endpoints
+Rel(officer, api, "POST /api/ShippingAgents/{taxNumber}/Representatives (CreateRepresentativeDTO)", "HTTPS / JSON")
+Rel(officer, api, "PUT /api/ShippingAgents/{taxNumber}/Representatives/{id} (UpdateRepresentativeDTO)", "HTTPS / JSON")
+Rel(officer, api, "POST /api/ShippingAgents/{taxNumber}/Representatives/{id}/deactivate", "HTTPS")
+
+' Persistence & notifications
+Rel(api, db, "CRUD Representatives scoped by taxNumber", "EF Core")
+Rel(api, mail, "Notify representative about changes (optional)", "SMTP / API")
+
+note right of api
+1) Controller receives request with {taxNumber} scope
+2) (Service) Validates:
+   • Organization with taxNumber exists
+   • Required fields: Name, CitizenID, Nationality, Email, PhoneNumber
+   • (Rule) Exactly one organization per representative
+     - Operations are scoped to {taxNumber}
+     - Reject duplicate CitizenID within the same organization
+3) (Service) Maps DTO ↔ Domain (Representative)
+4) (Repository) SaveChangesAsync (EF Core)
+5) (API) Optional email notification
+
+Responses:
+• Create → 201 Created (RepresentativeDTO)
+• Update → 200 OK (RepresentativeDTO)
+• Deactivate → 204 No Content (IsActive=false)
+Errors:
+• 400 Bad Request (validation)
+• 404 Not Found (organization or representative)
+end note
+@enduml

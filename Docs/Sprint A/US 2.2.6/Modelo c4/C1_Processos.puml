@@ -1,0 +1,19 @@
+@startuml C1 - Process View (US Manage Representatives)
+!include <C4/C4_Container>
+
+Person(portOfficer, "Port Authority Officer")
+System(api, "Port API")
+
+' === Create Representative ===
+portOfficer -> api : 1. POST /api/ShippingAgents/{taxNumber}/Representatives\n(CreateRepresentativeDTO)
+api --> portOfficer : 2. 201 Created (RepresentativeDTO)
+
+' === Update Representative ===
+portOfficer -> api : 3. PUT /api/ShippingAgents/{taxNumber}/Representatives/{id}\n(UpdateRepresentativeDTO)
+api --> portOfficer : 4. 200 OK (Updated RepresentativeDTO)
+
+' === Deactivate Representative ===
+portOfficer -> api : 5. POST /api/ShippingAgents/{taxNumber}/Representatives/{id}/deactivate
+api --> portOfficer : 6. 204 No Content (Representative Deactivated)
+
+@enduml

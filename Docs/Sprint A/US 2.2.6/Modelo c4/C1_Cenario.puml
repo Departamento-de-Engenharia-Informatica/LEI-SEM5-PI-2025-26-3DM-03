@@ -1,0 +1,27 @@
+@startuml C1 - Context (US Manage Representatives)
+!include <C4/C4_Container>
+
+' === Actors ===
+Person(portOfficer, "Port Authority Officer", "Creates, updates and deactivates representatives")
+Person(repUser, "Shipping Agent Representative", "Acts on behalf of the organization")
+
+' === System in scope ===
+System(plms, "Port Logistics Management System", "Backoffice + Port API")
+
+' === External systems ===
+System_Ext(mail, "Email Gateway", "Email notifications")
+System_Ext(sms, "SMS Gateway", "SMS notifications")
+
+' === Relationships ===
+Rel(portOfficer, plms, "Manage representatives (create, update, deactivate) via API")
+Rel(repUser, plms, "Receives account updates / activation")
+Rel(plms, mail, "Sends notifications to representatives", "SMTP/Provider API")
+Rel(plms, sms, "Sends SMS notifications (optional)", "Provider API")
+
+' Optional note to highlight the rule
+'note right of plms
+'  Exactly one organization per representative at any time.
+'  (Enforced by service validations)
+'end note
+
+@enduml

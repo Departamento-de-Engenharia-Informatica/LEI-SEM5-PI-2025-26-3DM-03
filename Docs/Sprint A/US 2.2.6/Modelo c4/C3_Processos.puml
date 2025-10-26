@@ -1,0 +1,57 @@
+@startuml C3_Manage_Representatives_Process_View
+title C3 – Manage Representatives (Process View / System Sequence Diagram)
+hide footbox
+
+actor "Port Authority Officer" as Officer
+participant "RepresentativesController\n(API Layer)" as Controller
+participant "RepresentativeService\n(Business rules)" as Service
+participant "RepresentativeMapper\n(DTO ↔ Domain)" as Mapper
+participant "IShippingAgentRepository\n(Abstraction)" as Repo
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / SQLite)" as DB
+participant "NotificationService\n(Email / SMS)" as Notif
+
+' === CREATE REPRESENTATIVE ===
+Officer -> Controller : POST /api/ShippingAgents/{taxNumber}/Representatives\n(CreateRepresentativeDTO + JWT)
+Controller -> Service : CreateAsync(taxNumber, dto)
+
+Service -> Repo : GetByTaxNumberAsync(taxNumber, includeRepresentatives: true)
+Repo -> Context : Query ShippingAgent + Representatives
+Context -> DB : SELECT ShippingAgent (by TaxNumber)
+DB --> Context : Agent entity with Representatives
+Context --> Repo : OK
+Repo --> Service : ShippingAgent
+
+Service -> Service : Validate(dto) + ensure unique CitizenID per organization
+Service -> Mapper : ToDomain(dto)
+Mapper --> Service : Representative (domain)
+Service -> Repo : Add Representative to agent.Representatives + SaveChangesAsync()
+Repo -> Context : SaveChanges()
+Context -> DB : INSERT Representative
+DB --> Context : OK
+Context --> Repo : OK
+Repo --> Service : OK
+
+Service --> Controller : RepresentativeDTO
+Controller -> Notif : Send confirmation (optional)
+Notif --> Controller : OK
+Controller --> Officer : HTTP 201 Created (RepresentativeDTO)
+
+== UPDATE REPRESENTATIVE ==
+Officer -> Controller : PUT /api/ShippingAgents/{taxNumber}/Representatives/{id}\n(UpdateRepresentativeDTO)
+Controller -> Service : UpdateAsync(taxNumber, id, dto)
+Service -> Repo : GetByTaxNumberAsync(...) + find Representative by Id
+Service -> Mapper : MapToDomain(rep, dto)
+Mapper --> Service : Updated Representative
+Service -> Repo : SaveChangesAsync()
+Controller --> Officer : HTTP 200 OK (Updated RepresentativeDTO)
+
+== DEACTIVATE REPRESENTATIVE ==
+Officer -> Controller : POST /api/ShippingAgents/{taxNumber}/Representatives/{id}/deactivate
+Controller -> Service : DeactivateAsync(taxNumber, id)
+Service -> Repo : GetByTaxNumberAsync(...) + find Representative
+Service -> Service : rep.IsActive = false
+Service -> Repo : SaveChangesAsync()
+Controller --> Officer : HTTP 204 No Content
+
+@enduml

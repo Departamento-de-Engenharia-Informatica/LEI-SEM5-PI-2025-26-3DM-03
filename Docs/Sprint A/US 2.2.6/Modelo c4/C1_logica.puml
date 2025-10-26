@@ -1,0 +1,17 @@
+@startuml C1_Context_Logic_US_2_2_6
+!include <C4/C4_Container>
+
+title Level 1 - Context Diagram (Logic) - US 2.2.6 (Manage Representatives)
+
+Person(portOfficer, "Port Authority Officer", "Creates, updates, and deactivates organization representatives")
+
+System_Boundary(portSystem, "Port Logistics Management System") {
+    System(portApi, "Port Management API", "Manages shipping organizations and their representatives")
+}
+
+ContainerDb(database, "Port Database", "SQL Server", "Stores shipping agents and representatives data")
+
+Rel(portOfficer, portApi, "Manages Representatives (Create / Update / Deactivate)", "HTTPS/JSON")
+Rel(portApi, database, "Reads/Writes representatives via EF Core", "Entity Framework Core")
+
+@enduml

@@ -1,0 +1,136 @@
+@startuml C3_Manage_Representatives_Implementation_View
+title C3 – Manage Representatives (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+
+' =======================
+' CONTROLLERS
+' =======================
+package "Controllers.Representatives" {
+  class RepresentativesController {
+    + GetAll(taxNumber: long) : Task<ActionResult<IEnumerable<RepresentativeDTO>>>
+    + GetById(taxNumber: long, id: int) : Task<ActionResult<RepresentativeDTO>>
+    + Create(taxNumber: long, dto: CreateRepresentativeDTO) : Task<ActionResult<RepresentativeDTO>>
+    + Update(taxNumber: long, id: int, dto: UpdateRepresentativeDTO) : Task<ActionResult<RepresentativeDTO>>
+    + Deactivate(taxNumber: long, id: int) : Task<IActionResult>
+    + Delete(taxNumber: long, id: int) : Task<IActionResult>
+  }
+}
+
+' =======================
+' SERVICES
+' =======================
+package "Application.Services.Representatives" {
+  class RepresentativeService {
+    + GetAllAsync(taxNumber: long) : Task<List<RepresentativeDTO>>
+    + GetAsync(taxNumber: long, id: int) : Task<RepresentativeDTO?>
+    + CreateAsync(taxNumber: long, dto: CreateRepresentativeDTO) : Task<RepresentativeDTO>
+    + UpdateAsync(taxNumber: long, id: int, dto: UpdateRepresentativeDTO) : Task<RepresentativeDTO?>
+    + DeactivateAsync(taxNumber: long, id: int) : Task<bool>
+    + DeleteAsync(taxNumber: long, id: int) : Task<bool>
+    - Validate(dto)
+    - _repo : IShippingAgentRepository
+  }
+}
+
+' =======================
+' MAPPING
+' =======================
+package "Application.Mapping" {
+  class RepresentativeMapper {
+    + ToDomain(dto: CreateRepresentativeDTO) : Representative
+    + ToDTO(model: Representative) : RepresentativeDTO
+    + MapToDomain(rep: Representative, dto: UpdateRepresentativeDTO) : void
+  }
+}
+
+' =======================
+' DOMAIN & MODELS
+' =======================
+package "Models.Representatives" {
+  class Representative {
+    + Id : int
+    + Name : string
+    + CitizenID : string
+    + Nationality : string
+    + Email : string
+    + PhoneNumber : string
+    + IsActive : bool
+  }
+
+  class RepresentativeDTO {
+    + Id : int
+    + Name : string
+    + CitizenID : string
+    + Nationality : string
+    + Email : string
+    + PhoneNumber : string
+    + IsActive : bool
+  }
+
+  class CreateRepresentativeDTO {
+    + Name : string
+    + CitizenID : string
+    + Nationality : string
+    + Email : string
+    + PhoneNumber : string
+  }
+
+  class UpdateRepresentativeDTO {
+    + Name : string
+    + CitizenID : string
+    + Nationality : string
+    + Email : string
+    + PhoneNumber : string
+  }
+}
+
+' =======================
+' INFRASTRUCTURE
+' =======================
+package "Domain.Repositories" {
+  interface IShippingAgentRepository {
+    + GetByTaxNumberAsync(taxNumber: long, includeRepresentatives: bool = false) : Task<ShippingAgent?>
+    + SaveChangesAsync() : Task
+  }
+}
+
+package "Models.ShippingOrganizations" {
+  class ShippingAgent {
+    + TaxNumber : long
+    + Representatives : List<Representative>
+  }
+}
+
+package "Infrastructure.Data" {
+  class PortContext {
+    + ShippingAgents : DbSet<ShippingAgent>
+    + SaveChangesAsync() : Task<int>
+  }
+}
+
+' =======================
+' RELATIONSHIPS
+' =======================
+RepresentativesController --> RepresentativeService
+RepresentativeService --> IShippingAgentRepository
+RepresentativeService --> RepresentativeMapper
+IShippingAgentRepository --> PortContext
+RepresentativeMapper --> Representative
+RepresentativeMapper --> RepresentativeDTO
+RepresentativeMapper --> CreateRepresentativeDTO
+RepresentativeMapper --> UpdateRepresentativeDTO
+ShippingAgent *-- Representative
+
+@enduml
