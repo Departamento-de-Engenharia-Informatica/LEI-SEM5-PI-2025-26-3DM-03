@@ -1,6 +1,9 @@
+using FrameworkDDD.Common;
+
+
 namespace TodoApi.Models.Representatives
 {
-    public class Representative
+    public class Representative : Entity
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;

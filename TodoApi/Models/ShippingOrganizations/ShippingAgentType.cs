@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using FrameworkDDD.Common;
 
 namespace TodoApi.Models.ShippingOrganizations
 {
@@ -7,13 +8,18 @@ namespace TodoApi.Models.ShippingOrganizations
     /// Value Object que representa o tipo de agente ("Owner" ou "Operator").
     /// Garante integridade e conversão transparente entre domínio e BD.
     /// </summary>
-    public sealed class ShippingAgentType
+    public sealed class ShippingAgentType : ValueObject
     {
-        public string Value { get; }
+        public string Value { get; private set; }
 
         // Lista de tipos válidos (case-insensitive)
         private static readonly HashSet<string> AllowedTypes =
             new(new[] { "Owner", "Operator" }, StringComparer.OrdinalIgnoreCase);
+
+        private ShippingAgentType()
+        {
+            Value = string.Empty;
+        }
 
         public ShippingAgentType(string value)
         {
@@ -32,15 +38,17 @@ namespace TodoApi.Models.ShippingOrganizations
         public static ShippingAgentType Owner => new("Owner");
         public static ShippingAgentType Operator => new("Operator");
 
+        protected override IEnumerable<object> GetEqualityComponents()
+        {
+            yield return Value;
+        }
+
         public override string ToString() => Value;
 
         // Conversão implícita de VO -> string
-        public static implicit operator string(ShippingAgentType v) => v.Value;
+        public static implicit operator string(ShippingAgentType v) => v?.Value ?? string.Empty;
 
         // Conversão implícita de string -> VO
         public static implicit operator ShippingAgentType(string v) => new ShippingAgentType(v);
-
-        public override bool Equals(object? obj) => obj is ShippingAgentType t && t.Value == Value;
-        public override int GetHashCode() => Value.GetHashCode();
     }
 }
