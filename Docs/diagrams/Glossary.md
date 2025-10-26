@@ -110,15 +110,12 @@
 | QualificationDescription | Description of the qualification, e.g., STS Crane Operator or Truck Driver. |
 | Reliability | System’s capacity to perform consistently and correctly over time. |
 | Representative | Individual authorized by the shipping agent to interact with the system. |
-| RepresentativeCitizenID | National citizen/ID number of the representative. |
-| RepresentativeEmail | Email contact of the representative. |
 | RepresentativeName | Full name of a shipping agent representative. |
 | RepresentativeNationality | Declared nationality of the representative. |
 | RepresentativePhoneNumber | Phone contact of the representative. |
 | Resource | Any physical logistic asset (crane, truck, etc.) used in port operations and managed by the system. |
 | ResourceConstraint | Limitation related to the availability, capacity, or maintenance of a resource. |
 | ResourceDescription | Textual description detailing the resource’s purpose or specifications. |
-| ResourceID | Unique identifier assigned to each resource. |
 | ResourceSchedulingAlgorithm | Algorithm used by the Logistics Operator to allocate and schedule resources and staff. |
 | ResourceType | Categorization of the resource based on its physical nature or function. |
 | ResourceUtilization | Measure of how effectively resources are being used during operations. |

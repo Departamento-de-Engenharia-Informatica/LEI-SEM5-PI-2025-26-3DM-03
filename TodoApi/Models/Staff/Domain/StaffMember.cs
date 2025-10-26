@@ -1,9 +1,10 @@
+using FrameworkDDD.Common;
 using System;
 using System.Collections.Generic;
 
 namespace TodoApi.Models.Staff
 {
-    public class StaffMember
+    public class StaffMember : IAggregateRoot
     {
         // mecanographic number (unique id)
         public string MecanographicNumber { get; set; } = string.Empty;
