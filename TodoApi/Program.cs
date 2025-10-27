@@ -2,9 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
 using TodoApi.Domain.Repositories;
 using TodoApi.Infrastructure.Repositories;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 
 
 var builder = WebApplication.CreateBuilder(args);
+var configuration = builder.Configuration;
 
 // =====================================================
 // Add services to the dependency injection container
@@ -65,6 +70,46 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // =====================================================
+// Authentication (Google OpenID Connect)
+// =====================================================
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+})
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
+    {
+        // Authority for Google OpenID Connect
+        options.Authority = "https://accounts.google.com";
+
+        // Read client id/secret from configuration: Authentication:Google
+        options.ClientId = configuration["Authentication:Google:ClientId"];
+        options.ClientSecret = configuration["Authentication:Google:ClientSecret"];
+
+        // Callback path
+        options.CallbackPath = "/signin-oidc";
+
+        // Save tokens so they are available after sign-in
+        options.SaveTokens = true;
+
+        // Use authorization code flow
+        options.ResponseType = "code";
+
+        // Request email and profile scopes
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
+
+        // Get claims from the userinfo endpoint
+        options.GetClaimsFromUserInfoEndpoint = true;
+
+        // Map common claims
+        options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Name, "name");
+        options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Email, "email");
+    });
+
+// =====================================================
 // Build and configure the HTTP request pipeline
 // =====================================================
 
@@ -77,6 +122,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+// Ensure authentication middleware runs before authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 // Map all controllers
