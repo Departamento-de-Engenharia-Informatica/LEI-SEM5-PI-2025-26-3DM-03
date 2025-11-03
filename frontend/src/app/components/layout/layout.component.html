@@ -1,0 +1,66 @@
+<div class="app-shell">
+  <header class="app-header" role="banner">
+    <div class="header-left">
+  <div class="logo" aria-hidden="true">
+        <!-- simple svg logo -->
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="24" height="24" rx="4" fill="#02284A"></rect>
+          <path d="M6 15L10 9L14 15" stroke="#0EA5A4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+  <div class="title">{{ title }}</div>
+    </div>
+
+    <div class="header-right">
+      <div class="lang-switch">
+        <button class="lang-btn" (click)="changeLang('en')" [class.active]="lang==='en'">EN</button>
+        <button class="lang-btn" (click)="changeLang('pt')" [class.active]="lang==='pt'">PT</button>
+      </div>
+      <div class="user-area">
+        <div class="role">{{ userRole | uppercase }}</div>
+        <div class="role-switch">
+          <label for="role" class="sr-only">Role</label>
+          <select id="role" (change)="setRole($any($event.target).value)" [value]="userRole">
+            <option value="admin">ADMIN</option>
+            <option value="authority">AUTHORITY</option>
+            <option value="operator">OPERATOR</option>
+            <option value="agent">AGENT</option>
+          </select>
+        </div>
+        <div class="user-actions">
+          <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <aside class="sidebar" role="navigation">
+      <nav>
+        <ul>
+          <li *ngFor="let item of visibleMenu" routerLinkActive="active">
+            <a [routerLink]="item.route" class="menu-item">
+              <span class="icon" aria-hidden="true"><i [class]="item.icon"></i></span>
+              <span class="label">{{ i18n.t('menu.' + item.key) }}</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="sidebar-footer">
+        <small class="muted">{{ lang==='pt' ? 'Ajuda' : 'Help' }}</small>
+      </div>
+    </aside>
+
+    <main class="main-content" role="main">
+  <div class="breadcrumbs" aria-hidden="true">{{ i18n.t('home') }} / <span class="muted">{{ i18n.t('breadcrumb.dashboard') }}</span></div>
+
+      <!-- app content goes here -->
+      <router-outlet></router-outlet>
+
+      <footer class="app-footer">
+      
+      </footer>
+    </main>
+  </div>
+</div>
