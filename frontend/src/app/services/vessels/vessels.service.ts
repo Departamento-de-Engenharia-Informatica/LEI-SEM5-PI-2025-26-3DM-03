@@ -1,33 +1,49 @@
 import { Injectable } from '@angular/core';
-import axios from 'axios';
+// Use fetch API to avoid external dependency on axios in the dev environment.
+const baseUrl = '/api';
 
 @Injectable({
   providedIn: 'root'
 })
 export class VesselsService {
-  private apiUrl = 'https://localhost:5001/api/vessels'; // muda para o endpoint real
+  private apiUrl = '/vessels';
 
   async getAll() {
-    const response = await axios.get(this.apiUrl);
-    return response.data;
+    const res = await fetch(baseUrl + this.apiUrl, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    return await res.json();
   }
 
   async getById(id: number) {
-    const response = await axios.get(`${this.apiUrl}/${id}`);
-    return response.data;
+    const res = await fetch(baseUrl + `${this.apiUrl}/${id}`, { credentials: 'include' });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    return await res.json();
   }
 
   async create(vessel: any) {
-    const response = await axios.post(this.apiUrl, vessel);
-    return response.data;
+    const res = await fetch(baseUrl + this.apiUrl, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vessel)
+    });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    return await res.json();
   }
 
   async update(id: number, vessel: any) {
-    const response = await axios.put(`${this.apiUrl}/${id}`, vessel);
-    return response.data;
+    const res = await fetch(baseUrl + `${this.apiUrl}/${id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vessel)
+    });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    return await res.json();
   }
 
   async delete(id: number) {
-    await axios.delete(`${this.apiUrl}/${id}`);
+    const res = await fetch(baseUrl + `${this.apiUrl}/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
   }
 }

@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
+using System.Linq;
 using Microsoft.Extensions.Logging;
+using TodoApi.Models.Auth;
 
 // =====================================================
 // Application Startup Configuration
@@ -32,6 +34,18 @@ Console.WriteLine($"GOOGLE CLIENT ID: {builder.Configuration["Authentication:Goo
 
 // Register controllers
 builder.Services.AddControllers();
+
+// CORS for Angular dev server (allow cookies)
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy("AllowAngularDev", policy =>
+    {
+        policy.WithOrigins("http://localhost:4200")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // Register Entity Framework Core using InMemory database
 builder.Services.AddDbContext<PortContext>(opt =>
@@ -172,11 +186,92 @@ builder.Services.AddAuthentication(options =>
         },
 
         // Fired after tokens are validated
-        OnTokenValidated = context =>
+        OnTokenValidated = async context =>
         {
             var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
-            logger?.LogInformation("[OIDC] Token validated for user {Name}", context.Principal?.Identity?.Name ?? "(unknown)");
-            return Task.CompletedTask;
+
+            var sub = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? context.Principal?.FindFirst("sub")?.Value;
+            var email = context.Principal?.FindFirst(ClaimTypes.Email)?.Value ?? context.Principal?.FindFirst("email")?.Value;
+            var name = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
+
+            logger?.LogInformation("[OIDC] Token validated for user {Name}, sub={Sub}, email={Email}", name, sub, email);
+
+            // Use a scoped DbContext to find/create the local user and check roles
+            using var scope = context.HttpContext.RequestServices.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<PortContext>();
+
+            TodoApi.Models.Auth.AppUser? user = null;
+            if (!string.IsNullOrEmpty(sub))
+            {
+                user = await db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.ExternalId == sub);
+            }
+
+            if (user == null && !string.IsNullOrEmpty(email))
+            {
+                user = await db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Email == email);
+            }
+
+            // If the local user was found by email but doesn't yet have the provider's 'sub' (ExternalId),
+            // persist it so future logins can match by the stable ExternalId.
+            if (user != null && !string.IsNullOrEmpty(sub) && string.IsNullOrEmpty(user.ExternalId))
+            {
+                user.ExternalId = sub;
+                db.AppUsers.Update(user);
+                await db.SaveChangesAsync();
+            }
+
+            if (user == null)
+            {
+                // Create a placeholder local user with no active role. Admin must assign role later.
+                user = new TodoApi.Models.Auth.AppUser
+                {
+                    ExternalId = sub,
+                    Email = email ?? string.Empty,
+                    Name = name,
+                    Active = false
+                };
+
+                db.AppUsers.Add(user);
+                await db.SaveChangesAsync();
+
+                // Reject login because there is no role assigned yet
+                context.HandleResponse();
+                context.Response.StatusCode = 403;
+                await context.Response.WriteAsync("Utilizador sem role atribuída. Contacte o administrador.");
+                return;
+            }
+
+            if (!user.Active)
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 403;
+                await context.Response.WriteAsync("Utilizador inativo. Contacte o administrador.");
+                return;
+            }
+
+            var activeRoles = user.UserRoles?.Where(ur => ur.Role != null && ur.Role.Active).Select(ur => ur.Role.Name).ToList() ?? new List<string>();
+            if (activeRoles.Count == 0)
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 403;
+                await context.Response.WriteAsync("Utilizador sem role atribuída. Contacte o administrador.");
+                return;
+            }
+
+            // Inject role claims into the ClaimsPrincipal so [Authorize(Roles=...)] works
+            var identity = context.Principal?.Identity as ClaimsIdentity;
+            if (identity != null)
+            {
+                foreach (var r in activeRoles)
+                {
+                    identity.AddClaim(new Claim(ClaimTypes.Role, r));
+                }
+
+                // Add a claim with the local user id for convenience
+                identity.AddClaim(new Claim("app_user_id", user.Id.ToString()));
+            }
+
+            return;
         },
 
         // Fired when remote authentication fails (Google returns an error)
@@ -221,6 +316,9 @@ app.UseHttpsRedirection();
 
 // Enable endpoint routing before authentication
 app.UseRouting();
+
+// Allow cross-origin requests from Angular dev server (cookies)
+app.UseCors("AllowAngularDev");
 
 // =====================================================
 // Simple Middleware for Request Logging

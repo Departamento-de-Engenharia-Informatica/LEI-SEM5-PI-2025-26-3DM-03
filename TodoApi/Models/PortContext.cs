@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TodoApi.Models.Qualifications;
+using TodoApi.Models.Auth;
 using TodoApi.Models.Vessels;
 using TodoApi.Models.Docks;
 using TodoApi.Models.ShippingOrganizations;
@@ -39,6 +40,10 @@ namespace TodoApi.Models
         public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
         public DbSet<TodoApi.Models.Staff.StaffMember> StaffMembers { get; set; } = null!;
     public DbSet<StorageArea> StorageAreas { get; set; } = null!;
+    // Authentication / Authorization tables
+    public DbSet<AppUser> AppUsers { get; set; } = null!;
+    public DbSet<Role> Roles { get; set; } = null!;
+    public DbSet<UserRole> UserRoles { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -319,6 +324,27 @@ namespace TodoApi.Models
                     AssignedArea = "Yard A",
                     SetupTimeMinutes = 15
                 }
+            );
+
+            // Seed roles for the application
+            modelBuilder.Entity<Role>().HasData(
+                new { Id = 1, Name = "Admin", Active = true },
+                new { Id = 2, Name = "ExternalIamProvider", Active = true },
+                new { Id = 3, Name = "PortAuthorityOfficer", Active = true },
+                new { Id = 4, Name = "ShippingAgentRepresentative", Active = true },
+                new { Id = 5, Name = "LogisticsOperator", Active = true }
+            );
+
+            // Optional: seed a sample admin user for local testing (email must match the authenticated Google email used for tests)
+            modelBuilder.Entity<AppUser>().HasData(
+                new { Id = 1, Email = "admin@example.com", Name = "Local Admin", Active = true },
+                new { Id = 2, Email = "salvadordevlapr@gmail.com", Name = "Salvador DevLapr", Active = true }
+            );
+
+            // Map sample user -> Admin role
+            modelBuilder.Entity<UserRole>().HasData(
+                new { Id = 1, AppUserId = 1, RoleId = 1 },
+                new { Id = 2, AppUserId = 2, RoleId = 1 }
             );
 
             // Seed sample Vessel Visit Notifications
