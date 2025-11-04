@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Hosting;
 using System.Security.Claims;
 
 namespace TodoApi.Controllers
@@ -11,14 +12,23 @@ namespace TodoApi.Controllers
     [Route("authtest")]
     public class AuthTestController : ControllerBase
     {
+        private readonly IWebHostEnvironment _env;
+
+        public AuthTestController(IWebHostEnvironment env)
+        {
+            _env = env;
+        }
         // GET /authtest/login -> initiate login flow
         [HttpGet("login")]
         public IActionResult Login()
         {
+            // In development redirect to the frontend app so SPA can pick up the session automatically.
+            // In production keep the backend flow (redirect to /authtest/me) to avoid leaking frontend URL.
+            var redirectUri = _env.IsDevelopment() ? "https://localhost:4200/" : "/authtest/me";
+
             var props = new AuthenticationProperties
             {
-                // After successful login, redirect to /authtest/me
-                RedirectUri = "/authtest/me"
+                RedirectUri = redirectUri
             };
 
             return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
@@ -59,6 +69,15 @@ namespace TodoApi.Controllers
         {
             var accessToken = await HttpContext.GetTokenAsync("access_token");
             return Ok(new { access_token = accessToken });
+        }
+
+        // GET /authtest/claims -> return current user claims (development/debug helper)
+        [HttpGet("claims")]
+        [Authorize]
+        public IActionResult Claims()
+        {
+            var claims = User.Claims.Select(c => new { Type = c.Type, Value = c.Value });
+            return Ok(claims);
         }
     }
 }

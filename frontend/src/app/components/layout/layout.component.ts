@@ -1,7 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { TranslationService } from '../../services/i18n/translation.service';
+import { AuthService } from '../../services/auth.service';
 
 type Role = 'admin' | 'operator' | 'agent' | 'authority';
 
@@ -22,8 +23,8 @@ interface MenuItem {
   styleUrls: ['./layout.component.scss']
 })
 export class LayoutComponent {
-  // Mocked user role for demo; replace with real auth integration
-  userRole: Role = 'admin';
+  // Current user role (null until loaded from backend)
+  userRole: Role | null = null;
 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
@@ -41,14 +42,54 @@ export class LayoutComponent {
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
   ];
 
-  constructor(private router: Router, public i18n: TranslationService) {}
+  constructor(private router: Router, public i18n: TranslationService, private auth: AuthService) {}
+
+  async ngOnInit(): Promise<void> {
+    try {
+      const me: any = await this.auth.me();
+      // Map backend role names to frontend Role union
+      const roleName: string = (me?.role || '').toLowerCase();
+      switch (roleName) {
+        case 'admin':
+          this.userRole = 'admin';
+          break;
+        case 'logisticsoperator':
+        case 'logistics_operator':
+        case 'operator':
+          this.userRole = 'operator';
+          break;
+        case 'shippingagentrepresentative':
+        case 'shipping_agent_representative':
+        case 'agent':
+          this.userRole = 'agent';
+          break;
+        case 'portauthorityofficer':
+        case 'port_authority_officer':
+        case 'authority':
+          this.userRole = 'authority';
+          break;
+        default:
+          // fallback: try to match by contains
+          if (roleName.includes('admin')) this.userRole = 'admin';
+          else if (roleName.includes('agent')) this.userRole = 'agent';
+          else if (roleName.includes('authority')) this.userRole = 'authority';
+          else if (roleName.includes('operator')) this.userRole = 'operator';
+          else this.userRole = null;
+      }
+    } catch (err: any) {
+      // If not authenticated or forbidden, keep userRole null (no menu).
+      console.warn('Could not load user role', err);
+      this.userRole = null;
+    }
+  }
 
   // current year for footer (avoid using `new` in template expressions)
   currentYear = new Date().getFullYear();
 
   // Filtered menu according to current user role
   get visibleMenu() {
-    return this.menuItems.filter(m => m.roles.includes(this.userRole));
+    if (!this.userRole) return [];
+  return this.menuItems.filter(m => m.roles.includes(this.userRole as Role));
   }
 
   // Localized label helper
