@@ -17,19 +17,27 @@
         <button class="lang-btn" (click)="changeLang('pt')" [class.active]="lang==='pt'">PT</button>
       </div>
       <div class="user-area">
-        <div class="role">{{ userRole | uppercase }}</div>
-        <div class="role-switch">
-          <label for="role" class="sr-only">Role</label>
-          <select id="role" (change)="setRole($any($event.target).value)" [value]="userRole">
-            <option value="admin">ADMIN</option>
-            <option value="authority">AUTHORITY</option>
-            <option value="operator">OPERATOR</option>
-            <option value="agent">AGENT</option>
-          </select>
+        <div class="account-info" *ngIf="isAuthenticated; else notLogged">
+          <div class="account-name">{{ userName || userEmail }}</div>
+          <div class="role">{{ userRole || '-' | uppercase }}</div>
+          <div class="user-actions">
+            <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
+          </div>
         </div>
-        <div class="user-actions">
-          <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
-        </div>
+        <ng-template #notLogged>
+          <div class="not-logged">
+            <button class="btn-primary" (click)="auth.login()">{{ i18n.t('login') }}</button>
+            <div class="role-switch">
+              <label for="role" class="sr-only">Role (demo)</label>
+              <select id="role" (change)="setRole($any($event.target).value)" [value]="userRole">
+                <option value="admin">ADMIN</option>
+                <option value="authority">AUTHORITY</option>
+                <option value="operator">OPERATOR</option>
+                <option value="agent">AGENT</option>
+              </select>
+            </div>
+          </div>
+        </ng-template>
       </div>
     </div>
   </header>

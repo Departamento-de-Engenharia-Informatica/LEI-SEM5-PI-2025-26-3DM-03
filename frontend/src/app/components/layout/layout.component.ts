@@ -25,6 +25,9 @@ interface MenuItem {
 export class LayoutComponent {
   // Current user role (null until loaded from backend)
   userRole: Role | null = null;
+  userName: string | null = null;
+  userEmail: string | null = null;
+  isAuthenticated = false;
 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
@@ -47,6 +50,9 @@ export class LayoutComponent {
   async ngOnInit(): Promise<void> {
     try {
       const me: any = await this.auth.me();
+      this.isAuthenticated = true;
+      this.userName = me?.name ?? null;
+      this.userEmail = me?.email ?? null;
       // Map backend role names to frontend Role union
       const roleName: string = (me?.role || '').toLowerCase();
       switch (roleName) {
@@ -107,7 +113,7 @@ export class LayoutComponent {
   }
 
   logout(){
-    // implement real logout flow with auth; for now navigate to root
-    this.router.navigateByUrl('/');
+    // call auth logout which triggers backend sign-out
+    this.auth.logout();
   }
 }
