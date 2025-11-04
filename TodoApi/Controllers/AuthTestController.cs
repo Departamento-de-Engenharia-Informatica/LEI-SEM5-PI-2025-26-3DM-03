@@ -25,7 +25,9 @@ namespace TodoApi.Controllers
             Console.WriteLine("[AuthTestController] /authtest/login called");
             // In development redirect to the frontend app so SPA can pick up the session automatically.
             // In production keep the backend flow (redirect to /authtest/me) to avoid leaking frontend URL.
-            var redirectUri = _env.IsDevelopment() ? "https://localhost:4200/" : "/authtest/me";
+            // Use http for local frontend by default to match common `ng serve` without SSL.
+            // If you run the frontend with SSL (ng serve --ssl) change this to https://localhost:4200/ or set an env var.
+            var redirectUri = _env.IsDevelopment() ? "http://localhost:4200/" : "/authtest/me";
 
             var props = new AuthenticationProperties
             {
