@@ -35,12 +35,12 @@ Console.WriteLine($"GOOGLE CLIENT ID: {builder.Configuration["Authentication:Goo
 // Register controllers
 builder.Services.AddControllers();
 
-// CORS for Angular dev server (allow cookies)
+// CORS for Angular dev server (allow cookies). Allow both http and https localhost for dev servers
 builder.Services.AddCors(o =>
 {
     o.AddPolicy("AllowAngularDev", policy =>
     {
-        policy.WithOrigins("http://localhost:4200")
+        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -108,18 +108,13 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
     // Ensures authentication cookies can flow on HTTPS and cross-site redirects
+    // Use SameSite=None so the authentication cookie is sent on cross-site requests
+    // (SPA on a different origin during development). Modern browsers require the
+    // cookie to also be Secure when SameSite=None, so we set SecurePolicy=Always.
     options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
-    // In Development we allow insecure cookies and set the domain to 'localhost' so the
-    // SPA served on http://localhost:4200 can receive the auth cookie during local testing.
-    if (builder.Environment.IsDevelopment())
-    {
-        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.None;
-        options.Cookie.Domain = "localhost";
-    }
-    else
-    {
-        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
-    }
+    options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    // Do not set Cookie.Domain for localhost; setting a Domain on 'localhost' can
+    // prevent browsers from storing the cookie. Leave host-only for local dev.
 })
 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
@@ -167,6 +162,9 @@ builder.Services.AddAuthentication(options =>
     // Allow correlation cookies to flow during HTTPS OIDC roundtrip
     options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
     options.NonceCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
+    // Ensure correlation/nonce cookies are Secure as well (required with SameSite=None)
+    options.CorrelationCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    options.NonceCookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
 
     // =====================================================
     // Diagnostic and Debugging Events for OpenID Connect
@@ -204,6 +202,9 @@ builder.Services.AddAuthentication(options =>
             var email = context.Principal?.FindFirst(ClaimTypes.Email)?.Value ?? context.Principal?.FindFirst("email")?.Value;
             var name = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
 
+            // Development helper: know whether we're running in Development so we can relax checks for local testing
+            var hostingEnv = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+
             logger?.LogInformation("[OIDC] Token validated for user {Name}, sub={Sub}, email={Email}", name, sub, email);
 
             // Use a scoped DbContext to find/create the local user and check roles
@@ -232,41 +233,49 @@ builder.Services.AddAuthentication(options =>
 
             if (user == null)
             {
-                // Create a placeholder local user with no active role. Admin must assign role later.
+                // Create a placeholder local user. In Development activate the user automatically
+                // so local testing of the login flow is convenient. In Production, leave inactive
+                // so an administrator must approve accounts and assign roles.
                 user = new TodoApi.Models.Auth.AppUser
                 {
                     ExternalId = sub,
                     Email = email ?? string.Empty,
                     Name = name,
-                    Active = false
+                    Active = hostingEnv.IsDevelopment()
                 };
 
                 db.AppUsers.Add(user);
                 await db.SaveChangesAsync();
 
-                // Reject login because there is no role assigned yet.
-                // Redirect back to the SPA with an explanation so the front-end can show a friendly message.
-                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
-                context.HandleResponse();
-                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_role");
-                return;
+                // If running in Development we don't reject here; allow sign-in so the dev can continue.
+                if (!hostingEnv.IsDevelopment())
+                {
+                    var frontendUrlForRedirect = "https://localhost:4200";
+                    context.HandleResponse();
+                    context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_role");
+                    return;
+                }
             }
 
             if (!user.Active)
             {
                 var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
+                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "https://localhost:4200" : "/";
                 context.HandleResponse();
                 context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=inactive");
                 return;
             }
 
             var activeRoles = user.UserRoles?.Where(ur => ur.Role != null && ur.Role.Active).Select(ur => ur.Role.Name).ToList() ?? new List<string>();
+            // If no roles exist but we're in Development, add a default role to make testing easier
+            if (!activeRoles.Any() && hostingEnv.IsDevelopment())
+            {
+                activeRoles.Add("admin");
+            }
             if (activeRoles.Count == 0)
             {
                 var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
+                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "https://localhost:4200" : "/";
                 context.HandleResponse();
                 context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_active_roles");
                 return;
@@ -285,16 +294,22 @@ builder.Services.AddAuthentication(options =>
                 identity.AddClaim(new Claim("app_user_id", user.Id.ToString()));
             }
             
-            // In Development, after successful validation redirect back to the SPA with an auth flag
+            // In Development, after successful validation redirect back to the SPA with an auth flag.
+            // Important: do NOT call HandleResponse()/Response.Redirect() here because the
+            // OpenID Connect handler still needs to perform the SignIn (issue the cookie).
+            // Instead, set the authentication properties RedirectUri so the handler will
+            // complete the sign-in and perform the redirect after creating the cookie.
             var envForSuccessRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
             if (envForSuccessRedirect.IsDevelopment())
             {
-                var frontendUrlForSuccessRedirect = "http://localhost:4200";
-                context.HandleResponse();
-                context.Response.Redirect(frontendUrlForSuccessRedirect + "?auth=ok");
-                return;
+                var frontendUrlForSuccessRedirect = "https://localhost:4200";
+                // Preserve existing properties and request the handler to redirect there
+                context.Properties ??= new AuthenticationProperties();
+                context.Properties.RedirectUri = frontendUrlForSuccessRedirect + "?auth=ok";
             }
 
+            // Let the normal handler continue so SignInAsync can issue the cookie and
+            // then perform the redirect to the configured RedirectUri.
             return;
         },
 

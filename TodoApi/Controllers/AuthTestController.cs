@@ -23,18 +23,17 @@ namespace TodoApi.Controllers
         public IActionResult Login()
         {
             Console.WriteLine("[AuthTestController] /authtest/login called");
-            // In development redirect to the frontend app so SPA can pick up the session automatically.
-            // In production keep the backend flow (redirect to /authtest/me) to avoid leaking frontend URL.
-            // Use http for local frontend by default to match common `ng serve` without SSL.
-            // If you run the frontend with SSL (ng serve --ssl) change this to https://localhost:4200/ or set an env var.
-            var redirectUri = _env.IsDevelopment() ? "http://localhost:4200/" : "/authtest/me";
+                        // In development redirect to the frontend app so SPA can pick up the session automatically.
+                        // In production prefer https frontend root. This keeps behavior consistent with the OIDC
+                        // events elsewhere which also redirect to the SPA after successful authentication.
+                        var redirectUri = _env.IsDevelopment() ? "https://localhost:4200/" : "https://localhost:4200/";
 
-            var props = new AuthenticationProperties
-            {
-                RedirectUri = redirectUri
-            };
+                        var props = new AuthenticationProperties
+                        {
+                                RedirectUri = redirectUri
+                        };
 
-            return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
+                        return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
         }
 
         // GET /authtest/me -> return name and email of authenticated user
@@ -58,11 +57,14 @@ namespace TodoApi.Controllers
             // Sign out of the local cookie
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
-            // Trigger OpenID Connect sign-out (if supported) and redirect to root
-            var props = new AuthenticationProperties { RedirectUri = "/" };
+            // Redirect back to the frontend root after sign-out. Use http in development to match common `ng serve`.
+            var frontendRoot = _env.IsDevelopment() ? "http://localhost:4200/" : "https://localhost:4200/";
+
+            // Trigger OpenID Connect sign-out (if supported) and redirect to frontend root
+            var props = new AuthenticationProperties { RedirectUri = frontendRoot };
             await HttpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme, props);
 
-            return Redirect("/");
+            return Redirect(frontendRoot);
         }
 
         // GET /authtest/token -> return only the access token (for testing)

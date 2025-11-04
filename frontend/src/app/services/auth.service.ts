@@ -16,11 +16,18 @@ export class AuthService {
   }
 
   logout() {
-    window.location.href = '/authtest/logout';
+    // Ensure we call the backend logout endpoint (absolute URL) so the cookie is removed on the API origin
+    try {
+      window.location.href = 'https://localhost:7167/authtest/logout';
+    } catch {
+      window.location.href = '/authtest/logout';
+    }
   }
 
   async me() {
-    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    // Request the backend auth status directly from the API origin so cookies are included
+    const apiUrl = 'https://localhost:7167/authtest/me';
+    const res = await fetch(apiUrl, { credentials: 'include' });
     if (!res.ok) {
       const text = await res.text().catch(() => null);
       const err = new Error(`Request failed ${res.status}` + (text ? `: ${text}` : ''));
