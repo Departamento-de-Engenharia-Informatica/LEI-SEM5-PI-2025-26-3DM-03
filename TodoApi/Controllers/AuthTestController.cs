@@ -22,6 +22,7 @@ namespace TodoApi.Controllers
         [HttpGet("login")]
         public IActionResult Login()
         {
+            Console.WriteLine("[AuthTestController] /authtest/login called");
             // In development redirect to the frontend app so SPA can pick up the session automatically.
             // In production keep the backend flow (redirect to /authtest/me) to avoid leaking frontend URL.
             var redirectUri = _env.IsDevelopment() ? "https://localhost:4200/" : "/authtest/me";

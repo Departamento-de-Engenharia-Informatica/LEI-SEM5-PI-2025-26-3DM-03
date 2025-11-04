@@ -26,7 +26,10 @@
         </div>
         <ng-template #notLogged>
           <div class="not-logged">
-            <button class="btn-primary" (click)="auth.login()">{{ i18n.t('login') }}</button>
+            <button class="btn-primary" (click)="login()" [disabled]="loginInProgress">
+              <span *ngIf="!loginInProgress">{{ i18n.t('login') }}</span>
+              <span *ngIf="loginInProgress">{{ i18n.t('login') }}...</span>
+            </button>
             <div class="role-switch">
               <label for="role" class="sr-only">Role (demo)</label>
               <select id="role" (change)="setRole($any($event.target).value)" [value]="userRole">

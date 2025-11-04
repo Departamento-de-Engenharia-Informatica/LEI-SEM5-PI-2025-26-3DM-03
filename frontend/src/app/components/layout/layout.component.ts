@@ -28,6 +28,7 @@ export class LayoutComponent {
   userName: string | null = null;
   userEmail: string | null = null;
   isAuthenticated = false;
+  loginInProgress = false;
 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
@@ -110,6 +111,17 @@ export class LayoutComponent {
   // Toggle user role (demo helper) — in real app you'd get this from auth
   setRole(role: Role){
     this.userRole = role;
+  }
+
+  // Called by the Login button to start the login flow and show a transient UI state
+  login(){
+    this.loginInProgress = true;
+    try{
+      this.auth.login();
+    } catch(e) {
+      console.error('login redirect failed', e);
+      this.loginInProgress = false;
+    }
   }
 
   logout(){

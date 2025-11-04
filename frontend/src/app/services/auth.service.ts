@@ -3,8 +3,16 @@ import { Injectable } from '@angular/core';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   login() {
-    // Redirect to backend login (server handles OIDC)
-    window.location.href = '/authtest/login';
+    // Debug-friendly redirect to backend login (server handles OIDC).
+    // Use absolute URL to avoid proxy issues in dev and make the navigation visible.
+    console.log('[AuthService] login() called - redirecting to backend OIDC login');
+    try {
+      window.location.href = 'https://localhost:7167/authtest/login';
+    } catch (e) {
+      console.error('[AuthService] redirect failed', e);
+      // fallback to relative path
+      window.location.href = '/authtest/login';
+    }
   }
 
   logout() {
