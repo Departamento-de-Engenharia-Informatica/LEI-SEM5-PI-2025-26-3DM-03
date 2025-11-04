@@ -45,7 +45,7 @@ export class LayoutComponent {
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
   ];
 
-  constructor(private router: Router, public i18n: TranslationService, private auth: AuthService) {}
+  constructor(private router: Router, public i18n: TranslationService, public auth: AuthService) {}
 
   async ngOnInit(): Promise<void> {
     try {
