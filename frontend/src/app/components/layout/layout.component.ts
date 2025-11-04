@@ -29,6 +29,7 @@ export class LayoutComponent {
   userEmail: string | null = null;
   isAuthenticated = false;
   loginInProgress = false;
+  authDeniedReason: string | null = null;
 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
@@ -49,6 +50,23 @@ export class LayoutComponent {
   constructor(private router: Router, public i18n: TranslationService, public auth: AuthService) {}
 
   async ngOnInit(): Promise<void> {
+    // Check query string for auth denial reasons or successful login (after redirect from backend)
+    let hadAuthOk = false;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const authStatus = params.get('auth');
+      const reason = params.get('reason');
+      if (authStatus === 'denied') {
+        this.authDeniedReason = reason ?? 'access_denied';
+      }
+      // If auth=ok, clean up the query string so it doesn't persist
+      if (authStatus === 'ok') {
+        hadAuthOk = true;
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch { /* ignore in non-browser environments */ }
+
+    // Try to load user info
     try {
       const me: any = await this.auth.me();
       this.isAuthenticated = true;
@@ -83,10 +101,23 @@ export class LayoutComponent {
           else if (roleName.includes('operator')) this.userRole = 'operator';
           else this.userRole = null;
       }
+      console.log('[LayoutComponent] User authenticated:', { name: this.userName, role: this.userRole });
     } catch (err: any) {
       // If not authenticated or forbidden, keep userRole null (no menu).
-      console.warn('Could not load user role', err);
+      console.warn('[LayoutComponent] Could not load user role', err);
       this.userRole = null;
+      
+      // If we had ?auth=ok but still got 401, it might be a cookie/timing issue
+      // Try a full reload after a short delay to give browser time to set cookies
+      if (hadAuthOk) {
+        console.log('[LayoutComponent] Had auth=ok but me() failed, will retry with page reload in 1s...');
+        setTimeout(() => {
+          if (!this.isAuthenticated) {
+            console.log('[LayoutComponent] Still not authenticated, forcing page reload...');
+            window.location.reload();
+          }
+        }, 1000);
+      }
     }
   }
 
@@ -95,8 +126,9 @@ export class LayoutComponent {
 
   // Filtered menu according to current user role
   get visibleMenu() {
-    if (!this.userRole) return [];
-  return this.menuItems.filter(m => m.roles.includes(this.userRole as Role));
+    // only show menu when user is authenticated and has a role
+    if (!this.isAuthenticated || !this.userRole) return [];
+    return this.menuItems.filter(m => m.roles.includes(this.userRole as Role));
   }
 
   // Localized label helper
@@ -108,10 +140,6 @@ export class LayoutComponent {
     this.i18n.setLang(l);
   }
 
-  // Toggle user role (demo helper) — in real app you'd get this from auth
-  setRole(role: Role){
-    this.userRole = role;
-  }
 
   // Called by the Login button to start the login flow and show a transient UI state
   login(){

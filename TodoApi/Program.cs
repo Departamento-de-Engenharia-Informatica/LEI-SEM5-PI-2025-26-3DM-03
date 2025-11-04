@@ -109,7 +109,17 @@ builder.Services.AddAuthentication(options =>
 {
     // Ensures authentication cookies can flow on HTTPS and cross-site redirects
     options.Cookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
-    options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    // In Development we allow insecure cookies and set the domain to 'localhost' so the
+    // SPA served on http://localhost:4200 can receive the auth cookie during local testing.
+    if (builder.Environment.IsDevelopment())
+    {
+        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.None;
+        options.Cookie.Domain = "localhost";
+    }
+    else
+    {
+        options.Cookie.SecurePolicy = Microsoft.AspNetCore.Http.CookieSecurePolicy.Always;
+    }
 })
 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
@@ -234,27 +244,31 @@ builder.Services.AddAuthentication(options =>
                 db.AppUsers.Add(user);
                 await db.SaveChangesAsync();
 
-                // Reject login because there is no role assigned yet
+                // Reject login because there is no role assigned yet.
+                // Redirect back to the SPA with an explanation so the front-end can show a friendly message.
+                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
                 context.HandleResponse();
-                context.Response.StatusCode = 403;
-                await context.Response.WriteAsync("Utilizador sem role atribuída. Contacte o administrador.");
+                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_role");
                 return;
             }
 
             if (!user.Active)
             {
+                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
                 context.HandleResponse();
-                context.Response.StatusCode = 403;
-                await context.Response.WriteAsync("Utilizador inativo. Contacte o administrador.");
+                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=inactive");
                 return;
             }
 
             var activeRoles = user.UserRoles?.Where(ur => ur.Role != null && ur.Role.Active).Select(ur => ur.Role.Name).ToList() ?? new List<string>();
             if (activeRoles.Count == 0)
             {
+                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "http://localhost:4200" : "/";
                 context.HandleResponse();
-                context.Response.StatusCode = 403;
-                await context.Response.WriteAsync("Utilizador sem role atribuída. Contacte o administrador.");
+                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_active_roles");
                 return;
             }
 
@@ -269,6 +283,16 @@ builder.Services.AddAuthentication(options =>
 
                 // Add a claim with the local user id for convenience
                 identity.AddClaim(new Claim("app_user_id", user.Id.ToString()));
+            }
+            
+            // In Development, after successful validation redirect back to the SPA with an auth flag
+            var envForSuccessRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
+            if (envForSuccessRedirect.IsDevelopment())
+            {
+                var frontendUrlForSuccessRedirect = "http://localhost:4200";
+                context.HandleResponse();
+                context.Response.Redirect(frontendUrlForSuccessRedirect + "?auth=ok");
+                return;
             }
 
             return;
