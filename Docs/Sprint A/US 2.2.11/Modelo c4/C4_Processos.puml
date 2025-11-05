@@ -94,9 +94,10 @@ package "Models.Staff" {
     + QualificationCode : string
   }
 
-  class StaffDTO { + ... }
-  class CreateStaffDTO { + ... }
-  class UpdateStaffDTO { + ... }
+  ' — usa classes vazias sem membros fictícios
+  class StaffDTO
+  class CreateStaffDTO
+  class UpdateStaffDTO
 }
 
 ' =======================
@@ -132,5 +133,4 @@ StaffMapper --> UpdateStaffDTO
 
 StaffMember --> OperationalWindow
 StaffMember --> StaffQualification
-
 @enduml
