@@ -20,10 +20,17 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddEnvironmentVariables();
 var configuration = builder.Configuration;
 
-// Ensure the app binds to HTTPS locally by default when running from CLI
-// This forces Kestrel to listen on https://localhost:7167 unless overridden
-// by ASPNETCORE_URLS or a launch profile. Keeps local dev HTTPS consistent.
-builder.WebHost.UseUrls("https://localhost:7167");
+// Configure Kestrel to listen on localhost:7167 with HTTPS for local development.
+// This is more robust than UseUrls and ensures the server has an HTTPS endpoint
+// for OIDC callbacks (signin-oidc) while still allowing other bindings when needed.
+builder.WebHost.UseKestrel(options =>
+{
+    options.ListenLocalhost(7167, listenOptions =>
+    {
+        // enable HTTPS for the OIDC callback endpoint
+        listenOptions.UseHttps();
+    });
+});
 
 // Debug log: confirm ClientId is read correctly
 Console.WriteLine($"GOOGLE CLIENT ID: {builder.Configuration["Authentication:Google:ClientId"]}");
@@ -40,7 +47,8 @@ builder.Services.AddCors(o =>
 {
     o.AddPolicy("AllowAngularDev", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://localhost:4200")
+        // Only allow the HTTPS dev server origin so cookies marked Secure are accepted.
+        policy.WithOrigins("https://localhost:4200")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -172,18 +180,19 @@ builder.Services.AddAuthentication(options =>
     options.Events = new OpenIdConnectEvents
     {
         // Fired when redirecting to Google for login
-        OnRedirectToIdentityProvider = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
-            var redirectUri = context.ProtocolMessage.RedirectUri;
-            var client = context.ProtocolMessage.ClientId;
+       OnRedirectToIdentityProvider = context =>
+{
+    // Force the redirect_uri to match exactly what is registered in Google Cloud
+    context.ProtocolMessage.RedirectUri = "https://localhost:7167/signin-oidc";
 
-            logger?.LogInformation("[OIDC] Redirecting to Google. client_id={ClientId}, redirect_uri={RedirectUri}", client, redirectUri);
-            Console.WriteLine($"[OIDC DEBUG] Redirect URI: {redirectUri}");
-            Console.WriteLine($"[OIDC DEBUG] Client ID: {client}");
+    var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
+    logger?.LogInformation("[OIDC] Redirecting to Google with forced redirect_uri={RedirectUri}", context.ProtocolMessage.RedirectUri);
 
-            return Task.CompletedTask;
-        },
+    Console.WriteLine($"[OIDC FIX] Forced redirect_uri: {context.ProtocolMessage.RedirectUri}");
+    Console.WriteLine($"[OIDC FIX] ClientId: {context.ProtocolMessage.ClientId}");
+    return Task.CompletedTask;
+},
+
 
         // Fired when an authorization code is received. Useful to log the incoming message.
         OnAuthorizationCodeReceived = context =>

@@ -26,7 +26,10 @@ namespace TodoApi.Controllers
                         // In development redirect to the frontend app so SPA can pick up the session automatically.
                         // In production prefer https frontend root. This keeps behavior consistent with the OIDC
                         // events elsewhere which also redirect to the SPA after successful authentication.
-                        var redirectUri = _env.IsDevelopment() ? "https://localhost:4200/" : "https://localhost:4200/";
+                        // Signal success back to the SPA so it can detect the successful signin
+                        var redirectUri = _env.IsDevelopment()
+                            ? "https://localhost:4200/?auth=ok"
+                            : "https://localhost:4200/?auth=ok";
 
                         var props = new AuthenticationProperties
                         {
@@ -47,7 +50,11 @@ namespace TodoApi.Controllers
             // Return access token (if present) so front-end can use it
             var accessToken = await HttpContext.GetTokenAsync("access_token");
 
-            return Ok(new { name, email, access_token = accessToken });
+            // Include roles present on the ClaimsPrincipal so the frontend can decide which menu to show.
+            var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+            var primaryRole = roles.FirstOrDefault();
+
+            return Ok(new { name, email, roles, role = primaryRole, access_token = accessToken });
         }
 
         // GET /authtest/logout -> sign out and redirect to /

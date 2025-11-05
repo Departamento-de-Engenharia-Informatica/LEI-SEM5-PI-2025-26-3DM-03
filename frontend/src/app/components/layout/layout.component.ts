@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { TranslationService } from '../../services/i18n/translation.service';
 import { AuthService } from '../../services/auth.service';
+import { HttpClientModule } from '@angular/common/http';
 
 type Role = 'admin' | 'operator' | 'agent' | 'authority';
 
@@ -18,7 +19,7 @@ interface MenuItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, HttpClientModule],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
@@ -49,7 +50,7 @@ export class LayoutComponent {
 
   constructor(private router: Router, public i18n: TranslationService, public auth: AuthService) {}
 
-  async ngOnInit(): Promise<void> {
+  ngOnInit(): void {
     // Check query string for auth denial reasons or successful login (after redirect from backend)
     let hadAuthOk = false;
     try {
@@ -66,59 +67,63 @@ export class LayoutComponent {
       }
     } catch { /* ignore in non-browser environments */ }
 
-    // Try to load user info
-    try {
-      const me: any = await this.auth.me();
-      this.isAuthenticated = true;
-      this.userName = me?.name ?? null;
-      this.userEmail = me?.email ?? null;
-      // Map backend role names to frontend Role union
-      const roleName: string = (me?.role || '').toLowerCase();
-      switch (roleName) {
-        case 'admin':
-          this.userRole = 'admin';
-          break;
-        case 'logisticsoperator':
-        case 'logistics_operator':
-        case 'operator':
-          this.userRole = 'operator';
-          break;
-        case 'shippingagentrepresentative':
-        case 'shipping_agent_representative':
-        case 'agent':
-          this.userRole = 'agent';
-          break;
-        case 'portauthorityofficer':
-        case 'port_authority_officer':
-        case 'authority':
-          this.userRole = 'authority';
-          break;
-        default:
-          // fallback: try to match by contains
-          if (roleName.includes('admin')) this.userRole = 'admin';
-          else if (roleName.includes('agent')) this.userRole = 'agent';
-          else if (roleName.includes('authority')) this.userRole = 'authority';
-          else if (roleName.includes('operator')) this.userRole = 'operator';
-          else this.userRole = null;
+    // Always ask the AuthService to check the backend for an active session.
+    // If we just returned from the OIDC flow the backend will have set the cookie
+    // and checkAuth() will populate the BehaviorSubject accordingly.
+    this.auth.checkAuth();
+
+    // Subscribe to user updates
+    this.auth.user$.subscribe((me: any | null) => {
+      if (me) {
+        this.isAuthenticated = true;
+        this.userName = me?.name ?? null;
+        this.userEmail = me?.email ?? null;
+
+        const roleName: string = (me?.role || '').toLowerCase();
+        switch (roleName) {
+          case 'admin':
+            this.userRole = 'admin';
+            break;
+          case 'logisticsoperator':
+          case 'logistics_operator':
+          case 'operator':
+            this.userRole = 'operator';
+            break;
+          case 'shippingagentrepresentative':
+          case 'shipping_agent_representative':
+          case 'agent':
+            this.userRole = 'agent';
+            break;
+          case 'portauthorityofficer':
+          case 'port_authority_officer':
+          case 'authority':
+            this.userRole = 'authority';
+            break;
+          default:
+            if (roleName.includes('admin')) this.userRole = 'admin';
+            else if (roleName.includes('agent')) this.userRole = 'agent';
+            else if (roleName.includes('authority')) this.userRole = 'authority';
+            else if (roleName.includes('operator')) this.userRole = 'operator';
+            else this.userRole = null;
+        }
+        console.log('[LayoutComponent] User authenticated:', { name: this.userName, role: this.userRole });
+      } else {
+        // Not authenticated
+        this.isAuthenticated = false;
+        this.userRole = null;
+
+        // If we had ?auth=ok but still got null, it might be a cookie/timing issue
+        if (hadAuthOk) {
+          console.log('[LayoutComponent] Had auth=ok but me() returned null, will retry with page reload in 1s...');
+          setTimeout(() => {
+            if (!this.isAuthenticated) {
+              console.log('[LayoutComponent] Still not authenticated, forcing page reload...');
+              window.location.reload();
+            }
+          }, 1000);
+        }
       }
-      console.log('[LayoutComponent] User authenticated:', { name: this.userName, role: this.userRole });
-    } catch (err: any) {
-      // If not authenticated or forbidden, keep userRole null (no menu).
-      console.warn('[LayoutComponent] Could not load user role', err);
-      this.userRole = null;
-      
-      // If we had ?auth=ok but still got 401, it might be a cookie/timing issue
-      // Try a full reload after a short delay to give browser time to set cookies
-      if (hadAuthOk) {
-        console.log('[LayoutComponent] Had auth=ok but me() failed, will retry with page reload in 1s...');
-        setTimeout(() => {
-          if (!this.isAuthenticated) {
-            console.log('[LayoutComponent] Still not authenticated, forcing page reload...');
-            window.location.reload();
-          }
-        }, 1000);
-      }
-    }
+    });
   }
 
   // current year for footer (avoid using `new` in template expressions)
