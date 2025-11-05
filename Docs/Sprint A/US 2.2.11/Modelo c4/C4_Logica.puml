@@ -94,9 +94,10 @@ package "Models.Staff" {
     + QualificationCode : string
   }
 
-  class StaffDTO { + ... }
-  class CreateStaffDTO { + ... }
-  class UpdateStaffDTO { + ... }
+  ' ✅ Corrigido: sem o "+ ..." (PlantUML não aceita isso)
+  class StaffDTO
+  class CreateStaffDTO
+  class UpdateStaffDTO
 }
 
 ' =======================
