@@ -285,6 +285,25 @@ namespace TodoApi.Models
                 }
             );
 
+            modelBuilder.Entity<StorageArea>().HasData(
+                new StorageArea
+                {
+                    Id = 1,
+                    Type = StorageAreaType.Yard,
+                    Location = "North Yard",
+                    MaxCapacityTEU = 1000,
+                    CurrentOccupancyTEU = 200
+                },
+                new StorageArea
+                {
+                    Id = 2,
+                    Type = StorageAreaType.Warehouse,
+                    Location = "East Warehouse",
+                    MaxCapacityTEU = 500,
+                    CurrentOccupancyTEU = 120
+                }
+            );
+
         
             modelBuilder.Entity<Vessel>().HasData(
                 new Vessel

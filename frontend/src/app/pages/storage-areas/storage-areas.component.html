@@ -1,0 +1,129 @@
+<div class="page">
+  <header class="header">
+    <h2>Áreas de Armazenamento</h2>
+
+    <div class="actions">
+      <input
+        type="search"
+        placeholder="Pesquisar por localização ou tipo..."
+        [(ngModel)]="q"
+        (ngModelChange)="applyFilterSort()"
+      />
+
+      <div class="sort">
+        <label>Ordenar por</label>
+        <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
+          <option value="location">Localização</option>
+          <option value="type">Tipo</option>
+          <option value="maxCapacityTEU">Capacidade</option>
+          <option value="currentOccupancyTEU">Ocupação</option>
+        </select>
+        <button class="btn" (click)="changeSort(sortKey)">
+          {{ sortDir === 'asc' ? '▲' : '▼' }}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="card skeleton">A carregar...</div>
+  <div *ngIf="error" class="card error">{{ error }}</div>
+
+  <div class="grid" *ngIf="!loading">
+    <!-- criar -->
+    <div class="card">
+      <h3>Criar nova área</h3>
+      <form (ngSubmit)="create()" class="form">
+        <label>
+          <span>Localização</span>
+          <input [(ngModel)]="newArea.location" name="location" required />
+        </label>
+        <label>
+          <span>Tipo</span>
+          <select [(ngModel)]="newArea.type" name="type">
+            <option value="Yard">Yard</option>
+            <option value="Warehouse">Warehouse</option>
+          </select>
+        </label>
+        <div class="row">
+          <label>
+            <span>Capacidade (TEU)</span>
+            <input type="number" [(ngModel)]="newArea.maxCapacityTEU" name="capacity" />
+          </label>
+          <label>
+            <span>Ocupação Atual (TEU)</span>
+            <input type="number" [(ngModel)]="newArea.currentOccupancyTEU" name="occupancy" />
+          </label>
+        </div>
+        <button class="btn primary" type="submit">Criar</button>
+      </form>
+    </div>
+
+    <!-- lista -->
+    <div class="card">
+      <h3>Lista de Áreas</h3>
+
+      <table class="table" *ngIf="filtered.length; else emptyState">
+        <thead>
+          <tr>
+            <th (click)="changeSort('location')">Localização</th>
+            <th (click)="changeSort('type')">Tipo</th>
+            <th (click)="changeSort('maxCapacityTEU')">Capacidade</th>
+            <th (click)="changeSort('currentOccupancyTEU')">Ocupação</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let area of filtered">
+            <td>{{ area.location }}</td>
+            <td>{{ area.type }}</td>
+            <td>{{ area.maxCapacityTEU }}</td>
+            <td>{{ area.currentOccupancyTEU }}</td>
+            <td class="right">
+              <button class="btn" (click)="openEdit(area)">Editar</button>
+              <button class="btn danger" (click)="delete(area.id)">Eliminar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ng-template #emptyState>
+        <div class="empty">Sem resultados.</div>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- Modal Edição -->
+  <div class="modal-backdrop" *ngIf="editing">
+    <div class="modal">
+      <h3>Editar Área</h3>
+      <form (ngSubmit)="saveEdit()" class="form">
+        <label>
+          <span>Localização</span>
+          <input [(ngModel)]="editing!.location" name="edit_location" required />
+        </label>
+        <label>
+          <span>Tipo</span>
+          <select [(ngModel)]="editing!.type" name="edit_type">
+            <option value="Yard">Yard</option>
+            <option value="Warehouse">Warehouse</option>
+          </select>
+        </label>
+        <div class="row">
+          <label>
+            <span>Capacidade (TEU)</span>
+            <input type="number" [(ngModel)]="editing!.maxCapacityTEU" name="edit_capacity" />
+          </label>
+          <label>
+            <span>Ocupação Atual (TEU)</span>
+            <input type="number" [(ngModel)]="editing!.currentOccupancyTEU" name="edit_occupancy" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn" type="button" (click)="closeEdit()">Cancelar</button>
+          <button class="btn primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
