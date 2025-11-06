@@ -1,0 +1,134 @@
+<div class="page">
+  <header class="header">
+    <h2>Docks</h2>
+
+    <div class="actions">
+      <input
+        type="search"
+        placeholder="Pesquisar por nome ou localização..."
+        [(ngModel)]="q"
+        (ngModelChange)="applyFilterSort()"
+      />
+
+      <div class="sort">
+        <label>Ordenar por</label>
+        <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
+          <option value="name">Nome</option>
+          <option value="location">Localização</option>
+          <option value="length">Comprimento</option>
+          <option value="depth">Profundidade</option>
+          <option value="maxDraft">Max Draft</option>
+        </select>
+        <button class="btn" (click)="changeSort(sortKey)">
+          {{ sortDir === 'asc' ? '▲' : '▼' }}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="card skeleton">A carregar...</div>
+  <div *ngIf="error" class="card error">{{ error }}</div>
+
+  <div class="grid" *ngIf="!loading">
+    <!-- criar -->
+    <div class="card">
+      <h3>Criar nova dock</h3>
+      <form (ngSubmit)="createDock()" class="form">
+        <label>
+          <span>Nome</span>
+          <input [(ngModel)]="newDock.name" name="name" required />
+        </label>
+        <label>
+          <span>Localização</span>
+          <input [(ngModel)]="newDock.location" name="location" />
+        </label>
+        <div class="row">
+          <label>
+            <span>Comprimento</span>
+            <input type="number" [(ngModel)]="newDock.length" name="length" />
+          </label>
+          <label>
+            <span>Profundidade</span>
+            <input type="number" [(ngModel)]="newDock.depth" name="depth" />
+          </label>
+          <label>
+            <span>Max Draft</span>
+            <input type="number" [(ngModel)]="newDock.maxDraft" name="maxDraft" />
+          </label>
+        </div>
+        <button class="btn primary" type="submit">Criar</button>
+      </form>
+    </div>
+
+    <!-- lista -->
+    <div class="card">
+      <h3>Lista</h3>
+
+      <table class="table" *ngIf="filtered.length; else emptyState">
+        <thead>
+          <tr>
+            <th (click)="changeSort('name')">Nome</th>
+            <th (click)="changeSort('location')">Localização</th>
+            <th (click)="changeSort('length')">Comprimento</th>
+            <th (click)="changeSort('depth')">Profundidade</th>
+            <th (click)="changeSort('maxDraft')">Max Draft</th>
+            <th class="right">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let dock of filtered">
+            <td>{{ dock.name }}</td>
+            <td>{{ dock.location }}</td>
+            <td>{{ dock.length }}</td>
+            <td>{{ dock.depth }}</td>
+            <td>{{ dock.maxDraft }}</td>
+            <td class="right">
+              <button class="btn" (click)="openEdit(dock)">Editar</button>
+              <button class="btn danger" (click)="deleteDock(dock.id)">Eliminar</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ng-template #emptyState>
+        <div class="empty">Sem resultados.</div>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- Modal de edição -->
+  <div class="modal-backdrop" *ngIf="editing">
+    <div class="modal">
+      <h3>Editar dock</h3>
+      <form (ngSubmit)="saveEdit()" class="form">
+        <label>
+          <span>Nome</span>
+          <input [(ngModel)]="editing!.name" name="edit_name" required />
+        </label>
+        <label>
+          <span>Localização</span>
+          <input [(ngModel)]="editing!.location" name="edit_location" />
+        </label>
+        <div class="row">
+          <label>
+            <span>Comprimento</span>
+            <input type="number" [(ngModel)]="editing!.length" name="edit_length" />
+          </label>
+          <label>
+            <span>Profundidade</span>
+            <input type="number" [(ngModel)]="editing!.depth" name="edit_depth" />
+          </label>
+          <label>
+            <span>Max Draft</span>
+            <input type="number" [(ngModel)]="editing!.maxDraft" name="edit_maxDraft" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn" type="button" (click)="closeEdit()">Cancelar</button>
+          <button class="btn primary" type="submit">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
