@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -92,6 +95,25 @@ namespace TodoApi.Controllers
             }
 
             return Ok(new { name = user.Name, email = user.Email, role = primaryRole, active = user.Active });
+        }
+
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            // Remove both OIDC and local session cookies
+            await HttpContext.SignOutAsync(OpenIdConnectDefaults.AuthenticationScheme);
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+            // 🔹 Force browser to forget the local session immediately
+            Response.Cookies.Delete(".AspNetCore.Cookies");
+
+            // 🔹 Also logout from Google (prevents auto-login on next attempt)
+            var googleLogout = "https://accounts.google.com/Logout";
+            var frontendUrl = "https://localhost:4200";
+
+            // Redirect the browser to Google logout first, then back to frontend
+            return Ok(new { message = "Logged out", redirect = $"{googleLogout}?continue={frontendUrl}" });
         }
     }
 }

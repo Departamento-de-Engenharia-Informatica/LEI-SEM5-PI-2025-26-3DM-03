@@ -178,61 +178,72 @@ builder.Services.AddAuthentication(options =>
     // Diagnostic and Debugging Events for OpenID Connect
     // =====================================================
     options.Events = new OpenIdConnectEvents
-    {
-        // Fired when redirecting to Google for login
-       OnRedirectToIdentityProvider = context =>
 {
+    // Fired when redirecting to Google for login
+    OnRedirectToIdentityProvider = async context =>
+{
+    // Clear existing local authentication cookie before starting new login
+    await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    
     // Force the redirect_uri to match exactly what is registered in Google Cloud
     context.ProtocolMessage.RedirectUri = "https://localhost:7167/signin-oidc";
+
+    // Always show the Google account picker to avoid auto-login with the last account
+    context.ProtocolMessage.Prompt = "select_account";
+
+    // Prevent Google from reusing the previous login session
+    context.ProtocolMessage.LoginHint = null;
+
+    // Ensure a fresh OIDC handshake for every login attempt
+    context.ProtocolMessage.State = Guid.NewGuid().ToString("N");
 
     var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
     logger?.LogInformation("[OIDC] Redirecting to Google with forced redirect_uri={RedirectUri}", context.ProtocolMessage.RedirectUri);
 
     Console.WriteLine($"[OIDC FIX] Forced redirect_uri: {context.ProtocolMessage.RedirectUri}");
     Console.WriteLine($"[OIDC FIX] ClientId: {context.ProtocolMessage.ClientId}");
-    return Task.CompletedTask;
 },
 
 
-        // Fired when an authorization code is received. Useful to log the incoming message.
-        OnAuthorizationCodeReceived = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
-            logger?.LogInformation("[OIDC] Authorization code received. RedirectUri={RedirectUri}", context.TokenEndpointRequest?.Parameters?["redirect_uri"] ?? context.Properties?.RedirectUri);
-            return Task.CompletedTask;
-        },
+    // Fired when an authorization code is received. Useful to log the incoming message.
+    OnAuthorizationCodeReceived = context =>
+    {
+        var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
+        logger?.LogInformation("[OIDC] Authorization code received. RedirectUri={RedirectUri}", context.TokenEndpointRequest?.Parameters?["redirect_uri"] ?? context.Properties?.RedirectUri);
+        return Task.CompletedTask;
+    },
+
 
         // Fired after tokens are validated
         OnTokenValidated = async context =>
         {
             var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
 
-            var sub = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? context.Principal?.FindFirst("sub")?.Value;
+            var sub   = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? context.Principal?.FindFirst("sub")?.Value;
             var email = context.Principal?.FindFirst(ClaimTypes.Email)?.Value ?? context.Principal?.FindFirst("email")?.Value;
-            var name = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
+            var name  = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
 
-            // Development helper: know whether we're running in Development so we can relax checks for local testing
             var hostingEnv = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-
-            logger?.LogInformation("[OIDC] Token validated for user {Name}, sub={Sub}, email={Email}", name, sub, email);
-
-            // Use a scoped DbContext to find/create the local user and check roles
             using var scope = context.HttpContext.RequestServices.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<PortContext>();
 
-            TodoApi.Models.Auth.AppUser? user = null;
+            // Try to find the local user either by the provider's ExternalId (sub) or by email
+            AppUser? user = null;
             if (!string.IsNullOrEmpty(sub))
             {
-                user = await db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.ExternalId == sub);
+                user = await db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.ExternalId == sub);
             }
-
             if (user == null && !string.IsNullOrEmpty(email))
             {
-                user = await db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Email == email);
+                user = await db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Email == email);
             }
 
-            // If the local user was found by email but doesn't yet have the provider's 'sub' (ExternalId),
-            // persist it so future logins can match by the stable ExternalId.
+            // If the local user was found by email but doesn’t yet have the provider’s ExternalId,
+            // persist it so that future logins can match by the stable ExternalId.
             if (user != null && !string.IsNullOrEmpty(sub) && string.IsNullOrEmpty(user.ExternalId))
             {
                 user.ExternalId = sub;
@@ -240,81 +251,71 @@ builder.Services.AddAuthentication(options =>
                 await db.SaveChangesAsync();
             }
 
+            // If no local user exists, create a placeholder inactive record and deny login
             if (user == null)
             {
-                // Create a placeholder local user. In Development activate the user automatically
-                // so local testing of the login flow is convenient. In Production, leave inactive
-                // so an administrator must approve accounts and assign roles.
+                // Create new local user as INACTIVE by default
                 user = new TodoApi.Models.Auth.AppUser
                 {
                     ExternalId = sub,
                     Email = email ?? string.Empty,
                     Name = name,
-                    Active = hostingEnv.IsDevelopment()
+                    Active = false // must be activated manually
                 };
 
                 db.AppUsers.Add(user);
                 await db.SaveChangesAsync();
 
-                // If running in Development we don't reject here; allow sign-in so the dev can continue.
-                if (!hostingEnv.IsDevelopment())
-                {
-                    var frontendUrlForRedirect = "https://localhost:4200";
-                    context.HandleResponse();
-                    context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_role");
-                    return;
-                }
+                // Deny login immediately and redirect with reason
+                var frontendUrl = "https://localhost:4200";
+                context.HandleResponse();
+                context.Response.Redirect(frontendUrl + "?auth=denied&reason=not_authorized");
+                return;
             }
 
+            // Deny access if the local user exists but is inactive
             if (!user.Active)
             {
-                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "https://localhost:4200" : "/";
+                var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                 context.HandleResponse();
-                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=inactive");
+                context.Response.Redirect(frontendUrl + "?auth=denied&reason=inactive");
                 return;
             }
 
-            var activeRoles = user.UserRoles?.Where(ur => ur.Role != null && ur.Role.Active).Select(ur => ur.Role.Name).ToList() ?? new List<string>();
-            // If no roles exist but we're in Development, add a default role to make testing easier
-            if (!activeRoles.Any() && hostingEnv.IsDevelopment())
-            {
-                activeRoles.Add("admin");
-            }
+            // Retrieve the list of active roles assigned to the user
+            var activeRoles = user.UserRoles?
+                .Where(ur => ur.Role != null && ur.Role.Active)
+                .Select(ur => ur.Role.Name)
+                .ToList() ?? new List<string>();
+
+            // Deny access if the user has no active roles
             if (activeRoles.Count == 0)
             {
-                var envForRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-                var frontendUrlForRedirect = envForRedirect.IsDevelopment() ? "https://localhost:4200" : "/";
+                var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                 context.HandleResponse();
-                context.Response.Redirect(frontendUrlForRedirect + "?auth=denied&reason=no_active_roles");
+                context.Response.Redirect(frontendUrl + "?auth=denied&reason=no_active_roles");
                 return;
             }
 
-            // Inject role claims into the ClaimsPrincipal so [Authorize(Roles=...)] works
+            // Inject role claims into the ClaimsPrincipal so that [Authorize(Roles=...)] attributes work properly
             var identity = context.Principal?.Identity as ClaimsIdentity;
             if (identity != null)
             {
                 foreach (var r in activeRoles)
-                {
                     identity.AddClaim(new Claim(ClaimTypes.Role, r));
-                }
 
-                // Add a claim with the local user id for convenience
                 identity.AddClaim(new Claim("app_user_id", user.Id.ToString()));
             }
-            
-            // In Development, after successful validation redirect back to the SPA with an auth flag.
+
+            // In Development, after successful validation, redirect back to the SPA.
             // Important: do NOT call HandleResponse()/Response.Redirect() here because the
             // OpenID Connect handler still needs to perform the SignIn (issue the cookie).
             // Instead, set the authentication properties RedirectUri so the handler will
             // complete the sign-in and perform the redirect after creating the cookie.
-            var envForSuccessRedirect = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
-            if (envForSuccessRedirect.IsDevelopment())
+            if (hostingEnv.IsDevelopment())
             {
-                var frontendUrlForSuccessRedirect = "https://localhost:4200";
-                // Preserve existing properties and request the handler to redirect there
                 context.Properties ??= new AuthenticationProperties();
-                context.Properties.RedirectUri = frontendUrlForSuccessRedirect + "?auth=ok";
+                context.Properties.RedirectUri = "https://localhost:4200?auth=ok";
             }
 
             // Let the normal handler continue so SignInAsync can issue the cookie and
