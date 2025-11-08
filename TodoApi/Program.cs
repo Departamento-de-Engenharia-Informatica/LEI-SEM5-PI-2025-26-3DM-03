@@ -384,6 +384,52 @@ app.Use(async (context, next) =>
 // Authentication & Authorization Middleware
 // =====================================================
 app.UseAuthentication();
+// Enforce that API routes only accept users that have a corresponding local AppUser
+// with at least one active role. This prevents any external authenticated principal
+// from calling internal API endpoints unless an admin has created/activated a local account.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        if (context.User?.Identity?.IsAuthenticated != true)
+        {
+            await next();
+            return;
+        }
+
+        using var scope = context.RequestServices.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PortContext>();
+
+        var sub = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                  ?? context.User.FindFirst("sub")?.Value;
+        var email = context.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                    ?? context.User.FindFirst("email")?.Value;
+
+        TodoApi.Models.Auth.AppUser? user = null;
+        if (!string.IsNullOrEmpty(sub))
+        {
+            user = await db.AppUsers
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.ExternalId == sub);
+        }
+        if (user == null && !string.IsNullOrEmpty(email))
+        {
+            user = await db.AppUsers
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Email == email);
+        }
+
+        var hasActiveRole = user?.UserRoles?.Any(ur => ur.Role != null && ur.Role.Active) == true;
+        if (user == null || !user.Active || !hasActiveRole)
+        {
+            context.Response.StatusCode = 403;
+            await context.Response.WriteAsJsonAsync(new { message = "Access denied: user has no local active account/role." });
+            return;
+        }
+    }
+
+    await next();
+});
 app.UseAuthorization();
 
 // Map API Controllers
