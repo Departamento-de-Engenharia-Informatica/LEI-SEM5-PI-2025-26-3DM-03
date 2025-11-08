@@ -1,75 +1,87 @@
 // src/app/core/auth/auth.service.ts
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-
-export type AppUser = {
-  id?: string;
-  username?: string;
-  roles: string[];
-};
+import { AuthUser } from '../../models/auth-user';
+import { Router } from '@angular/router';
+import { BehaviorSubject, firstValueFrom, timeout } from 'rxjs';
+//import { BehaviorSubject, Observable } from 'rxjs';
+//import { map } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
-export class AuthService {
+export class AuthService  {
   private readonly TOKEN_KEY = 'auth_token';
-  private _user$ = new BehaviorSubject<AppUser | null>(null);
+  private readonly apiBase = 'https://localhost:7167';
 
-  constructor() {
-    const token = this.getToken();
-    if (token) this.applyToken(token);
+  private _user: AuthUser | null = null;
+  public authDeniedReason: string | null = null;  
+   private _loggedIn = new BehaviorSubject<boolean>(false);
+  loggedIn$ = this._loggedIn.asObservable();
+
+  
+  constructor(private http: HttpClient, private router: Router){  }
+ 
+  public get user(): AuthUser | null {
+    return this._user;
+  }
+ 
+ loadUserFromLocalStorage(): void {
+  console.log('Loading user from localSaaaaaaaaaaaaaaaaaaaaaaaaaatorage...');
+  // Load persisted user if present but do NOT perform navigation here.
+  // Navigation should be handled by the App component/guard to avoid
+  // navigation loops during startup.
+  try {
+    const data = localStorage.getItem(this.TOKEN_KEY);
+    if (data) {
+      const user: AuthUser = JSON.parse(data) as AuthUser;
+      this._user = user ?? null;
+      this._loggedIn.next(user !== null ? true : false);
+      //this.router.navigate(['/'])
+    } else {
+      this._user = null;
+      this._loggedIn.next(false);
+      //this.router.navigate(['/login'])
+    }
+  } catch (error) {
+    console.error('Invalid user data in localStorage', error);
+    try { localStorage.removeItem(this.TOKEN_KEY); } catch {}
+    this._user = null;
+    this._loggedIn.next(false);
+  }
+}
+
+
+  /**
+   * Check authentication by calling backend /authtest/me.
+   * Returns a Promise which resolves when the check is complete.
+   * This method sets internal state but does NOT perform navigation.
+   */
+  async checkAuth(): Promise<void> {
+    console.log('check auth ...');
+    try {
+      const user = await firstValueFrom(this.http.get<AuthUser>(`${this.apiBase}/authtest/me`, { withCredentials: true }).pipe(timeout(5000)));
+      this._user = user ?? null;
+       this._loggedIn.next(user !== null ? true : false);
+      try { localStorage.setItem(this.TOKEN_KEY, JSON.stringify(user)); } catch {}
+    } catch (err) {
+      console.error('[AuthService] Auth check failed', err);
+      this._user = null
+      this._loggedIn.next(false);
+      try { localStorage.removeItem(this.TOKEN_KEY); } catch {}
+    }
   }
 
-  /** Observable do utilizador atual (ou null) */
-  get user$(): Observable<AppUser | null> {
-    return this._user$.asObservable();
-  }
-
-  /** Snapshot síncrono do utilizador */
-  get snapshot(): AppUser | null {
-    return this._user$.value;
-  }
-
-  /** True/false se há sessão ativa */
-  get isLoggedIn$(): Observable<boolean> {
-    return this.user$.pipe(map(u => !!u));
-  }
-
-  /** Guarda o token e atualiza o estado */
-  login(token: string): void {
-    localStorage.setItem(this.TOKEN_KEY, token);
-    this.applyToken(token);
+  login(): void {
+    // use relative path so proxy.conf.json can forward to backend
+    window.location.href = `${this.apiBase}/authtest/login`;
   }
 
   /** Limpa sessão */
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
-    this._user$.next(null);
+    this._user = null;
+    this._loggedIn.next(false);
   }
-
-  /** Lê o token atual (ou null) */
-  getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
-  }
-
-  /** Verifica se o utilizador tem pelo menos uma das roles dadas */
-  hasAnyRole(...roles: string[]): boolean {
-    const u = this._user$.value;
-    if (!u) return false;
-    return roles.some(r => u.roles.includes(r));
-  }
-
-  // ---------- Internos ----------
-  private applyToken(token: string): void {
-    const payload = this.decodeJwt(token);
-    const roles = this.extractRoles(payload);
-    const user: AppUser = {
-      id: payload?.sub || payload?.nameid,
-      username: payload?.unique_name || payload?.name || payload?.preferred_username,
-      roles,
-    };
-    this._user$.next(user);
-  }
-
+ 
   private decodeJwt(token: string): any {
     try {
       const payload = token.split('.')[1];

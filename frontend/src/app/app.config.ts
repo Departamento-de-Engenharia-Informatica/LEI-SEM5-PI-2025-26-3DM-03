@@ -2,7 +2,9 @@ import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
+  APP_INITIALIZER,
 } from '@angular/core';
+import { AuthService } from './services/auth/auth.service';
 import { provideRouter } from '@angular/router';
 import {
   provideClientHydration,
@@ -26,5 +28,12 @@ export const appConfig: ApplicationConfig = {
 
     // ✅ mantém o suporte a hydration (resolve aviso NG0505)
     provideClientHydration(withEventReplay()),
+    // Ensure the app loads user from localStorage before Angular runs lifecycle hooks.
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (auth: AuthService) => () => auth.loadUserFromLocalStorage(),
+      deps: [AuthService],
+      multi: true,
+    },
   ],
 };

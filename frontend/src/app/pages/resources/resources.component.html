@@ -1,0 +1,59 @@
+<div class="page resources">
+  <h2>Recursos</h2>
+
+  <div class="controls">
+    <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar..." />
+  </div>
+
+  <div *ngIf="loading">A carregar...</div>
+  <div *ngIf="error" class="error">{{error}}</div>
+
+  <table class="tbl" *ngIf="!loading">
+    <thead>
+      <tr>
+        <th (click)="changeSort('code')">Code</th>
+        <th (click)="changeSort('description')">Description</th>
+        <th (click)="changeSort('type')">Type</th>
+        <th (click)="changeSort('status')">Status</th>
+        <th (click)="changeSort('operationalCapacity')">Capacity</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of filtered">
+        <td>{{r.code}}</td>
+        <td>{{r.description}}</td>
+        <td>{{r.type}}</td>
+        <td>{{r.status}}</td>
+        <td>{{r.operationalCapacity}}</td>
+        <td>
+          <button (click)="openEdit(r)">Edit</button>
+          <button (click)="deactivate(r.code)">Deactivate</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <section class="create">
+    <h3>Criar recurso</h3>
+    <label>Code: <input [(ngModel)]="newResource.code" /></label>
+    <label>Description: <input [(ngModel)]="newResource.description" /></label>
+    <label>Type: <input [(ngModel)]="newResource.type" /></label>
+    <label>Capacity: <input type="number" [(ngModel)]="newResource.operationalCapacity" /></label>
+    <label>Assigned area: <input [(ngModel)]="newResource.assignedArea" /></label>
+    <label>Setup time (min): <input type="number" [(ngModel)]="newResource.setupTimeMinutes" /></label>
+    <div><button (click)="create()">Create</button></div>
+  </section>
+
+  <section class="edit" *ngIf="editing">
+    <h3>Editar {{editing.code}}</h3>
+    <label>Description: <input [(ngModel)]="editing.description" /></label>
+    <label>Capacity: <input type="number" [(ngModel)]="editing.operationalCapacity" /></label>
+    <label>Assigned area: <input [(ngModel)]="editing.assignedArea" /></label>
+    <label>Setup time (min): <input type="number" [(ngModel)]="editing.setupTimeMinutes" /></label>
+    <div>
+      <button (click)="saveEdit()">Save</button>
+      <button (click)="closeEdit()">Cancel</button>
+    </div>
+  </section>
+</div>

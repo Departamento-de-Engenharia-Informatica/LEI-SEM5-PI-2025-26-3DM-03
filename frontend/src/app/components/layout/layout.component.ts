@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { TranslationService } from '../../services/i18n/translation.service';
-import { AuthService } from '../../services/auth.service';
-import { HttpClientModule } from '@angular/common/http';
+import { AuthService } from '../../services/auth/auth.service';
+import { Subscription } from 'rxjs';
+import { LoginComponent } from '../../pages/login/login.component';
+//import { HttpClientModule } from '@angular/common/http';
 
 type Role = 'admin' | 'operator' | 'agent' | 'authority';
 
@@ -19,19 +21,12 @@ interface MenuItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule],
+  imports: [CommonModule, RouterModule, LoginComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
-export class LayoutComponent {
-  // Current user role (null until loaded from backend)
-  userRole: Role | null = null;
-  userName: string | null = null;
-  userEmail: string | null = null;
-  isAuthenticated = false;
-  loginInProgress = false;
-  authDeniedReason: string | null = null;
-
+export class LayoutComponent implements OnInit, OnDestroy {
+ 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
 
@@ -43,99 +38,50 @@ export class LayoutComponent {
     { key: 'dashboard', label_en: 'Dashboard', label_pt: 'Painel', icon: 'bi-speedometer2', route: '/dashboard', roles: ['admin','operator','agent','authority'] },
     { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'bi-ship', route: '/vessels', roles: ['admin','operator'] },
     { key: 'docks', label_en: 'Docks', label_pt: 'Docas', icon: 'bi-box-seam', route: '/docks', roles: ['admin','authority'] },
-  { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','operator'] },
+    { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','operator'] },
     { key: 'resources', label_en: 'Resources', label_pt: 'Recursos', icon: 'bi-collection', route: '/resources', roles: ['admin','operator'] },
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','agent'] },
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
   ];
+  // menu currently shown in the template — updated when auth state changes
+  displayedMenu: MenuItem[] = [];
+  private subs: Subscription | null = null;
 
-  constructor(private router: Router, public i18n: TranslationService, public auth: AuthService) {}
+  constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
-    // Check query string for auth denial reasons or successful login (after redirect from backend)
-    let hadAuthOk = false;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const authStatus = params.get('auth');
-      const reason = params.get('reason');
-      if (authStatus === 'denied') {
-        this.authDeniedReason = reason ?? 'access_denied';
-      }
-      // If auth=ok, clean up the query string so it doesn't persist
-      if (authStatus === 'ok') {
-        hadAuthOk = true;
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    } catch { /* ignore in non-browser environments */ }
+    // initialize displayed menu according to current user (may be null at startup)
+    this.updateDisplayedMenu();
 
-    // Always ask the AuthService to check the backend for an active session.
-    // If we just returned from the OIDC flow the backend will have set the cookie
-    // and checkAuth() will populate the BehaviorSubject accordingly.
-    this.auth.checkAuth();
-
-    // Subscribe to user updates
-    this.auth.user$.subscribe((me: any | null) => {
-      if (me) {
-        this.isAuthenticated = true;
-        this.userName = me?.name ?? null;
-        this.userEmail = me?.email ?? null;
-
-        const roleName: string = (me?.role || '').toLowerCase();
-        switch (roleName) {
-          case 'admin':
-            this.userRole = 'admin';
-            break;
-          case 'logisticsoperator':
-          case 'logistics_operator':
-          case 'operator':
-            this.userRole = 'operator';
-            break;
-          case 'shippingagentrepresentative':
-          case 'shipping_agent_representative':
-          case 'agent':
-            this.userRole = 'agent';
-            break;
-          case 'portauthorityofficer':
-          case 'port_authority_officer':
-          case 'authority':
-            this.userRole = 'authority';
-            break;
-          default:
-            if (roleName.includes('admin')) this.userRole = 'admin';
-            else if (roleName.includes('agent')) this.userRole = 'agent';
-            else if (roleName.includes('authority')) this.userRole = 'authority';
-            else if (roleName.includes('operator')) this.userRole = 'operator';
-            else this.userRole = null;
-        }
-        console.log('[LayoutComponent] User authenticated:', { name: this.userName, role: this.userRole });
-      } else {
-        // Not authenticated
-        this.isAuthenticated = false;
-        this.userRole = null;
-
-        // If we had ?auth=ok but still got null, it might be a cookie/timing issue
-        if (hadAuthOk) {
-          console.log('[LayoutComponent] Had auth=ok but me() returned null, will retry with page reload in 1s...');
-          setTimeout(() => {
-            if (!this.isAuthenticated) {
-              console.log('[LayoutComponent] Still not authenticated, forcing page reload...');
-              window.location.reload();
-            }
-          }, 1000);
-        }
-      }
+    // subscribe to loggedIn changes — update menu when login state changes
+    this.subs = this.auth.loggedIn$.subscribe(() => {
+      this.updateDisplayedMenu();
+      // force an immediate check so UI updates even if emitted outside Angular (safety)
+      try { this.cdr.detectChanges(); } catch {}
     });
   }
+
+  ngOnDestroy(): void {
+    this.subs?.unsubscribe();
+    this.subs = null;
+  }
+ 
 
   // current year for footer (avoid using `new` in template expressions)
   currentYear = new Date().getFullYear();
 
-  // Filtered menu according to current user role
-  get visibleMenu() {
-    // only show menu when user is authenticated and has a role
-    if (!this.isAuthenticated || !this.userRole) return [];
-    return this.menuItems.filter(m => m.roles.includes(this.userRole as Role));
+ 
+
+  private updateDisplayedMenu() {
+    const u = this.auth.user;
+    if (!u || !u.role) {
+      this.displayedMenu = [];
+    } else {
+      this.displayedMenu = this.menuItems.filter(m => m.roles.includes(u.role as Role));
+    }
   }
+
+  
 
   // Localized label helper
   label(m: MenuItem) {
@@ -147,19 +93,10 @@ export class LayoutComponent {
   }
 
 
-  // Called by the Login button to start the login flow and show a transient UI state
-  login(){
-    this.loginInProgress = true;
-    try{
-      this.auth.login();
-    } catch(e) {
-      console.error('login redirect failed', e);
-      this.loginInProgress = false;
-    }
-  }
-
+ 
   logout(){
     // call auth logout which triggers backend sign-out
     this.auth.logout();
   }
+
 }

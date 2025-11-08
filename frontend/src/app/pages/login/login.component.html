@@ -1,0 +1,23 @@
+ <div  class="login-splash" style="display:flex;align-items:center;justify-content:center;height:100vh;">
+  <div style="text-align:center;max-width:480px;padding:32px;border-radius:8px;">
+    <h1 style="margin:0;font-size:28px;color:#02284A;">Port Operations Management</h1>
+    <p style="color:#0b5566;margin-top:8px;margin-bottom:24px;">Management console — please sign in with your Google account</p>
+    <div>
+      <!--  [disabled]="loginInProgress" -->
+      <button class="btn-primary" (click)="login()" style="padding:12px 24px;font-size:16px;">
+           <span >{{ i18n.t('login') }}</span>
+       <!--  <span *ngIf="!loginInProgress">{{ i18n.t('login') }}</span>
+        <span *ngIf="loginInProgress">{{ i18n.t('login') }}...</span> -->
+      </button>
+    </div>
+    <div style="margin-top:16px;color:#666;font-size:13px;">
+      <small>Use the seeded admin account for local testing.</small>
+    </div>
+   
+    <div *ngIf="auth.authDeniedReason != null" style="margin-top:16px;color:#b26b00;">
+      <strong>Access denied:</strong> {{ auth.authDeniedReason }}
+    </div>
+
+  </div>
+</div>
+
