@@ -1,4 +1,100 @@
-<h2>Vessels</h2>
-<ul>
-  <li *ngFor="let vessel of vessels">{{ vessel.name }}</li>
-</ul>
+<div class="vessels-container">
+  <h2 class="page-title">Vessels</h2>
+
+  <!-- ✅ Mensagem de sucesso -->
+  <div *ngIf="successMessage" class="success-box">{{ successMessage }}</div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input
+      type="text"
+      placeholder="Search by name or IMO..."
+      [(ngModel)]="searchTerm"
+      class="search-input"
+    />
+    <button class="btn-secondary" (click)="searchTerm = ''">Clear</button>
+    <button class="btn-primary" (click)="newVessel()">+ New Vessel</button>
+  </div>
+
+  <!-- Vessel List -->
+  <ul class="vessel-list" *ngIf="!showForm">
+    <li *ngFor="let vessel of filteredVessels()" class="vessel-item">
+      <div>
+        <strong>{{ vessel.name }}</strong>
+        <span *ngIf="vessel.imo" class="imo">IMO: {{ vessel.imo }}</span>
+        <span *ngIf="vessel.operator" class="operator">({{ vessel.operator }})</span>
+      </div>
+      <button class="btn-small" (click)="editVessel(vessel)">Edit</button>
+    </li>
+    <li *ngIf="filteredVessels().length === 0" class="empty">
+      No vessels found.
+    </li>
+  </ul>
+
+  <!-- Form -->
+  <div *ngIf="showForm" class="vessel-form card">
+    <h3>{{ isEditing ? 'Edit Vessel' : 'Create Vessel' }}</h3>
+
+    <form (ngSubmit)="save()" autocomplete="off">
+      <div class="form-group">
+        <label for="vesselName">Name</label>
+        <input
+          id="vesselName"
+          type="text"
+          [(ngModel)]="currentVessel.name"
+          name="name"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="vesselImo">IMO</label>
+        <input
+          id="vesselImo"
+          type="text"
+          [(ngModel)]="currentVessel.imo"
+          name="imo"
+          required
+          maxlength="7"
+          pattern="^[0-9]{7}$"
+          [disabled]="isEditing"
+        />
+        <small class="hint">Must contain exactly 7 digits (no spaces or letters)</small>
+      </div>
+
+      <div class="form-group select-group">
+        <label for="vesselType">Vessel Type</label>
+        <select
+          id="vesselType"
+          class="custom-select"
+          [(ngModel)]="currentVessel.vesselTypeId"
+          name="vesselTypeId"
+          required
+        >
+          <option value="" disabled selected>Select vessel type</option>
+          <option *ngFor="let t of vesselTypes" [ngValue]="t.id">
+            {{ t.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="operator">Operator</label>
+        <input
+          id="operator"
+          type="text"
+          [(ngModel)]="currentVessel.operator"
+          name="operator"
+          placeholder="Optional"
+        />
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" type="submit">Save</button>
+        <button class="btn-secondary" type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+
+    <div *ngIf="formError" class="error-box">{{ formError }}</div>
+  </div>
+</div>

@@ -1,0 +1,129 @@
+.vessels-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 1rem 2rem;
+}
+
+.page-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+
+  .search-input {
+    flex: 1;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+  }
+}
+
+.vessel-list {
+  list-style: none;
+  padding: 0;
+
+  .vessel-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid #e0e0e0;
+
+    &:hover {
+      background: #fafafa;
+    }
+
+    .imo {
+      margin-left: 8px;
+      color: #555;
+    }
+
+    .operator {
+      margin-left: 4px;
+      color: #888;
+      font-style: italic;
+    }
+  }
+
+  .empty {
+    text-align: center;
+    color: #777;
+    margin-top: 1rem;
+  }
+}
+
+.vessel-form.card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+  h3 {
+    margin-bottom: 1rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 0.3rem;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 0.35rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: #777;
+    }
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    margin-top: 1rem;
+  }
+
+  .error-box {
+    background: #ffe8e8;
+    color: #a00;
+    padding: 0.6rem;
+    border-radius: 5px;
+    margin-top: 1rem;
+  }
+}
+
+.success-box {
+  background: #e7fbe7;
+  color: #0c6e0c;
+  border: 1px solid #b3e6b3;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease-in-out, fadeOut 0.3s 2.7s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
