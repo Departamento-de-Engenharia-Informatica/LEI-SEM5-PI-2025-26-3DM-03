@@ -35,7 +35,7 @@
       <nav>
         <ul>
           <li *ngFor="let item of displayedMenu" routerLinkActive="active">
-            <a [routerLink]="item.route" class="menu-item">
+            <a [routerLink]="item.route" class="menu-item" (click)="onMenuClick(item, $event)">
               <span class="icon" aria-hidden="true"><i [class]="item.icon"></i></span>
               <span class="label">{{ i18n.t('menu.' + item.key) }}</span>
             </a>

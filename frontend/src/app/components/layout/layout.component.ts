@@ -47,18 +47,30 @@ export class LayoutComponent implements OnInit, OnDestroy {
   displayedMenu: MenuItem[] = [];
   private subs: Subscription | null = null;
 
-  constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef) {}
+  constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef, private router: Router) {}
 
   ngOnInit(): void {
     // initialize displayed menu according to current user (may be null at startup)
     this.updateDisplayedMenu();
 
     // subscribe to loggedIn changes — update menu when login state changes
-    this.subs = this.auth.loggedIn$.subscribe(() => {
+    this.subs = this.auth.loggedIn$.subscribe((v) => {
+      console.log('[Layout] loggedIn$ emission=', v, 'auth.user=', this.auth.user);
       this.updateDisplayedMenu();
       // force an immediate check so UI updates even if emitted outside Angular (safety)
       try { this.cdr.detectChanges(); } catch {}
     });
+  }
+
+  onMenuClick(item: MenuItem, ev?: Event) {
+    console.log('[Layout] menu click', item.key, item.route, 'auth.user=', this.auth.user);
+    try {
+      // use router.navigate as a robust fallback in case routerLink binding isn't working
+      this.router.navigate([item.route]);
+      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+    } catch (e) {
+      console.error('[Layout] navigation failed', e);
+    }
   }
 
   ngOnDestroy(): void {
@@ -74,11 +86,13 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   private updateDisplayedMenu() {
     const u = this.auth.user;
+    console.log('[Layout] updateDisplayedMenu: auth.user=', u);
     if (!u || !u.role) {
       this.displayedMenu = [];
     } else {
       this.displayedMenu = this.menuItems.filter(m => m.roles.includes(u.role as Role));
     }
+    console.log('[Layout] displayedMenu=', this.displayedMenu.map(x => x.key));
   }
 
   

@@ -32,9 +32,11 @@ export class AuthService  {
   try {
     const data = localStorage.getItem(this.TOKEN_KEY);
     if (data) {
-      const user: AuthUser = JSON.parse(data) as AuthUser;
-      this._user = user ?? null;
-      this._loggedIn.next(user !== null ? true : false);
+  const user: AuthUser = JSON.parse(data) as AuthUser;
+  // Normalize role names coming from backend (e.g. "Admin", "LogisticsOperator")
+  this.normalizeUserRoles(user);
+  this._user = user ?? null;
+  this._loggedIn.next(user !== null ? true : false);
       //this.router.navigate(['/'])
     } else {
       this._user = null;
@@ -58,16 +60,43 @@ export class AuthService  {
   async checkAuth(): Promise<void> {
     console.log('check auth ...');
     try {
-      const user = await firstValueFrom(this.http.get<AuthUser>(`${this.apiBase}/authtest/me`, { withCredentials: true }).pipe(timeout(5000)));
-      this._user = user ?? null;
-       this._loggedIn.next(user !== null ? true : false);
-      try { localStorage.setItem(this.TOKEN_KEY, JSON.stringify(user)); } catch {}
+  const user = await firstValueFrom(this.http.get<AuthUser>(`${this.apiBase}/authtest/me`, { withCredentials: true }).pipe(timeout(5000)));
+  console.log('[AuthService] checkAuth result:', user);
+  // Normalize roles returned by backend so UI role checks match
+  this.normalizeUserRoles(user);
+  this._user = user ?? null;
+  this._loggedIn.next(user !== null ? true : false);
+  try { localStorage.setItem(this.TOKEN_KEY, JSON.stringify(user)); } catch {}
     } catch (err) {
       console.error('[AuthService] Auth check failed', err);
       this._user = null
       this._loggedIn.next(false);
       try { localStorage.removeItem(this.TOKEN_KEY); } catch {}
     }
+  }
+
+  /**
+   * Map server role names into the frontend's simplified role keys:
+   * admin | operator | agent | authority
+   */
+  private normalizeUserRoles(user: AuthUser | null | undefined) {
+    if (!user) return;
+    const mapRole = (r?: string | null) => {
+      if (!r) return r;
+      const s = r.toString();
+      const lower = s.toLowerCase();
+      if (lower.includes('admin')) return 'admin';
+      if (lower.includes('operator') || lower.includes('logistic')) return 'operator';
+      if (lower.includes('agent') || lower.includes('representative')) return 'agent';
+      if (lower.includes('authority') || lower.includes('port')) return 'authority';
+      // fallback: return lower-cased short token
+      return lower;
+    };
+
+    // normalize primary role
+    try { user.role = mapRole(user.role); } catch {}
+    // normalize all roles array if present
+    try { user.roles = Array.isArray(user.roles) ? (user.roles.map(r => mapRole(r)).filter(x => !!x) as string[]) : user.roles; } catch {}
   }
 
   login(): void {
