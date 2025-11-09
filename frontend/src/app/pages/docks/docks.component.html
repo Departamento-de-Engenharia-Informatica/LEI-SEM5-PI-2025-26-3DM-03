@@ -1,137 +1,354 @@
 <div class="page modern">
-  <div class="toolbar">
-    <div class="title">
-      <h2>Docks</h2>
-      <p class="muted">Gestão das docas do porto — ver, criar e editar.</p>
-    </div>
+  <!-- Header / toolbar -->
+  <header class="page-header">
+    <div class="breadcrumbs">Home / Docks</div>
 
-    <div class="controls">
-      <div class="search">
-        <input type="search" placeholder="Pesquisar por nome ou localização..." [(ngModel)]="q" (ngModelChange)="applyFilterSort()" />
-        <button *ngIf="q" class="icon-btn" (click)="q=''; applyFilterSort();">✕</button>
+    <div class="header-main">
+      <div class="title-block">
+        <h1 class="page-title">Docks</h1>
+        <p class="page-subtitle">
+          Gestão das docas do porto — ver, criar e editar.
+        </p>
       </div>
 
-      <div class="sort">
-        <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
-          <option value="name">Nome</option>
-          <option value="location">Localização</option>
-          <option value="length">Comprimento</option>
-          <option value="depth">Profundidade</option>
-          <option value="maxDraft">Max Draft</option>
-        </select>
-        <button class="btn" (click)="changeSort(sortKey)">{{ sortDir === 'asc' ? '▲' : '▼' }}</button>
+      <div class="header-controls">
+        <!-- Search -->
+        <div class="search-field">
+          <span class="search-icon">🔍</span>
+          <input
+            type="search"
+            placeholder="Pesquisar por nome ou localização..."
+            [(ngModel)]="q"
+            (ngModelChange)="applyFilterSort()"
+          />
+          <button
+            *ngIf="q"
+            class="chip-btn clear-btn"
+            type="button"
+            (click)="q=''; applyFilterSort();"
+            aria-label="Limpar pesquisa"
+          >
+            ✕
+          </button>
+        </div>
+
+        <!-- Sort -->
+        <div class="sort-field">
+          <label class="sort-label">Ordenar por</label>
+          <div class="sort-input">
+            <select
+              [(ngModel)]="sortKey"
+              (change)="applyFilterSort()"
+            >
+              <option value="name">Nome</option>
+              <option value="location">Localização</option>
+              <option value="length">Comprimento</option>
+              <option value="depth">Profundidade</option>
+              <option value="maxDraft">Max Draft</option>
+            </select>
+
+            <button
+              type="button"
+              class="icon-toggle"
+              (click)="changeSort(sortKey)"
+              [attr.aria-label]="sortDir === 'asc' ? 'Ordenar descendente' : 'Ordenar ascendente'"
+            >
+              <span>{{ sortDir === 'asc' ? '▲' : '▼' }}</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </header>
 
-  <div *ngIf="loading" class="card skeleton">A carregar...</div>
-  <div *ngIf="error" class="card error">{{ error }}</div>
+  <!-- Estado de loading / erro -->
+  <section class="status-row" *ngIf="loading || error">
+    <div *ngIf="loading" class="status-pill muted">
+      A carregar docas...
+    </div>
+    <div *ngIf="error" class="status-pill error">
+      {{ error }}
+    </div>
+  </section>
 
+  <!-- Layout principal -->
   <div class="layout">
+    <!-- Formulário lateral -->
     <aside class="side">
-      <div class="card form-card">
-        <h3>Criar nova doca</h3>
-        <form (ngSubmit)="createDock()" class="form">
+      <section class="card form-card">
+        <header class="card-header">
+          <h2 class="card-title">Criar nova doca</h2>
+          <p class="card-subtitle">
+            Define as características principais da doca. Podes editar mais tarde.
+          </p>
+        </header>
+
+        <form
+          class="form"
+          (ngSubmit)="createDock()"
+        >
           <label>
             <span>Nome</span>
-            <input [(ngModel)]="newDock.name" name="name" required />
+            <input
+              [(ngModel)]="newDock.name"
+              name="name"
+              required
+            />
           </label>
+
           <label>
             <span>Localização</span>
-            <input [(ngModel)]="newDock.location" name="location" />
+            <input
+              [(ngModel)]="newDock.location"
+              name="location"
+            />
           </label>
+
           <div class="row">
             <label>
               <span>Comprimento (m)</span>
-              <input type="number" [(ngModel)]="newDock.length" name="length" />
+              <input
+                type="number"
+                [(ngModel)]="newDock.length"
+                name="length"
+              />
             </label>
             <label>
               <span>Profundidade (m)</span>
-              <input type="number" [(ngModel)]="newDock.depth" name="depth" />
+              <input
+                type="number"
+                [(ngModel)]="newDock.depth"
+                name="depth"
+              />
             </label>
             <label>
               <span>Max Draft (m)</span>
-              <input type="number" [(ngModel)]="newDock.maxDraft" name="maxDraft" />
+              <input
+                type="number"
+                [(ngModel)]="newDock.maxDraft"
+                name="maxDraft"
+              />
             </label>
           </div>
-          <button class="btn primary" type="submit">Criar dock</button>
+
+          <button
+            class="btn primary full"
+            type="submit"
+          >
+            Criar dock
+          </button>
         </form>
-      </div>
+      </section>
     </aside>
 
+    <!-- Lista de docks -->
     <main class="content">
-      <div class="cards">
-        <ng-container *ngIf="filtered.length; else emptyState">
-          <article class="dock-card" *ngFor="let dock of filtered">
-            <div class="card-head">
-              <div class="meta">
-                <div class="name">{{ dock.name }}</div>
-                <div class="loc">{{ dock.location }}</div>
+      <section class="cards" *ngIf="filtered.length; else emptyState">
+        <article
+          class="dock-card"
+          *ngFor="let dock of filtered"
+        >
+          <div class="card-head">
+            <div class="meta">
+              <div class="name">{{ dock.name }}</div>
+              <div class="loc">
+                {{ dock.location || 'Sem localização definida' }}
               </div>
-              <div class="actions">
-                <button class="icon-btn" title="Editar" (click)="openEdit(dock)">✎</button>
-                <button class="icon-btn danger" title="Eliminar" (click)="deleteDock(dock.id)">🗑</button>
+            </div>
+            <div class="actions">
+              <button
+                class="icon-btn"
+                type="button"
+                title="Editar"
+                (click)="openEdit(dock)"
+              >
+                ✎
+              </button>
+              <button
+                class="icon-btn danger"
+                type="button"
+                title="Eliminar"
+                (click)="deleteDock(dock.id)"
+              >
+                🗑
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="stat">
+              <div class="label">Comprimento</div>
+              <div class="value">
+                <span class="number">
+                  {{
+                    dock.length !== null && dock.length !== undefined
+                      ? dock.length
+                      : '-'
+                  }}
+                </span>
+                <span
+                  class="unit"
+                  *ngIf="dock.length !== null && dock.length !== undefined"
+                >
+                  m
+                </span>
               </div>
             </div>
 
-            <div class="card-body">
-              <div class="stat">
-                <div class="label">Comprimento</div>
-                  <div class="value">{{ dock.length !== null && dock.length !== undefined ? dock.length : '-' }} m</div>
-              </div>
-              <div class="stat">
-                <div class="label">Profundidade</div>
-                <div class="value">{{ dock.depth !== null && dock.depth !== undefined ? dock.depth : '-' }} m</div>
-              </div>
-              <div class="stat">
-                <div class="label">Max Draft</div>
-                <div class="value">{{ dock.maxDraft !== null && dock.maxDraft !== undefined ? dock.maxDraft : '-' }} m</div>
+            <div class="stat">
+              <div class="label">Profundidade</div>
+              <div class="value">
+                <span class="number">
+                  {{
+                    dock.depth !== null && dock.depth !== undefined
+                      ? dock.depth
+                      : '-'
+                  }}
+                </span>
+                <span
+                  class="unit"
+                  *ngIf="dock.depth !== null && dock.depth !== undefined"
+                >
+                  m
+                </span>
               </div>
             </div>
-          </article>
-        </ng-container>
-      </div>
+
+            <div class="stat">
+              <div class="label">Max Draft</div>
+              <div class="value">
+                <span class="number">
+                  {{
+                    dock.maxDraft !== null && dock.maxDraft !== undefined
+                      ? dock.maxDraft
+                      : '-'
+                  }}
+                </span>
+                <span
+                  class="unit"
+                  *ngIf="dock.maxDraft !== null && dock.maxDraft !== undefined"
+                >
+                  m
+                </span>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
 
       <ng-template #emptyState>
         <div class="empty-state">
           <div class="emoji">⚓</div>
-          <div class="text">Sem docas encontradas.</div>
+          <div class="text-title">Sem docas encontradas</div>
+          <div class="text-sub">
+            Cria a primeira doca à esquerda ou ajusta os filtros de pesquisa.
+          </div>
         </div>
       </ng-template>
     </main>
   </div>
 
   <!-- Modal de edição -->
-  <div class="modal-backdrop" *ngIf="editing">
+  <div
+    class="modal-backdrop"
+    *ngIf="editing"
+  >
     <div class="modal">
-      <h3>Editar doca</h3>
-      <form (ngSubmit)="saveEdit()" class="form">
+      <header class="modal-header">
+        <div>
+          <h2>Editar doca</h2>
+          <p>Atualiza os dados desta doca.</p>
+        </div>
+        <button
+          type="button"
+          class="icon-btn"
+          (click)="closeEdit()"
+          aria-label="Fechar"
+        >
+          ✕
+        </button>
+      </header>
+
+      <form
+        class="form"
+        (ngSubmit)="saveEdit()"
+      >
         <label>
           <span>Nome</span>
-          <input [(ngModel)]="editing!.name" name="edit_name" required />
+          <input
+            [(ngModel)]="editing!.name"
+            name="edit_name"
+            required
+          />
         </label>
+
         <label>
           <span>Localização</span>
-          <input [(ngModel)]="editing!.location" name="edit_location" />
+          <input
+            [(ngModel)]="editing!.location"
+            name="edit_location"
+          />
         </label>
-        <div class="row">
-          <label>
-            <span>Comprimento</span>
-            <input type="number" [(ngModel)]="editing!.length" name="edit_length" />
-          </label>
-          <label>
-            <span>Profundidade</span>
-            <input type="number" [(ngModel)]="editing!.depth" name="edit_depth" />
-          </label>
-          <label>
-            <span>Max Draft</span>
-            <input type="number" [(ngModel)]="editing!.maxDraft" name="edit_maxDraft" />
-          </label>
-        </div>
+
+  <div class="row metrics-row">
+  <div class="metric-field">
+    <span class="metric-label">Comprimento</span>
+    <div class="metric-input">
+      <input
+        type="number"
+        [(ngModel)]="editing!.length"
+        name="edit_length"
+      />
+      <span class="unit">m</span>
+    </div>
+  </div>
+
+  <div class="metric-field">
+    <span class="metric-label">Profundidade</span>
+    <div class="metric-input">
+      <input
+        type="number"
+        [(ngModel)]="editing!.depth"
+        name="edit_depth"
+      />
+      <span class="unit">m</span>
+    </div>
+  </div>
+
+  <div class="metric-field">
+    <span class="metric-label">Max Draft</span>
+    <div class="metric-input">
+      <input
+        type="number"
+        [(ngModel)]="editing!.maxDraft"
+        name="edit_maxDraft"
+      />
+      <span class="unit">m</span>
+    </div>
+  </div>
+</div>
+
 
         <div class="modal-actions">
-          <button class="btn" type="button" (click)="closeEdit()">Cancelar</button>
-          <button class="btn primary" type="submit">Guardar</button>
+          <div *ngIf="error" class="status-pill error small" role="alert">
+            {{ error }}
+          </div>
+
+          <button
+            class="btn"
+            type="button"
+            (click)="closeEdit()"
+            [disabled]="saving"
+          >
+            Cancelar
+          </button>
+          <button
+            class="btn primary"
+            type="submit"
+            [disabled]="saving"
+          >
+            {{ saving ? 'A guardar...' : 'Guardar alterações' }}
+          </button>
         </div>
       </form>
     </div>
