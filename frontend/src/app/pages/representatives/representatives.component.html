@@ -1,15 +1,15 @@
 <div class="page reps">
   <div class="page-header">
     <div>
-      <h2>Representantes</h2>
-      <p class="muted">Gerir representantes de um Agente de Navegação</p>
+      <h2>{{ 'reps.title' | translate }}</h2>
+      <p class="muted">{{ 'reps.subtitle' | translate }}</p>
     </div>
     <div class="header-actions">
       <div class="agent-input">
-        <label>NIF do Agente</label>
+        <label>{{ 'reps.agent.tax' | translate }}</label>
         <input type="number" [(ngModel)]="taxNumber" placeholder="ex: 500123456" />
       </div>
-      <button class="btn-primary" (click)="load()"><i class="bi bi-arrow-repeat"></i> Carregar</button>
+      <button class="btn-primary" (click)="load()"><i class="bi bi-arrow-repeat"></i> {{ 'reps.load' | translate }}</button>
     </div>
   </div>
 
@@ -20,7 +20,7 @@
   <div class="toolbar" *ngIf="!loading">
     <div class="search">
       <i class="bi bi-search"></i>
-      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar por nome, email…" />
+      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" [placeholder]="('reps.search' | translate)" />
     </div>
   </div>
 
@@ -28,13 +28,13 @@
     <table class="tbl">
       <thead>
         <tr>
-          <th (click)="changeSort('name')">Nome</th>
-          <th (click)="changeSort('citizenID')">ID Cidadão</th>
-          <th (click)="changeSort('nationality')">Nacionalidade</th>
-          <th (click)="changeSort('email')">Email</th>
-          <th (click)="changeSort('phoneNumber')">Telefone</th>
-          <th (click)="changeSort('isActive')">Estado</th>
-          <th>Ações</th>
+          <th (click)="changeSort('name')">{{ 'reps.table.name' | translate }}</th>
+          <th (click)="changeSort('citizenID')">{{ 'reps.table.citizen' | translate }}</th>
+          <th (click)="changeSort('nationality')">{{ 'reps.table.nationality' | translate }}</th>
+          <th (click)="changeSort('email')">{{ 'reps.table.email' | translate }}</th>
+          <th (click)="changeSort('phoneNumber')">{{ 'reps.table.phone' | translate }}</th>
+          <th (click)="changeSort('isActive')">{{ 'reps.table.status' | translate }}</th>
+          <th>{{ 'reps.table.actions' | translate }}</th>
         </tr>
       </thead>
       <tbody>
@@ -45,7 +45,7 @@
           <td>{{r.email}}</td>
           <td>{{r.phoneNumber}}</td>
           <td>
-            <span class="badge" [class.badge-green]="r.isActive" [class.badge-gray]="!r.isActive">{{ r.isActive ? 'Ativo' : 'Inativo' }}</span>
+            <span class="badge" [class.badge-green]="r.isActive" [class.badge-gray]="!r.isActive">{{ (r.isActive ? 'reps.status.active' : 'reps.status.inactive') | translate }}</span>
           </td>
           <td class="actions">
             <button class="btn-ghost" (click)="openEdit(r)"><i class="bi bi-pencil"></i></button>
@@ -59,57 +59,57 @@
 
   <div class="grid">
     <section class="card">
-      <h3>Novo representante</h3>
+      <h3>{{ 'reps.new.title' | translate }}</h3>
       <div class="form-grid">
-        <label>Nome
-          <input [(ngModel)]="newRep.name" placeholder="Nome completo" />
+        <label>{{ 'reps.table.name' | translate }}
+          <input [(ngModel)]="newRep.name" [placeholder]="('reps.new.name' | translate)" />
         </label>
-        <label>ID Cidadão
-          <input [(ngModel)]="newRep.citizenID" placeholder="Documento" />
+        <label>{{ 'reps.table.citizen' | translate }}
+          <input [(ngModel)]="newRep.citizenID" [placeholder]="('reps.new.citizen' | translate)" />
         </label>
-        <label>Nacionalidade
-          <input [(ngModel)]="newRep.nationality" placeholder="País" />
+        <label>{{ 'reps.table.nationality' | translate }}
+          <input [(ngModel)]="newRep.nationality" [placeholder]="('reps.new.nationality' | translate)" />
         </label>
-        <label>Email
-          <input type="email" [(ngModel)]="newRep.email" placeholder="nome@dominio" />
+        <label>{{ 'reps.table.email' | translate }}
+          <input type="email" [(ngModel)]="newRep.email" [placeholder]="('reps.new.email' | translate)" />
         </label>
-        <label>Telefone
-          <input [(ngModel)]="newRep.phoneNumber" placeholder="Contacto" />
+        <label>{{ 'reps.table.phone' | translate }}
+          <input [(ngModel)]="newRep.phoneNumber" [placeholder]="('reps.new.phone' | translate)" />
         </label>
       </div>
       <div>
-        <button type="button" class="btn-primary" (click)="create()">Criar</button>
+        <button type="button" class="btn-primary" (click)="create()">{{ 'reps.new.create' | translate }}</button>
       </div>
     </section>
 
     <section class="card" *ngIf="editing">
-      <h3>Editar representante</h3>
+      <h3>{{ 'reps.edit.title' | translate }}</h3>
       <div class="form-grid">
-        <label>Nome
+        <label>{{ 'reps.table.name' | translate }}
           <input [(ngModel)]="editing.name" />
         </label>
-        <label>ID Cidadão
+        <label>{{ 'reps.table.citizen' | translate }}
           <input [(ngModel)]="editing.citizenID" />
         </label>
-        <label>Nacionalidade
+        <label>{{ 'reps.table.nationality' | translate }}
           <input [(ngModel)]="editing.nationality" />
         </label>
-        <label>Email
+        <label>{{ 'reps.table.email' | translate }}
           <input type="email" [(ngModel)]="editing.email" />
         </label>
-        <label>Telefone
+        <label>{{ 'reps.table.phone' | translate }}
           <input [(ngModel)]="editing.phoneNumber" />
         </label>
-        <label>Estado
+        <label>{{ 'reps.table.status' | translate }}
           <select [(ngModel)]="editing.isActive">
-            <option [ngValue]="true">Ativo</option>
-            <option [ngValue]="false">Inativo</option>
+            <option [ngValue]="true">{{ 'reps.status.active' | translate }}</option>
+            <option [ngValue]="false">{{ 'reps.status.inactive' | translate }}</option>
           </select>
         </label>
       </div>
       <div class="actions">
-        <button type="button" class="btn-primary" (click)="saveEdit()">Guardar</button>
-        <button type="button" class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+        <button type="button" class="btn-primary" (click)="saveEdit()">{{ 'reps.edit.save' | translate }}</button>
+        <button type="button" class="btn-ghost" (click)="closeEdit()">{{ 'reps.edit.cancel' | translate }}</button>
       </div>
     </section>
   </div>

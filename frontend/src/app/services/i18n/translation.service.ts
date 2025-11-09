@@ -1,50 +1,23 @@
 import { Injectable } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 
 export type Lang = 'en' | 'pt';
 
 @Injectable({ providedIn: 'root' })
 export class TranslationService {
-  private lang: Lang = (localStorage.getItem('app_lang') as Lang) || 'en';
-
-  private translations: Record<Lang, Record<string, string>> = {
-    en: {
-      'title': 'Port Operations Management',
-      'menu.dashboard': 'Dashboard',
-      'menu.vessels': 'Vessels',
-      'menu.docks': 'Docks',
-  'menu.storage_areas': 'Storage Areas',
-      'menu.resources': 'Resources',
-      'menu.representatives': 'Representatives',
-      'menu.settings': 'Settings',
-      'nav.help': 'Help',
-      'home': 'Home',
-      'breadcrumb.dashboard': 'Dashboard',
-      'logout': 'Logout'
-    },
-    pt: {
-      'title': 'Gestão de Operações Portuárias',
-      'menu.dashboard': 'Painel',
-      'menu.vessels': 'Navios',
-      'menu.docks': 'Docas',
-  'menu.storage_areas': 'Áreas de Armazenamento',
-      'menu.resources': 'Recursos',
-      'menu.representatives': 'Representantes',
-      'menu.settings': 'Configurações',
-      'nav.help': 'Ajuda',
-      'home': 'Início',
-      'breadcrumb.dashboard': 'Painel',
-      'logout': 'Sair'
-    }
-  };
+  constructor(private translate: TranslateService) {
+    const saved = (localStorage.getItem('app_lang') as Lang) || 'pt';
+    this.translate.addLangs(['en','pt']);
+    this.translate.setDefaultLang(saved);
+    this.translate.use(saved);
+  }
 
   setLang(l: Lang) {
-    this.lang = l;
     localStorage.setItem('app_lang', l);
+    this.translate.use(l);
   }
 
-  getLang(): Lang { return this.lang; }
+  getLang(): Lang { return (this.translate.currentLang as Lang) || 'pt'; }
 
-  t(key: string): string {
-    return this.translations[this.lang][key] ?? key;
-  }
+  t(key: string): string { return this.translate.instant(key); }
 }

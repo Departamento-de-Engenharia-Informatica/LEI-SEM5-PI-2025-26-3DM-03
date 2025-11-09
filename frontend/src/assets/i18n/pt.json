@@ -1,0 +1,61 @@
+{
+  "title": "Gestão de Operações Portuárias",
+  "home": "Início",
+  "breadcrumb": { "dashboard": "Painel" },
+  "logout": "Sair",
+  "menu": {
+    "dashboard": "Painel",
+    "vessels": "Navios",
+    "docks": "Docas",
+    "storage_areas": "Áreas de Armazenamento",
+    "resources": "Recursos",
+    "representatives": "Representantes",
+    "settings": "Configurações"
+  },
+  "reps": {
+    "title": "Representantes",
+    "subtitle": "Gerir representantes de um Agente de Navegação",
+    "search": "Pesquisar por nome, email…",
+    "noData": "Sem representantes para este agente.",
+    "agent.tax": "NIF do Agente",
+    "load": "Carregar",
+    "table": {
+      "name": "Nome",
+      "citizen": "ID Cidadão",
+      "nationality": "Nacionalidade",
+      "email": "Email",
+      "phone": "Telefone",
+      "status": "Estado",
+      "actions": "Ações"
+    },
+    "status": { "active": "Ativo", "inactive": "Inativo" },
+    "new": {
+      "title": "Novo representante",
+      "name": "Nome completo",
+      "citizen": "Documento",
+      "nationality": "País",
+      "email": "nome@dominio",
+      "phone": "Contacto",
+      "create": "Criar"
+    },
+    "edit": {
+      "title": "Editar representante",
+      "save": "Guardar",
+      "cancel": "Cancelar"
+    },
+    "toasts": {
+      "created": "Representante criado",
+      "updated": "Representante atualizado",
+      "deactivated": "Representante desativado",
+      "deleted": "Representante eliminado"
+    },
+    "errors": {
+      "load": "Erro ao carregar representantes — verifica API e NIF.",
+      "create": "Erro ao criar representante.",
+      "update": "Erro ao atualizar representante.",
+      "deactivate": "Erro ao desativar representante.",
+      "delete": "Erro ao eliminar representante."
+    }
+  }
+}
+

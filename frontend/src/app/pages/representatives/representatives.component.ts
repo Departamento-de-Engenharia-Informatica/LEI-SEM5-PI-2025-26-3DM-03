@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RepresentativesService } from '../../services/representatives/representatives.service';
+import { TranslationService } from '../../services/i18n/translation.service';
 import { ToastService } from '../../components/toast/toast.service';
 import { CreateRepresentativeDTO, RepresentativeDTO, UpdateRepresentativeDTO } from '../../models/representative';
 
@@ -33,7 +34,7 @@ export class RepresentativesComponent implements OnInit {
   newRep: CreateRepresentativeDTO = { name: '', citizenID: '', nationality: '', email: '', phoneNumber: '' };
   editing: (UpdateRepresentativeDTO & { id: number }) | null = null;
 
-  constructor(private svc: RepresentativesService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
+  constructor(private svc: RepresentativesService, private cdr: ChangeDetectorRef, private toast: ToastService, private i18n: TranslationService) {}
 
   async ngOnInit() {}
 
@@ -88,7 +89,7 @@ export class RepresentativesComponent implements OnInit {
       this.applyFilterSort();
       this.newRep = { name: '', citizenID: '', nationality: '', email: '', phoneNumber: '' };
       try { this.cdr.detectChanges(); } catch {}
-      this.toast.success('Representante criado');
+      this.toast.success(this.i18n.t('reps.toasts.created'));
     } catch (e: any) { this.error = e?.message || 'Erro ao criar representante'; }
   }
 
@@ -141,7 +142,7 @@ export class RepresentativesComponent implements OnInit {
       this.applyFilterSort();
       this.closeEdit();
       try { this.cdr.detectChanges(); } catch {}
-      this.toast.success('Representante atualizado');
+      this.toast.success(this.i18n.t('reps.toasts.updated'));
     } catch (e: any) {
       // rollback
       if (idx >= 0 && prev) this.reps[idx] = prev;
@@ -162,7 +163,7 @@ export class RepresentativesComponent implements OnInit {
     try { this.cdr.detectChanges(); } catch {}
     try {
       await this.svc.deactivate(this.taxNumber, r.id);
-      this.toast.success('Representante desativado');
+      this.toast.success(this.i18n.t('reps.toasts.deactivated'));
     } catch (e: any) {
       // rollback visual
       if (idx >= 0) this.reps[idx].isActive = prev;
@@ -181,7 +182,7 @@ export class RepresentativesComponent implements OnInit {
       this.reps = this.reps.filter(x => x.id !== r.id);
       this.applyFilterSort();
       try { this.cdr.detectChanges(); } catch {}
-      this.toast.success('Representante eliminado');
+      this.toast.success(this.i18n.t('reps.toasts.deleted'));
     } catch (e: any) { this.error = e?.message || 'Erro ao eliminar representante'; }
   }
 }

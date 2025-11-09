@@ -1,0 +1,61 @@
+{
+  "title": "Port Operations Management",
+  "home": "Home",
+  "breadcrumb": { "dashboard": "Dashboard" },
+  "logout": "Logout",
+  "menu": {
+    "dashboard": "Dashboard",
+    "vessels": "Vessels",
+    "docks": "Docks",
+    "storage_areas": "Storage Areas",
+    "resources": "Resources",
+    "representatives": "Representatives",
+    "settings": "Settings"
+  },
+  "reps": {
+    "title": "Representatives",
+    "subtitle": "Manage representatives of a Shipping Agent",
+    "search": "Search by name, email…",
+    "noData": "No representatives for this agent.",
+    "agent.tax": "Agent Tax Number",
+    "load": "Load",
+    "table": {
+      "name": "Name",
+      "citizen": "Citizen ID",
+      "nationality": "Nationality",
+      "email": "Email",
+      "phone": "Phone",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": { "active": "Active", "inactive": "Inactive" },
+    "new": {
+      "title": "New representative",
+      "name": "Full name",
+      "citizen": "Document",
+      "nationality": "Country",
+      "email": "name@domain",
+      "phone": "Contact",
+      "create": "Create"
+    },
+    "edit": {
+      "title": "Edit representative",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "created": "Representative created",
+      "updated": "Representative updated",
+      "deactivated": "Representative deactivated",
+      "deleted": "Representative deleted"
+    },
+    "errors": {
+      "load": "Failed to load representatives — check API and Tax Number.",
+      "create": "Failed to create representative.",
+      "update": "Failed to update representative.",
+      "deactivate": "Failed to deactivate representative.",
+      "delete": "Failed to delete representative."
+    }
+  }
+}
+
