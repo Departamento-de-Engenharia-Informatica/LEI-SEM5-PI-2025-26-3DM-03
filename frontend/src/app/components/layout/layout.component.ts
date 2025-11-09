@@ -28,6 +28,13 @@ interface MenuItem {
 })
 export class LayoutComponent implements OnInit, OnDestroy {
  
+  // Sidebar UI state: collapsed means compact sidebar; hotspotOpen true while hovering left edge
+  sidebarCollapsed: boolean = false;
+  hotspotOpen: boolean = false;
+
+  // computed convenience: when true, sidebar should appear expanded
+  get sidebarExpanded(): boolean { return !this.sidebarCollapsed || this.hotspotOpen; }
+ 
   // Language comes from the translation service
   get lang() { return this.i18n.getLang(); }
 
@@ -112,6 +119,24 @@ export class LayoutComponent implements OnInit, OnDestroy {
   logout(){
     // call auth logout which triggers backend sign-out
     this.auth.logout();
+  }
+
+  // Toggle sidebar collapsed state (three-dots button)
+  toggleSidebar(){
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    // make sure Angular updates view
+    try { this.cdr.detectChanges(); } catch {}
+  }
+
+  // Hotspot handlers: when user hovers the left edge we show sidebar temporarily
+  openHotspot(){
+    this.hotspotOpen = true;
+    try { this.cdr.detectChanges(); } catch {}
+  }
+
+  closeHotspot(){
+    this.hotspotOpen = false;
+    try { this.cdr.detectChanges(); } catch {}
   }
 
 }

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { ResourcesService } from '../../services/resources/resources.service';
 import { ResourceDTO, CreateResourceDTO, UpdateResourceDTO } from '../../models/resource';
 
@@ -9,7 +10,7 @@ type SortKey = 'code' | 'description' | 'type' | 'status' | 'operationalCapacity
 @Component({
   selector: 'app-resources',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './resources.component.html',
   styleUrls: ['./resources.component.scss']
 })

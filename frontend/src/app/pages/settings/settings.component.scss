@@ -1,0 +1,8 @@
+.settings-page { padding: 1rem; }
+.settings-page h2 { margin-bottom: 1rem; }
+.settings-page .create .row { display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; }
+.settings-page table { width:100%; border-collapse:collapse; }
+.settings-page th, .settings-page td { padding:0.5rem; border-bottom:1px solid rgba(0,0,0,0.06); text-align:left; }
+.btn-primary { background:#02284A; color:#fff; border:none; padding:6px 10px; border-radius:6px; }
+.btn-ghost { background:transparent; border:1px solid rgba(0,0,0,0.06); padding:4px 8px; border-radius:6px; }
+.error { color: #b91c1c; margin-bottom: 8px; }

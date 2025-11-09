@@ -1,11 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { VesselsService } from '../../services/vessels/vessels.service';
 
 @Component({
   selector: 'app-vessels',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TranslatePipe],
   templateUrl: './vessels.component.html',
   styleUrls: ['./vessels.component.scss']
 })

@@ -1,20 +1,21 @@
 import { Injectable } from '@angular/core';
-import { TranslateService } from '@ngx-translate/core';
+import { MockTranslateService } from './translate.mock.impl';
 
 export type Lang = 'en' | 'pt';
 
 @Injectable({ providedIn: 'root' })
 export class TranslationService {
-  constructor(private translate: TranslateService) {
+  constructor(private translate: MockTranslateService) {
     const saved = (localStorage.getItem('app_lang') as Lang) || 'pt';
     this.translate.addLangs(['en','pt']);
     this.translate.setDefaultLang(saved);
-    this.translate.use(saved);
+    // start loading saved language (fire-and-forget is fine)
+    void this.translate.use(saved);
   }
 
   setLang(l: Lang) {
     localStorage.setItem('app_lang', l);
-    this.translate.use(l);
+    void this.translate.use(l);
   }
 
   getLang(): Lang { return (this.translate.currentLang as Lang) || 'pt'; }

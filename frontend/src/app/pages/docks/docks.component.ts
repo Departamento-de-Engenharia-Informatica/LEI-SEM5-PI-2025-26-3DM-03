@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { DocksService } from '../../services/docks/docks.service';
 import { CreateDockDTO, DockDTO, UpdateDockDTO } from '../../models/dock';
 
@@ -9,7 +10,7 @@ type SortKey = 'name' | 'location' | 'length' | 'depth' | 'maxDraft';
 @Component({
   selector: 'app-docks',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './docks.component.html',
   styleUrls: ['./docks.component.scss']
 })

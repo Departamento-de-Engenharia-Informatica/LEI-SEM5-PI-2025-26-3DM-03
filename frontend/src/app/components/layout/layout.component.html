@@ -3,6 +3,8 @@
 <div   class="app-shell"> 
   <header class="app-header" role="banner">
     <div class="header-left">
+      <!-- Sidebar toggle (three dots) -->
+      <button class="sidebar-toggle" aria-label="Toggle menu" title="Toggle menu" (click)="toggleSidebar()">⋮</button>
       <div class="logo" aria-hidden="true">
         <!-- simple svg logo -->
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -33,13 +35,15 @@
   <div class="app-body">
     <!-- Global toasts -->
     <app-toast-container></app-toast-container>
+    <!-- Invisible left-edge hotspot: hover here to temporarily open the sidebar -->
+    <div class="left-hotspot" (mouseenter)="openHotspot()" (mouseleave)="closeHotspot()" (click)="toggleSidebar()" aria-hidden="true"></div>
     <aside class="sidebar" role="navigation">
       <nav>
         <ul>
           <li *ngFor="let item of displayedMenu" routerLinkActive="active">
             <a [routerLink]="item.route" class="menu-item" (click)="onMenuClick(item, $event)">
               <span class="icon" aria-hidden="true"><i [class]="item.icon"></i></span>
-              <span class="label">{{ i18n.t('menu.' + item.key) }}</span>
+              <span class="label">{{ label(item) }}</span>
             </a>
           </li>
         </ul>

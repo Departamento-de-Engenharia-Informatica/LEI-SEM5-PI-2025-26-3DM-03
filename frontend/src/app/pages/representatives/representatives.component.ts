@@ -1,6 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { RepresentativesService } from '../../services/representatives/representatives.service';
 import { TranslationService } from '../../services/i18n/translation.service';
 import { ToastService } from '../../components/toast/toast.service';
@@ -11,7 +12,7 @@ type SortKey = 'name' | 'citizenID' | 'nationality' | 'email' | 'phoneNumber' | 
 @Component({
   selector: 'app-representatives',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TranslatePipe],
   templateUrl: './representatives.component.html',
   styleUrls: ['./representatives.component.scss']
 })

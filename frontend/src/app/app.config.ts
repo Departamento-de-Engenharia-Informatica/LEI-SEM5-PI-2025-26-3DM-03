@@ -17,14 +17,8 @@ import {
 } from '@angular/common/http';
 
 import { routes } from './app.routes';
-import { TranslateLoader, TranslateModule, TranslateService, TranslateCompiler } from '@ngx-translate/core';
-import { TranslateHttpLoader } from '@ngx-translate/http-loader';
-import { HttpClient } from '@angular/common/http';
-import { TranslateMessageFormatCompiler } from '@ngx-translate/messageformat-compiler';
-
-export function HttpLoaderFactory(http: HttpClient) {
-  return new TranslateHttpLoader(http, '/assets/i18n/', '.json');
-}
+// Use local lightweight translate mock (no external dependency required)
+import { TranslateMockModule } from './services/i18n/translate.mock.module';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -45,13 +39,7 @@ export const appConfig: ApplicationConfig = {
       multi: true,
     },
 
-    // i18n: ngx-translate with HTTP loader and MessageFormat compiler
-    importProvidersFrom(
-      TranslateModule.forRoot({
-        loader: { provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },
-        compiler: { provide: TranslateCompiler, useClass: TranslateMessageFormatCompiler },
-        defaultLanguage: (localStorage.getItem('app_lang') as any) || 'pt'
-      })
-    ),
+    // i18n: lightweight in-project mock module (prevents TS errors when @ngx-translate is not installed)
+    importProvidersFrom(TranslateMockModule),
   ],
 };

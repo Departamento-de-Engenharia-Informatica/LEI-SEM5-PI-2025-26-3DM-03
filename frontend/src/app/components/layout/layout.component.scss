@@ -46,6 +46,22 @@
 .breadcrumbs { font-size:0.85rem; color:rgba(2,6,23,0.45); margin-bottom:0.5rem; }
 .app-footer { margin-top:2.2rem; padding-top:1rem; border-top: 1px solid rgba(15,23,42,0.04); color:rgba(2,6,23,0.45); font-size:0.85rem; }
 
+/* Sidebar collapsed/expanded behavior (toggle + hotspot) */
+.sidebar { transition: width 160ms ease, transform 160ms ease; }
+.sidebar.collapsed { width: 64px; }
+.sidebar.collapsed .label { display: none; }
+.sidebar .icon { transition: color 120ms ease, transform 120ms ease; }
+
+/* Three-dots toggle in header */
+.sidebar-toggle { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:8px; background:transparent; border:none; cursor:pointer; color: rgba(2,6,23,0.7); font-size:18px; margin-right:6px; }
+.sidebar-toggle:hover { background: rgba(2,6,23,0.03); }
+
+/* Invisible left-edge hotspot to detect hover */
+.left-hotspot { position: fixed; left: 0; top: 0; bottom: 0; width: 12px; z-index: 60; background: transparent; }
+
+/* Make sure sidebar sits above the hotspot when expanded */
+.sidebar { position: relative; z-index: 70; }
+
 /* Login splash minimal */
 .login-splash { background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%); }
 .login-splash h1 { font-size:28px; margin-bottom:8px; color:#02284A; font-weight:700; }

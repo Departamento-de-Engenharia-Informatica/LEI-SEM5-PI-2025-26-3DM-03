@@ -1,0 +1,37 @@
+<div class="settings-page">
+  <h2>Settings - Users</h2>
+
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <section class="create">
+    <h3>Add user</h3>
+    <div class="row">
+      <input placeholder="Email" [(ngModel)]="newEmail" />
+      <input placeholder="Name" [(ngModel)]="newName" />
+      <select [(ngModel)]="newRoleId">
+        <option *ngFor="let r of roles" [ngValue]="r.id">{{ r.name }}</option>
+      </select>
+      <button class="btn-primary" (click)="create()">Add</button>
+    </div>
+  </section>
+
+  <section class="list">
+    <h3>Users</h3>
+    <table>
+      <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let u of users">
+          <td>{{ u.email }}</td>
+          <td>{{ u.name }}</td>
+          <td>
+            <select [value]="(u.roles && u.roles.length>0 ? u.roles[0].roleId : null)" (change)="changeRole(u, $any($event.target).value)">
+              <option *ngFor="let r of roles" [value]="r.id">{{ r.name }}</option>
+            </select>
+          </td>
+          <td><input type="checkbox" [checked]="u.active" (change)="toggleActive(u)" /></td>
+          <td><button class="btn-ghost" (click)="remove(u)">Deactivate</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>
