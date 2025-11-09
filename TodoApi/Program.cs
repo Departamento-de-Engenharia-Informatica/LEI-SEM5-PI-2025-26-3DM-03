@@ -442,6 +442,61 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
     context.Database.EnsureCreated();
+
+    // Development-only safety seed to ensure two ShippingAgents with sample representatives exist
+    // even if model seeding is altered. Idempotent: only inserts when missing.
+    try
+    {
+        var has500123456 = await context.ShippingAgents.AnyAsync(x => x.TaxNumber == 500123456L);
+        if (!has500123456)
+        {
+            context.ShippingAgents.Add(new TodoApi.Models.ShippingOrganizations.ShippingAgent
+            {
+                TaxNumber = 500123456L,
+                LegalName = "Acme Shipping S.A.",
+                AlternativeName = "Acme",
+                Type = new TodoApi.Models.ShippingOrganizations.ShippingAgentType("Owner"),
+                Address = new TodoApi.Models.ShippingOrganizations.Address
+                {
+                    Street = "Rua A",
+                    City = "Porto",
+                    PostalCode = "4000-000",
+                    Country = "PT"
+                },
+                Representatives = new List<TodoApi.Models.Representatives.Representative>
+                {
+                    new TodoApi.Models.Representatives.Representative("João Silva","C12345","PT","joao.silva@acme.com","+351900000000"),
+                    new TodoApi.Models.Representatives.Representative("Maria Costa","C12346","PT","maria.costa@acme.com","+351911111111")
+                }
+            });
+        }
+
+        var has500123457 = await context.ShippingAgents.AnyAsync(x => x.TaxNumber == 500123457L);
+        if (!has500123457)
+        {
+            context.ShippingAgents.Add(new TodoApi.Models.ShippingOrganizations.ShippingAgent
+            {
+                TaxNumber = 500123457L,
+                LegalName = "Blue Ocean Lda",
+                AlternativeName = "BlueOcean",
+                Type = new TodoApi.Models.ShippingOrganizations.ShippingAgentType("Operator"),
+                Address = new TodoApi.Models.ShippingOrganizations.Address
+                {
+                    Street = "Avenida B",
+                    City = "Lisboa",
+                    PostalCode = "1000-000",
+                    Country = "PT"
+                },
+                Representatives = new List<TodoApi.Models.Representatives.Representative>
+                {
+                    new TodoApi.Models.Representatives.Representative("Pedro Azul","C22345","PT","pedro.azul@blueocean.com","+351922222222")
+                }
+            });
+        }
+
+        await context.SaveChangesAsync();
+    }
+    catch { /* dev seed best-effort */ }
 }
 
 // =====================================================

@@ -180,6 +180,11 @@ namespace TodoApi.Models
                     a.Property(p => p.City).IsRequired().HasMaxLength(50);
                     a.Property(p => p.PostalCode).IsRequired().HasMaxLength(20);
                     a.Property(p => p.Country).IsRequired().HasMaxLength(50);
+        // Seed owned Address (uses owner's PK name by convention)
+        a.HasData(
+            new { ShippingAgentTaxNumber = 500123456L, Street = "Rua A", City = "Porto", PostalCode = "4000-000", Country = "PT" },
+            new { ShippingAgentTaxNumber = 500123457L, Street = "Avenida B", City = "Lisboa", PostalCode = "1000-000", Country = "PT" }
+        );
     });
 
                 e.OwnsMany(s => s.Representatives, rep =>
@@ -191,7 +196,21 @@ namespace TodoApi.Models
                     rep.Property(r => r.Nationality).IsRequired().HasMaxLength(50);
                     rep.Property(r => r.Email).IsRequired().HasMaxLength(100);
                     rep.Property(r => r.PhoneNumber).IsRequired().HasMaxLength(30);
+                    rep.Property(r => r.IsActive);
+
+        // Seed representatives (owned collection)
+        rep.HasData(
+            new { Id = 1, ShippingAgentTaxNumber = 123456789L, Name = "João Silva", CitizenID = "C12345", Nationality = "PT", Email = "joao.silva@acme.com", PhoneNumber = "+351900000000", IsActive = true },
+            new { Id = 2, ShippingAgentTaxNumber = 123456789L, Name = "Maria Costa", CitizenID = "C12346", Nationality = "PT", Email = "maria.costa@acme.com", PhoneNumber = "+351911111111", IsActive = true },
+            new { Id = 3, ShippingAgentTaxNumber = 500123457L, Name = "Pedro Azul", CitizenID = "C22345", Nationality = "PT", Email = "pedro.azul@blueocean.com", PhoneNumber = "+351922222222", IsActive = true }
+        );
     });
+    
+    // Seed Shipping Agents (owner rows)
+    e.HasData(
+        new { TaxNumber = 500123456L, LegalName = "Acme Shipping S.A.", AlternativeName = "Acme", Type = new ShippingAgentType("Owner") },
+        new { TaxNumber = 500123457L, LegalName = "Blue Ocean Lda", AlternativeName = "BlueOcean", Type = new ShippingAgentType("Operator") }
+    );
 });
 
                 // Configuração da entidade VesselVisitNotification e coleções relacionadas

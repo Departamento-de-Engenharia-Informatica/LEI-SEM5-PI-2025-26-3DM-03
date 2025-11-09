@@ -1,0 +1,116 @@
+<div class="page reps">
+  <div class="page-header">
+    <div>
+      <h2>Representantes</h2>
+      <p class="muted">Gerir representantes de um Agente de Navegação</p>
+    </div>
+    <div class="header-actions">
+      <div class="agent-input">
+        <label>NIF do Agente</label>
+        <input type="number" [(ngModel)]="taxNumber" placeholder="ex: 500123456" />
+      </div>
+      <button class="btn-primary" (click)="load()"><i class="bi bi-arrow-repeat"></i> Carregar</button>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{error}}</div>
+  <div *ngIf="loading" class="loading">A carregar…</div>
+  <div *ngIf="!loading && !error && filtered.length === 0" class="alert">Sem representantes para este agente.</div>
+
+  <div class="toolbar" *ngIf="!loading">
+    <div class="search">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar por nome, email…" />
+    </div>
+  </div>
+
+  <div class="card" *ngIf="!loading">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th (click)="changeSort('name')">Nome</th>
+          <th (click)="changeSort('citizenID')">ID Cidadão</th>
+          <th (click)="changeSort('nationality')">Nacionalidade</th>
+          <th (click)="changeSort('email')">Email</th>
+          <th (click)="changeSort('phoneNumber')">Telefone</th>
+          <th (click)="changeSort('isActive')">Estado</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of filtered">
+          <td>{{r.name}}</td>
+          <td>{{r.citizenID}}</td>
+          <td>{{r.nationality}}</td>
+          <td>{{r.email}}</td>
+          <td>{{r.phoneNumber}}</td>
+          <td>
+            <span class="badge" [class.badge-green]="r.isActive" [class.badge-gray]="!r.isActive">{{ r.isActive ? 'Ativo' : 'Inativo' }}</span>
+          </td>
+          <td class="actions">
+            <button class="btn-ghost" (click)="openEdit(r)"><i class="bi bi-pencil"></i></button>
+            <button class="btn-ghost" (click)="deactivate(r)" [disabled]="!r.isActive"><i class="bi bi-slash-circle"></i></button>
+            <button class="btn-ghost danger" (click)="remove(r)"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h3>Novo representante</h3>
+      <div class="form-grid">
+        <label>Nome
+          <input [(ngModel)]="newRep.name" placeholder="Nome completo" />
+        </label>
+        <label>ID Cidadão
+          <input [(ngModel)]="newRep.citizenID" placeholder="Documento" />
+        </label>
+        <label>Nacionalidade
+          <input [(ngModel)]="newRep.nationality" placeholder="País" />
+        </label>
+        <label>Email
+          <input type="email" [(ngModel)]="newRep.email" placeholder="nome@dominio" />
+        </label>
+        <label>Telefone
+          <input [(ngModel)]="newRep.phoneNumber" placeholder="Contacto" />
+        </label>
+      </div>
+      <div>
+        <button type="button" class="btn-primary" (click)="create()">Criar</button>
+      </div>
+    </section>
+
+    <section class="card" *ngIf="editing">
+      <h3>Editar representante</h3>
+      <div class="form-grid">
+        <label>Nome
+          <input [(ngModel)]="editing.name" />
+        </label>
+        <label>ID Cidadão
+          <input [(ngModel)]="editing.citizenID" />
+        </label>
+        <label>Nacionalidade
+          <input [(ngModel)]="editing.nationality" />
+        </label>
+        <label>Email
+          <input type="email" [(ngModel)]="editing.email" />
+        </label>
+        <label>Telefone
+          <input [(ngModel)]="editing.phoneNumber" />
+        </label>
+        <label>Estado
+          <select [(ngModel)]="editing.isActive">
+            <option [ngValue]="true">Ativo</option>
+            <option [ngValue]="false">Inativo</option>
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-primary" (click)="saveEdit()">Guardar</button>
+        <button type="button" class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+      </div>
+    </section>
+  </div>
+</div>

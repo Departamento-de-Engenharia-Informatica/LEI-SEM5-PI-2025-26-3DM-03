@@ -11,7 +11,7 @@ export class ResourcesService {
     const proxyUrl = baseUrl + pathAndQuery;
     const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`;
 
-    const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 3000) => {
+    const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 2000) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -22,20 +22,21 @@ export class ResourcesService {
       }
     };
 
+    // Try direct first (HTTPS cookie issues are fewer without the dev proxy)
     try {
-      const r = await fetchWithTimeout(proxyUrl, options, 3000);
-      if (r.ok) return r;
-      console.warn(`ResourcesService: proxy returned ${r.status} for ${proxyUrl}, trying direct backend`);
+      const rDirect = await fetchWithTimeout(directUrl, options, 2500);
+      if (rDirect.ok || rDirect.status === 404) return rDirect;
+      console.warn(`ResourcesService: direct returned ${rDirect.status} for ${directUrl}, trying proxy`);
     } catch (e: any) {
-      console.warn('ResourcesService: proxy fetch failed or timed out, trying direct backend', e?.message ?? e);
+      console.warn('ResourcesService: direct fetch failed or timed out, trying proxy', e?.message ?? e);
     }
 
     try {
-      const r2 = await fetchWithTimeout(directUrl, options, 5000);
-      return r2;
+      const rProxy = await fetchWithTimeout(proxyUrl, options, 2500);
+      return rProxy;
     } catch (e: any) {
-      console.error('ResourcesService: direct backend fetch failed', e?.message ?? e);
-      throw new Error('Both proxy and direct backend requests failed');
+      console.error('ResourcesService: proxy fetch failed', e?.message ?? e);
+      throw new Error('Both direct and proxy requests failed');
     }
   }
 

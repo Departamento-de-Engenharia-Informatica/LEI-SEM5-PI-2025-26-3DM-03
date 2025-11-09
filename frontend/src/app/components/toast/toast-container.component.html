@@ -1,0 +1,9 @@
+<div class="toast-wrap" aria-live="polite" aria-atomic="true">
+  <div class="toast" *ngFor="let t of (toasts$ | async)" [class.ok]="t.type==='success'" [class.err]="t.type==='error'" [class.inf]="t.type==='info'">
+    <span class="dot" aria-hidden="true"></span>
+    <span class="msg">{{t.text}}</span>
+    <button class="x" (click)="dismiss(t)" aria-label="Fechar">×</button>
+  </div>
+  
+</div>
+

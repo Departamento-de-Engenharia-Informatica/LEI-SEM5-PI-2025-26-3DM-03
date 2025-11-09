@@ -5,6 +5,7 @@ import { TranslationService } from '../../services/i18n/translation.service';
 import { AuthService } from '../../services/auth/auth.service';
 import { Subscription } from 'rxjs';
 import { LoginComponent } from '../../pages/login/login.component';
+import { ToastContainerComponent } from '../toast/toast-container.component';
 //import { HttpClientModule } from '@angular/common/http';
 
 type Role = 'admin' | 'operator' | 'agent' | 'authority';
@@ -21,7 +22,7 @@ interface MenuItem {
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterModule, LoginComponent],
+  imports: [CommonModule, RouterModule, LoginComponent, ToastContainerComponent],
   templateUrl: './layout.component.html',
   styleUrls: ['./layout.component.scss']
 })
