@@ -1,29 +1,56 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth/auth.service';
 import { TranslationService } from '../../services/i18n/translation.service';
- 
+
 @Component({
   selector: 'app-login',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.scss']
+  styleUrls: ['./login.component.scss'],
 })
-export class LoginComponent  {
-  
+export class LoginComponent implements OnDestroy {
+  avatarPreview: string | null = null;
+  private _currentObjectUrl: string | null = null;
 
-constructor(  public i18n: TranslationService, public auth: AuthService) {}
+  constructor(public i18n: TranslationService, public auth: AuthService) {}
 
-   // Called by the Login button to start the login flow and show a transient UI state
-  login(){
- //   this.loginInProgress = true;
-    try{
+  // Inicia o fluxo de login
+  login(): void {
+    try {
       this.auth.login();
-    } catch(e) {
+    } catch (e) {
       console.error('login redirect failed', e);
-   //   this.loginInProgress = false;
+    }
+  }
+
+  onFileSelected(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+
+    try {
+      // limpar URL anterior
+      if (this._currentObjectUrl) {
+        URL.revokeObjectURL(this._currentObjectUrl);
+        this._currentObjectUrl = null;
+      }
+
+      const url = URL.createObjectURL(file);
+      this._currentObjectUrl = url;
+      this.avatarPreview = url;
+    } catch (e) {
+      console.error('Failed to create preview', e);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this._currentObjectUrl) {
+      URL.revokeObjectURL(this._currentObjectUrl);
+      this._currentObjectUrl = null;
     }
   }
 }
