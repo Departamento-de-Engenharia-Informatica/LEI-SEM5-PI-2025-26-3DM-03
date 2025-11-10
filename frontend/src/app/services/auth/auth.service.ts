@@ -23,6 +23,11 @@ export class AuthService  {
   public get user(): AuthUser | null {
     return this._user;
   }
+
+  // Convenience helpers for templates / components
+  isAdmin(): boolean { return (this._user?.role === 'admin'); }
+  hasRole(r: string): boolean { return !!this._user && (this._user.role === r || (Array.isArray(this._user.roles) && this._user.roles.includes(r))); }
+  hasAny(roles: string[]): boolean { return !!this._user && (this.isAdmin() || roles.some(r => this.hasRole(r))); }
  
  loadUserFromLocalStorage(): void {
   console.log('Loading user from localSaaaaaaaaaaaaaaaaaaaaaaaaaatorage...');
@@ -97,6 +102,12 @@ export class AuthService  {
     try { user.role = mapRole(user.role); } catch {}
     // normalize all roles array if present
     try { user.roles = Array.isArray(user.roles) ? (user.roles.map(r => mapRole(r)).filter(x => !!x) as string[]) : user.roles; } catch {}
+    // Ensure primary role also appears inside roles array for unified checks
+    try {
+      if (user.role && (!Array.isArray(user.roles) || !user.roles.includes(user.role))) {
+        user.roles = Array.isArray(user.roles) ? [...user.roles, user.role] : [user.role];
+      }
+    } catch {}
   }
 
   login(): void {
