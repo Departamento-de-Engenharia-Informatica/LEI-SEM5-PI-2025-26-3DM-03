@@ -4,7 +4,11 @@
   <header class="app-header" role="banner">
     <div class="header-left">
       <!-- Sidebar toggle (three dots) -->
-      <button class="sidebar-toggle" aria-label="Toggle menu" title="Toggle menu" (click)="toggleSidebar()">⋮</button>
+      <button class="sidebar-toggle" aria-label="Toggle menu" title="Toggle menu" (click)="toggleSidebar()">
+        <span class="hamburger" [class.open]="sidebarExpanded">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
       <div class="logo" aria-hidden="true">
         <!-- simple svg logo -->
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -21,13 +25,12 @@
         <button class="lang-btn" (click)="changeLang('pt')" [class.active]="lang==='pt'">PT</button>
       </div>
       <div class="user-area">
+        <img class="avatar" [src]="avatarUrl" alt="avatar" aria-hidden="true"/>
         <div class="account-info">
           <div class="account-name">{{ auth.user?.name || auth.user?.email }}</div>
           <div class="role">{{ (auth.user?.role || '-') | uppercase }}</div>
-          <div class="user-actions">
-            <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
-          </div>
         </div>
+        <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
       </div>
     </div>
   </header>
@@ -37,17 +40,18 @@
     <app-toast-container></app-toast-container>
     <!-- Invisible left-edge hotspot: hover here to temporarily open the sidebar -->
     <div class="left-hotspot" (mouseenter)="openHotspot()" (mouseleave)="closeHotspot()" (click)="toggleSidebar()" aria-hidden="true"></div>
-    <aside class="sidebar" role="navigation">
+  <aside class="sidebar" role="navigation" [class.collapsed]="!sidebarExpanded" [class.closed]="sidebarCollapsed && !hotspotOpen">
       <nav>
         <ul>
-          <li *ngFor="let item of displayedMenu" routerLinkActive="active"
+      <li *ngFor="let item of displayedMenu" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
               class="menu-parent" [class.has-submenu]="item.key === 'vessels'">
 
             <!-- Item principal -->
-            <a class="menu-item"
-            href="javascript:void(0)"
-            (click)="onMenuClick(item, $event)"
-            [attr.data-key]="item.key">
+        <a class="menu-item"
+          [routerLink]="item.key !== 'vessels' ? item.route : null"
+          (click)="onMenuClick(item, $event)"
+          [attr.data-key]="item.key"
+          role="button">
               
               <span class="icon" aria-hidden="true">
                 <ng-container *ngIf="item.icon === 'svg-ship'; else biIcon">

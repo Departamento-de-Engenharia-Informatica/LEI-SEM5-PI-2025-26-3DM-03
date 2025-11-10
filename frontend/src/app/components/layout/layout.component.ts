@@ -35,7 +35,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   // Sidebar UI state: collapsed means compact sidebar; hotspotOpen true while hovering left edge
-  sidebarCollapsed: boolean = false;
+  sidebarCollapsed: boolean = false; // true => hidden (closed) unless hotspotOpen
   hotspotOpen: boolean = false;
 
   // computed convenience: when true, sidebar should appear expanded
@@ -69,9 +69,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef, private router: Router) {}
 
+  avatarUrl: string = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 rx=%2220%22 fill=%22%2302284A%22/><text x=%2250%25%22 y=%2256%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22 fill=%22white%22 font-family=%22Inter,Arial%22>%3F</text></svg>';
+
   ngOnInit(): void {
     // initialize displayed menu according to current user (may be null at startup)
     this.updateDisplayedMenu();
+    this.loadAvatar();
+
+    window.addEventListener('storage', this.onStorage);
 
     this.router.events.subscribe(() => {
       this.activeSubmenu = null;
@@ -87,23 +92,22 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   onMenuClick(item: MenuItem, ev?: Event) {
-  ev?.preventDefault();
-  ev?.stopPropagation();
-
-  if (item.key === 'vessels') {
-    // alterna entre aberto/fechado
-    this.toggleSubmenu(item.key);
-  } else {
-    // navega e fecha o submenu
-    this.router.navigate([item.route]);
-    this.activeSubmenu = null;
+    // Para itens normais deixamos o routerLink agir.
+    // Só interceptamos o clique para o item com submenu (vessels).
+    if (item.key === 'vessels') {
+      ev?.preventDefault();
+      ev?.stopPropagation();
+      this.toggleSubmenu(item.key);
+    } else {
+      this.activeSubmenu = null;
+    }
   }
-}
 
 
   ngOnDestroy(): void {
     this.subs?.unsubscribe();
     this.subs = null;
+    window.removeEventListener('storage', this.onStorage);
   }
  
 
@@ -124,6 +128,17 @@ export class LayoutComponent implements OnInit, OnDestroy {
     console.log('[Layout] displayedMenu=', this.displayedMenu.map(x => x.key));
   }
 
+  private loadAvatar(){
+    try {
+      const stored = localStorage.getItem('userAvatar');
+      if (stored) this.avatarUrl = stored;
+    } catch {}
+  }
+
+  private onStorage = (e: StorageEvent) => {
+    if (e.key === 'userAvatar') { this.loadAvatar(); try { this.cdr.detectChanges(); } catch {} }
+  };
+
   
 
   // Localized label helper
@@ -142,7 +157,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     this.auth.logout();
   }
 
-  // Toggle sidebar collapsed state (three-dots button)
+  // Toggle sidebar (hamburger): open if closed, close if open
   toggleSidebar(){
     this.sidebarCollapsed = !this.sidebarCollapsed;
     // make sure Angular updates view
