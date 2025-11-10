@@ -43,12 +43,17 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   // Define menu items with roles
   menuItems: MenuItem[] = [
+    // Dashboard open to all roles (admin also implicit)
     { key: 'dashboard', label_en: 'Dashboard', label_pt: 'Painel', icon: 'bi-speedometer2', route: '/dashboard', roles: ['admin','operator','agent','authority'] },
-    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'bi-ship', route: '/vessels', roles: ['admin','operator'] },
+    // Vessel & dock management per user stories: Port Authority Officer (authority) + admin
+    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'bi-ship', route: '/vessels', roles: ['admin','authority'] },
     { key: 'docks', label_en: 'Docks', label_pt: 'Docas', icon: 'bi-box-seam', route: '/docks', roles: ['admin','authority'] },
-    { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','operator'] },
+    { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','authority'] },
+    // Resources, staff, qualifications -> Logistics Operator + admin
     { key: 'resources', label_en: 'Resources', label_pt: 'Recursos', icon: 'bi-collection', route: '/resources', roles: ['admin','operator'] },
-    { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','agent'] },
+    // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
+    { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
+    // Admin settings only
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
   ];
   // menu currently shown in the template — updated when auth state changes
@@ -98,7 +103,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (!u || !u.role) {
       this.displayedMenu = [];
     } else {
-      this.displayedMenu = this.menuItems.filter(m => m.roles.includes(u.role as Role));
+      const r = u.role as Role;
+      // Admin sees all regardless of listed roles
+      this.displayedMenu = r === 'admin' ? this.menuItems.slice() : this.menuItems.filter(m => m.roles.includes(r));
     }
     console.log('[Layout] displayedMenu=', this.displayedMenu.map(x => x.key));
   }

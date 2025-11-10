@@ -376,13 +376,17 @@ namespace TodoApi.Models
             // Optional: seed a sample admin user for local testing (email must match the authenticated Google email used for tests)
             modelBuilder.Entity<AppUser>().HasData(
                 new { Id = 1, Email = "admin@example.com", Name = "Local Admin", Active = true },
-                new { Id = 2, Email = "salvadordevlapr@gmail.com", Name = "Salvador DevLapr", Active = true }
+                new { Id = 2, Email = "salvadordevlapr@gmail.com", Name = "Salvador DevLapr", Active = true },
+                // Seeded user for testing Port Authority role
+                new { Id = 3, Email = "portauthoritylapr5@gmail.com", Name = "Port Authority LAPR5", Active = true }
             );
 
             // Map sample user -> Admin role
             modelBuilder.Entity<UserRole>().HasData(
                 new { Id = 1, AppUserId = 1, RoleId = 1 },
-                new { Id = 2, AppUserId = 2, RoleId = 1 }
+                new { Id = 2, AppUserId = 2, RoleId = 1 },
+                // Map the seeded Port Authority user to PortAuthorityOfficer (RoleId = 3)
+                new { Id = 3, AppUserId = 3, RoleId = 3 }
             );
 
             // Seed sample Vessel Visit Notifications
