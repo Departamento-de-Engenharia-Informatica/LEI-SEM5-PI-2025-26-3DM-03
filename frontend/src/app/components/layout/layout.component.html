@@ -42,7 +42,22 @@
         <ul>
           <li *ngFor="let item of displayedMenu" routerLinkActive="active">
             <a [routerLink]="item.route" class="menu-item" (click)="onMenuClick(item, $event)">
-              <span class="icon" aria-hidden="true"><i [class]="item.icon"></i></span>
+              <span class="icon" aria-hidden="true">
+                <ng-container *ngIf="item.icon === 'svg-ship'; else biIcon">
+                  <!-- Inline ship icon to ensure it always renders -->
+                  <svg class="inline-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" focusable="false" aria-hidden="true">
+                    <!-- mast -->
+                    <path d="M12 4v7" />
+                    <!-- deck and bow -->
+                    <path d="M5 13h14l-1.5 4H6.5L5 13z" />
+                    <!-- hull -->
+                    <path d="M4 17l2 3h12l2-3" />
+                  </svg>
+                </ng-container>
+                <ng-template #biIcon>
+                  <i class="bi" [ngClass]="item.icon"></i>
+                </ng-template>
+              </span>
               <span class="label">{{ label(item) }}</span>
             </a>
           </li>

@@ -46,7 +46,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // Dashboard open to all roles (admin also implicit)
     { key: 'dashboard', label_en: 'Dashboard', label_pt: 'Painel', icon: 'bi-speedometer2', route: '/dashboard', roles: ['admin','operator','agent','authority'] },
     // Vessel & dock management per user stories: Port Authority Officer (authority) + admin
-    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'bi-ship', route: '/vessels', roles: ['admin','authority'] },
+    // Use inline SVG for ship to avoid CDN hiccups rendering 'bi-ship'
+    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '/vessels', roles: ['admin','authority'] },
     { key: 'docks', label_en: 'Docks', label_pt: 'Docas', icon: 'bi-box-seam', route: '/docks', roles: ['admin','authority'] },
     { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','authority'] },
     // Resources, staff, qualifications -> Logistics Operator + admin
