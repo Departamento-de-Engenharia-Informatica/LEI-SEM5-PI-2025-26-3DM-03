@@ -64,68 +64,6 @@
   margin: 0;
 }
 
-/* Avatar + upload */
-.avatar-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.avatar {
-  width: 80px;
-  height: 80px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #e6f0fb, #f7fbff);
-  background-size: cover;
-  background-position: center;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.avatar-has-image {
-  background: #e5e7eb;
-}
-
-.avatar:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.12);
-}
-
-.avatar-placeholder {
-  font-size: 26px;
-  font-weight: 700;
-  color: #0b5566;
-}
-
-.upload-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  color: #0b5566;
-  font-weight: 500;
-}
-
-.upload-text {
-  font-size: 13px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  background: rgba(15, 23, 42, 0.02);
-  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
-}
-
-.upload-label:hover .upload-text {
-  background: rgba(15, 23, 42, 0.04);
-  border-color: rgba(15, 23, 42, 0.14);
-  transform: translateY(-0.5px);
-}
 
 /* Texto principal */
 .login-copy {
@@ -323,10 +261,6 @@
     font-size: 21px;
   }
 
-  .avatar {
-    width: 70px;
-    height: 70px;
-  }
 
   .btn-google {
     font-size: 13px;

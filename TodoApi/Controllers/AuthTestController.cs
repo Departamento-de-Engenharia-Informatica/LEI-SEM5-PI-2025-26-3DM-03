@@ -46,6 +46,10 @@ namespace TodoApi.Controllers
         {
             var name = User.FindFirst(ClaimTypes.Name)?.Value ?? User.Identity?.Name;
             var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
+            // Google and many OIDC providers include a "picture" claim with the profile photo URL
+            var picture = User.FindFirst("picture")?.Value
+                          ?? User.FindFirst("urn:google:picture")?.Value
+                          ?? User.FindFirst("avatar")?.Value;
 
             // Return access token (if present) so front-end can use it
             var accessToken = await HttpContext.GetTokenAsync("access_token");
@@ -54,7 +58,7 @@ namespace TodoApi.Controllers
             var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
             var primaryRole = roles.FirstOrDefault();
 
-            return Ok(new { name, email, roles, role = primaryRole, access_token = accessToken });
+            return Ok(new { name, email, picture, roles, role = primaryRole, access_token = accessToken });
         }
 
         // GET /authtest/logout -> sign out and redirect to /

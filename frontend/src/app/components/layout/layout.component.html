@@ -25,7 +25,7 @@
         <button class="lang-btn" (click)="changeLang('pt')" [class.active]="lang==='pt'">PT</button>
       </div>
       <div class="user-area">
-        <img class="avatar" [src]="avatarUrl" alt="avatar" aria-hidden="true"/>
+  <img class="avatar" [src]="avatarUrl" alt="avatar" aria-hidden="true" (click)="openAvatarModal()" />
         <div class="account-info">
           <div class="account-name">{{ auth.user?.name || auth.user?.email }}</div>
           <div class="role">{{ (auth.user?.role || '-') | uppercase }}</div>
@@ -95,6 +95,14 @@
       <router-outlet></router-outlet>
       <footer class="app-footer"></footer>
     </main>
+  </div>
+</div>
+
+<!-- Avatar modal overlay -->
+<div class="avatar-modal" *ngIf="avatarModalOpen" (click)="closeAvatarModal()" tabindex="-1" aria-modal="true" role="dialog">
+  <div class="avatar-modal-content" (click)="$event.stopPropagation()">
+    <button class="close-btn" (click)="closeAvatarModal()" aria-label="Close">&times;</button>
+    <img [src]="avatarUrl" alt="profile image large" />
   </div>
 </div>
 

@@ -70,6 +70,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef, private router: Router) {}
 
   avatarUrl: string = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 rx=%2220%22 fill=%22%2302284A%22/><text x=%2250%25%22 y=%2256%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22 fill=%22white%22 font-family=%22Inter,Arial%22>%3F</text></svg>';
+  avatarModalOpen = false;
 
   ngOnInit(): void {
     // initialize displayed menu according to current user (may be null at startup)
@@ -86,6 +87,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     this.subs = this.auth.loggedIn$.subscribe((v) => {
       console.log('[Layout] loggedIn$ emission=', v, 'auth.user=', this.auth.user);
       this.updateDisplayedMenu();
+      this.loadAvatar();
       // force an immediate check so UI updates even if emitted outside Angular (safety)
       try { this.cdr.detectChanges(); } catch {}
     });
@@ -130,8 +132,16 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   private loadAvatar(){
     try {
+      // Prefer live user avatar from auth state
+      const live = this.auth.user?.avatarUrl;
+      if (live) {
+        this.avatarUrl = live;
+        return;
+      }
       const stored = localStorage.getItem('userAvatar');
-      if (stored) this.avatarUrl = stored;
+      if (stored) {
+        this.avatarUrl = stored;
+      }
     } catch {}
   }
 
@@ -173,6 +183,16 @@ export class LayoutComponent implements OnInit, OnDestroy {
   closeHotspot(){
     this.hotspotOpen = false;
     try { this.cdr.detectChanges(); } catch {}
+  }
+
+  openAvatarModal(){
+    if (!this.avatarUrl) return;
+    this.avatarModalOpen = true;
+    // focus trap start could be added later
+  }
+
+  closeAvatarModal(){
+    this.avatarModalOpen = false;
   }
 
 }
