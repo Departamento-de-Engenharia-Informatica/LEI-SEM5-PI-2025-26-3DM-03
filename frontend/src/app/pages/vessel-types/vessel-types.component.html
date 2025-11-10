@@ -1,0 +1,106 @@
+<div class="page vtypes">
+  <div class="page-header">
+    <div>
+      <h2>Vessel Types</h2>
+      <p class="muted">Gerir classificações de navios e grelha (rows/bays/tiers).</p>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{error}}</div>
+  <div *ngIf="loading" class="loading">A carregar…</div>
+  <div *ngIf="!loading && !error && filtered.length === 0" class="alert">Sem tipos encontrados.</div>
+
+  <div class="toolbar" *ngIf="!loading">
+    <div class="search">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar por nome ou descrição" />
+    </div>
+  </div>
+
+  <div class="card" *ngIf="!loading">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th (click)="changeSort('name')">Nome</th>
+          <th>Descrição</th>
+          <th (click)="changeSort('capacity')">Capacidade</th>
+          <th (click)="changeSort('maxRows')">Max Rows</th>
+          <th (click)="changeSort('maxBays')">Max Bays</th>
+          <th (click)="changeSort('maxTiers')">Max Tiers</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let t of filtered">
+          <td>{{ t.name }}</td>
+          <td>{{ t.description || '—' }}</td>
+          <td>{{ t.capacity || 0 }}</td>
+          <td>{{ t.operationalConstraints?.maxRows || 0 }}</td>
+          <td>{{ t.operationalConstraints?.maxBays || 0 }}</td>
+          <td>{{ t.operationalConstraints?.maxTiers || 0 }}</td>
+          <td class="actions">
+            <button class="btn-ghost" (click)="openEdit(t)"><i class="bi bi-pencil"></i></button>
+            <button class="btn-ghost danger" (click)="remove(t.id)"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h3>Criar tipo</h3>
+      <div class="form-grid">
+        <label>Nome
+          <input [(ngModel)]="newType.name" placeholder="ex.: Container Ship" />
+        </label>
+        <label>Descrição
+          <input [(ngModel)]="newType.description" placeholder="Descrição opcional" />
+        </label>
+        <label>Capacidade (TEU)
+          <input type="number" [(ngModel)]="newType.capacity" />
+        </label>
+        <label>Max Rows
+          <input type="number" [(ngModel)]="newType.operationalConstraints.maxRows" />
+        </label>
+        <label>Max Bays
+          <input type="number" [(ngModel)]="newType.operationalConstraints.maxBays" />
+        </label>
+        <label>Max Tiers
+          <input type="number" [(ngModel)]="newType.operationalConstraints.maxTiers" />
+        </label>
+      </div>
+      <div>
+        <button type="button" class="btn-primary" (click)="create()">Criar</button>
+      </div>
+    </section>
+
+    <section class="card" *ngIf="editing">
+      <h3>Editar tipo</h3>
+      <div class="form-grid">
+        <label>Nome
+          <input [(ngModel)]="editing!.name" />
+        </label>
+        <label>Descrição
+          <input [(ngModel)]="editing!.description" />
+        </label>
+        <label>Capacidade (TEU)
+          <input type="number" [(ngModel)]="editing!.capacity" />
+        </label>
+        <label>Max Rows
+          <input type="number" [(ngModel)]="editing!.operationalConstraints.maxRows" />
+        </label>
+        <label>Max Bays
+          <input type="number" [(ngModel)]="editing!.operationalConstraints.maxBays" />
+        </label>
+        <label>Max Tiers
+          <input type="number" [(ngModel)]="editing!.operationalConstraints.maxTiers" />
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-primary" (click)="saveEdit()">Guardar</button>
+        <button type="button" class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+      </div>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,453 @@
+<div class="page modern">
+  <header class="page-header">
+    <div class="breadcrumbs">Home / Vessel Visit Notifications</div>
+
+    <div class="header-main">
+      <div class="title-block">
+        <h1 class="page-title">Vessel Visit Notifications</h1>
+        <p class="page-subtitle">Gerir pedidos de escala: ver, filtrar e criar.</p>
+      </div>
+
+      <div class="header-controls">
+        <!-- Search -->
+        <div class="search-field">
+          <span class="search-icon">🔎</span>
+          <input
+            type="search"
+            placeholder="Pesquisar por nome de navio ou IMO..."
+            [(ngModel)]="q"
+            (ngModelChange)="applyFilterSort()"
+          />
+          <button
+            *ngIf="q"
+            class="chip-btn clear-btn"
+            type="button"
+            (click)="q=''; applyFilterSort();"
+            aria-label="Limpar pesquisa"
+          >✕</button>
+        </div>
+
+        <!-- Status filter -->
+        <div class="status-filters">
+          <button type="button" class="chip" [class.active]="status==='all'" (click)="status='all'; applyFilterSort()">Todos</button>
+          <button type="button" class="chip" [class.active]="status==='InProgress'" (click)="status='InProgress'; applyFilterSort()">Em edição</button>
+          <button type="button" class="chip" [class.active]="status==='Submitted'" (click)="status='Submitted'; applyFilterSort()">Submetidos</button>
+          <button type="button" class="chip" [class.active]="status==='Approved'" (click)="status='Approved'; applyFilterSort()">Aprovados</button>
+          <button type="button" class="chip" [class.active]="status==='Rejected'" (click)="status='Rejected'; applyFilterSort()">Rejeitados</button>
+        </div>
+
+        <!-- Date range -->
+        <div class="dates">
+          <label>
+            <span>De</span>
+            <input type="date" [(ngModel)]="from" (change)="applyFilterSort()" />
+          </label>
+          <label>
+            <span>Até</span>
+            <input type="date" [(ngModel)]="to" (change)="applyFilterSort()" />
+          </label>
+        </div>
+
+        <button class="btn" type="button" (click)="resetFilters()">Limpar filtros</button>
+        <button class="btn primary" type="button" (click)="openCreate()">Nova Notificação</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading / Error -->
+  <section class="status-row" *ngIf="loading || error">
+    <div *ngIf="loading" class="status-pill muted">A carregar notificações...</div>
+    <div *ngIf="error" class="status-pill error">{{ error }}</div>
+  </section>
+
+  <main class="content">
+    <section class="cards" *ngIf="!useTable && filtered.length; else emptyState">
+      <article class="vvn-card" *ngFor="let n of filtered">
+        <div class="card-head">
+          <div class="meta">
+            <div class="name">Vessel</div>
+            <div class="sub">IMO {{ n.vesselId || '-' }}</div>
+          </div>
+          <div [class]="statusClass(n.status)">{{ n.status || 'Pending' }}</div>
+        </div>
+
+        <div class="card-body">
+          <div class="row">
+            <div class="item">
+              <div class="label">Chegada</div>
+              <div class="value">{{ fmtDate(n.arrivalDate) }}</div>
+            </div>
+            <div class="item">
+              <div class="label">Partida</div>
+              <div class="value">{{ fmtDate(n.departureDate) }}</div>
+            </div>
+            <div class="item">
+              <div class="label">Doca</div>
+              <div class="value">{{ n.approvedDockId || '-' }}</div>
+            </div>
+          </div>
+
+          <div class="cargo" *ngIf="n.cargoManifest?.length">
+            <div class="label">Manifesto</div>
+            <div class="text">{{ n.cargoManifest?.join(', ') }}</div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button class="icon-btn" title="Detalhes" type="button" (click)="openDetails(n)">ℹ️</button>
+        </div>
+      </article>
+    </section>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <div class="emoji">🛳️</div>
+        <div class="text-title">Sem notificações</div>
+        <div class="text-sub">Cria a primeira notificação de visita.</div>
+      </div>
+    </ng-template>
+  </main>
+
+  <!-- Create Modal -->
+  <div class="modal-backdrop" *ngIf="showCreate">
+    <div class="modal">
+      <header class="modal-header">
+        <div>
+          <h2>Nova Notificação</h2>
+          <p>Preenche os detalhes da escala.</p>
+        </div>
+        <button type="button" class="icon-btn" (click)="closeCreate()" aria-label="Fechar">✕</button>
+      </header>
+
+      <form class="form" (ngSubmit)="create()">
+        <label>
+          <span>Vessel</span>
+          <select name="vessel" [(ngModel)]="newNotification.vesselId" required>
+            <option [ngValue]="''">— Selecionar —</option>
+            <option *ngFor="let v of vessels" [ngValue]="v.imo">{{ v.imo }} — {{ v.name }}</option>
+          </select>
+        </label>
+        <label>
+          <span>ou IMO (manual)</span>
+          <input name="imo" [(ngModel)]="newNotification.vesselId" placeholder="7 dígitos" />
+        </label>
+
+        <label>
+          <span>Agent (TaxNumber)</span>
+          <input type="number" name="agent" [(ngModel)]="newNotification.agentId" placeholder="ex.: 500123456" required />
+        </label>
+
+        <div class="row">
+          <label>
+            <span>Chegada</span>
+            <input type="datetime-local" name="arr" [(ngModel)]="newNotification.arrivalDate" required />
+          </label>
+          <label>
+            <span>Partida</span>
+            <input type="datetime-local" name="dep" [(ngModel)]="newNotification.departureDate" />
+          </label>
+        </div>
+
+        <label>
+          <span>Manifesto (códigos, separados por vírgulas ou linhas)</span>
+          <textarea name="cargo" [(ngModel)]="newNotification.cargoText" rows="3" placeholder="MSKU1234567, TRIU7654321"></textarea>
+        </label>
+
+        <div class="row">
+          <label>
+            <span>Capitão (nome)</span>
+            <input [(ngModel)]="newNotification.captainName" name="cap_name" />
+          </label>
+          <label>
+            <span>Capitão (ID)</span>
+            <input [(ngModel)]="newNotification.captainId" name="cap_id" />
+          </label>
+          <label>
+            <span>Capitão (nacionalidade)</span>
+            <input [(ngModel)]="newNotification.captainNationality" name="cap_nat" />
+          </label>
+        </div>
+
+        <div class="row">
+          <label>
+            <span>Oficial 1 (nome)</span>
+            <input [(ngModel)]="newNotification.officer1Name" name="off1_name" />
+          </label>
+          <label>
+            <span>Oficial 1 (ID)</span>
+            <input [(ngModel)]="newNotification.officer1Id" name="off1_id" />
+          </label>
+          <label>
+            <span>Oficial 1 (nacionalidade)</span>
+            <input [(ngModel)]="newNotification.officer1Nationality" name="off1_nat" />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" (click)="closeCreate()">Cancelar</button>
+          <button type="submit" class="btn primary" [disabled]="creating">{{ creating ? 'A criar...' : 'Criar' }}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Details Modal -->
+  <div class="modal-backdrop" *ngIf="showDetails">
+    <div class="modal">
+      <header class="modal-header">
+        <div>
+          <h2>Detalhes da Notificação</h2>
+          <p>Informação completa da escala.</p>
+        </div>
+        <button type="button" class="icon-btn" (click)="closeDetails()" aria-label="Fechar">✕</button>
+      </header>
+
+      <section class="detail" *ngIf="!editMode; else editView">
+        <div class="detail-head">
+          <div class="vh">
+            <div class="name">Vessel</div>
+            <div class="imo">IMO {{ selected?.vesselId || '-' }}</div>
+          </div>
+          <div [class]="statusClass(selected?.status)">{{ selected?.status || 'Pending' }}</div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="cell">
+            <div class="label">Chegada</div>
+            <div class="value">{{ fmtDate(selected?.arrivalDate || null) }}</div>
+          </div>
+          <div class="cell">
+            <div class="label">Partida</div>
+            <div class="value">{{ fmtDate(selected?.departureDate || null) }}</div>
+          </div>
+          <div class="cell">
+            <div class="label">Doca</div>
+            <div class="value">{{ selected?.approvedDockId || '-' }}</div>
+          </div>
+          <div class="cell">
+            <div class="label">Criado por</div>
+            <div class="value">{{ selected?.submittedByRepresentativeName || '-' }}</div>
+          </div>
+          <div class="cell">
+            <div class="label">Criado em</div>
+            <div class="value">{{ fmtDate(selected?.submissionTimestamp || null) }}</div>
+          </div>
+        </div>
+
+        <div class="cargo-blk" *ngIf="selected?.cargoManifest?.length">
+          <div class="label">Manifesto</div>
+          <div class="text">{{ selected?.cargoManifest?.join(', ') }}</div>
+        </div>
+
+        <div class="cargo-blk" *ngIf="selected?.rejectionReason">
+          <div class="label">Motivo da rejeição</div>
+          <div class="text">{{ selected?.rejectionReason }}</div>
+        </div>
+
+        <!-- Actions depending on role/status -->
+        <div class="modal-actions">
+          <ng-container *ngIf="auth.hasAny(['agent']) && selected?.status?.toLowerCase() === 'inprogress'">
+            <button type="button" class="btn" (click)="beginEdit()">Editar</button>
+            <button type="button" class="btn primary" (click)="submitSelected()">Submeter</button>
+          </ng-container>
+
+          <ng-container *ngIf="auth.hasAny(['agent']) && selected?.status?.toLowerCase() === 'rejected'">
+            <button type="button" class="btn primary" (click)="cloneToNewFromSelected()">Clonar para nova</button>
+          </ng-container>
+
+          <ng-container *ngIf="auth.hasAny(['admin','authority']) && (selected?.status?.toLowerCase() === 'submitted' || selected?.status?.toLowerCase() === 'approvalpending')">
+            <select [(ngModel)]="approveDockId">
+              <option [ngValue]="null">— Doca —</option>
+              <option *ngFor="let d of docks" [ngValue]="d.id">{{ d.name }}</option>
+            </select>
+            <input type="number" [(ngModel)]="approveOfficerId" style="width:120px" placeholder="OfficerId" />
+            <button type="button" class="btn primary" (click)="approveSelected()">Aprovar</button>
+            <input [(ngModel)]="rejectReason" style="width:220px" placeholder="Motivo rejeição" />
+            <button type="button" class="btn" (click)="rejectSelected()">Rejeitar</button>
+          </ng-container>
+
+          <button type="button" class="btn" (click)="closeDetails()">Fechar</button>
+        </div>
+      </section>
+
+      <!-- Edit view for InProgress -->
+      <ng-template #editView>
+        <section class="detail">
+          <div class="detail-head">
+            <div class="vh">
+              <div class="name">Editar VVN</div>
+              <div class="imo">IMO {{ selected?.vesselId || '-' }}</div>
+            </div>
+          </div>
+
+          <div class="detail-grid">
+            <div class="cell">
+              <div class="label">Chegada</div>
+              <div class="value"><input type="datetime-local" [(ngModel)]="editForm.arrivalDate" /></div>
+            </div>
+            <div class="cell">
+              <div class="label">Partida</div>
+              <div class="value"><input type="datetime-local" [(ngModel)]="editForm.departureDate" /></div>
+            </div>
+            <div class="cell" style="grid-column:1/-1;">
+              <div class="label">Manifesto (códigos)</div>
+              <textarea rows="3" [(ngModel)]="editForm.cargoText"></textarea>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="btn" (click)="cancelEdit()">Cancelar</button>
+            <button type="button" class="btn primary" (click)="saveEdit()">Guardar</button>
+          </div>
+        </section>
+      </ng-template>
+    </div>
+  </div>
+
+  <!-- Tabela ao estilo dos Representatives -->
+  <div class="toolbar reps-like" *ngIf="!loading">
+    <div class="search">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar por IMO" />
+    </div>
+    <div class="filters">
+      <select [(ngModel)]="status" (change)="applyFilterSort()">
+        <option value="all">Todos</option>
+        <option value="InProgress">Em edi��ǜo</option>
+        <option value="Submitted">Submetidos</option>
+        <option value="Approved">Aprovados</option>
+        <option value="Rejected">Rejeitados</option>
+      </select>
+      <button class="btn-ghost" (click)="resetFilters()">Limpar</button>
+      <button class="btn-primary" (click)="openCreate()">Nova</button>
+    </div>
+  </div>
+
+  <div class="card reps-like" *ngIf="!loading">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>IMO</th>
+          <th>ETA</th>
+          <th>ETD</th>
+          <th>Status</th>
+          <th>Doca</th>
+          <th>Submetida</th>
+          <th>A����es</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let n of filtered">
+          <td>{{ n.vesselId }}</td>
+          <td>{{ fmtDate(n.arrivalDate) }}</td>
+          <td>{{ fmtDate(n.departureDate) }}</td>
+          <td>
+            <span class="badge" [ngClass]="{
+              'badge-gray': (n.status||'').toLowerCase()==='inprogress',
+              'badge-blue': (n.status||'').toLowerCase()==='submitted' || (n.status||'').toLowerCase()==='approvalpending',
+              'badge-green': (n.status||'').toLowerCase()==='approved',
+              'badge-red': (n.status||'').toLowerCase()==='rejected' }">{{ n.status }}</span>
+          </td>
+          <td>{{ n.approvedDockId || '—' }}</td>
+          <td>{{ fmtDate(n.submissionTimestamp || null) }}</td>
+          <td class="actions">
+            <button class="btn-ghost" title="Detalhes" (click)="openDetails(n)"><i class="bi bi-info-circle"></i></button>
+            <button class="btn-ghost" title="Editar" (click)="beginEdit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-pencil"></i></button>
+            <button class="btn-ghost" title="Submeter" (click)="submit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-upload"></i></button>
+            <button class="btn-ghost" title="Decidir" (click)="selected=n" [disabled]="!auth.hasAny(['admin','authority']) || ((n.status||'').toLowerCase()!=='submitted' && (n.status||'').toLowerCase()!=='approvalpending')"><i class="bi bi-check2-circle"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Side cards: Create + Edit/Decision -->
+  <div class="grid reps-like" *ngIf="!loading">
+    <section class="card">
+      <h3>Criar VVN</h3>
+      <form class="form-grid" (ngSubmit)="create()">
+        <label>Vessel
+          <select name="vessel" [(ngModel)]="newNotification.vesselId" required>
+            <option [ngValue]="''">— Selecionar —</option>
+            <option *ngFor="let v of vessels" [ngValue]="v.imo">{{ v.imo }} — {{ v.name }}</option>
+          </select>
+        </label>
+        <label>ou IMO (manual)
+          <input name="imo" [(ngModel)]="newNotification.vesselId" placeholder="7 dígitos" />
+        </label>
+        <label>Agent (TaxNumber)
+          <input type="number" name="agent" [(ngModel)]="newNotification.agentId" placeholder="ex.: 500123456" required />
+        </label>
+        <label>Chegada
+          <input type="datetime-local" name="arr" [(ngModel)]="newNotification.arrivalDate" required />
+        </label>
+        <label>Partida
+          <input type="datetime-local" name="dep" [(ngModel)]="newNotification.departureDate" />
+        </label>
+        <label style="grid-column:1/-1">Manifesto (códigos)
+          <textarea name="cargo" [(ngModel)]="newNotification.cargoText" rows="3" placeholder="MSKU1234567, TRIU7654321"></textarea>
+        </label>
+        <label>Capitão (nome)
+          <input [(ngModel)]="newNotification.captainName" name="cap_name" />
+        </label>
+        <label>Capitão (ID)
+          <input [(ngModel)]="newNotification.captainId" name="cap_id" />
+        </label>
+        <label>Capitão (nacionalidade)
+          <input [(ngModel)]="newNotification.captainNationality" name="cap_nat" />
+        </label>
+        <label>Oficial 1 (nome)
+          <input [(ngModel)]="newNotification.officer1Name" name="off1_name" />
+        </label>
+        <label>Oficial 1 (ID)
+          <input [(ngModel)]="newNotification.officer1Id" name="off1_id" />
+        </label>
+        <label>Oficial 1 (nacionalidade)
+          <input [(ngModel)]="newNotification.officer1Nationality" name="off1_nat" />
+        </label>
+        <div style="grid-column:1/-1">
+          <button type="submit" class="btn-primary" [disabled]="creating">{{ creating ? 'A criar...' : 'Criar' }}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" *ngIf="editMode || (selected && auth.hasAny(['admin','authority']) && (selected.status||'').toLowerCase() !== 'inprogress')">
+      <h3>{{ (selected?.status||'inprogress') | lowercase }} / {{ selected?.vesselId || '-' }}</h3>
+      <div class="form-grid">
+        <label>Chegada
+          <input type="datetime-local" [(ngModel)]="editForm.arrivalDate" />
+        </label>
+        <label>Partida
+          <input type="datetime-local" [(ngModel)]="editForm.departureDate" />
+        </label>
+        <label style="grid-column:1/-1">Manifesto (códigos)
+          <textarea rows="3" [(ngModel)]="editForm.cargoText"></textarea>
+        </label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn-primary" (click)="saveEdit()" [disabled]="!editMode">Guardar</button>
+        <button type="button" class="btn-ghost" (click)="cancelEdit()" [disabled]="!editMode">Cancelar</button>
+        <button type="button" class="btn-ghost" (click)="submitSelected()" *ngIf="selected?.status?.toLowerCase()==='inprogress'">Submeter</button>
+      </div>
+
+      <div class="form-grid" *ngIf="auth.hasAny(['admin','authority']) && (selected?.status||'').toLowerCase()!=='inprogress'">
+        <label>Doca
+          <select [(ngModel)]="approveDockId">
+            <option [ngValue]="null">— Doca —</option>
+            <option *ngFor="let d of docks" [ngValue]="d.id">{{ d.name }}</option>
+          </select>
+        </label>
+        <label>OfficerId
+          <input type="number" [(ngModel)]="approveOfficerId" />
+        </label>
+        <label style="grid-column:1/-1">Motivo rejeição
+          <input [(ngModel)]="rejectReason" />
+        </label>
+        <div style="grid-column:1/-1" class="actions">
+          <button class="btn-primary" type="button" (click)="approveSelected()" [disabled]="!approveDockId || (selected?.status||'').toLowerCase()==='approved'">Aprovar</button>
+          <button class="btn-ghost" type="button" (click)="rejectSelected()" [disabled]="!rejectReason">Rejeitar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
