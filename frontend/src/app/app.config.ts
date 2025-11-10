@@ -19,6 +19,7 @@ import {
 import { routes } from './app.routes';
 // Use local lightweight translate mock (no external dependency required)
 import { TranslateMockModule } from './services/i18n/translate.mock.module';
+import { MockTranslateService } from './services/i18n/translate.mock.impl';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -41,5 +42,17 @@ export const appConfig: ApplicationConfig = {
 
     // i18n: lightweight in-project mock module (prevents TS errors when @ngx-translate is not installed)
     importProvidersFrom(TranslateMockModule),
+
+    // Preload translations before first render so templates don't show raw keys
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (t: MockTranslateService) => () => {
+        const saved = (localStorage.getItem('app_lang') as 'pt' | 'en') || 'pt';
+        t.setDefaultLang(saved);
+        return t.use(saved);
+      },
+      deps: [MockTranslateService],
+      multi: true,
+    },
   ],
 };

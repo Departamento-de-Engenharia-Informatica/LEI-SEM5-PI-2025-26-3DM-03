@@ -17,7 +17,7 @@
     "subtitle": "Gerir representantes de um Agente de Navegação",
     "search": "Pesquisar por nome, email…",
     "noData": "Sem representantes para este agente.",
-    "agent.tax": "NIF do Agente",
+    "agent": { "tax": "NIF do Agente", "example": "ex: 500123456" },
     "load": "Carregar",
     "table": {
       "name": "Nome",

@@ -17,7 +17,7 @@
     "subtitle": "Manage representatives of a Shipping Agent",
     "search": "Search by name, email…",
     "noData": "No representatives for this agent.",
-    "agent.tax": "Agent Tax Number",
+    "agent": { "tax": "Agent Tax Number", "example": "e.g. 500123456" },
     "load": "Load",
     "table": {
       "name": "Name",

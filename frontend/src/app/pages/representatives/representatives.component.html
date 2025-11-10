@@ -7,7 +7,7 @@
     <div class="header-actions">
       <div class="agent-input">
         <label>{{ 'reps.agent.tax' | translate }}</label>
-        <input type="number" [(ngModel)]="taxNumber" placeholder="ex: 500123456" />
+        <input type="number" [(ngModel)]="taxNumber" [placeholder]="('reps.agent.example' | translate)" />
       </div>
       <button class="btn-primary" (click)="load()"><i class="bi bi-arrow-repeat"></i> {{ 'reps.load' | translate }}</button>
     </div>
@@ -15,7 +15,7 @@
 
   <div *ngIf="error" class="alert alert-error">{{error}}</div>
   <div *ngIf="loading" class="loading">A carregar…</div>
-  <div *ngIf="!loading && !error && filtered.length === 0" class="alert">Sem representantes para este agente.</div>
+  <div *ngIf="!loading && !error && filtered.length === 0" class="alert">{{ 'reps.noData' | translate }}</div>
 
   <div class="toolbar" *ngIf="!loading">
     <div class="search">
