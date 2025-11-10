@@ -65,13 +65,26 @@ export class AuthService  {
   async checkAuth(): Promise<void> {
     console.log('check auth ...');
     try {
-  const user = await firstValueFrom(this.http.get<AuthUser>(`${this.apiBase}/authtest/me`, { withCredentials: true }).pipe(timeout(5000)));
+  const user = await firstValueFrom(this.http.get<any>(`${this.apiBase}/authtest/me`, { withCredentials: true }).pipe(timeout(5000)));
   console.log('[AuthService] checkAuth result:', user);
   // Normalize roles returned by backend so UI role checks match
-  this.normalizeUserRoles(user);
-  this._user = user ?? null;
+  // Map backend picture field (if any) to avatarUrl for the layout component.
+  const mapped: AuthUser = {
+    name: user?.name,
+    email: user?.email,
+    role: user?.role,
+    roles: user?.roles,
+    active: user?.active,
+    avatarUrl: user?.picture || user?.avatarUrl || null
+  };
+  this.normalizeUserRoles(mapped);
+  this._user = mapped ?? null;
   this._loggedIn.next(user !== null ? true : false);
-  try { localStorage.setItem(this.TOKEN_KEY, JSON.stringify(user)); } catch {}
+  try { localStorage.setItem(this.TOKEN_KEY, JSON.stringify(this._user)); } catch {}
+  // Persist avatar separately for listener-based avatar updates
+  if (mapped.avatarUrl) {
+    try { localStorage.setItem('userAvatar', mapped.avatarUrl); } catch {}
+  }
     } catch (err) {
       console.error('[AuthService] Auth check failed', err);
       this._user = null
@@ -118,6 +131,7 @@ export class AuthService  {
   /** Limpa sessão */
   logout(): void {
     localStorage.removeItem(this.TOKEN_KEY);
+    try { localStorage.removeItem('userAvatar'); } catch {}
     this._user = null;
     this._loggedIn.next(false);
   }

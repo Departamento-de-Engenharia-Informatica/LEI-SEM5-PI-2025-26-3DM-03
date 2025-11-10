@@ -28,6 +28,7 @@
 
 .user-area { display:flex; gap:0.75rem; align-items:center; }
 .user-area .avatar { width:32px; height:32px; border-radius:50%; object-fit:cover; border:1px solid rgba(2,6,23,0.12); }
+.user-area .avatar { cursor: zoom-in; }
 .role { font-size:0.75rem; color: rgba(15,23,42,0.6); }
 .account-info { display:flex; flex-direction:column; line-height:1.05; min-width: 140px; }
 .account-name { font-weight:600; color:#0f172a; }
@@ -183,3 +184,9 @@
 .submenu-caret.rotate {
   transform: rotate(180deg);
 }
+
+/* Avatar modal */
+.avatar-modal { position:fixed; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:200; animation: fadeIn 160ms ease; }
+.avatar-modal-content { background:#fff; padding:1rem 1rem 1.5rem; border-radius:12px; box-shadow:0 8px 28px -6px rgba(0,0,0,0.35); position:relative; max-width:480px; width:90%; display:flex; flex-direction:column; align-items:center; }
+.avatar-modal-content img { width:100%; height:auto; border-radius:12px; object-fit:cover; }
+.avatar-modal-content .close-btn { position:absolute; top:8px; right:10px; background:transparent; border:none; font-size:2rem; line-height:1; cursor:pointer; color:#02284A; }

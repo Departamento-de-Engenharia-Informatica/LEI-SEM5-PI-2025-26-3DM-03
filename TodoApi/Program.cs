@@ -166,6 +166,8 @@ builder.Services.AddAuthentication(options =>
     // Map useful claims to standard .NET ClaimTypes
     options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Name, "name");
     options.ClaimActions.MapUniqueJsonKey(ClaimTypes.Email, "email");
+    // Map Google profile picture into the claims principal so the SPA can display the avatar
+    options.ClaimActions.MapUniqueJsonKey("picture", "picture");
 
     // Allow correlation cookies to flow during HTTPS OIDC roundtrip
     options.CorrelationCookie.SameSite = Microsoft.AspNetCore.Http.SameSiteMode.None;
