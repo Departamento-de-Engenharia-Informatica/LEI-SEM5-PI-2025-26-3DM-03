@@ -28,6 +28,12 @@ interface MenuItem {
 })
 export class LayoutComponent implements OnInit, OnDestroy {
  
+  activeSubmenu: string | null = null;
+
+  toggleSubmenu(key: string) {
+    this.activeSubmenu = this.activeSubmenu === key ? null : key;
+  }
+
   // Sidebar UI state: collapsed means compact sidebar; hotspotOpen true while hovering left edge
   sidebarCollapsed: boolean = false;
   hotspotOpen: boolean = false;
@@ -47,7 +53,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'dashboard', label_en: 'Dashboard', label_pt: 'Painel', icon: 'bi-speedometer2', route: '/dashboard', roles: ['admin','operator','agent','authority'] },
     // Vessel & dock management per user stories: Port Authority Officer (authority) + admin
     // Use inline SVG for ship to avoid CDN hiccups rendering 'bi-ship'
-    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '/vessels', roles: ['admin','authority'] },
+    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '', roles: ['admin','authority'] },
     { key: 'docks', label_en: 'Docks', label_pt: 'Docas', icon: 'bi-box-seam', route: '/docks', roles: ['admin','authority'] },
     { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','authority'] },
     // Resources, staff, qualifications -> Logistics Operator + admin
@@ -67,6 +73,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // initialize displayed menu according to current user (may be null at startup)
     this.updateDisplayedMenu();
 
+    this.router.events.subscribe(() => {
+      this.activeSubmenu = null;
+    });
+
     // subscribe to loggedIn changes — update menu when login state changes
     this.subs = this.auth.loggedIn$.subscribe((v) => {
       console.log('[Layout] loggedIn$ emission=', v, 'auth.user=', this.auth.user);
@@ -77,15 +87,19 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   onMenuClick(item: MenuItem, ev?: Event) {
-    console.log('[Layout] menu click', item.key, item.route, 'auth.user=', this.auth.user);
-    try {
-      // use router.navigate as a robust fallback in case routerLink binding isn't working
-      this.router.navigate([item.route]);
-      if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
-    } catch (e) {
-      console.error('[Layout] navigation failed', e);
-    }
+  ev?.preventDefault();
+  ev?.stopPropagation();
+
+  if (item.key === 'vessels') {
+    // alterna entre aberto/fechado
+    this.toggleSubmenu(item.key);
+  } else {
+    // navega e fecha o submenu
+    this.router.navigate([item.route]);
+    this.activeSubmenu = null;
   }
+}
+
 
   ngOnDestroy(): void {
     this.subs?.unsubscribe();
@@ -96,7 +110,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   // current year for footer (avoid using `new` in template expressions)
   currentYear = new Date().getFullYear();
 
- 
 
   private updateDisplayedMenu() {
     const u = this.auth.user;

@@ -14,5 +14,5 @@ export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
 
   // Fallback wildcard MUST be last
-  { path: '**', redirectTo: 'vessels' },
+{ path: '**', redirectTo: 'docks' },
 ];

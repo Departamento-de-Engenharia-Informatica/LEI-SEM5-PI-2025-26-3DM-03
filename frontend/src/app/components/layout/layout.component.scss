@@ -83,3 +83,73 @@
   .menu-item { padding:0.5rem 0.6rem; }
   .main-content { padding:0.75rem; }
 }
+
+/* Vessels submenu */
+.menu-parent {
+  position: relative;
+}
+
+/* submenu escondido por defeito */
+.menu-parent .submenu {
+  display: none;
+  position: relative; /* deixa o submenu fazer parte do fluxo da sidebar */
+  background: #fafafa;
+  border-left: 2px solid rgba(2,6,23,0.08);
+  border-radius: 4px;
+  padding: 0.25rem 0.25rem 0.25rem 1.5rem; /* ligeiro recuo visual */
+  margin-top: 0.25rem; /* espaço entre o item e o submenu */
+  flex-direction: column;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+/* Submenu: só abre ao clique */
+.submenu.visible {
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+/* estilo de cada item dentro do submenu */
+.submenu-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  color: rgba(2, 6, 23, 0.75);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.submenu-item:hover {
+  background: rgba(2, 6, 23, 0.05);
+  color: #02284a;
+}
+
+
+.submenu-caret {
+  margin-left: auto;
+  font-size: 0.6rem;
+  opacity: 0.6;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.submenu.visible {
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.submenu-caret {
+  margin-left: auto;
+  font-size: 0.6rem;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.submenu-caret.rotate {
+  transform: rotate(180deg);
+}
