@@ -1,7 +1,7 @@
 <div class="vessels-container">
   <h2 class="page-title">Vessels</h2>
 
-  <!-- ✅ Mensagem de sucesso -->
+  <!-- Success message -->
   <div *ngIf="successMessage" class="success-box">{{ successMessage }}</div>
 
   <!-- Toolbar -->
@@ -16,22 +16,22 @@
     <button class="btn-primary" (click)="newVessel()">+ New Vessel</button>
   </div>
 
-  <!-- Vessel List -->
+  <!-- Vessel list (only shows when NOT editing/creating) -->
   <ul class="vessel-list" *ngIf="!showForm">
     <li *ngFor="let vessel of filteredVessels()" class="vessel-item">
-      <div>
-        <strong>{{ vessel.name }}</strong>
-        <span *ngIf="vessel.imo" class="imo">IMO: {{ vessel.imo }}</span>
-        <span *ngIf="vessel.operator" class="operator">({{ vessel.operator }})</span>
+      <div class="vessel-info">
+        <strong class="vessel-name">{{ vessel.name }}</strong>
+        <span *ngIf="vessel.imo" class="vessel-imo">IMO: {{ vessel.imo }}</span>
       </div>
-      <button class="btn-small" (click)="editVessel(vessel)">Edit</button>
+      <button class="edit-btn" (click)="editVessel(vessel)">Edit</button>
     </li>
+
     <li *ngIf="filteredVessels().length === 0" class="empty">
       No vessels found.
     </li>
   </ul>
 
-  <!-- Form -->
+  <!-- Vessel form (only shows when showForm = true) -->
   <div *ngIf="showForm" class="vessel-form card">
     <h3>{{ isEditing ? 'Edit Vessel' : 'Create Vessel' }}</h3>
 

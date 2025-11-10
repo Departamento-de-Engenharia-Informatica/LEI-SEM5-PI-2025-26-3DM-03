@@ -42,7 +42,7 @@ export class VesselsComponent implements OnInit {
       });
       if (res.ok) this.vesselTypes = await res.json();
     } catch (e) {
-      console.error('Erro ao inicializar:', e);
+      console.error('Error during initialization:', e);
     }
   }
 
@@ -50,8 +50,8 @@ export class VesselsComponent implements OnInit {
     try {
       this.vessels = await this.vesselsService.getAll(this.searchTerm);
     } catch (error) {
-      console.error('Erro ao buscar vessels:', error);
-      this.formError = 'Erro ao buscar vessels.';
+      console.error('Error fetching vessels:', error);
+      this.formError = 'Error fetching vessels.';
     }
   }
 
@@ -95,7 +95,7 @@ export class VesselsComponent implements OnInit {
     const operator = (this.currentVessel.operator ?? '').trim();
     const vesselTypeId = Number(this.currentVessel.vesselTypeId);
 
-    // validações
+    // validations
     if (!name) {
       this.formError = 'Vessel name is required.';
       return;
@@ -114,19 +114,19 @@ export class VesselsComponent implements OnInit {
     try {
       if (this.isEditing && this.originalImo) {
         await this.vesselsService.update(this.originalImo, payload);
-        this.successMessage = '✅ Vessel updated successfully!';
+        this.successMessage = 'Vessel updated successfully!';
       } else {
         const created = await this.vesselsService.create(payload);
         this.vessels.unshift(created);
-        this.successMessage = '✅ Vessel created successfully!';
+        this.successMessage = 'Vessel created successfully!';
       }
 
-      // Atualiza lista e força refresh da UI
+      // refresh list and force UI update
       await this.loadVessels();
       this.showForm = false;
-      this.cdr.detectChanges(); // ⚡ força o Angular a atualizar imediatamente
+      this.cdr.detectChanges(); // ⚡ forces Angular to update immediately
 
-      // Mensagem de sucesso temporária
+      // Temporary success message
       setTimeout(() => {
         this.successMessage = null;
         this.cdr.detectChanges();
