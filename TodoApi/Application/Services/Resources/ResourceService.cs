@@ -57,5 +57,15 @@ namespace TodoApi.Application.Services.Resources
             resource.Status = "Inactive";
             await _repository.SaveChangesAsync();
         }
+
+        public async Task ActivateAsync(string code)
+        {
+            var resource = await _repository.GetByCodeAsync(code);
+            if (resource is null)
+                throw new KeyNotFoundException("Resource not found.");
+
+            resource.Status = "Active";
+            await _repository.SaveChangesAsync();
+        }
     }
 }

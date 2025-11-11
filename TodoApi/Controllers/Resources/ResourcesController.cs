@@ -54,5 +54,13 @@ namespace TodoApi.Controllers.Resources
             await _service.DeactivateAsync(code);
             return NoContent();
         }
+
+        // PUT: api/Resources/{code}/activate
+        [HttpPut("{code}/activate")]
+        public async Task<IActionResult> ActivateResource(string code)
+        {
+            await _service.ActivateAsync(code);
+            return NoContent();
+        }
     }
 }

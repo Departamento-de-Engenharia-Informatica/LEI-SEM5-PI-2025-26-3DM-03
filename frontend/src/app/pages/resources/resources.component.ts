@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '../../services/i18n/translate.mock.module';
@@ -24,11 +24,22 @@ export class ResourcesComponent implements OnInit {
   sortKey: SortKey = 'code';
   sortDir: 'asc' | 'desc' = 'asc';
 
-  newResource: CreateResourceDTO = { code: '', description: '', type: 'Generic', operationalCapacity: 1 };
+  // Form state following vessels pattern
+  showForm = false;
+  isEditing = false;
+  formError: string | null = null;
+  successMessage: string | null = null;
+  currentResource: any = {};
 
-  editing: (UpdateResourceDTO & { code: string }) | null = null;
+  // UI flags to prevent double submissions
+  creating = false;
+  saving = false;
+  // per-resource operation tracking so multiple removes/reactivations can run
+  removingCodes: Set<string> = new Set();
+  deactivatingCodes: Set<string> = new Set();
+  reactivatingCodes: Set<string> = new Set();
 
-  constructor(private svc: ResourcesService) {}
+  constructor(private svc: ResourcesService, private cdr: ChangeDetectorRef) {}
 
   async ngOnInit() { await this.load(); }
 
@@ -52,6 +63,7 @@ export class ResourcesComponent implements OnInit {
         (r.type ?? '').toLowerCase().includes(q)
       );
     }
+  // Do not hide inactive resources here — show all resources and mark inactive ones in the UI
     const dir = this.sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
       const va = (a[this.sortKey] as any) ?? '';
@@ -60,6 +72,14 @@ export class ResourcesComponent implements OnInit {
       return String(va).localeCompare(String(vb)) * dir;
     });
     this.filtered = arr;
+    // ensure UI updates immediately when data changes
+    try { this.cdr.detectChanges(); } catch {}
+  }
+
+  // Normalise status checks: treat 'OPERATIONAL' and 'ACTIVE' as active states
+  isActiveStatus(status?: string | null) {
+    const s = (status ?? '').toString().trim().toUpperCase();
+    return s === 'OPERATIONAL' || s === 'ACTIVE';
   }
 
   changeSort(k: SortKey) {
@@ -68,44 +88,142 @@ export class ResourcesComponent implements OnInit {
     this.applyFilterSort();
   }
 
-  async create() {
-    this.error = null;
-    try {
-      const created = await this.svc.create(this.newResource);
-      this.resources.unshift(created);
-      this.applyFilterSort();
-      this.newResource = { code: '', description: '', type: 'Generic', operationalCapacity: 1 };
-    } catch (e: any) { this.error = e?.message || 'Erro ao criar recurso'; }
+  // show create form
+  newResourceForm() {
+    this.currentResource = { code: '', description: '', type: 'Generic', operationalCapacity: 1, assignedArea: null, setupTimeMinutes: null, status: 'OPERATIONAL' };
+    this.formError = null;
+    this.isEditing = false;
+    this.showForm = true;
   }
 
-  openEdit(r: ResourceDTO) {
-    this.editing = { code: r.code, description: r.description ?? '', operationalCapacity: r.operationalCapacity ?? 1, assignedArea: r.assignedArea ?? null, setupTimeMinutes: r.setupTimeMinutes ?? null };
+  // Use a tiny deferred wrapper to make clicks more reliable in some browsers/layouts
+  onCreateClick() {
+    if (this.creating) return;
+    // defer to next macrotask so that focus/blur events don't interfere
+    setTimeout(() => this.newResourceForm(), 0);
   }
 
-  closeEdit() { this.editing = null; }
 
-  async saveEdit() {
-    if (!this.editing) return;
-    this.error = null;
+  editResource(r: ResourceDTO) {
+    this.currentResource = { ...(r || {}) };
+    this.isEditing = true;
+    this.formError = null;
+    this.showForm = true;
+  }
+
+  cancel() {
+    this.currentResource = {};
+    this.showForm = false;
+    this.formError = null;
+  }
+
+  // Save handler used by the form (create or update)
+  async save() {
+    this.formError = null;
+    const code = (this.currentResource.code ?? '').toString().trim();
+    const description = (this.currentResource.description ?? '').toString().trim();
+    const operationalCapacity = Number(this.currentResource.operationalCapacity ?? 0);
+
+    // Basic validations
+    if (!code) { this.formError = 'Code is required.'; return; }
+    if (!description) { this.formError = 'Description is required.'; return; }
+    if (!operationalCapacity || operationalCapacity <= 0) { this.formError = 'Capacity must be greater than zero.'; return; }
+
     try {
-      const dto: UpdateResourceDTO = { description: this.editing.description, operationalCapacity: this.editing.operationalCapacity, assignedArea: this.editing.assignedArea, setupTimeMinutes: this.editing.setupTimeMinutes };
-      await this.svc.update(this.editing.code, dto);
-      const idx = this.resources.findIndex(r => r.code === this.editing!.code);
-      if (idx >= 0) {
-        this.resources[idx] = { ...this.resources[idx], ...dto } as ResourceDTO;
+      if (this.isEditing) {
+        const dto: UpdateResourceDTO = { description, operationalCapacity, assignedArea: this.currentResource.assignedArea, setupTimeMinutes: this.currentResource.setupTimeMinutes };
+        await this.svc.update(code, dto);
+        this.successMessage = 'Resource updated successfully.';
+      } else {
+        const payload: CreateResourceDTO = { code, description, type: this.currentResource.type ?? 'Generic', operationalCapacity };
+        const created = await this.svc.create(payload);
+        this.resources.unshift(created);
+        this.successMessage = 'Resource created successfully.';
       }
-      this.applyFilterSort();
-      this.closeEdit();
-    } catch (e: any) { this.error = e?.message || 'Erro ao atualizar recurso'; }
+
+  // refresh and close form
+  await this.load();
+  this.showForm = false;
+  try { this.cdr.detectChanges(); } catch {}
+
+      setTimeout(() => { this.successMessage = null; this.cdr.detectChanges(); }, 3000);
+
+    } catch (err: any) {
+      this.formError = err?.message ?? 'Save failed';
+    }
+  }
+
+  // Wrapper for save click to improve reliability
+  onSaveClick() {
+    if (this.saving) return;
+    setTimeout(() => this.save(), 0);
   }
 
   async deactivate(code: string) {
     if (!confirm('Desativar este recurso?')) return;
+    if (this.deactivatingCodes.has(code)) return;
+    this.deactivatingCodes.add(code);
     try {
       await this.svc.deactivate(code);
+      // set status locally; applyFilterSort will hide it
       const idx = this.resources.findIndex(r => r.code === code);
-      if (idx >= 0) this.resources[idx].status = 'Inactive';
-      this.applyFilterSort();
+  if (idx >= 0) this.resources[idx].status = 'Inactive';
+  this.applyFilterSort();
+  try { this.cdr.detectChanges(); } catch {}
     } catch (e: any) { this.error = e?.message || 'Erro ao desativar recurso'; }
+    finally { this.deactivatingCodes.delete(code); }
+  }
+
+
+
+  // Remove resource (uses deactivate endpoint as fallback)
+  async remove(r: ResourceDTO) {
+    const code = r.code;
+    if (!code) return;
+    if (this.removingCodes.has(code)) return;
+    if (!confirm(`Remove resource ${code}?`)) return;
+    this.removingCodes.add(code);
+    // Optimistic UI: remove locally immediately and restore on non-404 error
+    const idx = this.resources.findIndex(x => x.code === code);
+    let backup: ResourceDTO | null = null;
+      if (idx >= 0) {
+      backup = this.resources[idx];
+      this.resources.splice(idx, 1);
+      this.applyFilterSort();
+      try { this.cdr.detectChanges(); } catch {}
+    }
+    try {
+      await this.svc.deactivate(code);
+    } catch (e: any) {
+      const msg = e?.message ?? '';
+      // If 404 (already removed) treat as success, otherwise restore and show error
+      if (typeof msg === 'string' && msg.includes('404')) {
+        // nothing to do
+      } else {
+        if (backup) {
+          this.resources.splice(idx >= 0 ? idx : 0, 0, backup);
+          this.applyFilterSort();
+          try { this.cdr.detectChanges(); } catch {}
+        }
+        this.error = msg || 'Erro ao remover recurso';
+      }
+    } finally {
+      this.removingCodes.delete(code);
+    }
+  }
+
+  // Reactivate a previously deactivated resource
+  async reactivate(code: string) {
+    if (this.reactivatingCodes.has(code)) return;
+    if (!confirm('Reactivar este recurso?')) return;
+    this.reactivatingCodes.add(code);
+    try {
+      await this.svc.activate(code);
+      const idx = this.resources.findIndex(r => r.code === code);
+  if (idx >= 0) this.resources[idx].status = 'Active';
+  this.applyFilterSort();
+  try { this.cdr.detectChanges(); } catch {}
+    } catch (e: any) { this.error = e?.message || 'Erro ao reativar recurso'; }
+    finally { this.reactivatingCodes.delete(code); }
   }
 }
