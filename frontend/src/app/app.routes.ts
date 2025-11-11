@@ -10,6 +10,12 @@ export const routes: Routes = [
   { path: 'representatives', loadComponent: () => import('./pages/representatives/representatives.component').then(m => m.RepresentativesComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
 
+  // Vessel Visit Notifications
+  { path: 'vessel-visit-notifications', loadComponent: () => import('./pages/vessel-visit-notifications/vessel-visit-notifications.component').then(m => m.VesselVisitNotificationsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority','agent'] } },
+
+  // Vessel Types
+  { path: 'vessel-types', loadComponent: () => import('./pages/vessel-types/vessel-types.component').then(m => m.VesselTypesComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
+
   // Login remains public
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
 

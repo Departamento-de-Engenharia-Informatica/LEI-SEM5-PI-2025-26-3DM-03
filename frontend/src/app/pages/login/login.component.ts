@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '../../services/i18n/translate.mock.module';
@@ -12,9 +12,7 @@ import { TranslationService } from '../../services/i18n/translation.service';
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
 })
-export class LoginComponent implements OnDestroy {
-  avatarPreview: string | null = null;
-  private _currentObjectUrl: string | null = null;
+export class LoginComponent {
 
   constructor(public i18n: TranslationService, public auth: AuthService) {}
 
@@ -27,31 +25,5 @@ export class LoginComponent implements OnDestroy {
     }
   }
 
-  onFileSelected(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-
-    const file = input.files[0];
-
-    try {
-      // limpar URL anterior
-      if (this._currentObjectUrl) {
-        URL.revokeObjectURL(this._currentObjectUrl);
-        this._currentObjectUrl = null;
-      }
-
-      const url = URL.createObjectURL(file);
-      this._currentObjectUrl = url;
-      this.avatarPreview = url;
-    } catch (e) {
-      console.error('Failed to create preview', e);
-    }
-  }
-
-  ngOnDestroy(): void {
-    if (this._currentObjectUrl) {
-      URL.revokeObjectURL(this._currentObjectUrl);
-      this._currentObjectUrl = null;
-    }
-  }
+  
 }

@@ -9,28 +9,7 @@
       </div>
     </header>
 
-    <!-- Avatar + upload -->
-    <div class="avatar-wrap">
-      <div
-        class="avatar"
-        [style.background-image]="avatarPreview ? 'url(' + avatarPreview + ')' : ''"
-        [class.avatar-has-image]="!!avatarPreview"
-      >
-        <ng-container *ngIf="!avatarPreview">
-          <span class="avatar-placeholder">P</span>
-        </ng-container>
-      </div>
-
-      <label class="upload-label">
-        <input
-          type="file"
-          accept="image/*"
-          (change)="onFileSelected($event)"
-          hidden
-        />
-        <span class="upload-text">Upload foto</span>
-      </label>
-    </div>
+    
 
     <!-- Texto principal -->
     <section class="login-copy">
