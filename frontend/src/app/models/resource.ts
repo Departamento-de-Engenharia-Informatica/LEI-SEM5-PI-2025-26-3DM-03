@@ -23,4 +23,5 @@ export interface UpdateResourceDTO {
   operationalCapacity: number;
   assignedArea?: string | null;
   setupTimeMinutes?: number | null;
+  status?: string;
 }

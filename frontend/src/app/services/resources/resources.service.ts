@@ -11,7 +11,7 @@ export class ResourcesService {
     const proxyUrl = baseUrl + pathAndQuery;
     const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`;
 
-    const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 2000) => {
+    const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 1500) => {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -22,20 +22,23 @@ export class ResourcesService {
       }
     };
 
-    // Try direct first (HTTPS cookie issues are fewer without the dev proxy)
+    // Try proxy first (short timeout) then direct (slightly longer). Shortening these reduces perceived UI slowness in dev.
     try {
-      const rDirect = await fetchWithTimeout(directUrl, options, 2500);
-      if (rDirect.ok || rDirect.status === 404) return rDirect;
-      console.warn(`ResourcesService: direct returned ${rDirect.status} for ${directUrl}, trying proxy`);
+      const rProxy = await fetchWithTimeout(proxyUrl, options, 1200);
+      if (rProxy.ok) return rProxy;
+      // If proxy returns 404 or other non-ok, log and try direct as fallback.
+      console.warn(`ResourcesService: proxy returned ${rProxy.status} for ${proxyUrl}, trying direct`);
     } catch (e: any) {
-      console.warn('ResourcesService: direct fetch failed or timed out, trying proxy', e?.message ?? e);
+      console.warn('ResourcesService: proxy fetch failed or timed out, trying direct', e?.message ?? e);
     }
 
     try {
-      const rProxy = await fetchWithTimeout(proxyUrl, options, 2500);
-      return rProxy;
+      const rDirect = await fetchWithTimeout(directUrl, options, 2000);
+      if (rDirect.ok) return rDirect;
+      console.warn(`ResourcesService: direct returned ${rDirect.status} for ${directUrl}`);
+      throw new Error(`Both proxy and direct requests failed (proxy->direct statuses).`);
     } catch (e: any) {
-      console.error('ResourcesService: proxy fetch failed', e?.message ?? e);
+      console.error('ResourcesService: direct fetch failed', e?.message ?? e);
       throw new Error('Both direct and proxy requests failed');
     }
   }
@@ -79,6 +82,14 @@ export class ResourcesService {
 
   async deactivate(code: string): Promise<void> {
     const res = await this.requestWithFallback(`${this.apiUrl}/${encodeURIComponent(code)}/deactivate`, {
+      method: 'PUT',
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+  }
+
+  async activate(code: string): Promise<void> {
+    const res = await this.requestWithFallback(`${this.apiUrl}/${encodeURIComponent(code)}/activate`, {
       method: 'PUT',
       credentials: 'include'
     });

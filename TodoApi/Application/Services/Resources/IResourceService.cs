@@ -11,5 +11,6 @@ namespace TodoApi.Application.Services.Resources
         Task<ResourceDTO> CreateAsync(CreateResourceDTO dto);
         Task UpdateAsync(string code, UpdateResourceDTO dto);
         Task DeactivateAsync(string code);
+        Task ActivateAsync(string code);
     }
 }

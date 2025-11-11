@@ -1,59 +1,92 @@
 <div class="page resources">
-  <h2>Recursos</h2>
-
-  <div class="controls">
-    <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar..." />
+  <div class="page-header">
+    <div>
+      <h2>Resources</h2>
+      <p class="muted">Manage resources available in the system</p>
+    </div>
+    <div class="header-actions">
+      <!-- moved Create button down to toolbar -->
+    </div>
   </div>
 
-  <div *ngIf="loading">A carregar...</div>
-  <div *ngIf="error" class="error">{{error}}</div>
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="loading" class="loading">A carregar…</div>
 
-  <table class="tbl" *ngIf="!loading">
-    <thead>
-      <tr>
-        <th (click)="changeSort('code')">Code</th>
-        <th (click)="changeSort('description')">Description</th>
-        <th (click)="changeSort('type')">Type</th>
-        <th (click)="changeSort('status')">Status</th>
-        <th (click)="changeSort('operationalCapacity')">Capacity</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let r of filtered">
-        <td>{{r.code}}</td>
-        <td>{{r.description}}</td>
-        <td>{{r.type}}</td>
-        <td>{{r.status}}</td>
-        <td>{{r.operationalCapacity}}</td>
-        <td>
-          <button (click)="openEdit(r)">Edit</button>
-          <button (click)="deactivate(r.code)">Deactivate</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-
-  <section class="create">
-    <h3>Criar recurso</h3>
-    <label>Code: <input [(ngModel)]="newResource.code" /></label>
-    <label>Description: <input [(ngModel)]="newResource.description" /></label>
-    <label>Type: <input [(ngModel)]="newResource.type" /></label>
-    <label>Capacity: <input type="number" [(ngModel)]="newResource.operationalCapacity" /></label>
-    <label>Assigned area: <input [(ngModel)]="newResource.assignedArea" /></label>
-    <label>Setup time (min): <input type="number" [(ngModel)]="newResource.setupTimeMinutes" /></label>
-    <div><button (click)="create()">Create</button></div>
-  </section>
-
-  <section class="edit" *ngIf="editing">
-    <h3>Editar {{editing.code}}</h3>
-    <label>Description: <input [(ngModel)]="editing.description" /></label>
-    <label>Capacity: <input type="number" [(ngModel)]="editing.operationalCapacity" /></label>
-    <label>Assigned area: <input [(ngModel)]="editing.assignedArea" /></label>
-    <label>Setup time (min): <input type="number" [(ngModel)]="editing.setupTimeMinutes" /></label>
-    <div>
-      <button (click)="saveEdit()">Save</button>
-      <button (click)="closeEdit()">Cancel</button>
+  <div class="toolbar" *ngIf="!loading && !showForm">
+    <div class="search">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="q" (ngModelChange)="applyFilterSort()" placeholder="Pesquisar..." />
     </div>
+    <div class="toolbar-actions">
+      <button type="button" class="btn-primary" (click)="newResourceForm()"><i class="bi bi-plus-lg"></i> Create resource</button>
+    </div>
+  </div>
+  <div class="card" *ngIf="!loading && !showForm">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th (click)="changeSort('code')">Code</th>
+          <th (click)="changeSort('description')">Description</th>
+          <th (click)="changeSort('type')">Type</th>
+          <th (click)="changeSort('status')">Status</th>
+          <th (click)="changeSort('operationalCapacity')">Capacity</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of filtered">
+          <td>{{ r.code }}</td>
+          <td>{{ r.description }}</td>
+          <td>{{ r.type }}</td>
+          <td>
+            <span class="badge" [class.badge-green]="isActiveStatus(r.status)" [class.badge-gray]="!isActiveStatus(r.status)">{{ r.status }}</span>
+          </td>
+          <td>{{ r.operationalCapacity }}</td>
+          <td class="actions">
+            <button type="button" class="btn-ghost" (click)="editResource(r)" [disabled]="saving || creating"><i class="bi bi-pencil"></i></button>
+            <!-- show Reactivate when not active, otherwise show Deactivate -->
+            <button type="button" *ngIf="!isActiveStatus(r.status)" class="btn-ghost" (click)="reactivate(r.code)" [disabled]="reactivatingCodes.has(r.code) || removingCodes.has(r.code) || deactivatingCodes.has(r.code)"><i class="bi bi-arrow-repeat"></i></button>
+            <button type="button" *ngIf="isActiveStatus(r.status)" class="btn-ghost" (click)="deactivate(r.code)" [disabled]="deactivatingCodes.has(r.code) || removingCodes.has(r.code) || reactivatingCodes.has(r.code)"><i class="bi bi-slash-circle"></i></button>
+            <button type="button" class="btn-ghost danger" (click)="remove(r)" [disabled]="removingCodes.has(r.code) || deactivatingCodes.has(r.code) || reactivatingCodes.has(r.code)"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Form (create or edit) shown when showForm = true -->
+  <section class="card" *ngIf="showForm">
+    <h3>{{ isEditing ? ('Edit ' + (currentResource.code ?? '')) : 'New resource' }}</h3>
+    <form (ngSubmit)="save()" autocomplete="off">
+      <div class="form-grid">
+        <label>Code
+          <input [(ngModel)]="currentResource.code" name="code" [disabled]="isEditing" />
+        </label>
+        <label>Description
+          <input [(ngModel)]="currentResource.description" name="description" />
+        </label>
+        <label>Type
+          <input [(ngModel)]="currentResource.type" name="type" />
+        </label>
+        <label>Capacity
+          <input type="number" [(ngModel)]="currentResource.operationalCapacity" name="operationalCapacity" />
+        </label>
+        <label>Assigned area
+          <input [(ngModel)]="currentResource.assignedArea" name="assignedArea" />
+        </label>
+        <label>Setup time (min)
+          <input type="number" [(ngModel)]="currentResource.setupTimeMinutes" name="setupTimeMinutes" />
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn-primary" type="submit" [disabled]="saving">Save</button>
+        <button class="btn-ghost" type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+    <div *ngIf="formError" class="alert alert-error">{{ formError }}</div>
+    <div *ngIf="successMessage" class="alert">{{ successMessage }}</div>
   </section>
+
+  <!-- old edit form removed (replaced by unified form above) -->
+
 </div>
