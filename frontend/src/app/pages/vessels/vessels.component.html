@@ -1,5 +1,13 @@
-<div class="vessels-container">
+<div class="vessels-container page resources-like">
+  <div class="page-header">
+    <div>
   <h2 class="page-title">Vessels</h2>
+  <p class="muted subtitle">Manage vessels registered in the system</p>
+    </div>
+    <div class="header-actions">
+      <!-- optional actions can go here (kept empty to keep title left-aligned) -->
+    </div>
+  </div>
 
   <!-- Success message -->
   <div *ngIf="successMessage" class="success-box">{{ successMessage }}</div>
@@ -10,9 +18,10 @@
       type="text"
       placeholder="Search by name or IMO..."
       [(ngModel)]="searchTerm"
+      (ngModelChange)="onSearchChange($event)"
       class="search-input"
     />
-    <button class="btn-secondary" (click)="searchTerm = ''">Clear</button>
+    <button class="btn-secondary" (click)="clearSearch()">Clear</button>
     <button class="btn-primary" (click)="newVessel()">+ New Vessel</button>
   </div>
 

@@ -6,19 +6,32 @@
   color: #0f172a;
 }
 
-/* Title */
-.page-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #02284a;
-  margin-bottom: 0.25rem;
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  h2 {
+    margin: 0 0 2px 0;
+    color: #02284a;
+    font-size: 1.8rem;
+    font-weight: 700;
+  }
+
+  .muted {
+    color: rgba(2, 6, 23, 0.55);
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 }
 
-.subtitle {
-  font-size: 0.95rem;
-  color: rgba(15, 23, 42, 0.6);
-  margin-bottom: 1.5rem;
-}
 
 /* Toolbar: search + buttons */
 .toolbar {

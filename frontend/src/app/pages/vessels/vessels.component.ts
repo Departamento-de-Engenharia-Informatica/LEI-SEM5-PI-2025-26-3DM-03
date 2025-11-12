@@ -41,6 +41,7 @@ export class VesselsComponent implements OnInit {
         credentials: 'include'
       });
       if (res.ok) this.vesselTypes = await res.json();
+      setTimeout(() => this.loadVessels().catch(() => {}), 120);
     } catch (e) {
       console.error('Error during initialization:', e);
     }
@@ -48,7 +49,9 @@ export class VesselsComponent implements OnInit {
 
   async loadVessels() {
     try {
-      this.vessels = await this.vesselsService.getAll(this.searchTerm);
+      // Trim the search term and only pass a query to the service when it's meaningful
+      const q = (this.searchTerm ?? '').trim();
+      this.vessels = q ? await this.vesselsService.getAll(q) : await this.vesselsService.getAll();
     } catch (error) {
       console.error('Error fetching vessels:', error);
       this.formError = 'Error fetching vessels.';
@@ -56,8 +59,9 @@ export class VesselsComponent implements OnInit {
   }
 
   filteredVessels(): any[] {
-    if (!this.searchTerm) return this.vessels;
-    const q = this.searchTerm.toLowerCase();
+    const qRaw = (this.searchTerm ?? '').trim();
+    if (!qRaw) return this.vessels;
+    const q = qRaw.toLowerCase();
     return this.vessels.filter(v => {
       const name = (v?.name ?? '').toString().toLowerCase();
       const imo = (v?.imo ?? '').toString().toLowerCase();
@@ -136,5 +140,20 @@ export class VesselsComponent implements OnInit {
       console.error('Save vessel failed', err);
       this.formError = err?.message ?? 'Save failed — check the data.';
     }
+  }
+
+  // Called when the search input changes. If cleared, reload the full list.
+  onSearchChange(value: string) {
+    this.searchTerm = value;
+    if ((value ?? '').trim() === '') {
+      // small timeout to allow ngModel to settle
+      setTimeout(() => this.loadVessels().catch(() => {}), 10);
+    }
+  }
+
+  // Clear and refresh list immediately
+  clearSearch() {
+    this.searchTerm = '';
+    this.loadVessels().catch(() => {});
   }
 }
