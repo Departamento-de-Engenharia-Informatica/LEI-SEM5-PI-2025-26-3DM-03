@@ -22,6 +22,8 @@ export class VesselsComponent implements OnInit {
   vessels: any[] = [];
   vesselTypes: any[] = [];
   searchTerm = '';
+  loading = false;
+  error: string | null = null;
   showForm = false;
   currentVessel: Vessel = {};
   isEditing = false;
@@ -48,13 +50,18 @@ export class VesselsComponent implements OnInit {
   }
 
   async loadVessels() {
+    this.loading = true; this.error = null;
     try {
       // Trim the search term and only pass a query to the service when it's meaningful
       const q = (this.searchTerm ?? '').trim();
       this.vessels = q ? await this.vesselsService.getAll(q) : await this.vesselsService.getAll();
     } catch (error) {
       console.error('Error fetching vessels:', error);
-      this.formError = 'Error fetching vessels.';
+      this.error = 'Error fetching vessels.';
+    } finally {
+      this.loading = false;
+      // Force Angular change detection to leave the empty-state
+      try { this.cdr.detectChanges(); } catch {}
     }
   }
 

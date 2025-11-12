@@ -50,7 +50,11 @@ export class ResourcesComponent implements OnInit {
       this.applyFilterSort();
     } catch (e: any) {
       this.error = e?.message || 'Erro ao carregar recursos';
-    } finally { this.loading = false; }
+    } finally {
+      this.loading = false;
+      // ensure the view leaves the loading state immediately
+      try { this.cdr.detectChanges(); } catch {}
+    }
   }
 
   applyFilterSort() {
@@ -165,11 +169,9 @@ export class ResourcesComponent implements OnInit {
     this.deactivatingCodes.add(code);
     try {
       await this.svc.deactivate(code);
-      // set status locally; applyFilterSort will hide it
-      const idx = this.resources.findIndex(r => r.code === code);
-  if (idx >= 0) this.resources[idx].status = 'Inactive';
-  this.applyFilterSort();
-  try { this.cdr.detectChanges(); } catch {}
+      // reload from backend to guarantee latest state and refresh bindings
+      await this.load();
+      try { this.cdr.detectChanges(); } catch {}
     } catch (e: any) { this.error = e?.message || 'Erro ao desativar recurso'; }
     finally { this.deactivatingCodes.delete(code); }
   }
@@ -219,10 +221,9 @@ export class ResourcesComponent implements OnInit {
     this.reactivatingCodes.add(code);
     try {
       await this.svc.activate(code);
-      const idx = this.resources.findIndex(r => r.code === code);
-  if (idx >= 0) this.resources[idx].status = 'Active';
-  this.applyFilterSort();
-  try { this.cdr.detectChanges(); } catch {}
+      // reload from backend to guarantee latest state and refresh bindings
+      await this.load();
+      try { this.cdr.detectChanges(); } catch {}
     } catch (e: any) { this.error = e?.message || 'Erro ao reativar recurso'; }
     finally { this.reactivatingCodes.delete(code); }
   }

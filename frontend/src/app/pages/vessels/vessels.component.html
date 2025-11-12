@@ -25,8 +25,11 @@
     <button class="btn-primary" (click)="newVessel()">+ New Vessel</button>
   </div>
 
+  <!-- Loading state -->
+  <div *ngIf="loading && !showForm" class="loading">A carregar...</div>
+
   <!-- Vessel list (only shows when NOT editing/creating) -->
-  <ul class="vessel-list" *ngIf="!showForm">
+  <ul class="vessel-list" *ngIf="!showForm && !loading">
     <li *ngFor="let vessel of filteredVessels()" class="vessel-item">
       <div class="vessel-info">
         <strong class="vessel-name">{{ vessel.name }}</strong>
@@ -35,7 +38,7 @@
       <button class="edit-btn" (click)="editVessel(vessel)">Edit</button>
     </li>
 
-    <li *ngIf="filteredVessels().length === 0" class="empty">
+    <li *ngIf="!loading && filteredVessels().length === 0" class="empty">
       No vessels found.
     </li>
   </ul>
