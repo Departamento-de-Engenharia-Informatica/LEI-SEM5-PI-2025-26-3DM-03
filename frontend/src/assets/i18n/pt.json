@@ -135,10 +135,10 @@
       "create": "Erro ao criar representante.",
       "update": "Erro ao atualizar representante.",
       "deactivate": "Erro ao desativar representante.",
-      "delete": "Erro ao eliminar representante."
+    "delete": "Erro ao eliminar representante."
     }
   },
-"orgs": {
+  "orgs": {
   "title": "Agentes de Navegação",
   "subtitle": "Registar e inspecionar organizações de navegação",
 
