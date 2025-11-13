@@ -9,8 +9,88 @@
     "docks": "Docas",
     "storage_areas": "Áreas de Armazenamento",
     "resources": "Recursos",
+    "staff": "Equipa",
     "representatives": "Representantes",
     "settings": "Configurações"
+  },
+  "staff": {
+    "title": "Equipa",
+    "subtitle": "Regista e acompanha os colaboradores operacionais do porto.",
+    "server": {
+      "search": "Pesquisa no servidor",
+      "placeholder": "Termo a pesquisar…",
+      "filter": "Filtrar por",
+      "options": {
+        "all": "Todos os campos",
+        "mecanographic": "Nº mecanográfico",
+        "name": "Nome",
+        "status": "Estado",
+        "qualification": "Qualificação",
+        "active": "Disponibilidade"
+      }
+    },
+    "actions": {
+      "refresh": "Pesquisar",
+      "confirmDeactivate": "Desativar este membro de staff?"
+    },
+    "filters": {
+      "quick": "Filtro rápido",
+      "status": "Filtro local de estado",
+      "statusAll": "Todos",
+      "statusActive": "Apenas ativos",
+      "statusInactive": "Apenas inativos"
+    },
+    "table": {
+      "mecanographic": "Nº mecanográfico",
+      "name": "Nome",
+      "email": "Email",
+      "phone": "Telefone",
+      "window": "Janela operacional",
+      "status": "Estado",
+      "active": "Ativo",
+      "qualifications": "Qualificações",
+      "actions": "Ações",
+      "noData": "Sem membros de staff."
+    },
+    "labels": {
+      "loading": "A carregar staff…",
+      "active": "Ativo",
+      "inactive": "Inativo",
+      "noWindow": "Janela não definida",
+      "noQualifications": "Sem qualificações",
+      "unknownStatus": "Estado desconhecido"
+    },
+    "forms": {
+      "createTitle": "Registar colaborador",
+      "editTitle": "Editar colaborador",
+      "mecanographic": "Nº mecanográfico",
+      "shortName": "Nome curto",
+      "email": "Email",
+      "phone": "Telefone",
+      "startTime": "Hora início",
+      "endTime": "Hora fim",
+      "qualifications": "Qualificações",
+      "qualificationsHint": "Códigos separados por vírgulas ou linhas",
+      "status": "Estado",
+      "active": "Ativo",
+      "create": "Criar",
+      "save": "Guardar",
+      "cancel": "Cancelar"
+    },
+    "toasts": {
+      "created": "Colaborador criado",
+      "updated": "Colaborador atualizado",
+      "deactivated": "Colaborador desativado",
+      "reactivated": "Colaborador reativado"
+    },
+    "errors": {
+      "load": "Erro ao carregar staff — verifica a API.",
+      "create": "Erro ao criar colaborador.",
+      "update": "Erro ao atualizar colaborador.",
+      "deactivate": "Erro ao desativar colaborador.",
+      "reactivate": "Erro ao reativar colaborador.",
+      "invalidForm": "Preenche os campos obrigatórios."
+    }
   },
   "reps": {
     "title": "Representantes",
@@ -58,4 +138,3 @@
     }
   }
 }
-

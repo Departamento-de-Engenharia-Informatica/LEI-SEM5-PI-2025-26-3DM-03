@@ -9,8 +9,88 @@
     "docks": "Docks",
     "storage_areas": "Storage Areas",
     "resources": "Resources",
+    "staff": "Staff",
     "representatives": "Representatives",
     "settings": "Settings"
+  },
+  "staff": {
+    "title": "Staff",
+    "subtitle": "Register, search and keep port staff availability up to date.",
+    "server": {
+      "search": "Server search",
+      "placeholder": "Search term…",
+      "filter": "Filter by",
+      "options": {
+        "all": "All fields",
+        "mecanographic": "Mecanographic #",
+        "name": "Name",
+        "status": "Status",
+        "qualification": "Qualification",
+        "active": "Active flag"
+      }
+    },
+    "actions": {
+      "refresh": "Search",
+      "confirmDeactivate": "Deactivate this staff member?"
+    },
+    "filters": {
+      "quick": "Quick filter",
+      "status": "Local status filter",
+      "statusAll": "All statuses",
+      "statusActive": "Only active",
+      "statusInactive": "Inactive only"
+    },
+    "table": {
+      "mecanographic": "Mecanographic #",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "window": "Operational window",
+      "status": "Status",
+      "active": "Active",
+      "qualifications": "Qualifications",
+      "actions": "Actions",
+      "noData": "No staff members found."
+    },
+    "labels": {
+      "loading": "Loading staff…",
+      "active": "Active",
+      "inactive": "Inactive",
+      "noWindow": "Window not defined",
+      "noQualifications": "No qualifications",
+      "unknownStatus": "Unknown status"
+    },
+    "forms": {
+      "createTitle": "Register staff member",
+      "editTitle": "Edit staff member",
+      "mecanographic": "Mecanographic #",
+      "shortName": "Short name",
+      "email": "Email",
+      "phone": "Phone",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "qualifications": "Qualifications",
+      "qualificationsHint": "Comma or line separated codes",
+      "status": "Status",
+      "active": "Active",
+      "create": "Create",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "created": "Staff member created",
+      "updated": "Staff member updated",
+      "deactivated": "Staff member deactivated",
+      "reactivated": "Staff member reactivated"
+    },
+    "errors": {
+      "load": "Failed to load staff — check API.",
+      "create": "Failed to create staff member.",
+      "update": "Failed to update staff member.",
+      "deactivate": "Failed to deactivate staff member.",
+      "reactivate": "Failed to reactivate staff member.",
+      "invalidForm": "Fill the required fields before submitting."
+    }
   },
   "reps": {
     "title": "Representatives",
@@ -58,4 +138,3 @@
     }
   }
 }
-
