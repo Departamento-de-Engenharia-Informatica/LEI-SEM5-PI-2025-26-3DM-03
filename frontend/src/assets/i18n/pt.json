@@ -10,6 +10,7 @@
     "storage_areas": "Áreas de Armazenamento",
     "resources": "Recursos",
     "representatives": "Representantes",
+    "shipping_agents": "Agentes de Navegação",
     "settings": "Configurações"
   },
   "reps": {
@@ -32,9 +33,9 @@
     "new": {
       "title": "Novo representante",
       "name": "Nome completo",
-      "citizen": "Documento",
-      "nationality": "País",
-      "email": "nome@dominio",
+      "citizen": "ID Cidadão",
+      "nationality": "Nacionalidade",
+      "email": "Email",
       "phone": "Contacto",
       "create": "Criar"
     },
@@ -56,6 +57,35 @@
       "deactivate": "Erro ao desativar representante.",
       "delete": "Erro ao eliminar representante."
     }
+  },
+"orgs": {
+  "title": "Agentes de Navegação",
+  "subtitle": "Registar e inspecionar organizações de navegação",
+
+  "new": {
+    "title": "Novo Agente de Navegação"
+  },
+
+  "tax": { "label": "Número de Identificação Fiscal", "placeholder": "ex: 123456789" },
+  "fields": {
+    "legalName": "Nome legal",
+    "altName": "Nome alternativo",
+    "type": "Tipo",
+    "street": "Rua",
+    "city": "Cidade",
+    "postal": "Código postal",
+    "country": "País",
+    "address": "Endereço",
+    "reps": "Representantes"
+  },
+  "actions": { "load": "Pesquisar", "create": "Registar" },
+  "noReps": "Sem representantes registados.",
+  "toasts": { "created": "Agente de navegação registado" },
+  "errors": {
+    "taxRequired": "Número de Identificação Fiscal é obrigatório.",
+    "notFound": "Nenhuma organização com esse número de identificação fiscal.",
+    "load": "Falha ao carregar agente de navegação.",
+    "create": "Falha ao criar agente de navegação."
+    }
   }
 }
-

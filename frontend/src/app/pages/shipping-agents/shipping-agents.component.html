@@ -1,0 +1,154 @@
+<div class="page orgs">
+  <div class="page-header">
+    <div>
+      <h2>{{ 'orgs.title' | translate }}</h2>
+      <p class="muted">{{ 'orgs.subtitle' | translate }}</p>
+    </div>
+
+    <div class="header-actions">
+      <div class="agent-input">
+        <label>{{ 'orgs.tax.label' | translate }}</label>
+        <input
+          type="number"
+          [(ngModel)]="taxNumber"
+          [placeholder]="('orgs.tax.placeholder' | translate)" />
+      </div>
+      <button class="btn-primary" (click)="load()">
+        <i class="bi bi-search"></i> {{ 'orgs.actions.load' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="loading" class="loading">Loading…</div>
+
+  <!-- AGENTE CARREGADO -->
+  <section class="card" *ngIf="organization">
+    <header>
+      <div>
+        <h3>{{ organization.legalName }}</h3>
+        <p class="muted">#{{ organization.taxNumber }}</p>
+      </div>
+      <span class="badge">{{ organization.type }}</span>
+    </header>
+
+    <dl class="details">
+      <div>
+        <dt>{{ 'orgs.fields.altName' | translate }}</dt>
+        <dd>{{ organization.alternativeName || '—' }}</dd>
+      </div>
+      <div>
+        <dt>{{ 'orgs.fields.address' | translate }}</dt>
+        <dd>{{ formatAddress(organization) }}</dd>
+      </div>
+    </dl>
+
+    <div class="reps">
+      <h4>{{ 'orgs.fields.reps' | translate }}</h4>
+      <ul *ngIf="organization.representatives?.length; else noReps">
+        <li *ngFor="let rep of organization.representatives">
+          <strong>{{ rep.name }}</strong>
+          <span>{{ rep.email }}</span>
+          <span>{{ rep.phoneNumber }}</span>
+        </li>
+      </ul>
+      <ng-template #noReps>
+        <p class="muted">{{ 'orgs.noReps' | translate }}</p>
+      </ng-template>
+    </div>
+  </section>
+
+  <!-- CRIAÇÃO DE NOVO AGENTE + NOVO REPRESENTANTE -->
+  <section class="card">
+    <h3>{{ 'orgs.new.title' | translate }}</h3>
+
+    <form (ngSubmit)="create()" #form="ngForm">
+      <!-- Bloco: dados da organização -->
+      <div class="form-grid org-grid">
+        <label>
+          {{ 'orgs.tax.label' | translate }}
+          <input type="number" name="taxNumber" required [(ngModel)]="newOrg.taxNumber" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.legalName' | translate }}
+          <input name="legalName" required [(ngModel)]="newOrg.legalName" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.altName' | translate }}
+          <input name="alternativeName" [(ngModel)]="newOrg.alternativeName" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.type' | translate }}
+          <select name="type" required [(ngModel)]="newOrg.type">
+            <option *ngFor="let t of allowedTypes" [value]="t">{{ t }}</option>
+          </select>
+        </label>
+
+        <label>
+          {{ 'orgs.fields.street' | translate }}
+          <input name="street" required [(ngModel)]="newOrg.address.street" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.city' | translate }}
+          <input name="city" required [(ngModel)]="newOrg.address.city" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.postal' | translate }}
+          <input name="postalCode" required [(ngModel)]="newOrg.address.postalCode" />
+        </label>
+
+        <label>
+          {{ 'orgs.fields.country' | translate }}
+          <input name="country" required [(ngModel)]="newOrg.address.country" />
+        </label>
+      </div>
+
+      <!-- Bloco: representante principal (igual ao ecrã de Representatives) -->
+      <div class="rep-block">
+        <h4>{{ 'reps.new.title' | translate }}</h4>
+
+        <div class="form-grid rep-grid">
+          <label>
+            {{ 'reps.new.name' | translate }}
+            <input name="repName" required [(ngModel)]="primaryRep.name" />
+          </label>
+
+          <label>
+            {{ 'reps.new.citizen' | translate }}
+            <input name="repCitizen" required [(ngModel)]="primaryRep.citizenID" />
+          </label>
+
+          <label>
+            {{ 'reps.new.nationality' | translate }}
+            <input name="repNationality" required [(ngModel)]="primaryRep.nationality" />
+          </label>
+
+          <label>
+            {{ 'reps.new.email' | translate }}
+            <input
+              name="repEmail"
+              type="email"
+              required
+              [(ngModel)]="primaryRep.email" />
+          </label>
+
+          <label>
+            {{ 'reps.new.phone' | translate }}
+            <input name="repPhone" required [(ngModel)]="primaryRep.phoneNumber" />
+          </label>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" type="submit" [disabled]="form.invalid">
+          {{ 'orgs.actions.create' | translate }}
+        </button>
+      </div>
+    </form>
+  </section>
+</div>

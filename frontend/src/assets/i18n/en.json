@@ -10,6 +10,7 @@
     "storage_areas": "Storage Areas",
     "resources": "Resources",
     "representatives": "Representatives",
+    "shipping_agents": "Shipping Agents",
     "settings": "Settings"
   },
   "reps": {
@@ -32,9 +33,9 @@
     "new": {
       "title": "New representative",
       "name": "Full name",
-      "citizen": "Document",
-      "nationality": "Country",
-      "email": "name@domain",
+      "citizen": "Citizen ID",
+      "nationality": "Nationality",
+      "email": "Email",
       "phone": "Contact",
       "create": "Create"
     },
@@ -56,6 +57,41 @@
       "deactivate": "Failed to deactivate representative.",
       "delete": "Failed to delete representative."
     }
+  },
+"orgs": {
+  "title": "Shipping Agents",
+  "subtitle": "Register and inspect shipping organizations",
+  "new": {
+    "title": "New Shipping Agent"
+  },
+  "tax": { 
+    "label": "Tax Number", 
+    "placeholder": "e.g. 123456789" 
+  },
+  "fields": {
+    "legalName": "Legal name",
+    "altName": "Alternative name",
+    "type": "Type",
+    "street": "Street",
+    "city": "City",
+    "postal": "Postal code",
+    "country": "Country",
+    "address": "Address",
+    "reps": "Representatives"
+  },
+  "actions": {
+    "load": "Search",
+    "create": "Register"
+  },
+  "noReps": "No representatives on record.",
+  "toasts": {
+    "created": "Shipping agent registered"
+  },
+  "errors": {
+    "taxRequired": "Tax number is required.",
+    "notFound": "No organization with that tax number.",
+    "load": "Failed to load shipping agent.",
+    "create": "Failed to create shipping agent."
+    }
   }
 }
-
