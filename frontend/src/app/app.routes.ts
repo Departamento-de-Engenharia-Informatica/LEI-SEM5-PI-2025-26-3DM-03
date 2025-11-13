@@ -1,4 +1,6 @@
 import { Routes } from '@angular/router';
+import { Cube } from './components/visualization/cube/cube.component';
+import { PortSceneComponent } from './components/visualization/port-scene/port-scene.component';
 import { AuthGuard } from './services/auth/auth.guard';
 
 export const routes: Routes = [
@@ -18,6 +20,11 @@ export const routes: Routes = [
 
   // Login remains public
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
+
+  // Demo route for Three.js cube (standalone component)
+  { path: 'cube', component: Cube },
+  // Port 3D scene
+  { path: 'port', component: PortSceneComponent },
 
   // Fallback wildcard MUST be last
 { path: '**', redirectTo: 'docks' },

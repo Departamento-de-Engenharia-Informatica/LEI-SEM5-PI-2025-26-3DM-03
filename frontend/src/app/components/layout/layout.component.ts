@@ -60,6 +60,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'resources', label_en: 'Resources', label_pt: 'Recursos', icon: 'bi-collection', route: '/resources', roles: ['admin','operator'] },
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
+  // Port 3D
+  { key: 'port3d', label_en: 'Port 3D', label_pt: 'Porto 3D', icon: 'bi-map', route: '/port', roles: ['admin','operator','agent','authority'] },
+    // Three.js demo (accessible to all roles)
+    { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', icon: 'bi-box', route: '/cube', roles: ['admin','operator','agent','authority'] },
     // Admin settings only
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
   ];
