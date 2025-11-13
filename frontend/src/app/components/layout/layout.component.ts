@@ -51,6 +51,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   menuItems: MenuItem[] = [
     // Dashboard open to all roles (admin also implicit)
     { key: 'dashboard', label_en: 'Dashboard', label_pt: 'Painel', icon: 'bi-speedometer2', route: '/dashboard', roles: ['admin','operator','agent','authority'] },
+    { key: 'shipping_agents', label_en: 'Shipping Agents', label_pt: 'Agentes de Navegação', icon: 'bi-building', route: '/shipping-agents', roles: ['admin','authority'] },
     // Vessel & dock management per user stories: Port Authority Officer (authority) + admin
     // Use inline SVG for ship to avoid CDN hiccups rendering 'bi-ship'
     { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '', roles: ['admin','authority'] },
