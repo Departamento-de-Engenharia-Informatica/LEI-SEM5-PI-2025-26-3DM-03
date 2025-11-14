@@ -8,8 +8,10 @@ namespace TodoApi.Models.Vessels
         private static readonly Regex ImoRegex = new(@"^\d{7}$");
 
         /// <summary>
-        /// Validates IMO format: must have exactly 7 numeric digits.
-        /// (Removed check-digit verification to allow standard 7-digit inputs.)
+        /// Validates an IMO number:
+        ///  - Accepts inputs with non-digits (e.g., "IMO 1234567"), uses only digits
+        ///  - Must be exactly 7 digits after cleaning
+        ///  - Enforces check digit per IMO rule: (d1*7 + d2*6 + d3*5 + d4*4 + d5*3 + d6*2) % 10 == d7
         /// </summary>
         public static bool IsValidImo(string imo)
         {
@@ -18,7 +20,19 @@ namespace TodoApi.Models.Vessels
 
             // Keep only digits and check if it has exactly 7
             var digits = new string(imo.Where(char.IsDigit).ToArray());
-            return ImoRegex.IsMatch(digits);
+            if (!ImoRegex.IsMatch(digits)) return false;
+
+            // Check-digit validation
+            int sum = 0;
+            // weights 7,6,5,4,3,2 applied to first 6 digits
+            int[] weights = {7, 6, 5, 4, 3, 2};
+            for (int i = 0; i < 6; i++)
+            {
+                sum += (digits[i] - '0') * weights[i];
+            }
+            int check = sum % 10;
+            int last = digits[6] - '0';
+            return check == last;
         }
 
         public static Vessel ToModel(CreateVesselDTO dto)

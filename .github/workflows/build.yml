@@ -30,8 +30,7 @@ jobs:
 			- name: Build
 				run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
 
-			- name: Test (soft-fail)
-				continue-on-error: true
+			- name: Test
 				run: |
 					dotnet test testes/Domain.Tests/Domain.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=tests.trx" /p:CollectCoverage=true /p:CoverletOutput=../../TestResults/ /p:CoverletOutputFormat=cobertura
 
