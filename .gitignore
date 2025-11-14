@@ -88,7 +88,7 @@ ScaffoldingReadMe.txt
 app.publish/
 
 # Local environment
-Properties/launchSettings.json
+#Properties/launchSettings.json
 
 # ======================================
 # 🔹 NODE.JS / FRONTEND (React, Angular, Vue…)

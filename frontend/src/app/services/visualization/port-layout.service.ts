@@ -2,16 +2,56 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface WaterPatch {
+  width: number;
+  height: number;
+  y: number;
+}
+
+export interface Vector3Lite {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface DockSize {
+  length: number;
+  width: number;
+  height: number;
+}
+
+export interface DockLayout {
+  dockId: number;
+  name: string;
+  position: Vector3Lite;
+  size: DockSize;
+  rotationY: number;
+}
+
+export interface LandAreaLayout {
+  storageAreaId: number;
+  name: string;
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  y: number;
+}
+
+export interface WarehouseLayout {
+  storageAreaId: number;
+  name: string;
+  position: Vector3Lite;
+  size: { width: number; depth: number; height: number };
+  rotationY: number;
+}
+
 export interface PortLayoutDTO {
   units: string;
-  water: { width: number; height: number; y: number };
-  landAreas: { x: number; z: number; width: number; depth: number; y: number }[];
-  docks: {
-    name: string;
-    position: { x: number; y: number; z: number };
-    size: { length: number; width: number; height: number };
-    rotationY: number;
-  }[];
+  water: WaterPatch;
+  landAreas: LandAreaLayout[];
+  docks: DockLayout[];
+  warehouses: WarehouseLayout[];
 }
 
 @Injectable({ providedIn: 'root' })
