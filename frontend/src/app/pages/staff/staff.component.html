@@ -1,0 +1,243 @@
+<div class="page staff">
+  <div class="page-header">
+    <div>
+      <h2>{{ 'staff.title' | translate }}</h2>
+      <p class="muted">{{ 'staff.subtitle' | translate }}</p>
+    </div>
+    <div class="header-actions">
+      <label class="field">
+        <span>{{ 'staff.server.search' | translate }}</span>
+        <input type="text" [(ngModel)]="searchServer" [placeholder]="('staff.server.placeholder' | translate)" />
+      </label>
+      <label class="field">
+        <span>{{ 'staff.server.filter' | translate }}</span>
+        <select [(ngModel)]="serverFilter">
+          <option value="all">{{ 'staff.server.options.all' | translate }}</option>
+          <option value="mecanographic">{{ 'staff.server.options.mecanographic' | translate }}</option>
+          <option value="name">{{ 'staff.server.options.name' | translate }}</option>
+          <option value="status">{{ 'staff.server.options.status' | translate }}</option>
+          <option value="qualification">{{ 'staff.server.options.qualification' | translate }}</option>
+          <option value="active">{{ 'staff.server.options.active' | translate }}</option>
+        </select>
+      </label>
+      <button class="btn-primary" type="button" (click)="load()">
+        <i class="bi bi-arrow-repeat"></i>
+        {{ 'staff.actions.refresh' | translate }}
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="loading" class="loading">{{ 'staff.labels.loading' | translate }}</div>
+  <div *ngIf="!loading && filtered.length === 0" class="alert">
+    {{ 'staff.table.noData' | translate }}
+  </div>
+
+  <div class="toolbar" *ngIf="!loading && staff.length">
+    <div class="search">
+      <i class="bi bi-search"></i>
+      <input type="text" [(ngModel)]="localQuery" (ngModelChange)="applyFilters()" [placeholder]="('staff.filters.quick' | translate)" />
+    </div>
+    <label class="status-filter">
+      <span>{{ 'staff.filters.status' | translate }}</span>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()">
+        <option value="all">{{ 'staff.filters.statusAll' | translate }}</option>
+        <option value="active">{{ 'staff.filters.statusActive' | translate }}</option>
+        <option value="inactive">{{ 'staff.filters.statusInactive' | translate }}</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="card table-card" *ngIf="!loading && filtered.length">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th (click)="changeSort('mecanographicNumber')">
+            {{ 'staff.table.mecanographic' | translate }}
+            <i [class]="sortIconClass('mecanographicNumber')"></i>
+          </th>
+          <th (click)="changeSort('shortName')">
+            {{ 'staff.table.name' | translate }}
+            <i [class]="sortIconClass('shortName')"></i>
+          </th>
+          <th (click)="changeSort('email')">
+            {{ 'staff.table.email' | translate }}
+            <i [class]="sortIconClass('email')"></i>
+          </th>
+          <th (click)="changeSort('phoneNumber')">
+            {{ 'staff.table.phone' | translate }}
+            <i [class]="sortIconClass('phoneNumber')"></i>
+          </th>
+          <th>
+            {{ 'staff.table.window' | translate }}
+          </th>
+          <th (click)="changeSort('status')">
+            {{ 'staff.table.status' | translate }}
+            <i [class]="sortIconClass('status')"></i>
+          </th>
+          <th (click)="changeSort('active')">
+            {{ 'staff.table.active' | translate }}
+            <i [class]="sortIconClass('active')"></i>
+          </th>
+          <th>
+            {{ 'staff.table.qualifications' | translate }}
+          </th>
+          <th>
+            {{ 'staff.table.actions' | translate }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let person of filtered">
+          <td><strong>{{ person.mecanographicNumber }}</strong></td>
+          <td>
+            <div class="name">{{ person.shortName }}</div>
+          </td>
+          <td>
+            <a *ngIf="person.email" [href]="'mailto:' + person.email">{{ person.email }}</a>
+            <span *ngIf="!person.email">—</span>
+          </td>
+          <td>{{ person.phoneNumber || '—' }}</td>
+          <td>{{ formatWindow(person) }}</td>
+          <td>
+            <span class="badge badge-info">{{ person.status || ('staff.labels.unknownStatus' | translate) }}</span>
+          </td>
+          <td>
+            <span class="badge" [class.badge-green]="person.active" [class.badge-gray]="!person.active">
+              {{ person.active ? ('staff.labels.active' | translate) : ('staff.labels.inactive' | translate) }}
+            </span>
+          </td>
+          <td>
+            <ng-container *ngIf="hasQualifications(person); else noQual">
+              <span class="chip" *ngFor="let code of person.qualifications">{{ code }}</span>
+            </ng-container>
+          </td>
+          <td class="actions">
+            <button class="btn-ghost" type="button" (click)="openEdit(person)">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <button
+              class="btn-ghost warn"
+              type="button"
+              *ngIf="person.active"
+              (click)="deactivate(person)"
+              [disabled]="rowBusy.has(person.mecanographicNumber)"
+            >
+              <i class="bi bi-slash-circle"></i>
+            </button>
+            <button
+              class="btn-ghost"
+              type="button"
+              *ngIf="!person.active"
+              (click)="reactivate(person)"
+              [disabled]="rowBusy.has(person.mecanographicNumber)"
+            >
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #noQual>{{ 'staff.labels.noQualifications' | translate }}</ng-template>
+
+  <div class="grid">
+    <section class="card form-card">
+      <h3>{{ 'staff.forms.createTitle' | translate }}</h3>
+      <div class="form-grid">
+        <label>
+          {{ 'staff.forms.mecanographic' | translate }}
+          <input type="text" [(ngModel)]="createForm.mecanographicNumber" />
+        </label>
+        <label>
+          {{ 'staff.forms.shortName' | translate }}
+          <input type="text" [(ngModel)]="createForm.shortName" />
+        </label>
+        <label>
+          {{ 'staff.forms.email' | translate }}
+          <input type="email" [(ngModel)]="createForm.email" />
+        </label>
+        <label>
+          {{ 'staff.forms.phone' | translate }}
+          <input type="text" [(ngModel)]="createForm.phoneNumber" />
+        </label>
+        <label>
+          {{ 'staff.forms.startTime' | translate }}
+          <input type="time" [(ngModel)]="createForm.startTime" />
+        </label>
+        <label>
+          {{ 'staff.forms.endTime' | translate }}
+          <input type="time" [(ngModel)]="createForm.endTime" />
+        </label>
+        <label class="full">
+          {{ 'staff.forms.qualifications' | translate }}
+          <textarea rows="2" [(ngModel)]="createForm.qualifications" [placeholder]="('staff.forms.qualificationsHint' | translate)"></textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" type="button" (click)="create()" [disabled]="creating">
+          <i class="bi bi-plus-circle"></i>
+          {{ 'staff.forms.create' | translate }}
+        </button>
+        <span class="form-error" *ngIf="createError">{{ createError }}</span>
+      </div>
+    </section>
+
+    <section class="card form-card" *ngIf="editing">
+      <div class="section-header">
+        <h3>
+          {{ 'staff.forms.editTitle' | translate }}
+          <small>{{ editing?.mecanographicNumber }}</small>
+        </h3>
+        <button class="btn-ghost" type="button" (click)="closeEdit()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+      <div class="form-grid">
+        <label>
+          {{ 'staff.forms.shortName' | translate }}
+          <input type="text" [(ngModel)]="editForm.shortName" />
+        </label>
+        <label>
+          {{ 'staff.forms.email' | translate }}
+          <input type="email" [(ngModel)]="editForm.email" />
+        </label>
+        <label>
+          {{ 'staff.forms.phone' | translate }}
+          <input type="text" [(ngModel)]="editForm.phoneNumber" />
+        </label>
+        <label>
+          {{ 'staff.forms.status' | translate }}
+          <input type="text" [(ngModel)]="editForm.status" />
+        </label>
+        <label>
+          {{ 'staff.forms.active' | translate }}
+          <select [(ngModel)]="editForm.active">
+            <option [ngValue]="true">{{ 'staff.labels.active' | translate }}</option>
+            <option [ngValue]="false">{{ 'staff.labels.inactive' | translate }}</option>
+          </select>
+        </label>
+        <label>
+          {{ 'staff.forms.startTime' | translate }}
+          <input type="time" [(ngModel)]="editForm.startTime" />
+        </label>
+        <label>
+          {{ 'staff.forms.endTime' | translate }}
+          <input type="time" [(ngModel)]="editForm.endTime" />
+        </label>
+        <label class="full">
+          {{ 'staff.forms.qualifications' | translate }}
+          <textarea rows="3" [(ngModel)]="editForm.qualifications" [placeholder]="('staff.forms.qualificationsHint' | translate)"></textarea>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" type="button" (click)="saveEdit()" [disabled]="saving">
+          <i class="bi bi-save"></i>
+          {{ 'staff.forms.save' | translate }}
+        </button>
+        <button class="btn-ghost" type="button" (click)="closeEdit()">{{ 'staff.forms.cancel' | translate }}</button>
+        <span class="form-error" *ngIf="editError">{{ editError }}</span>
+      </div>
+    </section>
+  </div>
+</div>

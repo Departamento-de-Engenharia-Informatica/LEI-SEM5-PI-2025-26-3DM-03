@@ -97,6 +97,9 @@ builder.Services.AddScoped<TodoApi.Application.Services.ShippingOrganizations.IS
 // ---------- Representatives (Individuals) ----------
 builder.Services.AddScoped<TodoApi.Application.Services.Representatives.IRepresentativeService, TodoApi.Application.Services.Representatives.RepresentativeService>();
 
+// ---------- Visualization / Port Layout ----------
+builder.Services.AddScoped<TodoApi.Application.Services.Visualization.IPortLayoutService, TodoApi.Application.Services.Visualization.PortLayoutService>();
+
 // ---------- Storage Areas ----------
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IStorageAreaRepository, TodoApi.Infrastructure.Repositories.EfStorageAreaRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.StorageAreas.IStorageAreaService, TodoApi.Application.Services.StorageAreas.StorageAreaService>();

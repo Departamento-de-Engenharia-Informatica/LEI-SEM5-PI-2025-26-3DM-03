@@ -9,6 +9,7 @@ export const routes: Routes = [
   { path: 'docks', loadComponent: () => import('./pages/docks/docks.component').then(m => m.DocksComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'storage-areas', loadComponent: () => import('./pages/storage-areas/storage-areas.component').then(m => m.StorageAreasComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'resources', loadComponent: () => import('./pages/resources/resources.component').then(m => m.ResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
+  { path: 'staff', loadComponent: () => import('./pages/staff/staff.component').then(m => m.StaffComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
   { path: 'representatives', loadComponent: () => import('./pages/representatives/representatives.component').then(m => m.RepresentativesComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'shipping-agents', loadComponent: () => import('./pages/shipping-agents/shipping-agents.component').then(m => m.ShippingAgentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },

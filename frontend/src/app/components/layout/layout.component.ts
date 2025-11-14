@@ -59,6 +59,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','authority'] },
     // Resources, staff, qualifications -> Logistics Operator + admin
     { key: 'resources', label_en: 'Resources', label_pt: 'Recursos', icon: 'bi-collection', route: '/resources', roles: ['admin','operator'] },
+    { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
   // Port 3D
