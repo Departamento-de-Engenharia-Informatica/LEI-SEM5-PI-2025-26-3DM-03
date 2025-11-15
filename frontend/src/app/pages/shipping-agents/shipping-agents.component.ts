@@ -73,48 +73,53 @@ export class ShippingAgentsComponent {
   // ============ CREATE ORG + PRIMARY REP ============
 
   async create() {
-    if (!this.newOrg.taxNumber) {
-      this.error = this.i18n.t('orgs.errors.taxRequired');
-      return;
-    }
-
-    // validação simples do representante obrigatório
-    if (!this.primaryRep.name || !this.primaryRep.email) {
-      this.error = this.i18n.t('reps.errors.create'); // já existe no i18n
-      return;
-    }
-
-    this.error = null;
-
-    // DTO que vamos enviar para o backend:
-    const dto: CreateShippingAgentDTO = {
-      ...this.newOrg,
-      representatives: [
-        {
-          ...this.primaryRep,
-          // valores que o backend normalmente ignora/substitui,
-          // mas são obrigatórios no DTO
-          id: 0,
-          isActive: true
-        }
-      ]
-    };
-
-    try {
-      const created = await this.svc.create(dto);
-      this.organization = created;
-      this.toast.success(this.i18n.t('orgs.toasts.created'));
-
-      // reset do formulário
-      this.newOrg = this.buildEmptyOrg();
-      this.primaryRep = this.buildEmptyRep();
-    } catch (e: any) {
-      this.error = e?.message || this.i18n.t('orgs.errors.create');
-    } finally {
-      try { this.cdr.detectChanges(); } catch {}
-    }
+  if (!this.newOrg.taxNumber) {
+    this.error = this.i18n.t('orgs.errors.taxRequired');
+    return;
   }
 
+  // validação simples do representante obrigatório
+  if (!this.primaryRep.name || !this.primaryRep.email) {
+    this.error = this.i18n.t('reps.errors.create'); // já existe no i18n
+    return;
+  }
+
+  this.error = null;
+
+  // DTO que vamos enviar para o backend:
+  const dto: CreateShippingAgentDTO = {
+    ...this.newOrg,
+    representatives: [
+      {
+        ...this.primaryRep,
+        // valores que o backend normalmente ignora/substitui,
+        // mas são obrigatórios no DTO
+        id: 0,
+        isActive: true
+      }
+    ]
+  };
+
+  try {
+    const created = await this.svc.create(dto);
+    this.organization = created;
+    this.toast.success(this.i18n.t('orgs.toasts.created'));
+
+    // reset do formulário
+    this.newOrg = this.buildEmptyOrg();
+    this.primaryRep = this.buildEmptyRep();
+  } catch (e: any) {
+    if (e?.message === 'DUPLICATE_TAX') {
+      // NIF já existe
+      this.error = this.i18n.t('orgs.errors.taxExists');
+    } else {
+      // erro genérico de criação
+      this.error = this.i18n.t('orgs.errors.create');
+    }
+  } finally {
+    try { this.cdr.detectChanges(); } catch {}
+  }
+}
   // ============ HELPERS ============
 
   formatAddress(org: ShippingAgentDTO | null) {
