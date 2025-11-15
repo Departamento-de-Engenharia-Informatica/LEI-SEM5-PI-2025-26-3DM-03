@@ -57,7 +57,17 @@ export class ShippingAgentsService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dto)
     });
-    if (!res.ok) throw new Error(await res.text());
+
+    if (!res.ok) {
+      // 409 = tax number já existe (assumindo que o backend devolve este código)
+      if (res.status === 409) {
+        throw new Error('DUPLICATE_TAX');
+      }
+
+      // restante: erro genérico de criação
+      throw new Error('CREATE_FAILED');
+    }
+
     return (await res.json()) as ShippingAgentDTO;
   }
 }

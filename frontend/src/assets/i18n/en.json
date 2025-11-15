@@ -94,49 +94,105 @@
     }
   },
   "reps": {
-    "title": "Representatives",
-    "subtitle": "Manage representatives of a Shipping Agent",
-    "search": "Search by name, email…",
-    "noData": "No representatives for this agent.",
-    "agent": { "tax": "Agent Tax Number", "example": "e.g. 500123456" },
-    "load": "Load",
-    "table": {
-      "name": "Name",
-      "citizen": "Citizen ID",
-      "nationality": "Nationality",
-      "email": "Email",
-      "phone": "Phone",
-      "status": "Status",
-      "actions": "Actions"
-    },
-    "status": { "active": "Active", "inactive": "Inactive" },
-    "new": {
-      "title": "New representative",
-      "name": "Full name",
-      "citizen": "Citizen ID",
-      "nationality": "Nationality",
-      "email": "Email",
-      "phone": "Contact",
-      "create": "Create"
-    },
-    "edit": {
-      "title": "Edit representative",
-      "save": "Save",
-      "cancel": "Cancel"
-    },
-    "toasts": {
-      "created": "Representative created",
-      "updated": "Representative updated",
-      "deactivated": "Representative deactivated",
-      "deleted": "Representative deleted"
-    },
-    "errors": {
-      "load": "Failed to load representatives — check API and Tax Number.",
-      "create": "Failed to create representative.",
-      "update": "Failed to update representative.",
-      "deactivate": "Failed to deactivate representative.",
-      "delete": "Failed to delete representative."
-    }
+  "title": "Representatives",
+  "subtitle": "Manage representatives of a Shipping Agent",
+  "search": "Search by name, email...",
+  "noData": "No representatives for this agent.",
+  "loading": "Loading...",
+  "agent": {
+    "tax": "Agent Tax Number",
+    "example": "e.g. 500123456"
+  },
+  "load": "Load",
+  "table": {
+    "name": "Name",
+    "citizen": "Citizen ID",
+    "nationality": "Nationality",
+    "email": "Email",
+    "phone": "Phone",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "new": {
+    "title": "New representative",
+    "name": "Full name",
+    "citizen": "Citizen ID",
+    "nationality": "Nationality",
+    "email": "Email",
+    "phone": "Contact",
+    "create": "Create"
+  },
+  "edit": {
+    "title": "Edit representative",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "toasts": {
+    "created": "Representative created",
+    "updated": "Representative updated",
+    "deactivated": "Representative deactivated",
+    "deleted": "Representative deleted"
+  },
+  "errors": {
+    "agentTaxRequired": "Please enter the Agent Tax Number.",
+    "load": "Failed to load representatives — check if the API is running and the tax number exists.",
+    "create": "Failed to create representative.",
+    "update": "Failed to update representative.",
+    "deactivate": "Failed to deactivate representative.",
+    "delete": "Failed to delete representative.",
+    "invalidData": "Invalid data."
+  },
+  "confirm": {
+    "deactivate": "Deactivate this representative?",
+    "delete": "Delete this representative?"
   }
+},
+"orgs": {
+  "title": "Shipping Agents",
+  "subtitle": "Register and inspect shipping organizations",
+
+  "new": {
+    "title": "New Shipping Agent"
+  },
+
+  "tax": {
+    "label": "Tax Number",
+    "placeholder": "e.g. 500123456"
+  },
+
+  "fields": {
+    "legalName": "Legal name",
+    "altName": "Alternative name",
+    "type": "Type",
+    "street": "Street",
+    "city": "City",
+    "postal": "Postal code",
+    "country": "Country",
+    "address": "Address",
+    "reps": "Representatives"
+  },
+
+  "actions": {
+    "load": "Search",
+    "create": "Register"
+  },
+
+  "noReps": "No representatives on record.",
+  "toasts": {
+    "created": "Shipping agent registered"
+  },
+
+  "errors": {
+    "taxRequired": "Tax number is required.",
+    "taxExists": "A shipping agent with this tax number already exists.",
+    "notFound": "No organization with that tax number.",
+    "load": "Failed to load shipping agent.",
+    "create": "Failed to create shipping agent."
+  }
+}
 }
 

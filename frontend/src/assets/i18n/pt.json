@@ -94,51 +94,64 @@
     }
   },
   "reps": {
-    "title": "Representantes",
-    "subtitle": "Gerir representantes de um Agente de Navegação",
-    "search": "Pesquisar por nome, email…",
-    "noData": "Sem representantes para este agente.",
-    "agent": { "tax": "NIF do Agente", "example": "ex: 500123456" },
-    "load": "Carregar",
-    "table": {
-      "name": "Nome",
-      "citizen": "ID Cidadão",
-      "nationality": "Nacionalidade",
-      "email": "Email",
-      "phone": "Telefone",
-      "status": "Estado",
-      "actions": "Ações"
-    },
-    "status": { "active": "Ativo", "inactive": "Inativo" },
-    "new": {
-      "title": "Novo representante",
-      "name": "Nome completo",
-      "citizen": "ID Cidadão",
-      "nationality": "Nacionalidade",
-      "email": "Email",
-      "phone": "Contacto",
-      "create": "Criar"
-    },
-    "edit": {
-      "title": "Editar representante",
-      "save": "Guardar",
-      "cancel": "Cancelar"
-    },
-    "toasts": {
-      "created": "Representante criado",
-      "updated": "Representante atualizado",
-      "deactivated": "Representante desativado",
-      "deleted": "Representante eliminado"
-    },
-    "errors": {
-      "load": "Erro ao carregar representantes — verifica API e NIF.",
-      "create": "Erro ao criar representante.",
-      "update": "Erro ao atualizar representante.",
-      "deactivate": "Erro ao desativar representante.",
-    "delete": "Erro ao eliminar representante."
-    }
+  "title": "Representantes",
+  "subtitle": "Gerir representantes de um Agente de Navegação",
+  "search": "Pesquisar por nome, email…",
+  "noData": "Sem representantes para este agente.",
+  "loading": "A carregar…",
+  "agent": {
+    "tax": "NIF do Agente",
+    "example": "ex: 500123456"
   },
-  "orgs": {
+  "load": "Carregar",
+  "table": {
+    "name": "Nome",
+    "citizen": "ID Cidadão",
+    "nationality": "Nacionalidade",
+    "email": "Email",
+    "phone": "Telefone",
+    "status": "Estado",
+    "actions": "Ações"
+  },
+  "status": {
+    "active": "Ativo",
+    "inactive": "Inativo"
+  },
+  "new": {
+    "title": "Novo representante",
+    "name": "Nome completo",
+    "citizen": "Documento de Identificação",
+    "nationality": "Nacionalidade",
+    "email": "Email",
+    "phone": "Contacto",
+    "create": "Criar"
+  },
+  "edit": {
+    "title": "Editar representante",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "toasts": {
+    "created": "Representante criado",
+    "updated": "Representante atualizado",
+    "deactivated": "Representante desativado",
+    "deleted": "Representante eliminado"
+  },
+  "errors": {
+    "agentTaxRequired": "Insere o NIF do Agente.",
+    "load": "Erro ao carregar representantes — verifica se a API está a correr e se o NIF existe.",
+    "create": "Erro ao criar representante.",
+    "update": "Erro ao atualizar representante.",
+    "deactivate": "Erro ao desativar representante.",
+    "delete": "Erro ao eliminar representante.",
+    "invalidData": "Dados inválidos."
+  },
+  "confirm": {
+    "deactivate": "Desativar este representante?",
+    "delete": "Eliminar este representante?"
+  }
+},
+"orgs": {
   "title": "Agentes de Navegação",
   "subtitle": "Registar e inspecionar organizações de navegação",
 
@@ -146,7 +159,11 @@
     "title": "Novo Agente de Navegação"
   },
 
-  "tax": { "label": "Número de Identificação Fiscal", "placeholder": "ex: 123456789" },
+  "tax": {
+    "label": "Número de Identificação Fiscal",
+    "placeholder": "ex: 123456789"
+  },
+
   "fields": {
     "legalName": "Nome legal",
     "altName": "Nome alternativo",
@@ -158,14 +175,23 @@
     "address": "Endereço",
     "reps": "Representantes"
   },
-  "actions": { "load": "Pesquisar", "create": "Registar" },
+
+  "actions": {
+    "load": "Pesquisar",
+    "create": "Registar"
+  },
+
   "noReps": "Sem representantes registados.",
-  "toasts": { "created": "Agente de navegação registado" },
+  "toasts": {
+    "created": "Agente de navegação registado"
+  },
+
   "errors": {
     "taxRequired": "Número de Identificação Fiscal é obrigatório.",
+    "taxExists": "Já existe um agente de navegação com esse Número de Identificação Fiscal.",
     "notFound": "Nenhuma organização com esse número de identificação fiscal.",
     "load": "Falha ao carregar agente de navegação.",
     "create": "Falha ao criar agente de navegação."
-    }
   }
+}
 }

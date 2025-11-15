@@ -32,30 +32,53 @@ export class RepresentativesComponent implements OnInit {
   sortDir: 'asc' | 'desc' = 'asc';
 
   // Create/edit
-  newRep: CreateRepresentativeDTO = { name: '', citizenID: '', nationality: '', email: '', phoneNumber: '' };
+  newRep: CreateRepresentativeDTO = {
+    name: '',
+    citizenID: '',
+    nationality: '',
+    email: '',
+    phoneNumber: ''
+  };
+
   editing: (UpdateRepresentativeDTO & { id: number }) | null = null;
 
-  constructor(private svc: RepresentativesService, private cdr: ChangeDetectorRef, private toast: ToastService, private i18n: TranslationService) {}
+  constructor(
+    private svc: RepresentativesService,
+    private cdr: ChangeDetectorRef,
+    private toast: ToastService,
+    private i18n: TranslationService
+  ) {}
 
-  async ngOnInit() {}
+  ngOnInit() {}
+
+  // ========= LOAD =========
 
   async load() {
-    if (!this.taxNumber) { this.error = 'Insira o NIF do Agente.'; return; }
-    this.loading = true; this.error = null;
+    if (!this.taxNumber) {
+      this.error = this.i18n.t('reps.errors.agentTaxRequired');
+      return;
+    }
+    this.loading = true;
+    this.error = null;
     try {
       this.reps = await this.svc.getAll(this.taxNumber);
       this.applyFilterSort();
     } catch (e: any) {
-      this.error = (e?.message || 'Erro ao carregar representantes') + ' — verifica se a API está a correr e o NIF existe.';
+      this.error = e?.message || this.i18n.t('reps.errors.load');
     } finally {
       this.loading = false;
-      try { this.cdr.detectChanges(); } catch {}
+      try {
+        this.cdr.detectChanges();
+      } catch {}
     }
   }
+
+  // ========= FILTER + SORT =========
 
   applyFilterSort() {
     const q = this.q.trim().toLowerCase();
     let arr = this.reps.slice();
+
     if (q) {
       arr = arr.filter(r =>
         (r.name ?? '').toLowerCase().includes(q) ||
@@ -65,34 +88,53 @@ export class RepresentativesComponent implements OnInit {
         (r.phoneNumber ?? '').toLowerCase().includes(q)
       );
     }
+
     const dir = this.sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
       const va = (a[this.sortKey] as any) ?? '';
       const vb = (b[this.sortKey] as any) ?? '';
-      if (typeof va === 'boolean' && typeof vb === 'boolean') return (Number(va) - Number(vb)) * dir;
+      if (typeof va === 'boolean' && typeof vb === 'boolean') {
+        return (Number(va) - Number(vb)) * dir;
+      }
       return String(va).localeCompare(String(vb)) * dir;
     });
+
     this.filtered = arr;
   }
 
   changeSort(k: SortKey) {
-    if (this.sortKey === k) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-    else { this.sortKey = k; this.sortDir = 'asc'; }
+    if (this.sortKey === k) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortKey = k;
+      this.sortDir = 'asc';
+    }
     this.applyFilterSort();
   }
 
+  // ========= CREATE =========
+
   async create() {
-    if (!this.taxNumber) { this.error = 'Insira o NIF do Agente.'; return; }
+    if (!this.taxNumber) {
+      this.error = this.i18n.t('reps.errors.agentTaxRequired');
+      return;
+    }
     this.error = null;
     try {
       const created = await this.svc.create(this.taxNumber, this.newRep);
       this.reps.unshift(created);
       this.applyFilterSort();
       this.newRep = { name: '', citizenID: '', nationality: '', email: '', phoneNumber: '' };
-      try { this.cdr.detectChanges(); } catch {}
+      try {
+        this.cdr.detectChanges();
+      } catch {}
       this.toast.success(this.i18n.t('reps.toasts.created'));
-    } catch (e: any) { this.error = e?.message || 'Erro ao criar representante'; }
+    } catch (e: any) {
+      this.error = e?.message || this.i18n.t('reps.errors.create');
+    }
   }
+
+  // ========= EDIT =========
 
   openEdit(r: RepresentativeDTO) {
     this.editing = {
@@ -105,17 +147,26 @@ export class RepresentativesComponent implements OnInit {
       isActive: r.isActive
     };
   }
-  closeEdit() { this.editing = null; }
+
+  closeEdit() {
+    this.editing = null;
+  }
 
   async saveEdit() {
-    if (!this.editing) { this.error = 'Dados inválidos.'; return; }
+    if (!this.editing) {
+      this.error = this.i18n.t('reps.errors.invalidData');
+      return;
+    }
     const tax = this.taxNumber;
-    if (!tax) { this.error = 'Insira o NIF do Agente.'; return; }
+    if (!tax) {
+      this.error = this.i18n.t('reps.errors.agentTaxRequired');
+      return;
+    }
     this.error = null;
 
-    // Otimista: aplica alterações localmente antes do PUT
     const idx = this.reps.findIndex(x => x.id === this.editing!.id);
     const prev = idx >= 0 ? { ...this.reps[idx] } : null;
+
     if (idx >= 0) {
       this.reps[idx] = {
         ...this.reps[idx],
@@ -127,7 +178,9 @@ export class RepresentativesComponent implements OnInit {
         isActive: this.editing.isActive
       } as RepresentativeDTO;
       this.applyFilterSort();
-      try { this.cdr.detectChanges(); } catch {}
+      try {
+        this.cdr.detectChanges();
+      } catch {}
     }
 
     try {
@@ -142,48 +195,66 @@ export class RepresentativesComponent implements OnInit {
       if (idx >= 0) this.reps[idx] = updated;
       this.applyFilterSort();
       this.closeEdit();
-      try { this.cdr.detectChanges(); } catch {}
+      try {
+        this.cdr.detectChanges();
+      } catch {}
       this.toast.success(this.i18n.t('reps.toasts.updated'));
     } catch (e: any) {
-      // rollback
       if (idx >= 0 && prev) this.reps[idx] = prev;
       this.applyFilterSort();
-      try { this.cdr.detectChanges(); } catch {}
-      this.error = e?.message || 'Erro ao atualizar representante';
+      try {
+        this.cdr.detectChanges();
+      } catch {}
+      this.error = e?.message || this.i18n.t('reps.errors.update');
     }
   }
 
+  // ========= DEACTIVATE =========
+
   async deactivate(r: RepresentativeDTO) {
     if (!this.taxNumber) return;
-    if (!confirm('Desativar este representante?')) return;
+    if (!confirm(this.i18n.t('reps.confirm.deactivate'))) return;
+
     this.error = null;
     const idx = this.reps.findIndex(x => x.id === r.id);
     const prev = r.isActive;
-    if (idx >= 0) this.reps[idx].isActive = false; // otimista
+
+    if (idx >= 0) this.reps[idx].isActive = false;
     this.applyFilterSort();
-    try { this.cdr.detectChanges(); } catch {}
+    try {
+      this.cdr.detectChanges();
+    } catch {}
+
     try {
       await this.svc.deactivate(this.taxNumber, r.id);
       this.toast.success(this.i18n.t('reps.toasts.deactivated'));
     } catch (e: any) {
-      // rollback visual
       if (idx >= 0) this.reps[idx].isActive = prev;
       this.applyFilterSort();
-      try { this.cdr.detectChanges(); } catch {}
-      this.error = e?.message || 'Erro ao desativar representante';
+      try {
+        this.cdr.detectChanges();
+      } catch {}
+      this.error = e?.message || this.i18n.t('reps.errors.deactivate');
     }
   }
 
+  // ========= DELETE =========
+
   async remove(r: RepresentativeDTO) {
     if (!this.taxNumber) return;
-    if (!confirm('Eliminar este representante?')) return;
+    if (!confirm(this.i18n.t('reps.confirm.delete'))) return;
+
     this.error = null;
     try {
       await this.svc.delete(this.taxNumber, r.id);
       this.reps = this.reps.filter(x => x.id !== r.id);
       this.applyFilterSort();
-      try { this.cdr.detectChanges(); } catch {}
+      try {
+        this.cdr.detectChanges();
+      } catch {}
       this.toast.success(this.i18n.t('reps.toasts.deleted'));
-    } catch (e: any) { this.error = e?.message || 'Erro ao eliminar representante'; }
+    } catch (e: any) {
+      this.error = e?.message || this.i18n.t('reps.errors.delete');
+    }
   }
 }
