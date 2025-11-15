@@ -119,9 +119,9 @@ jobs:
       packages: write
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ toLower(github.repository) }}-todoapi
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_repo: ${{ steps.image.outputs.image }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -140,6 +140,15 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute lowercase image repo
+        id: image
+        shell: bash
+        run: |
+          REPO_LC="${GITHUB_REPOSITORY,,}"
+          IMAGE="ghcr.io/${REPO_LC}-todoapi"
+          echo "repo_lc=$REPO_LC" >> "$GITHUB_OUTPUT"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Compute image tag
         id: meta
@@ -162,12 +171,12 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/${{ toLower(github.repository) }}-todoapi:${{ steps.meta.outputs.image_tag }}
-            ghcr.io/${{ toLower(github.repository) }}-todoapi:latest
+            ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.image.outputs.image }}:latest
 
       - name: Smoke test container
         run: |
-          docker run -d --name todoapi -p 8080:8080 -e DISABLE_OIDC=true ghcr.io/${{ toLower(github.repository) }}-todoapi:${{ steps.meta.outputs.image_tag }}
+          docker run -d --name todoapi -p 8080:8080 -e DISABLE_OIDC=true ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
           echo "Waiting for app to start..."
           sleep 10
           curl --fail http://localhost:8080/WeatherForecast || (echo "Smoke test failed" && exit 1)
@@ -190,7 +199,7 @@ jobs:
       - name: Prepare variables
         id: prep
         run: |
-          IMAGE="ghcr.io/${{ toLower(github.repository) }}-todoapi:${{ needs.containerize.outputs.image_tag }}"
+          IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "host=${{ inputs.deiHost }}" >> $GITHUB_OUTPUT
           echo "user=${{ inputs.deiUser }}" >> $GITHUB_OUTPUT
@@ -233,5 +242,5 @@ jobs:
         run: |
           echo "Deployment pipeline completed.";
           echo "Tests & coverage archived as artifacts.";
-          echo "Image published to ghcr.io/${{ toLower(github.repository) }}-todoapi:latest";
+          echo "Image published to ${{ needs.containerize.outputs.image_repo }}:latest";
           echo "If deploy-to-dei was enabled, the DEI VM should now run the new container.";

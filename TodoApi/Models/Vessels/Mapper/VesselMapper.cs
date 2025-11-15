@@ -1,11 +1,9 @@
-using System.Text.RegularExpressions;
-
 namespace TodoApi.Models.Vessels
 {
     public static class VesselMapper
     {
-        // Regex simples: apenas 7 dígitos
-        private static readonly Regex ImoRegex = new(@"^\d{7}$");
+        // Pesos 7..2 usados no calculo do digito verificador
+        private static readonly int[] ImoWeights = { 7, 6, 5, 4, 3, 2 };
 
         /// <summary>
         /// Validates an IMO number:
@@ -18,21 +16,32 @@ namespace TodoApi.Models.Vessels
             if (string.IsNullOrWhiteSpace(imo))
                 return false;
 
-            // Keep only digits and check if it has exactly 7
-            var digits = new string(imo.Where(char.IsDigit).ToArray());
-            if (!ImoRegex.IsMatch(digits)) return false;
+            Span<int> digits = stackalloc int[7];
+            var digitCount = 0;
+
+            foreach (var ch in imo)
+            {
+                if (!char.IsDigit(ch)) continue;
+
+                if (digitCount >= digits.Length)
+                    return false;
+
+                digits[digitCount++] = ch - '0';
+            }
+
+            if (digitCount != digits.Length)
+                return false;
 
             // Check-digit validation
-            int sum = 0;
-            // weights 7,6,5,4,3,2 applied to first 6 digits
-            int[] weights = {7, 6, 5, 4, 3, 2};
-            for (int i = 0; i < 6; i++)
+            var sum = 0;
+            for (var i = 0; i < ImoWeights.Length; i++)
             {
-                sum += (digits[i] - '0') * weights[i];
+                sum += digits[i] * ImoWeights[i];
             }
-            int check = sum % 10;
-            int last = digits[6] - '0';
-            return check == last;
+
+            var checkDigit = sum % 10;
+            var lastDigit = digits[digits.Length - 1];
+            return checkDigit == lastDigit;
         }
 
         public static Vessel ToModel(CreateVesselDTO dto)
