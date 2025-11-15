@@ -22,7 +22,8 @@ jobs:
       #  - schedule */15 -> incremental
       #  - workflow_dispatch 'verify' -> full (fresh artifact for verification)
       #  - workflow_dispatch 'full'/'incremental' -> as requested
-      BACKUP_KIND: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * *') && 'full' || github.event_name == 'schedule' && (github.event.schedule != '0 2 * * *') && 'incremental' || (github.event_name == 'workflow_dispatch' && (inputs.kind == 'verify') && 'full') || (github.event_name == 'workflow_dispatch' && inputs.kind) || 'full' }}
+      # Simplified: GitHub does not expose which cron fired; choose input when dispatch, else 'full'.
+      BACKUP_KIND: ${{ (github.event_name == 'workflow_dispatch' && inputs.kind) || 'full' }}
       BACKUP_OUT: backup_out
       DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
       DB_TYPE: postgres
@@ -31,7 +32,7 @@ jobs:
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
       HAS_DB: ${{ secrets.DB_CONNECTION != '' && 'true' || 'false' }}
-      USE_EPHEMERAL: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' && 'true' || 'false' }}
+      USE_EPHEMERAL: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,7 +121,7 @@ SQL
             --overwrite true
 
   verify-restore:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.kind == 'verify') || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' }}
     needs: backup
     runs-on: ubuntu-latest
     env:

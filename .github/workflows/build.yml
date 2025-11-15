@@ -1,72 +1,72 @@
 name: CI Build
 
 on:
-	push:
-		branches: [ main ]
-		paths:
-			- '**/*.cs'
-			- '**/*.csproj'
-			- 'frontend/**'
-			- '.github/workflows/build.yml'
-	pull_request:
-		branches: [ main ]
-	workflow_dispatch: {}
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.cs'
+      - '**/*.csproj'
+      - 'frontend/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
 
 jobs:
-	backend:
-		runs-on: ubuntu-latest
-		steps:
-			- name: Checkout
-				uses: actions/checkout@v4
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-			- name: Setup .NET
-				uses: actions/setup-dotnet@v4
-				with:
-					dotnet-version: '8.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
 
-			- name: Restore
-				run: dotnet restore LEI-SEM5-PI-2025-26-3DM-03.sln
+      - name: Restore
+        run: dotnet restore LEI-SEM5-PI-2025-26-3DM-03.sln
 
-			- name: Build
-				run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
+      - name: Build
+        run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
 
-			- name: Test
-				run: |
-					dotnet test testes/Domain.Tests/Domain.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=tests.trx" /p:CollectCoverage=true /p:CoverletOutput=../../TestResults/ /p:CoverletOutputFormat=cobertura
+      - name: Test
+        run: |
+          dotnet test testes/Domain.Tests/Domain.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=tests.trx" /p:CollectCoverage=true /p:CoverletOutput=../../TestResults/ /p:CoverletOutputFormat=cobertura
 
-			- name: Upload test results
-				if: always()
-				uses: actions/upload-artifact@v4
-				with:
-					name: backend-test-results
-					path: |
-						**/TestResults/*.trx
-						**/TestResults/*.xml
-					retention-days: 14
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: |
+            **/TestResults/*.trx
+            **/TestResults/*.xml
+          retention-days: 14
 
-	frontend:
-		runs-on: ubuntu-latest
-		defaults:
-			run:
-				working-directory: frontend
-		steps:
-			- name: Checkout
-				uses: actions/checkout@v4
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-			- name: Setup Node
-				uses: actions/setup-node@v4
-				with:
-					node-version: '20'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-			- name: Install dependencies (clean)
-				run: npm ci
+      - name: Install dependencies (clean)
+        run: npm ci
 
-			- name: Build (development configuration to avoid prod budgets)
-				run: npx ng build --configuration development
+      - name: Build (development configuration to avoid prod budgets)
+        run: npx ng build --configuration development
 
-			- name: Upload dist
-				uses: actions/upload-artifact@v4
-				with:
-					name: frontend-dist
-					path: frontend/dist
-					retention-days: 7
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 7
