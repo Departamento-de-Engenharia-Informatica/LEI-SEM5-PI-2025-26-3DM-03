@@ -1,11 +1,14 @@
-import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as THREE from 'three';
 import {
   DockLayout,
   LandAreaLayout,
+  DockMaterialDTO,
   PortLayoutDTO,
   PortLayoutService,
+  SurfaceMaterialDTO,
+  ProceduralTextureDescriptor,
 } from '../../../services/visualization/port-layout.service';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -14,6 +17,22 @@ type VesselPalette = {
   deck: number;
   accent: number;
   cabin: number;
+};
+
+type DockBandInfo = {
+  quayWidth: number;
+  roadWidth: number;
+  bufferWidth: number;
+  quayZ: number;
+  bufferZ: number;
+  roadZ: number;
+};
+
+type DockMaterialSet = {
+  top: THREE.MeshStandardMaterial;
+  side: THREE.MeshStandardMaterial;
+  bottom: THREE.MeshStandardMaterial;
+  trim: THREE.MeshStandardMaterial;
 };
 
 @Component({
@@ -38,6 +57,8 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private waterGeom?: THREE.PlaneGeometry;
   private waterBase?: Float32Array;
   private clock = new THREE.Clock();
+  private generatedMaterials: THREE.Material[] = [];
+  private generatedTextures: THREE.Texture[] = [];
   private readonly showDebugHelpers = false;
   private readonly containerPalette: number[] = [
     0xff6b6b,
@@ -107,6 +128,26 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private readonly lightEmissiveMaterial = new THREE.MeshBasicMaterial({
     color: 0xfff6bf,
   });
+  private readonly serviceRoadMaterial = new THREE.MeshStandardMaterial({
+    color: 0x424a55,
+    roughness: 0.78,
+    metalness: 0.18,
+  });
+  private readonly bufferMaterial = new THREE.MeshStandardMaterial({
+    color: 0xb3bac3,
+    roughness: 0.88,
+    metalness: 0.05,
+  });
+  private readonly guardRailMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf4f5f7,
+    roughness: 0.4,
+    metalness: 0.2,
+  });
+  private readonly roadStripeMaterial = new THREE.MeshBasicMaterial({
+    color: 0xfdfdfd,
+    transparent: true,
+    opacity: 0.7,
+  });
   private readonly vesselPalettes: VesselPalette[] = [
     { hull: 0x10375c, deck: 0xf4f8ff, accent: 0xff595e, cabin: 0xd8e2f1 },
     { hull: 0x0b4f6c, deck: 0xf5f0e1, accent: 0xf4a259, cabin: 0xffffff },
@@ -141,6 +182,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.poleHeadGeometry.dispose();
     this.poleMaterial.dispose();
     this.lightEmissiveMaterial.dispose();
+    this.serviceRoadMaterial.dispose();
+    this.bufferMaterial.dispose();
+    this.guardRailMaterial.dispose();
+    this.roadStripeMaterial.dispose();
+    this.resetGeneratedAssets();
   }
 
   private get canvas(): HTMLCanvasElement {
@@ -190,7 +236,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   sunDisk.position.copy(dir.position).setLength(3600);
     this.scene.add(sunDisk);
 
-  // Luz secundária suave para preencher sombras
+  // Luz secundÃ¡ria suave para preencher sombras
   const fill = new THREE.DirectionalLight(0xffffff, 0.25);
   fill.position.set(1200, 700, -800);
   this.scene.add(fill);
@@ -212,13 +258,14 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     console.log('[PortScene] layout recebido', layout);
     const sceneLayout = this.hasSceneContent(layout) ? layout : this.createDemoLayout();
     if (sceneLayout !== layout) {
-      console.info('[PortScene] usando layout demonstrativo enquanto não existem dados reais');
+      console.info('[PortScene] usando layout demonstrativo enquanto nÃ£o existem dados reais');
     }
+    this.resetGeneratedAssets();
     this.addBackdropElements(sceneLayout);
     // CENA BASE
     // ----------
 
-    // --- ÁGUA (com ondulação) ---
+    // --- ÃGUA (com ondulaÃ§Ã£o) ---
     const segs = 200;
     this.waterGeom = new THREE.PlaneGeometry(sceneLayout.water.width, sceneLayout.water.height, segs, segs);
     this.waterBase = (this.waterGeom.attributes['position'].array as Float32Array).slice(0);
@@ -245,26 +292,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.scene.add(water);
 
     // --- MATERIAIS DE BETÃO / ASFALTO ---
-    const dockTopMat = new THREE.MeshStandardMaterial({
-      color: 0xd9d9d9,
-      roughness: 0.92,
-      metalness: 0.02,
-    });
-
-    const dockSideMat = new THREE.MeshStandardMaterial({
-      color: 0xaaaaaf,
-      roughness: 0.92,
-      metalness: 0.03,
-    });
-
-    const dockBottomMat = new THREE.MeshStandardMaterial({
-      color: 0x7c8088,
-      roughness: 1.0,
-      metalness: 0.0,
-    });
+    const dockMaterialSet = this.createDockMaterialSet(sceneLayout.materials?.dock);
 
     const yardTopMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e2e2, // “asfalto” mais claro
+      color: 0xe2e2e2, // â€œasfaltoâ€ mais claro
       roughness: 0.94,
       metalness: 0.02,
     });
@@ -291,16 +322,16 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       metalness: 0.01,
     });
 
-    // 1) ZONAS DE TERRA (yards / “porto em si”, ainda sem contentores)
+    // 1) ZONAS DE TERRA (yards / â€œporto em siâ€, ainda sem contentores)
     // ---------------------------------------------------------------
     for (const a of sceneLayout.landAreas) {
-      const height = 6; // espessura da placa de betão/asfalto
+      const height = 6; // espessura da placa de betÃ£o/asfalto
       const geo = new THREE.BoxGeometry(a.width, height, a.depth);
       const mats: THREE.Material[] = [
         yardSideMat,  // +x
         yardSideMat,  // -x
         yardTopMat,   // +y (topo)
-        dockBottomMat, // -y
+        dockMaterialSet.bottom, // -y
         yardSideMat,  // +z
         yardSideMat,  // -z
       ];
@@ -314,7 +345,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.addYardLighting(a, a.y + height);
     }
 
-    // 2.b) Armazéns (StorageAreaType.Warehouse -> volumes fechados)
+    // 2.b) ArmazÃ©ns (StorageAreaType.Warehouse -> volumes fechados)
     for (const w of sceneLayout.warehouses ?? []) {
       const geo = new THREE.BoxGeometry(w.size.width, w.size.height, w.size.depth);
       const mats: THREE.Material[] = [
@@ -334,7 +365,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(mesh);
     }
 
-    // 2) CAIS PRINCIPAIS (docks junto à água)
+    // 2) CAIS PRINCIPAIS (docks junto Ã  Ã¡gua)
     // --------------------------------------
     let firstDockCenter: THREE.Vector3 | null = null;
 
@@ -342,12 +373,12 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       const geo = new THREE.BoxGeometry(d.size.length, d.size.height, d.size.width);
       // Ordem das faces: +x, -x, +y (topo), -y (baixo), +z, -z
       const mats: THREE.Material[] = [
-        dockSideMat,
-        dockSideMat,
-        dockTopMat,
-        dockBottomMat,
-        dockSideMat,
-        dockSideMat,
+        dockMaterialSet.side,
+        dockMaterialSet.side,
+        dockMaterialSet.top,
+        dockMaterialSet.bottom,
+        dockMaterialSet.side,
+        dockMaterialSet.side,
       ];
 
       const mesh = new THREE.Mesh(geo, mats);
@@ -358,12 +389,12 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(mesh);
       this.addCranesForDock(d);
 
-      // Guardar centro do primeiro cais para apontar a câmara
+      // Guardar centro do primeiro cais para apontar a cÃ¢mara
       if (!firstDockCenter) {
         firstDockCenter = new THREE.Vector3(d.position.x, d.position.y, d.position.z);
       }
 
-      // Pequenos “fenders” pretos na borda junto à água (opcional, só para parecer o print)
+      // Pequenos â€œfendersâ€ pretos na borda junto Ã  Ã¡gua (opcional, sÃ³ para parecer o print)
       const fenderMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
       const fenderGeo = new THREE.BoxGeometry(10, 5, 3);
 
@@ -379,10 +410,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
         fender.receiveShadow = true;
         this.scene.add(fender);
       }
-      this.decorateDock(d);
+      this.decorateDock(d, dockMaterialSet);
     }
 
-    // 3) CÂMARA APONTADA PARA O PORTO
+    // 3) CÃ‚MARA APONTADA PARA O PORTO
     // -------------------------------
     if (firstDockCenter) {
       this.framePort(firstDockCenter, sceneLayout);
@@ -561,21 +592,240 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private decorateDock(dock: DockLayout) {
-    const walkway = new THREE.Mesh(
-      new THREE.BoxGeometry(Math.max(40, dock.size.length - 20), 0.4, dock.size.width * 0.25),
-      new THREE.MeshStandardMaterial({
-        color: 0xf1f1f1,
-        roughness: 0.55,
-        metalness: 0.15,
-      })
+  private resetGeneratedAssets() {
+    this.generatedMaterials.forEach((mat) => mat.dispose());
+    this.generatedTextures.forEach((tex) => tex.dispose());
+    this.generatedMaterials = [];
+    this.generatedTextures = [];
+  }
+
+  private computeDockBands(dock: DockLayout): DockBandInfo {
+    let quayWidth = THREE.MathUtils.clamp(dock.size.width * 0.32, 16, 52);
+    let roadWidth = THREE.MathUtils.clamp(dock.size.width * 0.45, 26, 95);
+    const minBuffer = 6;
+    const maxUsable = Math.max(minBuffer, dock.size.width - minBuffer);
+    const used = quayWidth + roadWidth;
+    if (used > maxUsable) {
+      const shrink = maxUsable / used;
+      quayWidth *= shrink;
+      roadWidth *= shrink;
+    }
+    const bufferWidth = Math.max(minBuffer, dock.size.width - (quayWidth + roadWidth));
+    const quayZ = -dock.size.width / 2 + quayWidth / 2 + 2;
+    const bufferZ = quayZ + quayWidth / 2 + bufferWidth / 2;
+    const roadZ = dock.size.width / 2 - roadWidth / 2 - 2;
+    return { quayWidth, roadWidth, bufferWidth, quayZ, bufferZ, roadZ };
+  }
+
+  private createDockMaterialSet(desc?: DockMaterialDTO): DockMaterialSet {
+    return {
+      top: this.createSurfaceMaterial(desc?.top, 0xcfd6df),
+      side: this.createSurfaceMaterial(desc?.side, 0x8a94a2),
+      trim: this.createSurfaceMaterial(desc?.trim, 0xf8fbff),
+      bottom: this.trackMaterial(
+        new THREE.MeshStandardMaterial({
+          color: 0x545b67,
+          roughness: 0.95,
+          metalness: 0.03,
+        })
+      ),
+    };
+  }
+
+  private createSurfaceMaterial(config: SurfaceMaterialDTO | undefined, fallback: number): THREE.MeshStandardMaterial {
+    const material = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(config?.color ?? fallback),
+      roughness: config?.roughness ?? 0.68,
+      metalness: config?.metalness ?? 0.08,
+    });
+
+    const colorMap = this.createProceduralTexture(config?.colorMap, false);
+    if (colorMap) {
+      material.map = colorMap;
+    }
+
+    const roughnessMap = this.createProceduralTexture(config?.roughnessMap, true);
+    if (roughnessMap) {
+      material.roughnessMap = roughnessMap;
+    }
+
+    return this.trackMaterial(material);
+  }
+
+  private createProceduralTexture(
+    desc?: ProceduralTextureDescriptor,
+    grayscale = false
+  ): THREE.CanvasTexture | undefined {
+    if (!desc) {
+      return undefined;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return undefined;
+    }
+
+    const primary = grayscale ? this.toGray(desc.primaryColor) : desc.primaryColor;
+    const secondarySource = desc.secondaryColor ?? desc.primaryColor;
+    const secondary = grayscale ? this.toGray(secondarySource) : secondarySource;
+    switch (desc.pattern) {
+      case 'stripe':
+        this.paintStripeTexture(ctx, primary, secondary, desc);
+        break;
+      case 'grid':
+        this.paintGridTexture(ctx, primary, secondary, desc);
+        break;
+      default:
+        this.paintNoiseTexture(ctx, primary, secondary, desc);
+        break;
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const repeat = Math.max(1, desc.scale ?? 1);
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeat, repeat);
+    if (desc.rotation && desc.rotation !== 0) {
+      texture.center.set(0.5, 0.5);
+      texture.rotation = desc.rotation;
+    }
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return this.trackTexture(texture);
+  }
+
+  private paintStripeTexture(
+    ctx: CanvasRenderingContext2D,
+    primary: string,
+    secondary: string,
+    desc: ProceduralTextureDescriptor
+  ) {
+    const stripes = Math.max(2, Math.round((desc.scale ?? 1) * 4));
+    const stripeWidth = ctx.canvas.width / stripes;
+    for (let i = 0; i < stripes; i++) {
+      ctx.fillStyle = i % 2 === 0 ? primary : secondary;
+      ctx.fillRect(i * stripeWidth, 0, stripeWidth + 1, ctx.canvas.height);
+    }
+  }
+
+  private paintGridTexture(
+    ctx: CanvasRenderingContext2D,
+    primary: string,
+    secondary: string,
+    desc: ProceduralTextureDescriptor
+  ) {
+    const cells = Math.max(2, Math.round((desc.scale ?? 1) * 3));
+    const cellSize = ctx.canvas.width / cells;
+    for (let x = 0; x < cells; x++) {
+      for (let y = 0; y < cells; y++) {
+        ctx.fillStyle = (x + y) % 2 === 0 ? primary : secondary;
+        ctx.fillRect(x * cellSize, y * cellSize, cellSize + 1, cellSize + 1);
+      }
+    }
+  }
+
+  private paintNoiseTexture(
+    ctx: CanvasRenderingContext2D,
+    primary: string,
+    secondary: string,
+    desc: ProceduralTextureDescriptor
+  ) {
+    const data = ctx.createImageData(ctx.canvas.width, ctx.canvas.height);
+    const [r1, g1, b1] = this.colorToRgb(primary);
+    const [r2, g2, b2] = this.colorToRgb(secondary);
+    const intensity = Math.max(0, Math.min(1, desc.strength ?? 0.5));
+    for (let i = 0; i < data.data.length; i += 4) {
+      const mix = Math.random() * intensity;
+      data.data[i] = r1 * (1 - mix) + r2 * mix;
+      data.data[i + 1] = g1 * (1 - mix) + g2 * mix;
+      data.data[i + 2] = b1 * (1 - mix) + b2 * mix;
+      data.data[i + 3] = 255;
+    }
+    ctx.putImageData(data, 0, 0);
+  }
+
+  private colorToRgb(value?: string | number): [number, number, number] {
+    const color = new THREE.Color(value ?? '#ffffff');
+    return [Math.round(color.r * 255), Math.round(color.g * 255), Math.round(color.b * 255)];
+  }
+
+  private toGray(value?: string): string {
+    const [r, g, b] = this.colorToRgb(value);
+    const gray = Math.round((r + g + b) / 3);
+    return `rgb(${gray},${gray},${gray})`;
+  }
+
+  private trackMaterial<T extends THREE.Material>(material: T): T {
+    this.generatedMaterials.push(material);
+    return material;
+  }
+
+  private trackTexture<T extends THREE.Texture>(texture?: T): T | undefined {
+    if (texture) {
+      this.generatedTextures.push(texture);
+    }
+    return texture;
+  }
+
+  private decorateDock(dock: DockLayout, dockMaterials: DockMaterialSet) {
+    const bands = this.computeDockBands(dock);
+    const quay = new THREE.Mesh(
+      new THREE.BoxGeometry(dock.size.length * 0.98, 0.4, bands.quayWidth),
+      dockMaterials.trim
     );
-    walkway.position.copy(
-      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.3, 0))
+    quay.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.25, bands.quayZ))
     );
-    walkway.rotation.y = dock.rotationY;
-    walkway.castShadow = true;
-    this.scene.add(walkway);
+    quay.rotation.y = dock.rotationY;
+    quay.castShadow = true;
+    this.scene.add(quay);
+
+    const bufferStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(dock.size.length * 0.96, 0.3, bands.bufferWidth),
+      this.bufferMaterial
+    );
+    bufferStrip.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.2, bands.bufferZ))
+    );
+    bufferStrip.rotation.y = dock.rotationY;
+    bufferStrip.receiveShadow = true;
+    this.scene.add(bufferStrip);
+
+    const guardRail = new THREE.Mesh(
+      new THREE.BoxGeometry(dock.size.length * 0.96, 1.2, 0.8),
+      this.guardRailMaterial
+    );
+    const guardLocalZ = bands.quayZ + bands.quayWidth / 2 + 0.6;
+    guardRail.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.7, guardLocalZ))
+    );
+    guardRail.rotation.y = dock.rotationY;
+    guardRail.castShadow = true;
+    this.scene.add(guardRail);
+
+    const serviceRoad = new THREE.Mesh(
+      new THREE.BoxGeometry(dock.size.length * 0.94, 0.35, bands.roadWidth),
+      this.serviceRoadMaterial
+    );
+    serviceRoad.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.2, bands.roadZ))
+    );
+    serviceRoad.rotation.y = dock.rotationY;
+    serviceRoad.castShadow = true;
+    serviceRoad.receiveShadow = true;
+    this.scene.add(serviceRoad);
+
+    const stripe = new THREE.Mesh(
+      new THREE.PlaneGeometry(dock.size.length * 0.9, 0.8),
+      this.roadStripeMaterial
+    );
+    stripe.rotation.x = -Math.PI / 2;
+    stripe.rotation.y = dock.rotationY;
+    stripe.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.55, bands.roadZ))
+    );
+    this.scene.add(stripe);
 
     const foam = new THREE.Mesh(
       new THREE.PlaneGeometry(dock.size.length * 1.05, dock.size.width * 0.9),
@@ -595,7 +845,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       bollard.position.copy(
         this.relativeToDock(
           dock,
-          new THREE.Vector3(-dock.size.length / 2 + step * (i + 1), dock.size.height + 2.2, 0)
+          new THREE.Vector3(
+            -dock.size.length / 2 + step * (i + 1),
+            dock.size.height + 2.2,
+            bands.quayZ - bands.quayWidth / 2 + 1.4
+          )
         )
       );
       bollard.rotation.y = dock.rotationY;
@@ -613,7 +867,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           new THREE.Vector3(
             -dock.size.length / 2 + ((i + 1) * dock.size.length) / (poleCount + 1),
             dock.size.height,
-            dock.size.width / 2 - 8
+            bands.roadZ + bands.roadWidth / 2 - 6
           )
         )
       );
@@ -729,10 +983,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     const craneCount = Math.max(1, Math.round(length / 260));
     const spacing = length / (craneCount + 1);
     const dockTopY = dock.position.y + dock.size.height;
+    const bands = this.computeDockBands(dock);
 
     for (let i = 0; i < craneCount; i++) {
       const localX = -length / 2 + spacing * (i + 1);
-      const offset = new THREE.Vector3(localX, dockTopY + 32, -dock.size.width / 2 - 20);
+      const offset = new THREE.Vector3(localX, dockTopY + 32, bands.quayZ);
       offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), dock.rotationY);
       const crane = this.createCrane();
       crane.position.set(dock.position.x + offset.x, offset.y, dock.position.z + offset.z);
@@ -811,7 +1066,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   };
 
   private framePort(center: THREE.Vector3, layout: PortLayoutDTO) {
-    // Ajusta a câmara para enquadrar principal cais considerando comprimento
+    // Ajusta a cÃ¢mara para enquadrar principal cais considerando comprimento
     const length = layout.docks[0]?.size.length || 1000;
     const dist = length * this.orbitDistanceFactor;
     this.controls.target.copy(center);
@@ -825,3 +1080,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.camera.lookAt(this.controls.target);
   }
 }
+
+
+
+
+
+
+

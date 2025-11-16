@@ -42,7 +42,8 @@ namespace TodoApi.Application.Services.Visualization
                 },
                 LandAreas = yardLayouts,
                 Docks = dockLayouts,
-                Warehouses = warehouseLayouts
+                Warehouses = warehouseLayouts,
+                Materials = BuildMaterialLibrary()
             };
         }
 
@@ -194,6 +195,19 @@ namespace TodoApi.Application.Services.Visualization
             }
 
             return index * 220;
+        }
+
+        private static MaterialLibraryDto BuildMaterialLibrary()
+        {
+            return new MaterialLibraryDto
+            {
+                Dock = new DockMaterialDto
+                {
+                    Top = SurfaceMaterialDto.CreateDefaultTop(),
+                    Side = SurfaceMaterialDto.CreateDefaultSide(),
+                    Trim = SurfaceMaterialDto.CreateDefaultTrim()
+                }
+            };
         }
     }
 }
