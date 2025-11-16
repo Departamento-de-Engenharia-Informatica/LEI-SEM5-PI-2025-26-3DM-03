@@ -1,0 +1,78 @@
+<section class="shared-resources">
+  <header class="page-header">
+    <div>
+      <h1>Recursos Partilhados</h1>
+      <p>Documentos e ficheiros disponíveis para todos os utilizadores autenticados.</p>
+    </div>
+    <button class="ghost" type="button" (click)="loadResources()" [disabled]="loading">
+      <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+      Recarregar
+    </button>
+  </header>
+
+  <div *ngIf="canManage" class="upload-card">
+    <h2>Upload (Admin)</h2>
+    <p>Os ficheiros são guardados no servidor e ficam disponíveis para consulta imediata.</p>
+    <div class="upload-grid">
+      <label class="file-input">
+        <span>Ficheiro</span>
+        <input #fileInput type="file" (change)="onFileChange($event)" [disabled]="uploading" />
+      </label>
+      <label class="description-input">
+        <span>Descrição (opcional)</span>
+        <input type="text" [(ngModel)]="description" [disabled]="uploading" maxlength="120" placeholder="Ex: Relatório semanal" />
+      </label>
+      <button class="primary" type="button" (click)="upload()" [disabled]="uploading">
+        <i class="bi bi-cloud-upload" aria-hidden="true"></i>
+        {{ uploading ? 'A enviar...' : 'Carregar' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="resources-card">
+    <div *ngIf="error" class="alert error">
+      {{ error }}
+    </div>
+    <div *ngIf="loading" class="loading">
+      <i class="bi bi-arrow-repeat spin" aria-hidden="true"></i> A carregar recursos...
+    </div>
+
+    <table *ngIf="!loading && resources.length > 0">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Descrição</th>
+          <th>Tipo</th>
+          <th>Tamanho</th>
+          <th>Carregado por</th>
+          <th>Data</th>
+          <th class="actions">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let resource of resources; trackBy: trackById">
+          <td>
+            <div class="file-name">{{ resource.fileName }}</div>
+          </td>
+          <td>{{ resource.description || '—' }}</td>
+          <td>{{ resource.mimeType }}</td>
+          <td>{{ formatSize(resource.size) }}</td>
+          <td>{{ resource.uploadedBy || '—' }}</td>
+          <td>{{ formatDate(resource.uploadedAt) }}</td>
+          <td class="actions">
+            <button class="ghost" type="button" (click)="download(resource)">
+              <i class="bi bi-download" aria-hidden="true"></i> Download
+            </button>
+            <button *ngIf="canManage" class="danger" type="button" (click)="remove(resource)" [disabled]="deletingId === resource.id">
+              <i class="bi bi-trash" aria-hidden="true"></i> Apagar
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="!loading && resources.length === 0" class="empty">
+      Ainda não existem ficheiros partilhados.
+    </div>
+  </div>
+</section>

@@ -5,10 +5,12 @@ using TodoApi.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication;
+using System.IO;
 using System.Security.Claims;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using TodoApi.Models.Auth;
+using TodoApi.Models.PublicResources;
 
 // =====================================================
 // Application Startup Configuration
@@ -19,6 +21,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Explicitly load environment variables for configuration
 builder.Configuration.AddEnvironmentVariables();
 var configuration = builder.Configuration;
+
+// Shared resources folder configuration (ensure folder exists on boot)
+var sharedResourcesSetting = configuration["SharedResources:Root"];
+var contentRoot = builder.Environment.ContentRootPath ?? Directory.GetCurrentDirectory();
+var sharedResourcesRoot = string.IsNullOrWhiteSpace(sharedResourcesSetting)
+    ? Path.Combine(contentRoot, "storage", "public")
+    : (Path.IsPathRooted(sharedResourcesSetting)
+        ? sharedResourcesSetting
+        : Path.Combine(contentRoot, sharedResourcesSetting));
+sharedResourcesRoot = Path.GetFullPath(sharedResourcesRoot);
+Directory.CreateDirectory(sharedResourcesRoot);
+builder.Services.Configure<SharedResourcesOptions>(options =>
+{
+    options.RootPath = sharedResourcesRoot;
+});
 
 // Configure Kestrel only for local development. In containers or non-dev
 // environments, rely on ASPNETCORE_URLS (e.g., http://0.0.0.0:8080) and
@@ -377,6 +394,18 @@ else
         };
     });
 }
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("PublicResources.Read", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+    });
+    options.AddPolicy("PublicResources.Write", policy =>
+    {
+        policy.RequireAuthenticatedUser().RequireRole("Admin");
+    });
+});
 
 // =====================================================
 // Build the application and configure middleware pipeline
