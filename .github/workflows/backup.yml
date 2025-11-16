@@ -29,6 +29,9 @@ jobs:
       DB_TYPE: postgres
       BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
       HAS_DB: ${{ secrets.DB_CONNECTION != '' && 'true' || 'false' }}
@@ -44,10 +47,10 @@ jobs:
           pipx install awscli || pip install --user awscli || true
 
       - name: Azure login (optional)
-        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        if: env.AZURE_CREDENTIALS != ''
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Ensure output dir
         run: mkdir -p "${BACKUP_OUT}"
@@ -97,10 +100,7 @@ jobs:
           retention-days: 7
 
       - name: Upload to AWS S3 (optional)
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.BACKUP_BUCKET != '' }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' && env.BACKUP_BUCKET != ''
         run: |
           set -e
           ts=$(date -u +%Y%m%d-%H%M%S)
@@ -108,7 +108,7 @@ jobs:
           aws s3 cp ${BACKUP_OUT}/ s3://${BACKUP_BUCKET}/${prefix}/ --recursive --region "${AWS_REGION:-eu-west-1}"
 
       - name: Upload to Azure Blob (optional)
-        if: ${{ secrets.AZURE_CREDENTIALS != '' && secrets.AZURE_STORAGE_ACCOUNT != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
+        if: env.AZURE_CREDENTIALS != '' && env.AZURE_STORAGE_ACCOUNT != '' && env.AZURE_STORAGE_CONTAINER != ''
         run: |
           set -e
           ts=$(date -u +%Y%m%d-%H%M%S)
