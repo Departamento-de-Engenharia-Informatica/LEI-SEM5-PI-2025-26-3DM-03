@@ -200,8 +200,8 @@ namespace TodoApi.Models
 
         // Seed representatives (owned collection)
         rep.HasData(
-            new { Id = 1, ShippingAgentTaxNumber = 123456789L, Name = "João Silva", CitizenID = "C12345", Nationality = "PT", Email = "joao.silva@acme.com", PhoneNumber = "+351900000000", IsActive = true },
-            new { Id = 2, ShippingAgentTaxNumber = 123456789L, Name = "Maria Costa", CitizenID = "C12346", Nationality = "PT", Email = "maria.costa@acme.com", PhoneNumber = "+351911111111", IsActive = true },
+            new { Id = 1, ShippingAgentTaxNumber = 500123456L, Name = "João Silva", CitizenID = "C12345", Nationality = "PT", Email = "joao.silva@acme.com", PhoneNumber = "+351900000000", IsActive = true },
+            new { Id = 2, ShippingAgentTaxNumber = 500123456L, Name = "Maria Costa", CitizenID = "C12346", Nationality = "PT", Email = "maria.costa@acme.com", PhoneNumber = "+351911111111", IsActive = true },
             new { Id = 3, ShippingAgentTaxNumber = 500123457L, Name = "Pedro Azul", CitizenID = "C22345", Nationality = "PT", Email = "pedro.azul@blueocean.com", PhoneNumber = "+351922222222", IsActive = true }
         );
     });
@@ -266,8 +266,13 @@ namespace TodoApi.Models
             //   Dados iniciais (seeding)
             // =======================
             modelBuilder.Entity<VesselType>().HasData(
-                new { Id = 1L, Name = "Container Ship", Description = "Large cargo ship for containers", Capacity = 50000, MaxRows = 12, MaxBays = 20, MaxTiers = 8 },
-                new { Id = 2L, Name = "Tanker", Description = "Carries liquids and oils", Capacity = 120000, MaxRows = 15, MaxBays = 25, MaxTiers = 9 }
+                new { Id = 1L, Name = "Container Ship", Description = "Large cargo ship for containers", Capacity = 50000 },
+                new { Id = 2L, Name = "Tanker", Description = "Carries liquids and oils", Capacity = 120000 }
+            );
+
+            modelBuilder.Entity<VesselType>().OwnsOne(v => v.OperationalConstraints).HasData(
+                new { VesselTypeId = 1L, MaxRows = 12, MaxBays = 20, MaxTiers = 8 },
+                new { VesselTypeId = 2L, MaxRows = 15, MaxBays = 25, MaxTiers = 9 }
             );
 
             modelBuilder.Entity<Qualification>().HasData(
@@ -396,7 +401,7 @@ namespace TodoApi.Models
                     Id = 1L,
                     VesselId = "1234567",
                     AgentId = 1,
-                    ArrivalDate = System.DateTime.UtcNow.AddDays(3),
+                    ArrivalDate = new System.DateTime(2025, 11, 16, 0, 0, 0, System.DateTimeKind.Utc),
                     Status = "Pending",
                     SubmissionTimestamp = null,
                     SubmittedByRepresentativeEmail = null,
@@ -411,7 +416,7 @@ namespace TodoApi.Models
                     Id = 2L,
                     VesselId = "7654321",
                     AgentId = 2,
-                    ArrivalDate = System.DateTime.UtcNow.AddDays(7),
+                    ArrivalDate = new System.DateTime(2025, 11, 23, 0, 0, 0, System.DateTimeKind.Utc),
                     Status = "Pending",
                     SubmissionTimestamp = null,
                     SubmittedByRepresentativeEmail = null,
