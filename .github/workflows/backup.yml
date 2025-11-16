@@ -61,7 +61,7 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           CREATE TABLE IF NOT EXISTS demo(id SERIAL PRIMARY KEY, note TEXT NOT NULL);
           INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');
-SQL
+          SQL
 
       - name: Run backup script
         if: env.USE_EPHEMERAL == 'true' || env.HAS_DB == 'true'
