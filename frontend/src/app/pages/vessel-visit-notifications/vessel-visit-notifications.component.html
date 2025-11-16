@@ -33,6 +33,7 @@
           <button type="button" class="chip" [class.active]="status==='InProgress'" (click)="status='InProgress'; applyFilterSort()">Em edição</button>
           <button type="button" class="chip" [class.active]="status==='Submitted'" (click)="status='Submitted'; applyFilterSort()">Submetidos</button>
           <button type="button" class="chip" [class.active]="status==='Approved'" (click)="status='Approved'; applyFilterSort()">Aprovados</button>
+          <button type="button" class="chip" [class.active]="status==='PendingApproval'" (click)="status='PendingApproval'; applyFilterSort()">A aguardar decisão</button>
           <button type="button" class="chip" [class.active]="status==='Rejected'" (click)="status='Rejected'; applyFilterSort()">Rejeitados</button>
         </div>
 
@@ -229,7 +230,7 @@
             <div class="value">{{ selected?.submittedByRepresentativeName || '-' }}</div>
           </div>
           <div class="cell">
-            <div class="label">Criado em</div>
+            <div class="label">Submetido em</div>
             <div class="value">{{ fmtDate(selected?.submissionTimestamp || null) }}</div>
           </div>
         </div>
@@ -244,28 +245,39 @@
           <div class="text">{{ selected?.rejectionReason }}</div>
         </div>
 
-        <!-- Actions depending on role/status -->
-        <div class="modal-actions">
-          <ng-container *ngIf="auth.hasAny(['agent']) && selected?.status?.toLowerCase() === 'inprogress'">
-            <button type="button" class="btn" (click)="beginEdit()">Editar</button>
+        <!-- Agent actions (left) -->
+        <div class="actions-bar agent-actions" *ngIf="auth.hasAny(['agent'])">
+          <ng-container *ngIf="(selected?.status||'').toLowerCase()==='inprogress'">
+            <button type="button" class="btn-ghost" (click)="beginEdit()">Editar</button>
             <button type="button" class="btn primary" (click)="submitSelected()">Submeter</button>
           </ng-container>
-
-          <ng-container *ngIf="auth.hasAny(['agent']) && selected?.status?.toLowerCase() === 'rejected'">
+          <ng-container *ngIf="(selected?.status||'').toLowerCase()==='rejected'">
             <button type="button" class="btn primary" (click)="cloneToNewFromSelected()">Clonar para nova</button>
           </ng-container>
+        </div>
 
-          <ng-container *ngIf="auth.hasAny(['admin','authority']) && (selected?.status?.toLowerCase() === 'submitted' || selected?.status?.toLowerCase() === 'approvalpending')">
+        <!-- Decision actions (right) only for submitted/pending -->
+        <div class="actions-bar decision-actions" *ngIf="auth.hasAny(['admin','authority']) && ((selected?.status||'').toLowerCase()==='submitted' || (selected?.status||'').toLowerCase()==='pendingapproval' || (selected?.status||'').toLowerCase()==='approvalpending')">
+          <label class="inline">
+            <span class="sr-only">Doca</span>
             <select [(ngModel)]="approveDockId">
               <option [ngValue]="null">— Doca —</option>
               <option *ngFor="let d of docks" [ngValue]="d.id">{{ d.name }}</option>
             </select>
-            <input type="number" [(ngModel)]="approveOfficerId" style="width:120px" placeholder="OfficerId" />
-            <button type="button" class="btn primary" (click)="approveSelected()">Aprovar</button>
-            <input [(ngModel)]="rejectReason" style="width:220px" placeholder="Motivo rejeição" />
-            <button type="button" class="btn" (click)="rejectSelected()">Rejeitar</button>
-          </ng-container>
+          </label>
+          <label class="inline">
+            <span class="sr-only">Officer</span>
+            <input type="number" [(ngModel)]="approveOfficerId" placeholder="OfficerId" />
+          </label>
+          <button type="button" class="btn primary" (click)="approveSelected()">Aprovar</button>
+          <label class="inline grow">
+            <span class="sr-only">Motivo</span>
+            <input [(ngModel)]="rejectReason" placeholder="Motivo rejeição" />
+          </label>
+          <button type="button" class="btn" (click)="rejectSelected()">Rejeitar</button>
+        </div>
 
+        <div class="actions-bar footer-actions">
           <button type="button" class="btn" (click)="closeDetails()">Fechar</button>
         </div>
       </section>
@@ -313,9 +325,10 @@
     <div class="filters">
       <select [(ngModel)]="status" (change)="applyFilterSort()">
         <option value="all">Todos</option>
-        <option value="InProgress">Em edi��ǜo</option>
+        <option value="InProgress">Em edição</option>
         <option value="Submitted">Submetidos</option>
         <option value="Approved">Aprovados</option>
+        <option value="PendingApproval">A aguardar decisão</option>
         <option value="Rejected">Rejeitados</option>
       </select>
       <button class="btn-ghost" (click)="resetFilters()">Limpar</button>
@@ -333,7 +346,7 @@
           <th>Status</th>
           <th>Doca</th>
           <th>Submetida</th>
-          <th>A����es</th>
+          <th>Ações</th>
         </tr>
       </thead>
       <tbody>
@@ -344,7 +357,7 @@
           <td>
             <span class="badge" [ngClass]="{
               'badge-gray': (n.status||'').toLowerCase()==='inprogress',
-              'badge-blue': (n.status||'').toLowerCase()==='submitted' || (n.status||'').toLowerCase()==='approvalpending',
+              'badge-blue': (n.status||'').toLowerCase()==='submitted' || (n.status||'').toLowerCase()==='pendingapproval' || (n.status||'').toLowerCase()==='approvalpending',
               'badge-green': (n.status||'').toLowerCase()==='approved',
               'badge-red': (n.status||'').toLowerCase()==='rejected' }">{{ n.status }}</span>
           </td>
@@ -354,11 +367,16 @@
             <button class="btn-ghost" title="Detalhes" (click)="openDetails(n)"><i class="bi bi-info-circle"></i></button>
             <button class="btn-ghost" title="Editar" (click)="beginEdit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-pencil"></i></button>
             <button class="btn-ghost" title="Submeter" (click)="submit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-upload"></i></button>
-            <button class="btn-ghost" title="Decidir" (click)="selected=n" [disabled]="!auth.hasAny(['admin','authority']) || ((n.status||'').toLowerCase()!=='submitted' && (n.status||'').toLowerCase()!=='approvalpending')"><i class="bi bi-check2-circle"></i></button>
+            <button class="btn-ghost" title="Decidir" (click)="openDetails(n)" [disabled]="!auth.hasAny(['admin','authority']) || ( (n.status||'').toLowerCase()!=='submitted' && (n.status||'').toLowerCase()!=='pendingapproval' && (n.status||'').toLowerCase()!=='approvalpending' )"><i class="bi bi-check2-circle"></i></button>
           </td>
         </tr>
       </tbody>
     </table>
+    <div class="actions" style="justify-content:flex-end; gap:.4rem; padding-top:.4rem">
+      <button class="btn-ghost" (click)="prevPage()" [disabled]="!canPrev()">Anterior</button>
+      <span style="align-self:center">Página {{ page }}</span>
+      <button class="btn-ghost" (click)="nextPage()" [disabled]="!canNext()">Seguinte</button>
+    </div>
   </div>
 
   <!-- Side cards: Create + Edit/Decision -->
@@ -430,7 +448,7 @@
         <button type="button" class="btn-ghost" (click)="submitSelected()" *ngIf="selected?.status?.toLowerCase()==='inprogress'">Submeter</button>
       </div>
 
-      <div class="form-grid" *ngIf="auth.hasAny(['admin','authority']) && (selected?.status||'').toLowerCase()!=='inprogress'">
+      <div class="form-grid" *ngIf="auth.hasAny(['admin','authority']) && ((selected?.status||'').toLowerCase()==='submitted' || (selected?.status||'').toLowerCase()==='pendingapproval' || (selected?.status||'').toLowerCase()==='approvalpending')">
         <label>Doca
           <select [(ngModel)]="approveDockId">
             <option [ngValue]="null">— Doca —</option>

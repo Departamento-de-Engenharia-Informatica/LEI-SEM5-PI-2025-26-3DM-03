@@ -75,9 +75,9 @@ builder.Services.AddCors(o =>
     });
 });
 
-// Register Entity Framework Core using InMemory database
+// Register Entity Framework Core using SQLite (persistent, zero-setup for dev)
 builder.Services.AddDbContext<PortContext>(opt =>
-    opt.UseInMemoryDatabase("PortDB"));
+    opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // =====================================================
 // Dependency Injection - Application & Domain Services
@@ -494,12 +494,12 @@ app.UseAuthorization();
 app.MapControllers();
 
 // =====================================================
-// Ensure InMemory database is created at startup
+// Apply EF Core migrations at startup (create/update SQL database)
 // =====================================================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
-    await context.Database.EnsureCreatedAsync();
+    await context.Database.MigrateAsync();
 
     try
     {
