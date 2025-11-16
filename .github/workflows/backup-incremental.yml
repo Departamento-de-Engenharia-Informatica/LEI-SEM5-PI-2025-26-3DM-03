@@ -15,6 +15,7 @@ jobs:
     env:
       BACKUP_OUT: backup_out
       DB_TYPE: postgres
+      DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
@@ -32,19 +33,17 @@ jobs:
         run: mkdir -p "${BACKUP_OUT}"
 
       - name: Run incremental backup (requires DB_CONNECTION)
-        if: ${{ secrets.DB_CONNECTION != '' }}
-        env:
-          DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
+        if: ${{ env.DB_CONNECTION != '' }}
         run: |
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type incremental --out "${BACKUP_OUT}"
 
       - name: Skip (DB not configured)
-        if: ${{ secrets.DB_CONNECTION == '' }}
+        if: ${{ env.DB_CONNECTION == '' }}
         run: echo "DB_CONNECTION not set; skipping incremental backup."
 
       - name: Upload artifact (7 days)
-        if: ${{ secrets.DB_CONNECTION != '' }}
+        if: ${{ env.DB_CONNECTION != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: db-incremental-${{ github.run_id }}
@@ -55,7 +54,7 @@ jobs:
           retention-days: 7
 
       - name: Upload to AWS S3 (optional)
-        if: ${{ secrets.DB_CONNECTION != '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.BACKUP_BUCKET != '' }}
+        if: ${{ env.DB_CONNECTION != '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.BACKUP_BUCKET != '' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -67,7 +66,7 @@ jobs:
           aws s3 cp ${BACKUP_OUT}/ s3://${BACKUP_BUCKET}/${prefix}/ --recursive --region "${AWS_REGION:-eu-west-1}"
 
       - name: Upload to Azure Blob (optional)
-        if: ${{ secrets.DB_CONNECTION != '' && secrets.AZURE_CREDENTIALS != '' && secrets.AZURE_STORAGE_ACCOUNT != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
+        if: ${{ env.DB_CONNECTION != '' && secrets.AZURE_CREDENTIALS != '' && secrets.AZURE_STORAGE_ACCOUNT != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
         run: |
           set -e
           ts=$(date -u +%Y%m%d-%H%M%S)
