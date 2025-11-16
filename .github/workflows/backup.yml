@@ -4,8 +4,9 @@ on:
   schedule:
     # Daily full backup at 02:00 UTC
     - cron: '0 2 * * *'
-    # Incremental snapshot every 15 minutes (logical snapshot for RPO)
-    - cron: '*/15 * * * *'
+    # NOTE: Reduced frequency to avoid excessive runs. To re-enable more
+    # frequent backups, add another cron entry, e.g. hourly:
+    # - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       kind:

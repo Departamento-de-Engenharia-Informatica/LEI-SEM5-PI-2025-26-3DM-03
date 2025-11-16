@@ -1,0 +1,80 @@
+name: Backup Database (Incremental)
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes for RPO <= 15m
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  incremental:
+    if: ${{ vars.ENABLE_INCREMENTAL == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      BACKUP_OUT: backup_out
+      DB_TYPE: postgres
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
+      AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools (psql, awscli)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          pipx install awscli || pip install --user awscli || true
+
+      - name: Ensure output dir
+        run: mkdir -p "${BACKUP_OUT}"
+
+      - name: Run incremental backup (requires DB_CONNECTION)
+        if: ${{ secrets.DB_CONNECTION != '' }}
+        env:
+          DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
+        run: |
+          chmod +x scripts/backup-db.sh
+          ./scripts/backup-db.sh --type incremental --out "${BACKUP_OUT}"
+
+      - name: Skip (DB not configured)
+        if: ${{ secrets.DB_CONNECTION == '' }}
+        run: echo "DB_CONNECTION not set; skipping incremental backup."
+
+      - name: Upload artifact (7 days)
+        if: ${{ secrets.DB_CONNECTION != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-incremental-${{ github.run_id }}
+          path: |
+            ${{ env.BACKUP_OUT }}/*.gz
+            ${{ env.BACKUP_OUT }}/*.sha256
+            ${{ env.BACKUP_OUT }}/manifest-*.json
+          retention-days: 7
+
+      - name: Upload to AWS S3 (optional)
+        if: ${{ secrets.DB_CONNECTION != '' && secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.BACKUP_BUCKET != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
+        run: |
+          set -e
+          ts=$(date -u +%Y%m%d-%H%M%S)
+          prefix="incremental/$ts"
+          aws s3 cp ${BACKUP_OUT}/ s3://${BACKUP_BUCKET}/${prefix}/ --recursive --region "${AWS_REGION:-eu-west-1}"
+
+      - name: Upload to Azure Blob (optional)
+        if: ${{ secrets.DB_CONNECTION != '' && secrets.AZURE_CREDENTIALS != '' && secrets.AZURE_STORAGE_ACCOUNT != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
+        run: |
+          set -e
+          ts=$(date -u +%Y%m%d-%H%M%S)
+          prefix="incremental/$ts"
+          az storage blob upload-batch \
+            --account-name "$AZURE_STORAGE_ACCOUNT" \
+            --destination "$AZURE_STORAGE_CONTAINER/$prefix" \
+            --source "$BACKUP_OUT" \
+            --auth-mode login \
+            --overwrite true
