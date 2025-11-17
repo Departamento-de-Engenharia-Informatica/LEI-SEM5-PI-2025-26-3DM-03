@@ -23,5 +23,6 @@ namespace TodoApi.Models.Auth
         public bool Active { get; set; } = true;
 
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public ICollection<ActivationToken> ActivationTokens { get; set; } = new List<ActivationToken>();
     }
 }

@@ -10,5 +10,11 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
+  },
+  "/admin": {
+    "target": "https://localhost:7167",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
   }
 }

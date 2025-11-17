@@ -3,8 +3,12 @@ import { Cube } from './components/visualization/cube/cube.component';
 import { PortSceneComponent } from './components/visualization/port-scene/port-scene.component';
 import { WarehouseComponent } from './components/visualization/warehouse/warehouse.component';
 import { AuthGuard } from './services/auth/auth.guard';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
 export const routes: Routes = [
+  // Default dashboard for all authenticated profiles
+  { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] },
+
   // Lazy load standalone components per-route to avoid bundling all pages upfront.
   { path: 'vessels', loadComponent: () => import('./pages/vessels/vessels.component').then(m => m.VesselsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'docks', loadComponent: () => import('./pages/docks/docks.component').then(m => m.DocksComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
@@ -33,6 +37,7 @@ export const routes: Routes = [
   // Port 3D scene
   { path: 'port', component: PortSceneComponent },
 
-  // Fallback wildcard MUST be last
-{ path: '**', redirectTo: 'docks' },
+  // Redirect root & wildcard to dashboard so every role has a landing page
+  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+  { path: '**', redirectTo: 'dashboard' },
 ];

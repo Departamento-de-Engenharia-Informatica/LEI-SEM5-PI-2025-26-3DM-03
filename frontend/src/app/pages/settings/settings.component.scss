@@ -3,6 +3,17 @@
 .settings-page .create .row { display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; }
 .settings-page table { width:100%; border-collapse:collapse; }
 .settings-page th, .settings-page td { padding:0.5rem; border-bottom:1px solid rgba(0,0,0,0.06); text-align:left; }
+.role-grid { display:flex; flex-wrap:wrap; gap:0.4rem; }
+.role-grid label { display:flex; align-items:center; gap:0.2rem; border:1px solid rgba(0,0,0,0.1); border-radius:4px; padding:0.1rem 0.35rem; font-size:0.85rem; background:#f8fafc; }
+.badge { display:inline-flex; align-items:center; padding:0.1rem 0.5rem; border-radius:999px; font-size:0.75rem; font-weight:600; }
+.badge-active { background:#dcfce7; color:#166534; }
+.badge-inactive { background:#fee2e2; color:#b91c1c; }
+.activation-cell { display:flex; flex-direction:column; gap:0.2rem; font-size:0.85rem; }
+.activation-cell .pending { color:#b45309; font-weight:600; }
+.activation-cell .complete { color:#15803d; font-weight:600; }
+.activation-cell .activation-link { display:flex; flex-direction:column; gap:0.1rem; }
+.activation-cell code { background:#f3f4f6; padding:0.2rem 0.3rem; border-radius:4px; font-size:0.75rem; overflow-wrap:anywhere; }
 .btn-primary { background:#02284A; color:#fff; border:none; padding:6px 10px; border-radius:6px; }
-.btn-ghost { background:transparent; border:1px solid rgba(0,0,0,0.06); padding:4px 8px; border-radius:6px; }
+.btn-ghost { background:transparent; border:1px solid rgba(0,0,0,0.06); padding:4px 8px; border-radius:6px; margin-right:0.3rem; }
+.btn-ghost:disabled { opacity:0.5; cursor:not-allowed; }
 .error { color: #b91c1c; margin-bottom: 8px; }

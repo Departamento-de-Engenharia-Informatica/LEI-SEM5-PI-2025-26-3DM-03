@@ -50,6 +50,7 @@ namespace TodoApi.Models
         public DbSet<AppUser> AppUsers { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
         public DbSet<UserRole> UserRoles { get; set; } = null!;
+        public DbSet<ActivationToken> ActivationTokens { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -162,6 +163,21 @@ namespace TodoApi.Models
                 entity.Property(l => l.IpAddress).HasMaxLength(80);
                 entity.Property(l => l.UserAgent).HasMaxLength(512);
                 entity.Property(l => l.OccurredAt).IsRequired();
+            });
+
+            modelBuilder.Entity<ActivationToken>(entity =>
+            {
+                entity.ToTable("ActivationTokens");
+                entity.HasKey(t => t.Id);
+                entity.HasIndex(t => t.TokenHash).IsUnique();
+                entity.Property(t => t.TokenHash).IsRequired().HasMaxLength(200);
+                entity.Property(t => t.CreatedAtUtc).IsRequired();
+                entity.Property(t => t.ExpiresAtUtc).IsRequired();
+                entity.Property(t => t.RedeemedByIp).HasMaxLength(100);
+                entity.HasOne(t => t.AppUser)
+                    .WithMany(u => u.ActivationTokens)
+                    .HasForeignKey(t => t.AppUserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Configuração da entidade StaffMember

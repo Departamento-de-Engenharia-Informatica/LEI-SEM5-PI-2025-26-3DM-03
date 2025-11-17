@@ -9,6 +9,11 @@ using System.Security.Claims;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using TodoApi.Models.Auth;
+<<<<<<< HEAD
+=======
+using TodoApi.Models.PublicResources;
+using TodoApi.Services.Activation;
+>>>>>>> 84a0736 (US.3.2.5 DONE #31)
 
 // =====================================================
 // Application Startup Configuration
@@ -97,6 +102,10 @@ builder.Services.AddScoped<TodoApi.Application.Services.Representatives.IReprese
 // ---------- Storage Areas ----------
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IStorageAreaRepository, TodoApi.Infrastructure.Repositories.EfStorageAreaRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.StorageAreas.IStorageAreaService, TodoApi.Application.Services.StorageAreas.StorageAreaService>();
+
+// ---------- Activation ----------
+builder.Services.Configure<ActivationOptions>(builder.Configuration.GetSection("Activation"));
+builder.Services.AddScoped<ActivationLinkService>();
 
 // =====================================================
 // Swagger / OpenAPI for API documentation
