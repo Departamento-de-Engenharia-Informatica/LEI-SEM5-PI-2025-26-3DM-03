@@ -17,6 +17,43 @@ namespace TodoApi.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.9");
 
+            modelBuilder.Entity("TodoApi.Models.Auth.ActivationToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RedeemedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RedeemedByIp")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("ActivationTokens", (string)null);
+                });
+
             modelBuilder.Entity("TodoApi.Models.Auth.AppUser", b =>
                 {
                     b.Property<int>("Id")
@@ -65,43 +102,6 @@ namespace TodoApi.Migrations
                             Email = "portauthoritylapr5@gmail.com",
                             Name = "Port Authority LAPR5"
                         });
-                });
-
-            modelBuilder.Entity("TodoApi.Models.Auth.ActivationToken", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("AppUserId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("ExpiresAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("RedeemedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RedeemedByIp")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AppUserId");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.ToTable("ActivationTokens");
                 });
 
             modelBuilder.Entity("TodoApi.Models.Auth.Role", b =>
