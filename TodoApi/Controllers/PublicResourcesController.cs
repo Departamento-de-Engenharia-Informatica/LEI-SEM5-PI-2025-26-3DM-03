@@ -50,7 +50,7 @@ namespace TodoApi.Controllers
             return items;
         }
 
-        [HttpGet("{id:long}/download")]
+        [HttpGet("{id:long}/download", Name = "PublicResourceDownload")]
         [Authorize(Policy = "PublicResources.Read")]
         public async Task<IActionResult> DownloadAsync(long id, CancellationToken cancellationToken)
         {
@@ -123,7 +123,7 @@ namespace TodoApi.Controllers
             await _db.AuditAsync(HttpContext, "UPLOAD", entity.Id, cancellationToken);
 
             var dto = ToDto(entity);
-            return CreatedAtAction(nameof(DownloadAsync), new { id = entity.Id }, dto);
+            return CreatedAtRoute("PublicResourceDownload", new { id = entity.Id }, dto);
         }
 
         [HttpDelete("{id:long}")]
