@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace TodoApi.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -59,6 +59,25 @@ namespace TodoApi.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ResourceAccessLogs",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ResourceId = table.Column<long>(type: "INTEGER", nullable: true),
+                    Action = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    UserEmail = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    IpAddress = table.Column<string>(type: "TEXT", maxLength: 80, nullable: true),
+                    UserAgent = table.Column<string>(type: "TEXT", maxLength: 512, nullable: true),
+                    OccurredAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ResourceAccessLogs", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Resources",
                 columns: table => new
                 {
@@ -87,6 +106,25 @@ namespace TodoApi.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Roles", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SharedResources",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    FileName = table.Column<string>(type: "TEXT", maxLength: 255, nullable: false),
+                    MimeType = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Size = table.Column<long>(type: "INTEGER", nullable: false),
+                    DiskPath = table.Column<string>(type: "TEXT", maxLength: 1024, nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true),
+                    UploadedBy = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true),
+                    UploadedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SharedResources", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -523,7 +561,13 @@ namespace TodoApi.Migrations
                 name: "Representative");
 
             migrationBuilder.DropTable(
+                name: "ResourceAccessLogs");
+
+            migrationBuilder.DropTable(
                 name: "ResourceQualifications");
+
+            migrationBuilder.DropTable(
+                name: "SharedResources");
 
             migrationBuilder.DropTable(
                 name: "StaffQualifications");
