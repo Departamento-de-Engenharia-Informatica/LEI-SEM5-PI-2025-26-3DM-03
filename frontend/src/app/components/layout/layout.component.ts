@@ -65,6 +65,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
   // Port 3D
   { key: 'port3d', label_en: 'Port 3D', label_pt: 'Porto 3D', icon: 'bi-map', route: '/port', roles: ['admin','operator','agent','authority'] },
+    { key: 'house_3d', label_en: 'House 3D', label_pt: 'Casa 3D', icon: 'bi-building', route: '/house-3d', roles: ['admin','operator','agent','authority'] },
     // Three.js demo (accessible to all roles)
     { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', icon: 'bi-box', route: '/cube', roles: ['admin','operator','agent','authority'] },
     // Admin settings only

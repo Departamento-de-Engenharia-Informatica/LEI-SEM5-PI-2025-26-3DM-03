@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Cube } from './components/visualization/cube/cube.component';
 import { PortSceneComponent } from './components/visualization/port-scene/port-scene.component';
+import { WarehouseComponent } from './components/visualization/warehouse/warehouse.component';
 import { AuthGuard } from './services/auth/auth.guard';
 
 export const routes: Routes = [
@@ -26,6 +27,9 @@ export const routes: Routes = [
 
   // Demo route for Three.js cube (standalone component)
   { path: 'cube', component: Cube },
+  // Demo route for standalone warehouse object
+  { path: 'warehouse', component: WarehouseComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'house-3d', component: WarehouseComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   // Port 3D scene
   { path: 'port', component: PortSceneComponent },
 

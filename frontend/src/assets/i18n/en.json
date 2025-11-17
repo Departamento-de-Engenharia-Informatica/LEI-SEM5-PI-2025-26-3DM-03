@@ -12,6 +12,10 @@
     "staff": "Staff",
     "representatives": "Representatives",
     "shipping_agents": "Shipping Agents",
+    "public_resources": "Shared Resources",
+    "port3d": "Port 3D",
+    "cube": "3D Demo",
+    "house_3d": "House 3D",
     "settings": "Settings"
   },
   "staff": {
