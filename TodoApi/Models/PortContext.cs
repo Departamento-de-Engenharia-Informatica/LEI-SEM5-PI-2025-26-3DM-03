@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Security.Claims;
+using System.Threading;
 using TodoApi.Models.Qualifications;
 using TodoApi.Models.Auth;
 using TodoApi.Models.Vessels;
@@ -8,6 +11,7 @@ using TodoApi.Models.ShippingOrganizations;
 using TodoApi.Models.Resources;
 using TodoApi.Models.VesselVisitNotifications;
 using TodoApi.Models.StorageAreas;
+using TodoApi.Models.PublicResources;
 
 namespace TodoApi.Models
 {
@@ -39,11 +43,14 @@ namespace TodoApi.Models
         public DbSet<Resource> Resources { get; set; } = null!;
         public DbSet<VesselVisitNotification> VesselVisitNotifications { get; set; } = null!;
         public DbSet<TodoApi.Models.Staff.StaffMember> StaffMembers { get; set; } = null!;
-    public DbSet<StorageArea> StorageAreas { get; set; } = null!;
-    // Authentication / Authorization tables
-    public DbSet<AppUser> AppUsers { get; set; } = null!;
-    public DbSet<Role> Roles { get; set; } = null!;
-    public DbSet<UserRole> UserRoles { get; set; } = null!;
+        public DbSet<StorageArea> StorageAreas { get; set; } = null!;
+        public DbSet<SharedResource> SharedResources { get; set; } = null!;
+        public DbSet<ResourceAccessLog> ResourceAccessLogs { get; set; } = null!;
+        // Authentication / Authorization tables
+        public DbSet<AppUser> AppUsers { get; set; } = null!;
+        public DbSet<Role> Roles { get; set; } = null!;
+        public DbSet<UserRole> UserRoles { get; set; } = null!;
+        public DbSet<ActivationToken> ActivationTokens { get; set; } = null!;
 
         // =======================
         //   Configuração extra
@@ -134,6 +141,45 @@ namespace TodoApi.Models
                 });
             });
 
+            modelBuilder.Entity<SharedResource>(entity =>
+            {
+                entity.ToTable("SharedResources");
+                entity.HasKey(r => r.Id);
+                entity.Property(r => r.FileName).IsRequired().HasMaxLength(255);
+                entity.Property(r => r.MimeType).IsRequired().HasMaxLength(200);
+                entity.Property(r => r.DiskPath).IsRequired().HasMaxLength(1024);
+                entity.Property(r => r.Description).HasMaxLength(500);
+                entity.Property(r => r.UploadedBy).HasMaxLength(200);
+                entity.Property(r => r.UploadedAt).IsRequired();
+            });
+
+            modelBuilder.Entity<ResourceAccessLog>(entity =>
+            {
+                entity.ToTable("ResourceAccessLogs");
+                entity.HasKey(l => l.Id);
+                entity.Property(l => l.Action).IsRequired().HasMaxLength(40);
+                entity.Property(l => l.UserId).HasMaxLength(200);
+                entity.Property(l => l.UserEmail).HasMaxLength(200);
+                entity.Property(l => l.IpAddress).HasMaxLength(80);
+                entity.Property(l => l.UserAgent).HasMaxLength(512);
+                entity.Property(l => l.OccurredAt).IsRequired();
+            });
+
+            modelBuilder.Entity<ActivationToken>(entity =>
+            {
+                entity.ToTable("ActivationTokens");
+                entity.HasKey(t => t.Id);
+                entity.HasIndex(t => t.TokenHash).IsUnique();
+                entity.Property(t => t.TokenHash).IsRequired().HasMaxLength(200);
+                entity.Property(t => t.CreatedAtUtc).IsRequired();
+                entity.Property(t => t.ExpiresAtUtc).IsRequired();
+                entity.Property(t => t.RedeemedByIp).HasMaxLength(100);
+                entity.HasOne(t => t.AppUser)
+                    .WithMany(u => u.ActivationTokens)
+                    .HasForeignKey(t => t.AppUserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
             // Configuração da entidade StaffMember
             modelBuilder.Entity<TodoApi.Models.Staff.StaffMember>(entity =>
             {
@@ -200,8 +246,8 @@ namespace TodoApi.Models
 
         // Seed representatives (owned collection)
         rep.HasData(
-            new { Id = 1, ShippingAgentTaxNumber = 123456789L, Name = "João Silva", CitizenID = "C12345", Nationality = "PT", Email = "joao.silva@acme.com", PhoneNumber = "+351900000000", IsActive = true },
-            new { Id = 2, ShippingAgentTaxNumber = 123456789L, Name = "Maria Costa", CitizenID = "C12346", Nationality = "PT", Email = "maria.costa@acme.com", PhoneNumber = "+351911111111", IsActive = true },
+            new { Id = 1, ShippingAgentTaxNumber = 500123456L, Name = "João Silva", CitizenID = "C12345", Nationality = "PT", Email = "joao.silva@acme.com", PhoneNumber = "+351900000000", IsActive = true },
+            new { Id = 2, ShippingAgentTaxNumber = 500123456L, Name = "Maria Costa", CitizenID = "C12346", Nationality = "PT", Email = "maria.costa@acme.com", PhoneNumber = "+351911111111", IsActive = true },
             new { Id = 3, ShippingAgentTaxNumber = 500123457L, Name = "Pedro Azul", CitizenID = "C22345", Nationality = "PT", Email = "pedro.azul@blueocean.com", PhoneNumber = "+351922222222", IsActive = true }
         );
     });
@@ -266,8 +312,13 @@ namespace TodoApi.Models
             //   Dados iniciais (seeding)
             // =======================
             modelBuilder.Entity<VesselType>().HasData(
-                new { Id = 1L, Name = "Container Ship", Description = "Large cargo ship for containers", Capacity = 50000, MaxRows = 12, MaxBays = 20, MaxTiers = 8 },
-                new { Id = 2L, Name = "Tanker", Description = "Carries liquids and oils", Capacity = 120000, MaxRows = 15, MaxBays = 25, MaxTiers = 9 }
+                new { Id = 1L, Name = "Container Ship", Description = "Large cargo ship for containers", Capacity = 50000 },
+                new { Id = 2L, Name = "Tanker", Description = "Carries liquids and oils", Capacity = 120000 }
+            );
+
+            modelBuilder.Entity<VesselType>().OwnsOne(v => v.OperationalConstraints).HasData(
+                new { VesselTypeId = 1L, MaxRows = 12, MaxBays = 20, MaxTiers = 8 },
+                new { VesselTypeId = 2L, MaxRows = 15, MaxBays = 25, MaxTiers = 9 }
             );
 
             modelBuilder.Entity<Qualification>().HasData(
@@ -396,7 +447,7 @@ namespace TodoApi.Models
                     Id = 1L,
                     VesselId = "1234567",
                     AgentId = 1,
-                    ArrivalDate = System.DateTime.UtcNow.AddDays(3),
+                    ArrivalDate = new System.DateTime(2025, 11, 16, 0, 0, 0, System.DateTimeKind.Utc),
                     Status = "Pending",
                     SubmissionTimestamp = null,
                     SubmittedByRepresentativeEmail = null,
@@ -411,7 +462,7 @@ namespace TodoApi.Models
                     Id = 2L,
                     VesselId = "7654321",
                     AgentId = 2,
-                    ArrivalDate = System.DateTime.UtcNow.AddDays(7),
+                    ArrivalDate = new System.DateTime(2025, 11, 23, 0, 0, 0, System.DateTimeKind.Utc),
                     Status = "Pending",
                     SubmissionTimestamp = null,
                     SubmittedByRepresentativeEmail = null,
@@ -422,6 +473,26 @@ namespace TodoApi.Models
                     OfficerId = null
                 }
             );
+        }
+
+        public async Task AuditAsync(HttpContext httpContext, string action, long? resourceId = null, CancellationToken cancellationToken = default)
+        {
+            if (httpContext == null) throw new ArgumentNullException(nameof(httpContext));
+            if (string.IsNullOrWhiteSpace(action)) throw new ArgumentException("Action is required", nameof(action));
+
+            var log = new ResourceAccessLog
+            {
+                Action = action,
+                ResourceId = resourceId,
+                OccurredAt = DateTime.UtcNow,
+                UserId = httpContext.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? httpContext.User?.FindFirst("sub")?.Value,
+                UserEmail = httpContext.User?.FindFirst(ClaimTypes.Email)?.Value ?? httpContext.User?.Identity?.Name,
+                IpAddress = httpContext.Connection?.RemoteIpAddress?.ToString(),
+                UserAgent = httpContext.Request?.Headers["User-Agent"].ToString()
+            };
+
+            await ResourceAccessLogs.AddAsync(log, cancellationToken);
+            await SaveChangesAsync(cancellationToken);
         }
     }
 }

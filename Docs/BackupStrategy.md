@@ -40,8 +40,8 @@ Este documento propõe, justifica e descreve a implementação de uma estratégi
 ### 3.2 Frequências
 | Tipo | Frequência | Retenção | Objetivo |
 |------|------------|----------|----------|
-| Full | 1x por dia | 30 dias | Base para cadeias de restore |
-| Incremental / log | 15 min | 7 dias | Reduz RPO sem armazenar dados excessivos |
+| Full | 1x por dia (02:00 UTC) | 30 dias | Base para cadeias de restore |
+| Incremental / log | 15 min (controlado por variável `ENABLE_INCREMENTAL`) | 7 dias | Reduz RPO sem armazenar dados excessivos |
 | Mensal | 1x mês | 12 meses | Auditoria / rollback longo prazo |
 
 ### 3.3 Localizações de Armazenamento
@@ -70,6 +70,8 @@ manifest-YYYYMMDD-HHMM.json
 
 > Nota de implementação (CI): no workflow GitHub Actions incluído, o "incremental" é realizado como um snapshot lógico frequente (pg_dump) para simplicidade operacional e validação automática. Em produção, recomenda-se trocar este passo por WAL/log shipping nativo do SGBD para maior eficiência; os scripts suportam esta evolução sem alterar RPO/WRT alvo.
 
+Ativação de incrementais no repositório: definir a variável de repositório `ENABLE_INCREMENTAL` como `true` em Settings → Secrets and variables → Variables. O workflow `.github/workflows/backup-incremental.yml` corre a cada 15 minutos apenas quando esta variável estiver ativa.
+
 ---
 ## 4. Procedimentos
 
@@ -97,12 +99,14 @@ manifest-YYYYMMDD-HHMM.json
    - Endpoint `/health` responde 200.
 7. Switch tráfego (atualizar DNS / load balancer). Remover modo manutenção.
 
-### 4.4 Test Recovery Run (Trimestral)
+### 4.4 Test Recovery Run (Semanal – CI) / Trimestral – Operacional
 1. Simular falha: escolhe backup de data conhecida.
 2. Restaurar em ambiente isolado (namespace `recovery-test`).
 3. Executar script de validação.
 4. Medir tempos: início → app saudável = WRT real. Igual comparar RPO efetivo = (timestamp incidente simulado - último ponto recuperado).
 5. Documentar diferenças e ajustar frequências se necessário.
+
+No CI, o workflow `.github/workflows/backup-verify.yml` executa semanalmente um ciclo de backup e restore em Postgres efémero e publica evidências como artefactos.
 
 ---
 ## 5. Métricas & Monitorização

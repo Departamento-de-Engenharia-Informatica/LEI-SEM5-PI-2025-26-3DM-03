@@ -4,8 +4,9 @@ on:
   schedule:
     # Daily full backup at 02:00 UTC
     - cron: '0 2 * * *'
-    # Incremental snapshot every 15 minutes (logical snapshot for RPO)
-    - cron: '*/15 * * * *'
+    # NOTE: Reduced frequency to avoid excessive runs. To re-enable more
+    # frequent backups, add another cron entry, e.g. hourly:
+    # - cron: '0 * * * *'
   workflow_dispatch:
     inputs:
       kind:
@@ -22,16 +23,20 @@ jobs:
       #  - schedule */15 -> incremental
       #  - workflow_dispatch 'verify' -> full (fresh artifact for verification)
       #  - workflow_dispatch 'full'/'incremental' -> as requested
-      BACKUP_KIND: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * *') && 'full' || github.event_name == 'schedule' && (github.event.schedule != '0 2 * * *') && 'incremental' || (github.event_name == 'workflow_dispatch' && (inputs.kind == 'verify') && 'full') || (github.event_name == 'workflow_dispatch' && inputs.kind) || 'full' }}
+      # Simplified: GitHub does not expose which cron fired; choose input when dispatch, else 'full'.
+      BACKUP_KIND: ${{ (github.event_name == 'workflow_dispatch' && inputs.kind) || 'full' }}
       BACKUP_OUT: backup_out
       DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
       DB_TYPE: postgres
       BACKUP_BUCKET: ${{ secrets.BACKUP_BUCKET }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
       AZURE_STORAGE_ACCOUNT: ${{ secrets.AZURE_STORAGE_ACCOUNT }}
       AZURE_STORAGE_CONTAINER: ${{ secrets.AZURE_STORAGE_CONTAINER }}
       HAS_DB: ${{ secrets.DB_CONNECTION != '' && 'true' || 'false' }}
-      USE_EPHEMERAL: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' && 'true' || 'false' }}
+      USE_EPHEMERAL: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,10 +48,10 @@ jobs:
           pipx install awscli || pip install --user awscli || true
 
       - name: Azure login (optional)
-        if: ${{ secrets.AZURE_CREDENTIALS != '' }}
+        if: env.AZURE_CREDENTIALS != ''
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          creds: ${{ env.AZURE_CREDENTIALS }}
 
       - name: Ensure output dir
         run: mkdir -p "${BACKUP_OUT}"
@@ -60,7 +65,7 @@ jobs:
           PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           CREATE TABLE IF NOT EXISTS demo(id SERIAL PRIMARY KEY, note TEXT NOT NULL);
           INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');
-SQL
+          SQL
 
       - name: Run backup script
         if: env.USE_EPHEMERAL == 'true' || env.HAS_DB == 'true'
@@ -96,10 +101,7 @@ SQL
           retention-days: 7
 
       - name: Upload to AWS S3 (optional)
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.BACKUP_BUCKET != '' }}
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        if: env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' && env.BACKUP_BUCKET != ''
         run: |
           set -e
           ts=$(date -u +%Y%m%d-%H%M%S)
@@ -107,7 +109,7 @@ SQL
           aws s3 cp ${BACKUP_OUT}/ s3://${BACKUP_BUCKET}/${prefix}/ --recursive --region "${AWS_REGION:-eu-west-1}"
 
       - name: Upload to Azure Blob (optional)
-        if: ${{ secrets.AZURE_CREDENTIALS != '' && secrets.AZURE_STORAGE_ACCOUNT != '' && secrets.AZURE_STORAGE_CONTAINER != '' }}
+        if: env.AZURE_CREDENTIALS != '' && env.AZURE_STORAGE_ACCOUNT != '' && env.AZURE_STORAGE_CONTAINER != ''
         run: |
           set -e
           ts=$(date -u +%Y%m%d-%H%M%S)
@@ -120,7 +122,7 @@ SQL
             --overwrite true
 
   verify-restore:
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.kind == 'verify') || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * *') }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.kind == 'verify' }}
     needs: backup
     runs-on: ubuntu-latest
     env:

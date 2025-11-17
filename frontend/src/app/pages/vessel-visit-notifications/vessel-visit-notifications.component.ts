@@ -27,6 +27,10 @@ export class VesselVisitNotificationsComponent implements OnInit {
   status: 'all' | VisitStatus = 'all';
   from: string | null = null; // yyyy-mm-dd
   to: string | null = null;   // yyyy-mm-dd
+  // server paging
+  page = 1;
+  pageSize = 20;
+  private lastPageCount = 0;
 
   // Create modal
   showCreate = false;
@@ -84,9 +88,17 @@ export class VesselVisitNotificationsComponent implements OnInit {
     this.loading = true;
     this.error = null;
     try {
-      const items = await this.vvn.getAll();
+      const items = await this.vvn.getAll({
+        vesselId: this.q?.trim() || undefined,
+        status: this.status === 'all' ? undefined : this.status,
+        submittedFrom: this.from ? new Date(this.from).toISOString() : undefined,
+        submittedTo: this.to ? new Date(this.to).toISOString() : undefined,
+        page: this.page,
+        pageSize: this.pageSize,
+      });
       this.notifications = Array.isArray(items) ? items : [];
-      this.applyFilterSort();
+      this.filtered = this.notifications;
+      this.lastPageCount = this.notifications.length;
     } catch (e: any) {
       this.error = e?.message || 'Falha ao carregar notificações de visita.';
     } finally {
@@ -96,33 +108,9 @@ export class VesselVisitNotificationsComponent implements OnInit {
   }
 
   applyFilterSort() {
-    const q = (this.q || '').trim().toLowerCase();
-    const fromTs = this.from ? Date.parse(this.from) : null;
-    const toTs = this.to ? Date.parse(this.to) : null;
-
-    const filtered = (this.notifications || []).filter(n => {
-      // search by vessel name or IMO
-      const vid = (n.vesselId || '').toString().toLowerCase();
-      const matchQ = !q || vid.includes(q);
-
-      // status
-      const matchStatus = this.status === 'all' || n.status === this.status;
-
-      // date range filter compares scheduledArrival
-      const arrTs = n.arrivalDate ? Date.parse(n.arrivalDate as any) : NaN;
-      const matchFrom = !fromTs || (!isNaN(arrTs) && arrTs >= fromTs);
-      const matchTo = !toTs || (!isNaN(arrTs) && arrTs <= toTs + 24*60*60*1000 - 1);
-
-      return matchQ && matchStatus && matchFrom && matchTo;
-    });
-
-    filtered.sort((a, b) => {
-      const at = a.arrivalDate ? Date.parse(a.arrivalDate as any) : 0;
-      const bt = b.arrivalDate ? Date.parse(b.arrivalDate as any) : 0;
-      return bt - at; // newest first
-    });
-
-    this.filtered = filtered;
+    // Fetch from server using current filters
+    this.page = 1; // reset to first page on filter change
+    this.loadNotifications();
   }
 
   resetFilters() {
@@ -130,7 +118,8 @@ export class VesselVisitNotificationsComponent implements OnInit {
     this.status = 'all';
     this.from = null;
     this.to = null;
-    this.applyFilterSort();
+    this.page = 1;
+    this.loadNotifications();
   }
 
   openCreate() {
@@ -206,7 +195,7 @@ export class VesselVisitNotificationsComponent implements OnInit {
     if (v === 'approved') return 'status approved';
     if (v === 'rejected') return 'status rejected';
     if (v === 'cancelled' || v === 'canceled') return 'status cancelled';
-    if (v === 'inprogress' || v === 'in_progress' || v === 'processing') return 'status pending';
+    if (v === 'inprogress' || v === 'in_progress' || v === 'processing' || v === 'submitted' || v === 'pendingapproval' || v === 'approvalpending') return 'status pending';
     if (v === 'completed' || v === 'done') return 'status approved';
     return 'status pending';
   }
@@ -298,7 +287,9 @@ export class VesselVisitNotificationsComponent implements OnInit {
       this.selected = fresh;
       const idx = this.notifications.findIndex(x => x.id === fresh.id);
       if (idx >= 0) this.notifications[idx] = fresh; else this.notifications.unshift(fresh);
-      this.applyFilterSort();
+      this.filtered = this.notifications;
+      this.loadNotifications();
+      try { this.cdr.detectChanges(); } catch {}
       this.toast.success('Notificação submetida');
     } catch (e: any) {
       this.toast.error(e?.message || 'Falha ao submeter.');
@@ -324,7 +315,9 @@ export class VesselVisitNotificationsComponent implements OnInit {
       this.selected = fresh;
       const idx = this.notifications.findIndex(x => x.id === fresh.id);
       if (idx >= 0) this.notifications[idx] = fresh;
-      this.applyFilterSort();
+      this.filtered = this.notifications;
+      this.loadNotifications();
+      try { this.cdr.detectChanges(); } catch {}
       this.toast.success('Notificação aprovada');
     } catch (e: any) {
       this.toast.error(e?.message || 'Falha ao aprovar.');
@@ -341,8 +334,10 @@ export class VesselVisitNotificationsComponent implements OnInit {
       this.selected = fresh;
       const idx = this.notifications.findIndex(x => x.id === fresh.id);
       if (idx >= 0) this.notifications[idx] = fresh;
-      this.applyFilterSort();
+      this.filtered = this.notifications;
+      this.loadNotifications();
       this.rejectReason = '';
+      try { this.cdr.detectChanges(); } catch {}
       this.toast.success('Notificação rejeitada');
     } catch (e: any) {
       this.toast.error(e?.message || 'Falha ao rejeitar.');
@@ -367,4 +362,10 @@ export class VesselVisitNotificationsComponent implements OnInit {
     };
     this.showCreate = true;
   }
+
+  // simple pagination helpers
+  canPrev(): boolean { return this.page > 1; }
+  canNext(): boolean { return this.lastPageCount >= this.pageSize; }
+  async prevPage() { if (!this.canPrev()) return; this.page--; await this.loadNotifications(); }
+  async nextPage() { if (!this.canNext()) return; this.page++; await this.loadNotifications(); }
 }

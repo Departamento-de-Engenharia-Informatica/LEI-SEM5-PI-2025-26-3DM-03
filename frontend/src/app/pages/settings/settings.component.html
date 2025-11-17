@@ -18,18 +18,38 @@
   <section class="list">
     <h3>Users</h3>
     <table>
-      <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Email</th><th>Name</th><th>Roles</th><th>Status</th><th>Activation</th><th>Actions</th></tr></thead>
       <tbody>
         <tr *ngFor="let u of users">
           <td>{{ u.email }}</td>
           <td>{{ u.name }}</td>
           <td>
-            <select [value]="(u.roles && u.roles.length>0 ? u.roles[0].roleId : null)" (change)="changeRole(u, $any($event.target).value)">
-              <option *ngFor="let r of roles" [value]="r.id">{{ r.name }}</option>
-            </select>
+            <div class="role-grid">
+              <label *ngFor="let r of roles">
+                <input type="checkbox" [checked]="userHasRole(u, r.id)" (change)="toggleRole(u, r.id, $event)" />
+                <span>{{ r.name }}</span>
+              </label>
+            </div>
           </td>
-          <td><input type="checkbox" [checked]="u.active" (change)="toggleActive(u)" /></td>
-          <td><button class="btn-ghost" (click)="remove(u)">Deactivate</button></td>
+          <td>
+            <span class="badge" [class.badge-active]="u.active" [class.badge-inactive]="!u.active">{{ u.active ? 'Ativo' : 'Inativo' }}</span>
+          </td>
+          <td>
+            <div class="activation-cell">
+              <span *ngIf="u.activation?.pending" class="pending">Link pendente</span>
+              <span *ngIf="!u.activation?.pending && u.activation?.lastRedeemedUtc" class="complete">Ativado em {{ u.activation.lastRedeemedUtc | date:'short' }}</span>
+              <small *ngIf="u.activation?.lastSentUtc">Último envio: {{ u.activation.lastSentUtc | date:'short' }}</small>
+              <button class="btn-ghost" (click)="sendActivation(u)" [disabled]="!u.roles || u.roles.length === 0">Enviar link</button>
+              <div class="activation-link" *ngIf="lastActivationLink[u.id]">
+                <small>Link copiado:</small>
+                <code>{{ lastActivationLink[u.id].link }}</code>
+              </div>
+            </div>
+          </td>
+          <td>
+            <button class="btn-ghost" (click)="toggleActive(u)">{{ u.active ? 'Desativar' : 'Ativar' }}</button>
+            <button class="btn-ghost" (click)="remove(u)">Remover</button>
+          </td>
         </tr>
       </tbody>
     </table>

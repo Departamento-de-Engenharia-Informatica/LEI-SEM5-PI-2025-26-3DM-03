@@ -1,0 +1,13 @@
+<section class="dashboard">
+  <header>
+    <h1>Dashboard</h1>
+    <p>Sessão iniciada com sucesso. Utilize o menu para navegar.</p>
+  </header>
+
+  <div class="cards">
+    <article *ngFor="let card of cards">
+      <h2>{{ card.title }}</h2>
+      <p>{{ card.description }}</p>
+    </article>
+  </div>
+</section>

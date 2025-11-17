@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#f8fafc"/>
+  <rect x="40" y="40" width="880" height="80" rx="12" fill="#0f172a" opacity="0.85"/>
+  <text x="80" y="90" font-family="Inter, Arial" font-size="28" fill="#f8fafc">Recursos Partilhados</text>
+  <text x="80" y="120" font-family="Inter, Arial" font-size="16" fill="#cbd5f5">Listagem + Upload condicional ao perfil Admin</text>
+  <rect x="40" y="150" width="880" height="110" rx="12" fill="#fff" stroke="#e2e8f0"/>
+  <text x="60" y="190" font-family="Inter, Arial" font-size="18" fill="#0f172a">Upload (visível apenas para Admin)</text>
+  <text x="60" y="220" font-family="Inter, Arial" font-size="14" fill="#475569">Input de ficheiro + descrição opcional + botão Carregar</text>
+  <rect x="40" y="280" width="880" height="200" rx="12" fill="#fff" stroke="#e2e8f0"/>
+  <text x="60" y="315" font-family="Inter, Arial" font-size="18" fill="#0f172a">Tabela de ficheiros disponíveis para download</text>
+  <text x="60" y="345" font-family="Inter, Arial" font-size="14" fill="#475569">Colunas: Nome, Descrição, Tipo, Tamanho, Autor, Data, Ações</text>
+  <text x="60" y="375" font-family="Inter, Arial" font-size="14" fill="#475569">Botão Download (todos). Botão Apagar (apenas Admin).</text>
+  <rect x="60" y="395" width="240" height="50" rx="8" fill="#0ea5a4" opacity="0.8"/>
+  <text x="80" y="425" font-family="Inter, Arial" font-size="16" fill="#fff">Download</text>
+  <rect x="320" y="395" width="240" height="50" rx="8" fill="#ef4444" opacity="0.7"/>
+  <text x="340" y="425" font-family="Inter, Arial" font-size="16" fill="#fff">Apagar (Admin)</text>
+  <text x="40" y="510" font-family="Inter, Arial" font-size="14" fill="#94a3b8">
+    Mock do layout final da página “Recursos Partilhados” (Angular)
+  </text>
+</svg>

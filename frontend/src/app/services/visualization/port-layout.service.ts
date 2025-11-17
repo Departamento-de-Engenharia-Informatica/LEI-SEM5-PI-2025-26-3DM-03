@@ -52,6 +52,34 @@ export interface PortLayoutDTO {
   landAreas: LandAreaLayout[];
   docks: DockLayout[];
   warehouses: WarehouseLayout[];
+  materials?: MaterialLibraryDTO;
+}
+
+export interface MaterialLibraryDTO {
+  dock?: DockMaterialDTO;
+}
+
+export interface DockMaterialDTO {
+  top?: SurfaceMaterialDTO;
+  side?: SurfaceMaterialDTO;
+  trim?: SurfaceMaterialDTO;
+}
+
+export interface SurfaceMaterialDTO {
+  color?: string;
+  roughness?: number;
+  metalness?: number;
+  colorMap?: ProceduralTextureDescriptor;
+  roughnessMap?: ProceduralTextureDescriptor;
+}
+
+export interface ProceduralTextureDescriptor {
+  pattern: 'stripe' | 'noise' | 'grid';
+  primaryColor: string;
+  secondaryColor?: string;
+  scale?: number;
+  strength?: number;
+  rotation?: number;
 }
 
 @Injectable({ providedIn: 'root' })

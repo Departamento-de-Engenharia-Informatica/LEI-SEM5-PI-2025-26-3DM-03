@@ -14,6 +14,7 @@ import { TranslationService } from '../../services/i18n/translation.service';
 export class SettingsComponent implements OnInit {
   users: any[] = [];
   roles: any[] = [];
+  lastActivationLink: { [userId: number]: { link: string; expiresAt: string } } = {};
   loading = false;
   error: string | null = null;
 
@@ -41,14 +42,10 @@ export class SettingsComponent implements OnInit {
   async create() {
     if (!this.newEmail) { this.error = 'Email required'; return; }
     try {
-      await this.admin.createUser({ email: this.newEmail, name: this.newName || undefined, roleId: this.newRoleId ?? undefined, active: true });
+      await this.admin.createUser({ email: this.newEmail, name: this.newName || undefined, roleId: this.newRoleId ?? undefined, active: false });
       this.newEmail = ''; this.newName = '';
       await this.load();
     } catch (e: any) { this.error = e?.message || 'Failed'; }
-  }
-
-  async changeRole(u: any, roleId: number) {
-    try { await this.admin.updateUserRole(u.id, roleId); await this.load(); } catch (e: any) { this.error = e?.message || 'Failed'; }
   }
 
   async toggleActive(u: any) {
@@ -58,5 +55,27 @@ export class SettingsComponent implements OnInit {
   async remove(u: any) {
     if (!confirm('Desativar este utilizador?')) return;
     try { await this.admin.deleteUser(u.id); await this.load(); } catch (e: any) { this.error = e?.message || 'Failed'; }
+  }
+
+  userHasRole(u: any, roleId: number): boolean {
+    return Array.isArray(u.roles) && u.roles.some((r: any) => r.roleId === roleId);
+  }
+
+  async toggleRole(u: any, roleId: number, event: Event) {
+    const checked = (event.target as HTMLInputElement)?.checked;
+    const current = new Set<number>(Array.isArray(u.roles) ? u.roles.map((r: any) => r.roleId) : []);
+    if (checked) current.add(roleId); else current.delete(roleId);
+    try { await this.admin.updateUserRoles(u.id, Array.from(current)); await this.load(); } catch (e: any) { this.error = e?.message || 'Failed'; }
+  }
+
+  async sendActivation(u: any) {
+    try {
+      const res = await this.admin.sendActivationLink(u.id);
+      if (res?.link) {
+        this.lastActivationLink[u.id] = { link: res.link, expiresAt: res.expiresAtUtc };
+        try { await navigator.clipboard.writeText(res.link); } catch {}
+      }
+      await this.load();
+    } catch (e: any) { this.error = e?.message || 'Failed'; }
   }
 }

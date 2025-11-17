@@ -45,7 +45,11 @@ export class AdminService {
   }
 
   async updateUserRole(id: number, roleId: number) {
-    const res = await this.requestWithFallback(`${apiBase}/users/${id}/role`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId }) });
+    return this.updateUserRoles(id, [roleId]);
+  }
+
+  async updateUserRoles(id: number, roleIds: number[]) {
+    const res = await this.requestWithFallback(`${apiBase}/users/${id}/roles`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleIds }) });
     if (!res.ok) throw new Error(await res.text());
   }
 
@@ -57,5 +61,11 @@ export class AdminService {
   async deleteUser(id: number) {
     const res = await this.requestWithFallback(`${apiBase}/users/${id}`, { method: 'DELETE', credentials: 'include' });
     if (!res.ok) throw new Error(await res.text());
+  }
+
+  async sendActivationLink(id: number) {
+    const res = await this.requestWithFallback(`${apiBase}/users/${id}/activation-links`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
   }
 }

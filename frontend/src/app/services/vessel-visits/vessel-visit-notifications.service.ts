@@ -32,13 +32,24 @@ export class VesselVisitNotificationsService {
     return r2;
   }
 
-  async getAll(params?: { status?: string; submittedFrom?: string; submittedTo?: string; vesselId?: string }): Promise<VesselVisitNotificationDTO[]> {
+  async getAll(params?: {
+    vesselId?: string;
+    status?: string;
+    representativeEmail?: string;
+    submittedFrom?: string; // ISO
+    submittedTo?: string;   // ISO
+    page?: number;
+    pageSize?: number;
+  }): Promise<VesselVisitNotificationDTO[]> {
     const p: string[] = [];
     if (params) {
-      if (params.status && params.status !== 'all') p.push(`status=${encodeURIComponent(params.status)}`);
-      if (params.submittedFrom) p.push(`submittedFrom=${encodeURIComponent(params.submittedFrom)}`);
-      if (params.submittedTo) p.push(`submittedTo=${encodeURIComponent(params.submittedTo)}`);
-      if (params.vesselId) p.push(`vesselId=${encodeURIComponent(params.vesselId)}`);
+      if (params.vesselId) p.push(`VesselId=${encodeURIComponent(params.vesselId)}`);
+      if (params.status && params.status !== 'all') p.push(`Status=${encodeURIComponent(params.status)}`);
+      if (params.representativeEmail) p.push(`RepresentativeEmail=${encodeURIComponent(params.representativeEmail)}`);
+      if (params.submittedFrom) p.push(`SubmittedFrom=${encodeURIComponent(params.submittedFrom)}`);
+      if (params.submittedTo) p.push(`SubmittedTo=${encodeURIComponent(params.submittedTo)}`);
+      if (params.page) p.push(`Page=${params.page}`);
+      if (params.pageSize) p.push(`PageSize=${params.pageSize}`);
     }
     const suffix = p.length ? `?${p.join('&')}` : '';
     const res = await this.requestWithFallback(`${this.apiUrl}${suffix}`, { credentials: 'include' });

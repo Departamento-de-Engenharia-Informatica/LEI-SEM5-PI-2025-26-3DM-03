@@ -81,6 +81,16 @@
 .form input:focus,.form select:focus,.form textarea:focus{border-color:#2563eb;background:#fff;box-shadow:0 0 0 1px rgba(37,99,235,.16)}
 .modal-actions{display:flex;justify-content:flex-end;gap:.5rem;margin-top:.25rem}
 
+/* Action bars inside details modal */
+.actions-bar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.5rem}
+.actions-bar.footer-actions{justify-content:flex-end}
+.actions-bar.agent-actions{justify-content:flex-start}
+.actions-bar.decision-actions{justify-content:flex-start;border-top:1px solid #f1f5f9;padding-top:.6rem}
+.actions-bar .inline{display:flex;flex-direction:column;gap:.25rem}
+.actions-bar .inline input,.actions-bar .inline select{min-width:140px}
+.actions-bar .grow{flex:1 1 220px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
 /* Responsive */
 @media (max-width:1024px){.vvn-card .row{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:640px){.page.modern{padding:1.25rem 1rem 1.75rem}.header-main{align-items:flex-start}.search-field{min-width:100%}.form .row{grid-template-columns:minmax(0,1fr)}}

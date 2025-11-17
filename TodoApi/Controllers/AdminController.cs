@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
 using TodoApi.Models.Auth;
 using System.Linq;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using TodoApi.Services.Activation;
 
 namespace TodoApi.Controllers
 {
@@ -13,10 +16,12 @@ namespace TodoApi.Controllers
     public class AdminController : ControllerBase
     {
         private readonly PortContext _db;
+        private readonly ActivationLinkService _activationLinks;
 
-        public AdminController(PortContext db)
+        public AdminController(PortContext db, ActivationLinkService activationLinks)
         {
             _db = db;
+            _activationLinks = activationLinks;
         }
 
         // Helper: verify caller has Admin role
@@ -27,21 +32,37 @@ namespace TodoApi.Controllers
 
         // GET /admin/users
         [HttpGet("users")]
-        public async System.Threading.Tasks.Task<IActionResult> GetUsers()
+        public async Task<IActionResult> GetUsers()
         {
             if (!CallerIsAdmin()) return Forbid();
 
             var users = await _db.AppUsers
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .Include(u => u.ActivationTokens)
                 .ToListAsync();
 
-            var result = users.Select(u => new {
-                u.Id,
-                u.Email,
-                u.Name,
-                u.ExternalId,
-                u.Active,
-                Roles = u.UserRoles?.Select(ur => new { ur.RoleId, RoleName = ur.Role?.Name, Active = ur.Role?.Active })
+            var now = System.DateTime.UtcNow;
+            var result = users.Select(u =>
+            {
+                var latestToken = u.ActivationTokens?
+                    .OrderByDescending(t => t.CreatedAtUtc)
+                    .FirstOrDefault();
+                var hasPendingActivation = latestToken != null && latestToken.RedeemedAtUtc == null && latestToken.ExpiresAtUtc > now;
+                return new
+                {
+                    u.Id,
+                    u.Email,
+                    u.Name,
+                    u.ExternalId,
+                    u.Active,
+                    Roles = u.UserRoles?.Select(ur => new { ur.RoleId, RoleName = ur.Role?.Name, Active = ur.Role?.Active }),
+                    Activation = new
+                    {
+                        Pending = hasPendingActivation,
+                        LastSentUtc = latestToken?.CreatedAtUtc,
+                        LastRedeemedUtc = latestToken?.RedeemedAtUtc
+                    }
+                };
             });
 
             return Ok(result);
@@ -49,7 +70,7 @@ namespace TodoApi.Controllers
 
         // GET /admin/roles
         [HttpGet("roles")]
-        public async System.Threading.Tasks.Task<IActionResult> GetRoles()
+        public async Task<IActionResult> GetRoles()
         {
             if (!CallerIsAdmin()) return Forbid();
             var roles = await _db.Roles.ToListAsync();
@@ -60,7 +81,7 @@ namespace TodoApi.Controllers
 
         // POST /admin/users
         [HttpPost("users")]
-        public async System.Threading.Tasks.Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
         {
             if (!CallerIsAdmin()) return Forbid();
             if (string.IsNullOrWhiteSpace(dto.Email)) return BadRequest(new { message = "email required" });
@@ -68,7 +89,7 @@ namespace TodoApi.Controllers
             var exists = await _db.AppUsers.AnyAsync(u => u.Email == dto.Email);
             if (exists) return Conflict(new { message = "user already exists" });
 
-            var user = new AppUser { Email = dto.Email.Trim(), Name = dto.Name, Active = dto.Active };
+            var user = new AppUser { Email = dto.Email.Trim(), Name = dto.Name, Active = false };
             _db.AppUsers.Add(user);
             await _db.SaveChangesAsync();
 
@@ -77,8 +98,8 @@ namespace TodoApi.Controllers
                 var role = await _db.Roles.FindAsync(dto.RoleId.Value);
                 if (role != null)
                 {
-                    _db.UserRoles.Add(new UserRole { AppUserId = user.Id, RoleId = role.Id });
-                    await _db.SaveChangesAsync();
+                    var error = await TryReplaceRoles(user, new List<Role> { role });
+                    if (error != null) return error;
                 }
             }
 
@@ -86,10 +107,11 @@ namespace TodoApi.Controllers
         }
 
         public class UpdateRoleDto { public int RoleId { get; set; } }
+        public class UpdateRolesDto { public List<int>? RoleIds { get; set; } }
 
         // PUT /admin/users/{id}/role
         [HttpPut("users/{id}/role")]
-        public async System.Threading.Tasks.Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleDto dto)
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleDto dto)
         {
             if (!CallerIsAdmin()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
@@ -98,25 +120,25 @@ namespace TodoApi.Controllers
             var role = await _db.Roles.FindAsync(dto.RoleId);
             if (role == null) return BadRequest(new { message = "role not found" });
 
-            // Prevent leaving system with no active admin: if removing admin role from this user, check others
-            var isRemovingAdmin = user.UserRoles.Any(ur => ur.Role != null && ur.Role.Name == "Admin" && ur.Role.Active) && role.Name != "Admin";
-            if (isRemovingAdmin)
-            {
-                var otherAdmins = await _db.UserRoles
-                    .Include(ur => ur.AppUser).Include(ur => ur.Role)
-                    .Where(ur => ur.Role.Name == "Admin" && ur.Role.Active && ur.AppUser.Active && ur.AppUser.Id != id)
-                    .ToListAsync();
-                if (!otherAdmins.Any()) return BadRequest(new { message = "operation would remove the last active admin" });
-            }
+            var error = await TryReplaceRoles(user, new List<Role> { role });
+            if (error != null) return error;
+            return NoContent();
+        }
 
-            // Simple model: remove existing userroles and add the new role
-            var existing = user.UserRoles.ToList();
-            foreach (var ur in existing) _db.UserRoles.Remove(ur);
-            await _db.SaveChangesAsync();
+        // PUT /admin/users/{id}/roles
+        [HttpPut("users/{id}/roles")]
+        public async Task<IActionResult> UpdateUserRoles(int id, [FromBody] UpdateRolesDto dto)
+        {
+            if (!CallerIsAdmin()) return Forbid();
+            var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
+            if (user == null) return NotFound();
 
-            _db.UserRoles.Add(new UserRole { AppUserId = user.Id, RoleId = role.Id });
-            await _db.SaveChangesAsync();
+            var roleIds = dto?.RoleIds?.Distinct().ToList() ?? new List<int>();
+            var roles = roleIds.Count == 0 ? new List<Role>() : await _db.Roles.Where(r => roleIds.Contains(r.Id)).ToListAsync();
+            if (roles.Count != roleIds.Count) return BadRequest(new { message = "one or more roles not found" });
 
+            var error = await TryReplaceRoles(user, roles);
+            if (error != null) return error;
             return NoContent();
         }
 
@@ -124,7 +146,7 @@ namespace TodoApi.Controllers
 
         // PATCH /admin/users/{id}/activate
         [HttpPatch("users/{id}/activate")]
-        public async System.Threading.Tasks.Task<IActionResult> SetActive(int id, [FromBody] ActiveDto dto)
+        public async Task<IActionResult> SetActive(int id, [FromBody] ActiveDto dto)
         {
             if (!CallerIsAdmin()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
@@ -149,9 +171,26 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
+        // POST /admin/users/{id}/activation-links
+        [HttpPost("users/{id}/activation-links")]
+        public async Task<IActionResult> SendActivationLink(int id)
+        {
+            if (!CallerIsAdmin()) return Forbid();
+            var user = await _db.AppUsers
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == id);
+            if (user == null) return NotFound();
+
+            var hasAnyRole = user.UserRoles.Any(ur => ur.Role != null && ur.Role.Active);
+            if (!hasAnyRole) return BadRequest(new { message = "user must have at least one active role" });
+
+            var result = await _activationLinks.CreateAndSendAsync(user);
+            return Ok(new { expiresAtUtc = result.ExpiresAtUtc, link = result.Link });
+        }
+
         // DELETE /admin/users/{id}
         [HttpDelete("users/{id}")]
-        public async System.Threading.Tasks.Task<IActionResult> DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(int id)
         {
             if (!CallerIsAdmin()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
@@ -172,6 +211,45 @@ namespace TodoApi.Controllers
             _db.AppUsers.Update(user);
             await _db.SaveChangesAsync();
             return NoContent();
+        }
+
+        private async Task<IActionResult?> TryReplaceRoles(AppUser user, List<Role> newRoles)
+        {
+            var existingRoles = user.UserRoles?.ToList() ?? new List<UserRole>();
+            var userWasAdmin = existingRoles.Any(ur => ur.Role != null && ur.Role.Name == "Admin" && ur.Role.Active);
+            var willRemainAdmin = newRoles.Any(r => r.Name == "Admin" && r.Active);
+
+            if (userWasAdmin && !willRemainAdmin)
+            {
+                var otherAdmins = await _db.UserRoles
+                    .Include(ur => ur.AppUser).Include(ur => ur.Role)
+                    .Where(ur => ur.Role.Name == "Admin" && ur.Role.Active && ur.AppUser.Active && ur.AppUser.Id != user.Id)
+                    .ToListAsync();
+                if (!otherAdmins.Any())
+                {
+                    return BadRequest(new { message = "operation would remove the last active admin" });
+                }
+            }
+
+            _db.UserRoles.RemoveRange(existingRoles);
+            foreach (var role in newRoles)
+            {
+                _db.UserRoles.Add(new UserRole { AppUserId = user.Id, RoleId = role.Id });
+            }
+            await _db.SaveChangesAsync();
+
+            await TriggerActivationIfNeeded(user, existingRoles, newRoles);
+            return null;
+        }
+
+        private async Task TriggerActivationIfNeeded(AppUser user, IReadOnlyCollection<UserRole> previousRoles, IReadOnlyCollection<Role> newRoles)
+        {
+            var hadActiveRoles = previousRoles.Any(ur => ur.Role != null && ur.Role.Active);
+            var hasActiveRolesNow = newRoles.Any(r => r.Active);
+            if (!hadActiveRoles && hasActiveRolesNow && !user.Active)
+            {
+                await _activationLinks.CreateAndSendAsync(user);
+            }
         }
     }
 }
