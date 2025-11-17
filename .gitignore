@@ -147,3 +147,7 @@ logs/
 *.local.json
 *.vscode/
 .idea/
+
+# SQLite runtime artifacts (do not commit)
+*.db-wal
+*.db-shm

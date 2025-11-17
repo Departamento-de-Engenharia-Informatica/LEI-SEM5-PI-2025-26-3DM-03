@@ -1,0 +1,127 @@
+.crane-demo {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem;
+  background: radial-gradient(circle at 20% 20%, #f7fbff 0%, #eef2f8 55%, #d9e4f2 100%);
+  border-radius: 24px;
+  box-shadow: 0 24px 60px rgba(13, 33, 63, 0.18);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.crane-demo__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+
+  h2 {
+    font-size: clamp(1.8rem, 2.4vw, 2.6rem);
+    margin: 0;
+    color: #0f1f3a;
+    font-weight: 700;
+  }
+}
+
+.crane-demo__eyebrow {
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  margin: 0 0 0.35rem;
+  color: #5b6c83;
+  font-weight: 600;
+}
+
+.crane-demo__subtitle {
+  margin: 0.45rem 0 0;
+  color: #4b5b72;
+  max-width: 640px;
+}
+
+.crane-demo__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  span {
+    background: rgba(15, 23, 42, 0.08);
+    border-radius: 999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #0f1f3a;
+  }
+}
+
+.crane-demo__canvas-wrapper {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(12, 26, 49, 0.25);
+  background: linear-gradient(135deg, #0b2745, #0f4c81);
+}
+
+#craneCanvas {
+  width: 100%;
+  min-height: 460px;
+  display: block;
+}
+
+.crane-demo__overlay {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fbff;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.crane-demo__legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+
+  article {
+    padding: 1rem 1.2rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+
+    h3 {
+      margin: 0 0 0.4rem;
+      font-size: 1rem;
+      color: #10213f;
+    }
+
+    p {
+      margin: 0;
+      color: #4b5565;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    ul {
+      padding-left: 1rem;
+      margin: 0;
+      color: #4b5565;
+      li {
+        margin-bottom: 0.25rem;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .crane-demo {
+    padding: 1.5rem;
+  }
+
+  #craneCanvas {
+    min-height: 360px;
+  }
+}

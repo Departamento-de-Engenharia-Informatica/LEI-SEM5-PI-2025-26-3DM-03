@@ -125,6 +125,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     metalness: 0.5,
     roughness: 0.45,
   });
+  private readonly fenderGeometry = new THREE.BoxGeometry(10, 5, 3);
+  private readonly fenderMaterial = new THREE.MeshStandardMaterial({
+    color: 0x222222,
+    roughness: 0.7,
+  });
   private readonly lightEmissiveMaterial = new THREE.MeshBasicMaterial({
     color: 0xfff6bf,
   });
@@ -147,6 +152,69 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     color: 0xfdfdfd,
     transparent: true,
     opacity: 0.7,
+  });
+  private readonly craneRailMaterial = new THREE.MeshStandardMaterial({
+    color: 0xbec6d4,
+    metalness: 0.62,
+    roughness: 0.28,
+  });
+  private readonly railSleeperMaterial = new THREE.MeshStandardMaterial({
+    color: 0x4c5663,
+    metalness: 0.2,
+    roughness: 0.7,
+  });
+  private readonly utilityBoxMaterial = new THREE.MeshStandardMaterial({
+    color: 0xd6dde6,
+    roughness: 0.38,
+    metalness: 0.18,
+  });
+  private readonly cabinetDoorMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1f2c3a,
+    roughness: 0.55,
+    metalness: 0.15,
+  });
+  private readonly linePaintMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf8d359,
+    roughness: 0.4,
+    metalness: 0.06,
+    emissive: new THREE.Color(0x362600),
+    emissiveIntensity: 0.2,
+    polygonOffset: true,
+    polygonOffsetFactor: -0.5,
+    polygonOffsetUnits: -0.1,
+    depthWrite: false,
+  });
+  private readonly truckCabMaterial = new THREE.MeshStandardMaterial({
+    color: 0x154c79,
+    roughness: 0.45,
+    metalness: 0.35,
+  });
+  private readonly truckTrailerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xd4dde5,
+    roughness: 0.6,
+    metalness: 0.18,
+  });
+  private readonly truckWheelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x111112,
+    roughness: 0.9,
+    metalness: 0.4,
+  });
+  private readonly forkliftBodyMaterial = new THREE.MeshStandardMaterial({
+    color: 0xfbbf24,
+    roughness: 0.55,
+    metalness: 0.3,
+  });
+  private readonly forkliftMastMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1f1f1f,
+    roughness: 0.45,
+    metalness: 0.4,
+  });
+  private readonly truckGlassMaterial = new THREE.MeshStandardMaterial({
+    color: 0xcfe8ff,
+    roughness: 0.15,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.92,
   });
   private readonly vesselPalettes: VesselPalette[] = [
     { hull: 0x10375c, deck: 0xf4f8ff, accent: 0xff595e, cabin: 0xd8e2f1 },
@@ -173,7 +241,6 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.renderer?.dispose();
     this.containerGeometry.dispose();
     this.containerMaterials.forEach((mat) => mat.dispose());
-    Object.values(this.craneMaterials).forEach((mat) => mat.dispose());
     this.yardStripeMaterial.dispose();
     this.foamMaterial.dispose();
     this.bollardGeometry.dispose();
@@ -186,6 +253,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.bufferMaterial.dispose();
     this.guardRailMaterial.dispose();
     this.roadStripeMaterial.dispose();
+    this.craneRailMaterial.dispose();
+    this.railSleeperMaterial.dispose();
+    this.utilityBoxMaterial.dispose();
+    this.cabinetDoorMaterial.dispose();
+    this.linePaintMaterial.dispose();
+    this.fenderGeometry.dispose();
+    this.fenderMaterial.dispose();
+    this.truckCabMaterial.dispose();
+    this.truckTrailerMaterial.dispose();
+    this.truckWheelMaterial.dispose();
+    this.forkliftBodyMaterial.dispose();
+    this.forkliftMastMaterial.dispose();
+    this.truckGlassMaterial.dispose();
     this.resetGeneratedAssets();
   }
 
@@ -271,7 +351,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.waterBase = (this.waterGeom.attributes['position'].array as Float32Array).slice(0);
 
     const waterMat = new THREE.MeshPhysicalMaterial({
-      color: 0x3f7fb4,
+      color: 0x12344f,
       roughness: 0.2,
       metalness: 0.02,
       reflectivity: 0.55,
@@ -294,14 +374,29 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     // --- MATERIAIS DE BETÃO / ASFALTO ---
     const dockMaterialSet = this.createDockMaterialSet(sceneLayout.materials?.dock);
 
+    // Asfalto principal dos yards: base color + ruído para variação
+    const yardBasePrimary = '#d4dae4';
+    const yardBaseSecondary = '#b5bdc9';
+    const yardTex = this.createProceduralTexture(
+      {
+        pattern: 'noise',
+        primaryColor: yardBasePrimary,
+        secondaryColor: yardBaseSecondary,
+        scale: 5,
+        strength: 0.5,
+      },
+      false
+    );
+
     const yardTopMat = new THREE.MeshStandardMaterial({
-      color: 0xe2e2e2, // â€œasfaltoâ€ mais claro
+      color: new THREE.Color(yardBasePrimary),
       roughness: 0.94,
       metalness: 0.02,
+      map: yardTex,
     });
 
     const yardSideMat = new THREE.MeshStandardMaterial({
-      color: 0xb8b8b8,
+      color: 0xa7afba,
       roughness: 0.93,
       metalness: 0.02,
     });
@@ -370,47 +465,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     let firstDockCenter: THREE.Vector3 | null = null;
 
     for (const d of sceneLayout.docks) {
-      const geo = new THREE.BoxGeometry(d.size.length, d.size.height, d.size.width);
-      // Ordem das faces: +x, -x, +y (topo), -y (baixo), +z, -z
-      const mats: THREE.Material[] = [
-        dockMaterialSet.side,
-        dockMaterialSet.side,
-        dockMaterialSet.top,
-        dockMaterialSet.bottom,
-        dockMaterialSet.side,
-        dockMaterialSet.side,
-      ];
-
-      const mesh = new THREE.Mesh(geo, mats);
-      mesh.position.set(d.position.x, d.position.y + d.size.height / 2, d.position.z);
-      mesh.rotation.y = d.rotationY;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.scene.add(mesh);
-      this.addCranesForDock(d);
-
-      // Guardar centro do primeiro cais para apontar a cÃ¢mara
+      const dockCenter = this.buildDock(d, dockMaterialSet);
       if (!firstDockCenter) {
-        firstDockCenter = new THREE.Vector3(d.position.x, d.position.y, d.position.z);
+        firstDockCenter = dockCenter.clone();
       }
-
-      // Pequenos â€œfendersâ€ pretos na borda junto Ã  Ã¡gua (opcional, sÃ³ para parecer o print)
-      const fenderMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
-      const fenderGeo = new THREE.BoxGeometry(10, 5, 3);
-
-      const numFenders = Math.max(6, Math.floor(d.size.length / 80));
-      const startX = d.position.x - d.size.length / 2 + 20;
-      const step = (d.size.length - 40) / (numFenders - 1);
-
-      for (let i = 0; i < numFenders; i++) {
-        const fx = startX + i * step;
-        const fender = new THREE.Mesh(fenderGeo, fenderMat);
-        fender.position.set(fx, d.position.y + 2, d.position.z - d.size.width / 2 - 1.5);
-        fender.castShadow = true;
-        fender.receiveShadow = true;
-        this.scene.add(fender);
-      }
-      this.decorateDock(d, dockMaterialSet);
     }
 
     // 3) CÃ‚MARA APONTADA PARA O PORTO
@@ -418,8 +476,6 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     if (firstDockCenter) {
       this.framePort(firstDockCenter, sceneLayout);
     }
-    this.addVessels(sceneLayout);
-
     // Helpers (apenas para desenvolvimento; remover depois se quiser)
     if (this.showDebugHelpers) {
       const axes = new THREE.AxesHelper(200);
@@ -433,6 +489,31 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.animate();
   }
 
+  private buildDock(dock: DockLayout, dockMaterials: DockMaterialSet): THREE.Vector3 {
+    const geo = new THREE.BoxGeometry(dock.size.length, dock.size.height, dock.size.width);
+    const mats: THREE.Material[] = [
+      dockMaterials.side,
+      dockMaterials.side,
+      dockMaterials.top,
+      dockMaterials.bottom,
+      dockMaterials.side,
+      dockMaterials.side,
+    ];
+
+    const body = new THREE.Mesh(geo, mats);
+    body.position.set(dock.position.x, dock.position.y + dock.size.height / 2, dock.position.z);
+    body.rotation.y = dock.rotationY;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    this.scene.add(body);
+
+    this.addCranesForDock(dock);
+    this.addDockFenders(dock);
+    this.decorateDock(dock, dockMaterials);
+
+    return new THREE.Vector3(dock.position.x, dock.position.y, dock.position.z);
+  }
+
   private hasSceneContent(layout: PortLayoutDTO): boolean {
     return (
       (layout.docks?.length ?? 0) > 0 ||
@@ -444,55 +525,64 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private createDemoLayout(): PortLayoutDTO {
     return {
       units: 'meters',
-      water: { width: 3200, height: 2200, y: -2 },
+
+      // Espelho de água amplo e porto encostado a um lado
+      water: { width: 3600, height: 2200, y: -2 },
+
+      // Placas principais do yard atrás do cais
       landAreas: [
-        { storageAreaId: 1001, name: 'North Yard', x: -520, z: 320, width: 620, depth: 240, y: 0 },
-        { storageAreaId: 1002, name: 'Central Yard', x: -20, z: 260, width: 540, depth: 260, y: 0 },
-        { storageAreaId: 1003, name: 'South Yard', x: 450, z: 300, width: 520, depth: 220, y: 0 },
+        {
+          storageAreaId: 1001,
+          name: 'Main Yard North',
+          x: 0,
+          z: 220,
+          width: 1600,
+          depth: 380,
+          y: 0,
+        },
+        {
+          storageAreaId: 1002,
+          name: 'Main Yard South',
+          x: 0,
+          z: 620,
+          width: 1600,
+          depth: 360,
+          y: 0,
+        },
       ],
+
+      // Um único terminal enorme paralelo ao mar
       docks: [
         {
           dockId: 1,
-          name: 'Alpha',
-          position: { x: -520, y: 2, z: -140 },
-          size: { length: 520, width: 110, height: 8 },
+          name: 'Terminal 1',
+          position: { x: 0, y: 2, z: -140 },
+          size: { length: 1800, width: 140, height: 9 },
           rotationY: 0,
         },
-        {
-          dockId: 2,
-          name: 'Bravo',
-          position: { x: -20, y: 2, z: -150 },
-          size: { length: 460, width: 120, height: 8 },
-          rotationY: 0.05,
-        },
-        {
-          dockId: 3,
-          name: 'Charlie',
-          position: { x: 420, y: 2, z: -140 },
-          size: { length: 500, width: 110, height: 8 },
-          rotationY: -0.04,
-        },
       ],
+
+      // Armazéns alinhados mais atrás
       warehouses: [
         {
           storageAreaId: 2001,
-          name: 'Cold Storage',
-          position: { x: -520, y: 0, z: 640 },
-          size: { width: 260, depth: 160, height: 58 },
+          name: 'Warehouse A',
+          position: { x: -420, y: 0, z: 980 },
+          size: { width: 360, depth: 180, height: 60 },
           rotationY: 0,
         },
         {
           storageAreaId: 2002,
-          name: 'Logistics Hub',
-          position: { x: -40, y: 0, z: 660 },
-          size: { width: 320, depth: 150, height: 62 },
+          name: 'Warehouse B',
+          position: { x: 0, y: 0, z: 980 },
+          size: { width: 380, depth: 180, height: 60 },
           rotationY: 0,
         },
         {
           storageAreaId: 2003,
-          name: 'Warehouse East',
-          position: { x: 420, y: 0, z: 640 },
-          size: { width: 280, depth: 140, height: 54 },
+          name: 'Warehouse C',
+          position: { x: 420, y: 0, z: 980 },
+          size: { width: 360, depth: 180, height: 58 },
           rotationY: 0,
         },
       ],
@@ -633,18 +723,34 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private createSurfaceMaterial(config: SurfaceMaterialDTO | undefined, fallback: number): THREE.MeshStandardMaterial {
+    const fallbackHex = `#${new THREE.Color(fallback).getHexString()}`;
+    const effective: SurfaceMaterialDTO =
+      config ??
+      ({
+        color: fallbackHex,
+        roughness: 0.8,
+        metalness: 0.06,
+        colorMap: {
+          pattern: 'noise',
+          primaryColor: '#d8dde5',
+          secondaryColor: '#c1c7d2',
+          scale: 4,
+          strength: 0.45,
+        },
+      } as SurfaceMaterialDTO);
+
     const material = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(config?.color ?? fallback),
-      roughness: config?.roughness ?? 0.68,
-      metalness: config?.metalness ?? 0.08,
+      color: new THREE.Color(effective.color ?? fallback),
+      roughness: effective.roughness ?? 0.78,
+      metalness: effective.metalness ?? 0.06,
     });
 
-    const colorMap = this.createProceduralTexture(config?.colorMap, false);
+    const colorMap = this.createProceduralTexture(effective.colorMap, false);
     if (colorMap) {
       material.map = colorMap;
     }
 
-    const roughnessMap = this.createProceduralTexture(config?.roughnessMap, true);
+    const roughnessMap = this.createProceduralTexture(effective.roughnessMap, true);
     if (roughnessMap) {
       material.roughnessMap = roughnessMap;
     }
@@ -768,6 +874,23 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     return texture;
   }
 
+  private addDockFenders(dock: DockLayout) {
+    const numFenders = Math.max(6, Math.floor(dock.size.length / 80));
+    const startX = -dock.size.length / 2 + 20;
+    const step = (dock.size.length - 40) / (numFenders - 1);
+
+    for (let i = 0; i < numFenders; i++) {
+      const fender = new THREE.Mesh(this.fenderGeometry, this.fenderMaterial);
+      const localX = startX + i * step;
+      fender.position.copy(
+        this.relativeToDock(dock, new THREE.Vector3(localX, 2, -dock.size.width / 2 - 1.5))
+      );
+      fender.castShadow = true;
+      fender.receiveShadow = true;
+      this.scene.add(fender);
+    }
+  }
+
   private decorateDock(dock: DockLayout, dockMaterials: DockMaterialSet) {
     const bands = this.computeDockBands(dock);
     const quay = new THREE.Mesh(
@@ -827,6 +950,12 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     );
     this.scene.add(stripe);
 
+    this.addCraneRails(dock, bands);
+    this.addDockDecals(dock, bands);
+    this.addUtilityBoxes(dock, bands);
+    this.addDockContainers(dock, bands);
+    this.addDockVehicles(dock, bands);
+
     const foam = new THREE.Mesh(
       new THREE.PlaneGeometry(dock.size.length * 1.05, dock.size.width * 0.9),
       this.foamMaterial
@@ -874,6 +1003,442 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       pole.rotation.y = dock.rotationY;
       this.scene.add(pole);
     }
+  }
+
+  private addCraneRails(dock: DockLayout, bands: DockBandInfo) {
+    const length = dock.size.length * 0.98;
+    const offsets = [
+      bands.quayZ - bands.quayWidth / 2 + 1.1,
+      bands.quayZ + bands.quayWidth / 2 - 1.1,
+    ];
+
+    for (const localZ of offsets) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(length, 0.35, 0.9), this.craneRailMaterial);
+      rail.position.copy(this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.2, localZ)));
+      rail.rotation.y = dock.rotationY;
+      rail.castShadow = true;
+      rail.receiveShadow = true;
+      this.scene.add(rail);
+    }
+
+    const sleeperSpan = Math.abs(offsets[1] - offsets[0]);
+    const sleeperCount = Math.max(4, Math.floor(dock.size.length / 55));
+    for (let i = 0; i < sleeperCount; i++) {
+      const sleeper = new THREE.Mesh(
+        new THREE.BoxGeometry(4.6, 0.3, sleeperSpan + 1.2),
+        this.railSleeperMaterial
+      );
+      const localX = -dock.size.length / 2 + ((i + 0.5) * dock.size.length) / sleeperCount;
+      sleeper.position.copy(
+        this.relativeToDock(
+          dock,
+          new THREE.Vector3(localX, dock.size.height + 0.08, (offsets[0] + offsets[1]) / 2)
+        )
+      );
+      sleeper.rotation.y = dock.rotationY;
+      sleeper.castShadow = true;
+      sleeper.receiveShadow = true;
+      this.scene.add(sleeper);
+    }
+  }
+
+  private addDockDecals(dock: DockLayout, bands: DockBandInfo) {
+    const hazardLength = dock.size.length * 0.38;
+    const hazardDepth = Math.max(14, bands.bufferWidth * 0.78);
+    const hazard = this.createHazardDecal(hazardLength, hazardDepth);
+    const mirrored = hazard.clone();
+    const hazardOffsets = [-dock.size.length * 0.24, dock.size.length * 0.24];
+    const hazardY = dock.size.height + 0.4;
+    const hazardZ = bands.bufferZ;
+    hazardOffsets.forEach((offset, index) => {
+      const decal = index === 0 ? hazard : mirrored;
+      decal.position.copy(this.relativeToDock(dock, new THREE.Vector3(offset, hazardY, hazardZ)));
+      decal.rotation.y = dock.rotationY;
+      this.scene.add(decal);
+    });
+
+    const walkwayLine = new THREE.Mesh(
+      new THREE.BoxGeometry(dock.size.length * 0.94, 0.12, 1.6),
+      this.linePaintMaterial
+    );
+    walkwayLine.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.45, bands.bufferZ - bands.bufferWidth / 2 + 0.9))
+    );
+    walkwayLine.rotation.y = dock.rotationY;
+    walkwayLine.castShadow = false;
+    walkwayLine.receiveShadow = false;
+    walkwayLine.renderOrder = 6;
+    this.scene.add(walkwayLine);
+    const walkwayLine2 = walkwayLine.clone();
+    walkwayLine2.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.45, bands.quayZ + bands.quayWidth / 2 - 0.9))
+    );
+    this.scene.add(walkwayLine2);
+    const walkwayLine3 = walkwayLine.clone();
+    walkwayLine3.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.45, bands.roadZ - bands.roadWidth / 2 + 1.1))
+    );
+    this.scene.add(walkwayLine3);
+
+    const parkingSlots = Math.max(4, Math.floor(dock.size.length / 150));
+    const parking = this.createParkingDecal(
+      dock.size.length * 0.82,
+      Math.max(18, bands.roadWidth * 0.92),
+      parkingSlots
+    );
+    parking.position.copy(this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.36, bands.roadZ)));
+    parking.rotation.y = dock.rotationY;
+    this.scene.add(parking);
+
+    const arrowOffsets = [-dock.size.length * 0.22, dock.size.length * 0.22];
+    for (const offset of arrowOffsets) {
+      const arrow = this.createArrowDecal(
+        Math.min(150, dock.size.length * 0.22),
+        Math.max(18, bands.roadWidth * 0.28)
+      );
+      arrow.position.copy(this.relativeToDock(dock, new THREE.Vector3(offset, dock.size.height + 0.37, bands.roadZ)));
+      arrow.rotation.y = dock.rotationY;
+      this.scene.add(arrow);
+    }
+
+    const crosswalk = this.createCrosswalkDecal(
+      Math.min(160, dock.size.length * 0.24),
+      Math.max(24, bands.roadZ - bands.bufferZ + bands.bufferWidth * 0.8)
+    );
+    crosswalk.position.copy(
+      this.relativeToDock(
+        dock,
+        new THREE.Vector3(-dock.size.length * 0.32, dock.size.height + 0.37, (bands.bufferZ + bands.roadZ) / 2)
+      )
+    );
+    crosswalk.rotation.y = dock.rotationY;
+    this.scene.add(crosswalk);
+
+    const label = this.createDockLabelDecal(
+      (dock.name || `Dock ${dock.dockId}`).toUpperCase(),
+      Math.min(520, dock.size.length * 0.55),
+      Math.max(18, bands.bufferWidth * 0.42)
+    );
+    label.position.copy(
+      this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 0.38, bands.bufferZ + bands.bufferWidth / 2 - 2))
+    );
+    label.rotation.y = dock.rotationY;
+    this.scene.add(label);
+  }
+
+  private addUtilityBoxes(dock: DockLayout, bands: DockBandInfo) {
+    const count = Math.max(1, Math.floor(dock.size.length / 220));
+    const spacing = dock.size.length / (count + 1);
+    for (let i = 0; i < count; i++) {
+      const cabinet = this.createUtilityCabinet();
+      const localX = -dock.size.length / 2 + spacing * (i + 1);
+      const localZ = bands.bufferZ + bands.bufferWidth / 2 + 4;
+      cabinet.position.copy(this.relativeToDock(dock, new THREE.Vector3(localX, dock.size.height, localZ)));
+      cabinet.rotation.y = dock.rotationY;
+      this.scene.add(cabinet);
+    }
+  }
+
+  private addDockContainers(dock: DockLayout, bands: DockBandInfo) {
+    const count = Math.max(3, Math.floor(dock.size.length / 140));
+    const spacing = dock.size.length / (count + 1);
+    for (let i = 0; i < count; i++) {
+      const stack = this.createDockContainerStack(2 + (i % 2), dock.dockId * 29 + i);
+      const offsetX = -dock.size.length / 2 + spacing * (i + 1);
+      const offsetZ = bands.bufferZ - bands.bufferWidth / 2 + 6;
+      stack.position.copy(
+        this.relativeToDock(dock, new THREE.Vector3(offsetX, dock.size.height + 6, offsetZ))
+      );
+      stack.rotation.y = dock.rotationY;
+      this.scene.add(stack);
+    }
+  }
+
+  private addDockVehicles(dock: DockLayout, bands: DockBandInfo) {
+    const truckCount = Math.max(1, Math.floor(dock.size.length / 260));
+    const truckSpacing = dock.size.length / (truckCount + 1);
+    for (let i = 0; i < truckCount; i++) {
+      const truck = this.createYardTruck(i);
+      const offsetX = -dock.size.length / 2 + truckSpacing * (i + 1);
+      truck.position.copy(
+        this.relativeToDock(dock, new THREE.Vector3(offsetX, dock.size.height + 5.2, bands.roadZ))
+      );
+      truck.rotation.y = dock.rotationY;
+      this.scene.add(truck);
+    }
+
+    const forklifts = Math.max(2, Math.floor(dock.size.length / 180));
+    for (let i = 0; i < forklifts; i++) {
+      const forklift = this.createForklift();
+      const offsetX =
+        -dock.size.length / 2 + ((i + 0.5) * dock.size.length) / forklifts + (i % 2 === 0 ? 12 : -18);
+      const offsetZ = bands.bufferZ + (i % 2 === 0 ? 6 : -6);
+      forklift.position.copy(
+        this.relativeToDock(dock, new THREE.Vector3(offsetX, dock.size.height + 4.2, offsetZ))
+      );
+      forklift.rotation.y = dock.rotationY + (i % 2 === 0 ? Math.PI / 2 : -Math.PI / 2);
+      this.scene.add(forklift);
+    }
+  }
+
+  private createUtilityCabinet(): THREE.Group {
+    const group = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(12, 3, 10), this.utilityBoxMaterial);
+    base.position.y = 1.5;
+    base.castShadow = base.receiveShadow = true;
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 6), this.utilityBoxMaterial);
+    body.position.y = 7;
+    body.castShadow = body.receiveShadow = true;
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(8, 6, 0.3), this.cabinetDoorMaterial);
+    door.position.set(0, 0, 3.15);
+    door.castShadow = false;
+    body.add(door);
+
+    const conduit = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 8, 10), this.craneMaterials.cable);
+    conduit.rotation.z = Math.PI / 2;
+    conduit.position.set(0, 2.2, 5);
+
+    group.add(base, body, conduit);
+    return group;
+  }
+
+  private createDockContainerStack(levels: number, seed: number): THREE.Group {
+    const group = new THREE.Group();
+    const blocks = Math.max(2, levels);
+    for (let i = 0; i < blocks; i++) {
+      const container = new THREE.Mesh(
+        this.containerGeometry,
+        this.containerMaterials[(seed + i) % this.containerMaterials.length]
+      );
+      container.scale.set(0.9, 1, 0.9);
+      container.position.set(
+        (i % 2 === 0 ? -1 : 1) * 20,
+        i * 14,
+        this.pseudoRandom(seed + i) * 18 - 9
+      );
+      container.castShadow = true;
+      container.receiveShadow = true;
+      group.add(container);
+    }
+
+    const topper = new THREE.Mesh(
+      this.containerGeometry,
+      this.containerMaterials[(seed + 3) % this.containerMaterials.length]
+    );
+    topper.scale.set(0.6, 0.75, 0.6);
+    topper.position.set(0, blocks * 14, 0);
+    topper.castShadow = topper.receiveShadow = true;
+    group.add(topper);
+
+    return group;
+  }
+
+  private createYardTruck(seed: number): THREE.Group {
+    const group = new THREE.Group();
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(24, 18, 20), this.truckCabMaterial);
+    cab.position.set(-20, 9, 0);
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(12, 12, 16), this.truckGlassMaterial);
+    windshield.position.set(-18, 16, 0);
+    const trailer = new THREE.Mesh(new THREE.BoxGeometry(70, 16, 18), this.truckTrailerMaterial);
+    trailer.position.set(24, 8, 0);
+    const accent = new THREE.Mesh(
+      new THREE.BoxGeometry(12, 6, 10),
+      this.containerMaterials[(seed + 5) % this.containerMaterials.length]
+    );
+    accent.position.set(30, 16, 0);
+
+    const wheelGeo = new THREE.CylinderGeometry(4, 4, 4, 16);
+    wheelGeo.rotateZ(Math.PI / 2);
+    for (const offset of [-26, -10, 8, 26]) {
+      const left = new THREE.Mesh(wheelGeo, this.truckWheelMaterial);
+      left.position.set(offset, 4, -9);
+      const right = left.clone();
+      right.position.z = 9;
+      left.castShadow = left.receiveShadow = true;
+      right.castShadow = right.receiveShadow = true;
+      group.add(left, right);
+    }
+
+    [cab, windshield, trailer, accent].forEach((mesh) => {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    });
+
+    return group;
+  }
+
+  private createForklift(): THREE.Group {
+    const group = new THREE.Group();
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(12, 8, 14), this.forkliftBodyMaterial);
+    chassis.position.y = 4;
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(10, 12, 10), this.forkliftBodyMaterial);
+    cabin.position.set(-2, 12, 0);
+    const mast = new THREE.Mesh(new THREE.BoxGeometry(2.5, 16, 8), this.forkliftMastMaterial);
+    mast.position.set(6, 13, 0);
+    const forks = new THREE.Mesh(new THREE.BoxGeometry(8, 1.4, 16), this.forkliftMastMaterial);
+    forks.position.set(10, 6, 0);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(12, 1, 12), this.forkliftMastMaterial);
+    guard.position.set(-2, 18, 0);
+
+    const wheelGeo = new THREE.CylinderGeometry(2.6, 2.6, 3, 12);
+    wheelGeo.rotateZ(Math.PI / 2);
+    const wheelPositions: [number, number, number][] = [
+      [-4, 2, -6],
+      [-4, 2, 6],
+      [6, 2, -6],
+      [6, 2, 6],
+    ];
+    for (const [x, y, z] of wheelPositions) {
+      const wheel = new THREE.Mesh(wheelGeo, this.truckWheelMaterial);
+      wheel.position.set(x, y, z);
+      wheel.castShadow = wheel.receiveShadow = true;
+      group.add(wheel);
+    }
+
+    [chassis, cabin, mast, forks, guard].forEach((mesh) => {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+    });
+
+    return group;
+  }
+
+  private createHazardDecal(width: number, depth: number): THREE.Mesh {
+    return this.createDecalPlane(width, depth, (ctx) => {
+      ctx.fillStyle = 'rgba(252, 211, 77, 0.2)';
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 22;
+      ctx.lineCap = 'round';
+      const step = ctx.canvas.width / 10;
+      for (let x = -ctx.canvas.height; x < ctx.canvas.width; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, ctx.canvas.height);
+        ctx.lineTo(x + ctx.canvas.height, 0);
+        ctx.stroke();
+      }
+    }, 0.95);
+  }
+
+  private createParkingDecal(width: number, depth: number, slots: number): THREE.Mesh {
+    return this.createDecalPlane(width, depth, (ctx) => {
+      ctx.strokeStyle = 'rgba(244, 244, 245, 0.9)';
+      ctx.lineWidth = 18;
+      ctx.strokeRect(24, 24, ctx.canvas.width - 48, ctx.canvas.height - 48);
+      const usable = ctx.canvas.width - 120;
+      const slotWidth = usable / slots;
+      for (let i = 1; i < slots; i++) {
+        const x = 60 + slotWidth * i;
+        ctx.beginPath();
+        ctx.moveTo(x, 40);
+        ctx.lineTo(x, ctx.canvas.height - 40);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(255, 253, 231, 0.8)';
+      ctx.lineWidth = 12;
+      for (let i = 0; i < slots; i++) {
+        const start = 60 + slotWidth * i;
+        ctx.beginPath();
+        ctx.moveTo(start + slotWidth * 0.2, ctx.canvas.height - 50);
+        ctx.lineTo(start + slotWidth * 0.8, ctx.canvas.height - 110);
+        ctx.stroke();
+      }
+    }, 0.85);
+  }
+
+  private createDockLabelDecal(text: string, width: number, depth: number): THREE.Mesh {
+    const clean = text.replace(/\s+/g, ' ').trim() || 'DOCK';
+    return this.createDecalPlane(width, depth, (ctx) => {
+      const padding = ctx.canvas.width * 0.08;
+      let fontSize = 320;
+      ctx.font = `800 ${fontSize}px "Montserrat", "Arial Black", sans-serif`;
+      const targetWidth = ctx.canvas.width - padding * 2;
+      const metrics = ctx.measureText(clean);
+      if (metrics.width > targetWidth) {
+        fontSize = (fontSize * targetWidth) / metrics.width;
+        ctx.font = `800 ${fontSize}px "Montserrat", "Arial Black", sans-serif`;
+      }
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 24;
+      ctx.strokeStyle = 'rgba(13, 23, 38, 0.22)';
+      ctx.strokeText(clean, ctx.canvas.width / 2, ctx.canvas.height / 2);
+      ctx.fillStyle = 'rgba(250, 250, 250, 0.95)';
+      ctx.fillText(clean, ctx.canvas.width / 2, ctx.canvas.height / 2);
+    }, 0.9);
+  }
+
+  private createArrowDecal(width: number, depth: number): THREE.Mesh {
+    return this.createDecalPlane(width, depth, (ctx) => {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.lineWidth = 70;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(ctx.canvas.width * 0.18, ctx.canvas.height * 0.5);
+      ctx.lineTo(ctx.canvas.width * 0.75, ctx.canvas.height * 0.5);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ctx.canvas.width * 0.58, ctx.canvas.height * 0.35);
+      ctx.lineTo(ctx.canvas.width * 0.75, ctx.canvas.height * 0.5);
+      ctx.lineTo(ctx.canvas.width * 0.58, ctx.canvas.height * 0.65);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fill();
+    }, 0.9);
+  }
+
+  private createCrosswalkDecal(width: number, depth: number, stripes = 8): THREE.Mesh {
+    return this.createDecalPlane(width, depth, (ctx) => {
+      ctx.fillStyle = 'rgba(250, 250, 250, 0.95)';
+      const stripeWidth = ctx.canvas.width / (stripes * 2);
+      for (let i = 0; i < stripes; i++) {
+        ctx.fillRect(i * stripeWidth * 2, 0, stripeWidth, ctx.canvas.height);
+      }
+    }, 0.92);
+  }
+
+  private createDecalPlane(
+    width: number,
+    depth: number,
+    painter: (ctx: CanvasRenderingContext2D) => void,
+    opacity = 1
+  ): THREE.Mesh {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      const mat = this.trackMaterial(
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+      );
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), mat);
+      mesh.visible = false;
+      return mesh;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    painter(ctx);
+    const texture = new THREE.CanvasTexture(canvas);
+    this.trackTexture(texture);
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+
+    const material = this.trackMaterial(
+      new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        toneMapped: false,
+      })
+    );
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.renderOrder = 10;
+    return mesh;
   }
 
   private createLightPole(): THREE.Group {
@@ -980,7 +1545,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
 
   private addCranesForDock(dock: DockLayout) {
     const length = dock.size.length;
-    const craneCount = Math.max(1, Math.round(length / 260));
+    const craneCount = Math.max(3, Math.round(length / 260));
     const spacing = length / (craneCount + 1);
     const dockTopY = dock.position.y + dock.size.height;
     const bands = this.computeDockBands(dock);
