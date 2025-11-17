@@ -20,7 +20,7 @@ export class Cube implements AfterViewInit {
 
   // Propriedades
   @Input() public rotationSpeedX: number = 0.05; // velocidade da ondulação
-  @Input() public rotationSpeedY: number = 0.01; // não uso aqui mas fica se precisares
+  @Input() public rotationSpeedY: number = 0.01;
   @Input() public size: number = 200;
 
   @Input() public cameraZ: number = 14;
@@ -79,10 +79,14 @@ export class Cube implements AfterViewInit {
     this.renderer.setSize(this.canvas.clientWidth, this.canvas.clientHeight);
 
     // Versões novas do three.js
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    (this.renderer as any).outputColorSpace = THREE.SRGBColorSpace;
 
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    this.renderer.localClippingEnabled = true;
+
+
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -109,359 +113,475 @@ export class Cube implements AfterViewInit {
     this.scene.add(hemiLight, sunLight, ambientLight);
   }
 
-  // ===================== SHIP =====================================
-// ===================== SHIP =====================================
+  // ===================== SHIP (novo) =====================================
 private buildShip(): THREE.Group {
   const group = new THREE.Group();
 
-  // --- medidas base do navio ---
-  const hullLength = 12.3;
-  const hullWidth = 3.8;
-  const hullHeight = 1.4;  // altura total do casco
-  const waterlineHeight = 0.55; // divisão entre parte submersa e parte exposta
-  const deckLength = 7.2;
-  const deckWidth = 2.4;
+  // ---------- TEXTURAS ----------
+  const hullDiffuseTex = this.loader.load('assets/textures/hull_diffuse.jpg');
+  hullDiffuseTex.wrapS = hullDiffuseTex.wrapT = THREE.RepeatWrapping;
+  hullDiffuseTex.repeat.set(4, 1); // alonga no comprimento
 
-  // ============================================================
-  // CASCO CURVO (Shape + Extrude) — dois materiais (topo e fundo)
-  // ============================================================
+  const hullLowerTex = this.loader.load('assets/textures/hull_lower.jpg');
+  hullLowerTex.wrapS = hullLowerTex.wrapT = THREE.RepeatWrapping;
+  hullLowerTex.repeat.set(4, 1);
+
+  const deckTex = this.loader.load('assets/textures/deck_metal.jpg');
+  deckTex.wrapS = deckTex.wrapT = THREE.RepeatWrapping;
+  deckTex.repeat.set(6, 2);
+
+  const bridgeTex = this.loader.load('assets/textures/bridge_smooth.jpg');
+  bridgeTex.wrapS = bridgeTex.wrapT = THREE.RepeatWrapping;
+
+  const containerTex = this.loader.load('assets/textures/container_ridges.jpg');
+  containerTex.wrapS = containerTex.wrapT = THREE.RepeatWrapping;
+  containerTex.repeat.set(2, 1);
+
+  // ----------------- Dimensões base -----------------
+  const hullLength = 12.5;
+  const hullWidth = 3.2;
+  const hullHeight = 1.4;
+  const deckInset = 0.4;
 
   const halfL = hullLength / 2;
   const halfW = hullWidth / 2;
-  const rounded = 2.0;
 
-  const hullShape = new THREE.Shape();
-  hullShape.moveTo(-halfL + rounded, -halfW);
-  hullShape.lineTo(halfL - rounded, -halfW);
-  hullShape.quadraticCurveTo(halfL + rounded, 0, halfL - rounded, halfW);
-  hullShape.lineTo(-halfL + rounded, halfW);
-  hullShape.quadraticCurveTo(-halfL - rounded, 0, -halfL + rounded, -halfW);
+  // =================================================
+  // MATERIAIS
+  // =================================================
 
-  const extrudeSettings: THREE.ExtrudeGeometryOptions = {
-    depth: hullHeight,
-    bevelEnabled: false,
-  };
-
-  const hullGeometry = new THREE.ExtrudeGeometry(hullShape, extrudeSettings);
-  hullGeometry.rotateX(-Math.PI / 2);
-  hullGeometry.translate(0, -hullHeight, 0);
-
-  // Divisão entre parte submersa e parte exposta
-  const upperColor = new THREE.MeshStandardMaterial({
-    color: 0xFF0000, // vermelho — acima da água
+  // Casco acima de água (vermelho texturado)
+  const hullRedMaterial = new THREE.MeshStandardMaterial({
+    map: hullDiffuseTex,
+    color: 0xffffff,
     metalness: 0.35,
-    roughness: 0.65,
-  });
-
-  const lowerColor = new THREE.MeshStandardMaterial({
-    color: 0x000000, // preto — submerso
-    metalness: 0.45,
     roughness: 0.55,
   });
 
-  // Geo fica duplicado mas com clipping planes
-  const upperHull = new THREE.Mesh(hullGeometry, upperColor);
-  upperHull.castShadow = true;
-  upperHull.receiveShadow = true;
-  upperHull.material.clippingPlanes = [
-    new THREE.Plane(new THREE.Vector3(0, -1, 0), waterlineHeight)
-  ];
-  upperHull.material.clipShadows = true;
+  // Parte submersa (hull_lower texturado)
+  const hullBlackMaterial = new THREE.MeshStandardMaterial({
+    map: hullLowerTex,
+    color: 0xffffff,
+    metalness: 0.35,
+    roughness: 0.6,
+  });
 
-  const lowerHull = new THREE.Mesh(hullGeometry, lowerColor);
-  lowerHull.castShadow = true;
-  lowerHull.receiveShadow = true;
-  lowerHull.material.clippingPlanes = [
-    new THREE.Plane(new THREE.Vector3(0, 1, 0), -(waterlineHeight))
-  ];
-  lowerHull.material.clipShadows = true;
-
-  group.add(lowerHull, upperHull);
-
-  // ============================================================
-  // CONVÉS
-  // ============================================================
-
+  // Convés
   const deckMaterial = new THREE.MeshStandardMaterial({
-    color: 0x3b4a5a,
-    metalness: 0.25,
+    map: deckTex,
+    color: 0xffffff,
+    metalness: 0.3,
     roughness: 0.8,
   });
 
-  const deck = new THREE.Mesh(
-    new THREE.BoxGeometry(deckLength, 0.35, deckWidth),
-    deckMaterial,
-  );
-
-  const deckTopY = 0.25 + 0.35 / 2; // topo exato do convés
-  deck.position.set(0.8, 0.25, 0);
-
-  deck.castShadow = true;
-  deck.receiveShadow = true;
-  group.add(deck);
-
-  // ============================================================
-  // CABINE (agora encostada ao convés, sem flutuar)
-  // ============================================================
-
-  const bridgeMaterial = new THREE.MeshStandardMaterial({
-    color: 0xf8f8ff,
-    metalness: 0.1,
-    roughness: 0.85,
+  // Roof da ponte
+  const bridgeRoofMaterial = new THREE.MeshStandardMaterial({
+    map: deckTex,
+    color: 0xffffff,
+    metalness: 0.25,
+    roughness: 0.7,
   });
 
-  const bridgeHeight = 1.4;
-  const bridge = new THREE.Mesh(
-    new THREE.BoxGeometry(2.3, bridgeHeight, 2.0),
-    bridgeMaterial,
-  );
-
-  bridge.position.set(
-    -hullLength / 2 + 2.2,
-    deckTopY + bridgeHeight / 2,   // TOCA NO CONVÉS ❤
-    0
-  );
-
-  bridge.castShadow = true;
-  bridge.receiveShadow = true;
-  group.add(bridge);
-
-  const bridgeTop = new THREE.Mesh(
-    new THREE.BoxGeometry(2.3, 0.2, 2.1),
-    new THREE.MeshStandardMaterial({
-      color: 0x111111,
-      roughness: 0.5,
-      metalness: 0.4,
-    }),
-  );
-
-  bridgeTop.position.set(
-    bridge.position.x,
-    bridge.position.y + bridgeHeight / 2 + 0.1,
-    0
-  );
-
-  bridgeTop.castShadow = true;
-  bridgeTop.receiveShadow = true;
-  group.add(bridgeTop);
+  // Estrutura da ponte (cockpit)
+  const bridgeMaterial = new THREE.MeshStandardMaterial({
+    map: bridgeTex,
+    color: 0xffffff,
+    metalness: 0.15,
+    roughness: 0.85,
+  });
 
   // Janelas
   const windowMaterial = new THREE.MeshStandardMaterial({
     color: 0x9fd4ff,
     metalness: 0.1,
-    roughness: 0.1,
+    roughness: 0.05,
+    transparent: true,
+    opacity: 0.9,
   });
 
-  const wGeo = new THREE.BoxGeometry(0.4, 0.4, 0.02);
+  const mastMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 0.3,
+    roughness: 0.5,
+  });
+
+  // =================================================
+  // CASCO PRINCIPAL + PARTE SUBMERSA
+  // =================================================
+
+  const hullGeometry = new THREE.BoxGeometry(hullLength, hullHeight, hullWidth);
+
+  const mainHull = new THREE.Mesh(hullGeometry, hullRedMaterial);
+  mainHull.castShadow = true;
+  mainHull.receiveShadow = true;
+  group.add(mainHull);
+
+  // Parte submersa (faixa preta texturada)
+  const underwaterHeight = hullHeight * 0.7;
+  const underwaterGeometry = new THREE.BoxGeometry(
+    hullLength * 0.98,
+    underwaterHeight,
+    hullWidth * 0.94,
+  );
+
+  const redBottomY = -hullHeight / 2;
+  const underwaterTopY = redBottomY + 0.02;
+  const underwaterCenterY = underwaterTopY - underwaterHeight / 2;
+
+  const underwaterHull = new THREE.Mesh(underwaterGeometry, hullBlackMaterial);
+  underwaterHull.position.set(0, underwaterCenterY, 0);
+  underwaterHull.castShadow = true;
+  underwaterHull.receiveShadow = true;
+  group.add(underwaterHull);
+
+  // ============================================================
+  // PROA ARREDONDADA – VERMELHA + PRETA EM BAIXO
+  // ============================================================
+  const bowRadius = hullWidth / 2;
+  const bowLength = hullHeight;
+
+  const bowGeo = new THREE.CylinderGeometry(
+    bowRadius,
+    bowRadius,
+    bowLength,
+    32
+  );
+  bowGeo.rotateY(Math.PI / 2);
+
+  const bow = new THREE.Mesh(bowGeo, hullRedMaterial);
+  bow.position.set(-halfL, 0, 0);
+  bow.castShadow = true;
+  bow.receiveShadow = true;
+  group.add(bow);
+
+  const underwaterBowGeo = new THREE.CylinderGeometry(
+    bowRadius * 0.94,
+    bowRadius * 0.94,
+    underwaterHeight,
+    32
+  );
+  underwaterBowGeo.rotateY(Math.PI / 2);
+
+  const underwaterBow = new THREE.Mesh(underwaterBowGeo, hullBlackMaterial);
+  underwaterBow.position.set(-halfL, underwaterCenterY, 0);
+  underwaterBow.castShadow = true;
+  underwaterBow.receiveShadow = true;
+  group.add(underwaterBow);
+
+  // =================================================
+  // POPA – BLOCO TRASEIRO (VERMELHO + PRETO)
+  // =================================================
+  const stern = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, hullHeight * 0.95, hullWidth * 1.05),
+    hullRedMaterial,
+  );
+  stern.position.set(halfL + 0.8, 0, 0);
+  stern.castShadow = true;
+  stern.receiveShadow = true;
+  group.add(stern);
+
+  const underwaterSternGeo = new THREE.BoxGeometry(
+    1.6 * 0.98,
+    underwaterHeight * 0.95,
+    hullWidth * 0.94,
+  );
+  const underwaterStern = new THREE.Mesh(underwaterSternGeo, hullBlackMaterial);
+  underwaterStern.position.set(halfL + 0.8, underwaterCenterY, 0);
+  underwaterStern.castShadow = true;
+  underwaterStern.receiveShadow = true;
+  group.add(underwaterStern);
+
+  // =================================================
+  // CONVÉS
+  // =================================================
+  const deckLength = hullLength - deckInset * 2.2;
+  const deckWidth = hullWidth - deckInset * 0.8;
+  const deckHeight = 0.25;
+  const deckTopY = hullHeight / 2 + deckHeight / 2 - 0.02;
+
+  const deck = new THREE.Mesh(
+    new THREE.BoxGeometry(deckLength, deckHeight, deckWidth),
+    deckMaterial,
+  );
+  deck.position.set(0.5, deckTopY, 0);
+  deck.castShadow = true;
+  deck.receiveShadow = true;
+  group.add(deck);
+
+  // =================================================
+  // PONTE / COCKPIT COM 3 ANDARES
+  // =================================================
+  const bridgeBaseX = halfL - 2.0;
+  const bridgeBaseY = deckTopY;
+
+  const lowerH = 0.8;
+  const middleH = 0.8;
+  const upperH = 0.8;
+
+  const lowerBridge = new THREE.Mesh(
+    new THREE.BoxGeometry(2.7, lowerH, 2.4),
+    bridgeMaterial,
+  );
+  lowerBridge.position.set(
+    bridgeBaseX,
+    bridgeBaseY + lowerH / 2,
+    0,
+  );
+  lowerBridge.castShadow = true;
+  lowerBridge.receiveShadow = true;
+  group.add(lowerBridge);
+
+  const middleBridge = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4, middleH, 2.2),
+    bridgeMaterial,
+  );
+  middleBridge.position.set(
+    bridgeBaseX,
+    lowerBridge.position.y + lowerH / 2 + middleH / 2,
+    0,
+  );
+  middleBridge.castShadow = true;
+  middleBridge.receiveShadow = true;
+  group.add(middleBridge);
+
+  const upperBridge = new THREE.Mesh(
+    new THREE.BoxGeometry(2.1, upperH, 2.0),
+    bridgeMaterial,
+  );
+  upperBridge.position.set(
+    bridgeBaseX,
+    middleBridge.position.y + middleH / 2 + upperH / 2,
+    0,
+  );
+  upperBridge.castShadow = true;
+  upperBridge.receiveShadow = true;
+  group.add(upperBridge);
+
+  const bridgeRoof = new THREE.Mesh(
+    new THREE.BoxGeometry(2.2, 0.18, 2.1),
+    bridgeRoofMaterial,
+  );
+  bridgeRoof.position.set(
+    bridgeBaseX,
+    upperBridge.position.y + upperH / 2 + 0.09,
+    0,
+  );
+  bridgeRoof.castShadow = true;
+  bridgeRoof.receiveShadow = true;
+  group.add(bridgeRoof);
+
+  // =================================================
+  // JANELAS – 2.º andar + vidro corrido no 3.º
+  // =================================================
+  const wGeo = new THREE.BoxGeometry(0.35, 0.35, 0.03);
 
   for (let i = -1; i <= 1; i++) {
     const w = new THREE.Mesh(wGeo, windowMaterial);
     w.position.set(
-      bridge.position.x - 1.15,
-      bridge.position.y,
+      bridgeBaseX - 1.05,
+      middleBridge.position.y,
       i * 0.55,
     );
     w.castShadow = true;
     group.add(w);
   }
 
-  // Chaminé
-  const funnel = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.28, 0.38, 1.0, 24),
-    new THREE.MeshStandardMaterial({
-      color: 0xffd700,
-      metalness: 0.5,
-      roughness: 0.35,
-    }),
+  const wideWindowGeo = new THREE.BoxGeometry(
+    0.04,
+    0.45,
+    1.8,
   );
-
-  funnel.position.set(
-    bridge.position.x + 0.15,
-    bridgeTop.position.y + 0.6,
-    -0.35,
+  const frontOffset = 2.1 / 2 + 0.02;
+  const wideWindow = new THREE.Mesh(wideWindowGeo, windowMaterial);
+  wideWindow.position.set(
+    bridgeBaseX - frontOffset,
+    upperBridge.position.y,
+    0,
   );
+  wideWindow.castShadow = true;
+  wideWindow.receiveShadow = true;
+  group.add(wideWindow);
 
-  funnel.castShadow = true;
-  group.add(funnel);
-
-  // ============================================================
-  // GRUA
-  // ============================================================
-  const craneMaterial = new THREE.MeshStandardMaterial({
-    color: 0xf4a460,
-    metalness: 0.4,
-    roughness: 0.6,
+  // =================================================
+  // ANTENAS – TOPO DA PONTE + PROA
+  // =================================================
+  const smallAntGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.7, 10);
+  const topAntBaseY = bridgeRoof.position.y + 0.35;
+  [-0.5, 0, 0.5].forEach((offsetZ) => {
+    const ant = new THREE.Mesh(smallAntGeo, mastMat);
+    ant.position.set(bridgeBaseX - 0.2, topAntBaseY, offsetZ);
+    ant.castShadow = true;
+    ant.receiveShadow = true;
+    group.add(ant);
   });
 
-  const craneBase = new THREE.Mesh(
-    new THREE.BoxGeometry(0.3, 0.3, 0.3),
-    craneMaterial,
+  const mainAntenna = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 2.0, 12),
+    mastMat,
   );
-  craneBase.position.set(3.4, 0.6, -deckWidth / 2 + 0.2);
-  craneBase.castShadow = true;
-  craneBase.receiveShadow = true;
-  group.add(craneBase);
+  mainAntenna.position.set(-halfL - bowLength * 0.25, deckTopY + 0.9, 0);
+  mainAntenna.castShadow = true;
+  mainAntenna.receiveShadow = true;
+  group.add(mainAntenna);
 
-  const craneArm = new THREE.Mesh(
-    new THREE.BoxGeometry(0.25, 1.6, 0.25),
-    craneMaterial,
+  const antBarGeo = new THREE.BoxGeometry(0.45, 0.06, 0.06);
+  const antBar1 = new THREE.Mesh(antBarGeo, mastMat);
+  antBar1.position.set(
+    mainAntenna.position.x,
+    mainAntenna.position.y + 0.6,
+    0,
   );
-  craneArm.position.set(3.4, 1.5, -deckWidth / 2 + 0.2);
-  craneArm.rotation.z = -Math.PI / 6;
-  craneArm.castShadow = true;
-  craneArm.receiveShadow = true;
-  group.add(craneArm);
+  antBar1.castShadow = true;
+  group.add(antBar1);
 
-  const craneCable = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8),
-    new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      roughness: 0.4,
-      metalness: 0.1,
-    }),
+  const antBar2 = new THREE.Mesh(antBarGeo, mastMat);
+  antBar2.position.set(
+    mainAntenna.position.x,
+    mainAntenna.position.y + 0.3,
+    0.0,
   );
-  craneCable.position.set(4.2, 1.0, -deckWidth / 2 + 0.2);
-  craneCable.castShadow = true;
-  craneCable.receiveShadow = true;
-  group.add(craneCable);
+  antBar2.castShadow = true;
+  group.add(antBar2);
 
-  const spreader = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 0.08, 0.5),
-    craneMaterial,
-  );
-  spreader.position.set(4.2, 0.5, -deckWidth / 2 + 0.2);
-  spreader.castShadow = true;
-  spreader.receiveShadow = true;
-  group.add(spreader);
-
-  // ============================================================
-  // CONTENTORES (3 colunas, dentro das bordas)
-  // ============================================================
-  const containerColors = [
-    0x1f77b4,
-    0xff7f0e,
-    0x2ca02c,
-    0xd62728,
-    0x9467bd,
-    0x8c564b,
-  ];
-
-  const createContainer = (
-    x: number,
-    y: number,
-    z: number,
-    color: number,
-  ) => {
-    const material = new THREE.MeshStandardMaterial({
-      color,
-      metalness: 0.4,
-      roughness: 0.55,
-    });
-    const container = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.6, 0.9),
-      material,
-    );
-    container.position.set(x, y, z);
-    container.castShadow = true;
-    container.receiveShadow = true;
-    return container;
-  };
-
-  const rows = [-1.0, 0, 1.0];
-  const baseXStart = 0;
-  const stepX = 1.8;
-  const columns = 3;
-
-  rows.forEach((z, rowIdx) => {
-    for (let col = 0; col < columns; col++) {
-      const baseX = baseXStart + col * stepX;
-      const height = col === 1 ? 3 : 2;
-      for (let level = 0; level < height; level++) {
-        const color =
-          containerColors[(col + level + rowIdx) % containerColors.length];
-        const box = createContainer(
-          baseX,
-          0.55 + level * 0.63,
-          z,
-          color,
-        );
-        group.add(box);
-      }
-    }
-  });
-
-  // ============================================================
-  // BORDAS (muretes) no limite do casco
-  // ============================================================
+  // =================================================
+  // MURETES / BORDAS DO CONVÉS
+  // =================================================
   const bulwarkMaterial = new THREE.MeshStandardMaterial({
     color: 0x22333b,
     metalness: 0.2,
     roughness: 0.8,
   });
 
-  const sideWallHeight = 0.35;
-  const wallThickness = 0.08;
+  const wallHeight = 0.3;
+  const wallThickness = 0.06;
 
-  const sideWallLength = deckLength;
+  const sideLength = deckLength;
   const leftWall = new THREE.Mesh(
-    new THREE.BoxGeometry(sideWallLength, sideWallHeight, wallThickness),
+    new THREE.BoxGeometry(sideLength, wallHeight, wallThickness),
     bulwarkMaterial,
   );
   leftWall.position.set(
     deck.position.x,
-    0.6,
-    hullWidth / 2 - wallThickness / 2,
+    deckTopY + wallHeight / 2,
+    halfW - wallThickness / 2,
   );
   leftWall.castShadow = true;
   group.add(leftWall);
 
   const rightWall = new THREE.Mesh(
-    new THREE.BoxGeometry(sideWallLength, sideWallHeight, wallThickness),
+    new THREE.BoxGeometry(sideLength, wallHeight, wallThickness),
     bulwarkMaterial,
   );
   rightWall.position.set(
     deck.position.x,
-    0.6,
-    -hullWidth / 2 + wallThickness / 2,
+    deckTopY + wallHeight / 2,
+    -halfW + wallThickness / 2,
   );
   rightWall.castShadow = true;
   group.add(rightWall);
 
   const frontBackWidth = hullWidth - 2 * wallThickness;
-
   const frontWall = new THREE.Mesh(
-    new THREE.BoxGeometry(wallThickness, sideWallHeight, frontBackWidth),
+    new THREE.BoxGeometry(wallThickness, wallHeight, frontBackWidth),
     bulwarkMaterial,
   );
   frontWall.position.set(
-    deck.position.x + deckLength / 2 - wallThickness / 2,
-    0.6,
+    deck.position.x + sideLength / 2 - wallThickness / 2,
+    deckTopY + wallHeight / 2,
     0,
   );
   frontWall.castShadow = true;
   group.add(frontWall);
 
   const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(wallThickness, sideWallHeight, frontBackWidth),
+    new THREE.BoxGeometry(wallThickness, wallHeight, frontBackWidth),
     bulwarkMaterial,
   );
   backWall.position.set(
-    deck.position.x - deckLength / 2 + wallThickness / 2,
-    0.6,
+    deck.position.x - sideLength / 2 + wallThickness / 2,
+    deckTopY + wallHeight / 2,
     0,
   );
   backWall.castShadow = true;
   group.add(backWall);
 
+  // =================================================
+  // (OPCIONAL) CONTENTORES – FICAM COMENTADOS
+  // =================================================
+  /*
+  const containerColors = [
+    0xff7043,
+    0x43a047,
+    0x1e88e5,
+    0xef5350,
+    0xffffff,
+  ];
+
+  const containerLength = 1.4;
+  const containerHeight = 0.55;
+  const containerWidth = 0.75;
+
+  const containerBaseY = deckTopY + containerHeight / 2;
+
+  const cols = 5;
+  const rows = 4;
+
+  const startX = -4.0;
+  const gapX = 1.5;
+  const startZ = -1.2;
+  const gapZ = containerWidth + 0.05;
+
+  const stackPattern: number[][] = [
+    [2, 3, 3, 2, 1],
+    [1, 2, 3, 3, 2],
+    [0, 1, 2, 3, 2],
+    [0, 1, 2, 2, 1],
+  ];
+
+  const makeContainer = (x: number, y: number, z: number, color: number) => {
+    const mat = new THREE.MeshStandardMaterial({
+      map: containerTex,
+      color,
+      metalness: 0.35,
+      roughness: 0.55,
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(containerLength, containerHeight, containerWidth),
+      mat,
+    );
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  };
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const stackH = stackPattern[r][c];
+      if (stackH === 0) continue;
+
+      const x = startX + c * gapX;
+      const z = startZ + r * gapZ;
+
+      for (let h = 0; h < stackH; h++) {
+        const color =
+          containerColors[(r + c + h) % containerColors.length];
+        const y = containerBaseY + h * (containerHeight + 0.02);
+        const cont = makeContainer(x, y, z, color);
+        group.add(cont);
+      }
+    }
+  }
+  */
+
+  // offset global do navio
   group.position.y = 0.12;
+
   return group;
 }
 
-
-
   // ===================== OCEAN ====================================
   private buildOcean(): THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial> {
-    // Normal map opcional – se não tiveres a textura, podes tirar este bloco
     let waterNormal: THREE.Texture | null = null;
     try {
       waterNormal = this.loader.load('assets/textures/water_normal.jpg');
@@ -502,7 +622,6 @@ private buildShip(): THREE.Group {
     this.ship.rotation.z = roll;
     this.ship.rotation.x = pitch;
 
-    // Ondas do mar
     if (this.ocean) {
       const geo = this.ocean.geometry;
       const pos = geo.attributes['position'] as THREE.BufferAttribute;
