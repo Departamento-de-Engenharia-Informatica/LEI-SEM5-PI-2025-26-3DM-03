@@ -73,18 +73,20 @@ namespace TodoApi.Controllers
         [HttpPost]
         [Authorize(Policy = "PublicResources.Write")]
         [RequestSizeLimit(MaxUploadBytes)]
-        public async Task<ActionResult<SharedResourceDto>> UploadAsync([FromForm] IFormFile? file, [FromForm] string? description, CancellationToken cancellationToken)
+        public async Task<ActionResult<SharedResourceDto>> UploadAsync(
+            [FromForm] SharedResourceUploadRequest request,
+            CancellationToken cancellationToken)
         {
-            if (file == null || file.Length == 0)
+            if (request.File == null || request.File.Length == 0)
             {
                 return BadRequest("File is required.");
             }
-            if (file.Length > MaxUploadBytes)
+            if (request.File.Length > MaxUploadBytes)
             {
                 return BadRequest($"File exceeds the maximum size of {MaxUploadBytes / (1024 * 1024)} MB.");
             }
 
-            var safeFileName = Path.GetFileName(file.FileName);
+            var safeFileName = Path.GetFileName(request.File.FileName);
             var extension = Path.GetExtension(safeFileName);
             var storedName = $"{Guid.NewGuid():N}{extension}";
             Directory.CreateDirectory(_options.RootPath);
@@ -94,7 +96,7 @@ namespace TodoApi.Controllers
             {
                 using (var stream = System.IO.File.Create(diskPath))
                 {
-                    await file.CopyToAsync(stream, cancellationToken);
+                    await request.File.CopyToAsync(stream, cancellationToken);
                 }
             }
             catch (Exception ex)
@@ -110,10 +112,10 @@ namespace TodoApi.Controllers
             var entity = new SharedResource
             {
                 FileName = safeFileName,
-                MimeType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
-                Size = file.Length,
+                MimeType = string.IsNullOrWhiteSpace(request.File.ContentType) ? "application/octet-stream" : request.File.ContentType,
+                Size = request.File.Length,
                 DiskPath = diskPath,
-                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
                 UploadedAt = DateTime.UtcNow,
                 UploadedBy = User?.FindFirst(ClaimTypes.Email)?.Value ?? User?.Identity?.Name
             };
