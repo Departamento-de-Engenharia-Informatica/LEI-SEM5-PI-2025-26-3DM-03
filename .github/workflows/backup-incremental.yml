@@ -45,17 +45,20 @@ jobs:
           echo "has_sqlite=false" >> $GITHUB_OUTPUT
 
       - name: Run incremental backup (requires DB file)
+        id: run_backup
         if: ${{ env.DB_CONNECTION != '' || steps.find_sqlite.outputs.has_sqlite == 'true' }}
         run: |
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type incremental --out "${BACKUP_OUT}"
 
-      - name: Skip (DB not configured)
+      - name: Fail (DB not configured)
         if: ${{ env.DB_CONNECTION == '' && steps.find_sqlite.outputs.has_sqlite != 'true' }}
-        run: echo "SQLite DB not found and DB_CONNECTION empty; skipping incremental backup."
+        run: |
+          echo "ERROR: SQLite DB not found and DB_CONNECTION empty; cannot run incremental backup." >&2
+          exit 1
 
       - name: Upload artifact (7 days)
-        if: ${{ env.DB_CONNECTION != '' }}
+        if: ${{ steps.run_backup.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: db-incremental-${{ github.run_id }}
