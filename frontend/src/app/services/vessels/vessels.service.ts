@@ -6,6 +6,19 @@ const baseUrl = 'https://localhost:7167/api';
 export class VesselsService {
   private apiUrl = '/Vessels';
 
+  private async handleError(res: Response): Promise<never> {
+    const text = await res.text();
+    try {
+      const data = text ? JSON.parse(text) : {};
+      const message = typeof data === 'string'
+        ? data
+        : (data?.message ?? data?.title ?? data?.detail);
+      throw new Error(message || res.statusText || `Request failed ${res.status}`);
+    } catch {
+      throw new Error(text || res.statusText || `Request failed ${res.status}`);
+    }
+  }
+
   async getAll(query?: string) {
     const url = query
       ? `${baseUrl}${this.apiUrl}?name=${encodeURIComponent(query)}`
@@ -28,7 +41,7 @@ export class VesselsService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(vessel)
     });
-    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    if (!res.ok) await this.handleError(res);
     return await res.json();
   }
 
@@ -39,7 +52,7 @@ export class VesselsService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(vessel)
     });
-    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    if (!res.ok) await this.handleError(res);
   }
 
   async delete(id: string) {
@@ -47,6 +60,6 @@ export class VesselsService {
       method: 'DELETE',
       credentials: 'include'
     });
-    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+    if (!res.ok) await this.handleError(res);
   }
 }

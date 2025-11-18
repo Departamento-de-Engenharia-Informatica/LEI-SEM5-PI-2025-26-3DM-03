@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TodoApi.Models;
 using TodoApi.Models.PublicResources;
+using TodoApi.Models.PublicResources.DTO;
 
 namespace TodoApi.Controllers
 {
@@ -70,19 +71,21 @@ namespace TodoApi.Controllers
             return PhysicalFile(resource.DiskPath, resource.MimeType, fileDownloadName: resource.FileName, enableRangeProcessing: true);
         }
 
-        [HttpPost]
-        [Authorize(Policy = "PublicResources.Write")]
-        [RequestSizeLimit(MaxUploadBytes)]
-        public async Task<ActionResult<SharedResourceDto>> UploadAsync([FromForm] IFormFile? file, [FromForm] string? description, CancellationToken cancellationToken)
+        [HttpPost("upload")]
+        public async Task<ActionResult<SharedResourceDto>> UploadAsync(
+            [FromForm] UploadResourceDto dto,
+            CancellationToken cancellationToken)
         {
-            if (file == null || file.Length == 0)
+            if (dto.File == null || dto.File.Length == 0)
             {
                 return BadRequest("File is required.");
             }
-            if (file.Length > MaxUploadBytes)
+            if (dto.File.Length > MaxUploadBytes)
             {
                 return BadRequest($"File exceeds the maximum size of {MaxUploadBytes / (1024 * 1024)} MB.");
             }
+
+            var file = dto.File;
 
             var safeFileName = Path.GetFileName(file.FileName);
             var extension = Path.GetExtension(safeFileName);
@@ -92,18 +95,15 @@ namespace TodoApi.Controllers
 
             try
             {
-                using (var stream = System.IO.File.Create(diskPath))
-                {
-                    await file.CopyToAsync(stream, cancellationToken);
-                }
+                using var stream = System.IO.File.Create(diskPath);
+                await file.CopyToAsync(stream, cancellationToken);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save uploaded file");
                 if (System.IO.File.Exists(diskPath))
-                {
                     System.IO.File.Delete(diskPath);
-                }
+
                 return StatusCode(StatusCodes.Status500InternalServerError, "Failed to store uploaded file.");
             }
 
@@ -113,7 +113,7 @@ namespace TodoApi.Controllers
                 MimeType = string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
                 Size = file.Length,
                 DiskPath = diskPath,
-                Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+                Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 UploadedAt = DateTime.UtcNow,
                 UploadedBy = User?.FindFirst(ClaimTypes.Email)?.Value ?? User?.Identity?.Name
             };
@@ -122,8 +122,9 @@ namespace TodoApi.Controllers
             await _db.SaveChangesAsync(cancellationToken);
             await _db.AuditAsync(HttpContext, "UPLOAD", entity.Id, cancellationToken);
 
-            var dto = ToDto(entity);
-            return CreatedAtRoute("PublicResourceDownload", new { id = entity.Id }, dto);
+            var result = ToDto(entity);
+
+            return CreatedAtRoute("PublicResourceDownload", new { id = entity.Id }, result);
         }
 
         [HttpDelete("{id:long}")]

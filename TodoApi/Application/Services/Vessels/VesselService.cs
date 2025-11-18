@@ -50,13 +50,40 @@ namespace TodoApi.Application.Services.Vessels
             if (!IsValidImo(dto.Imo))
                 throw new ArgumentException("Invalid IMO format. It should be 7 digits.");
 
+            var routeDigits = new string(dto.Imo.Where(char.IsDigit).ToArray());
+
             var vt = await _context.VesselTypes.FindAsync(dto.VesselTypeId);
             if (vt == null) 
                 throw new ArgumentException("Invalid VesselTypeId.");
 
-            var model = VesselMapper.ToModel(dto);
+            var exists = await _context.Vessels.AnyAsync(v => v.Imo == routeDigits);
+            if (exists)
+                throw new ArgumentException("A vessel with this IMO already exists.");
+
+            var normalizedDto = new CreateVesselDTO
+            {
+                Imo = routeDigits,
+                Name = dto.Name,
+                VesselTypeId = dto.VesselTypeId,
+                Operator = dto.Operator
+            };
+
+            var model = VesselMapper.ToModel(normalizedDto);
             _context.Add(model);
-            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Handle duplicate IMO (SQLite/SQL Server friendly)
+                var innerMsg = ex.InnerException?.Message ?? string.Empty;
+                if (innerMsg.Contains("UNIQUE constraint failed: Vessels.Imo", StringComparison.OrdinalIgnoreCase) ||
+                    innerMsg.Contains("Cannot insert duplicate key", StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("A vessel with this IMO already exists.");
+                throw;
+            }
 
             await _context.Entry(model).Reference(m => m.VesselType).LoadAsync();
             return VesselMapper.ToDTO(model);
@@ -89,7 +116,8 @@ namespace TodoApi.Application.Services.Vessels
 
         public async Task DeleteVesselAsync(string imo)
         {
-            var vessel = await _context.Set<Vessel>().FindAsync(imo);
+            var routeDigits = new string(imo.Where(char.IsDigit).ToArray());
+            var vessel = await _context.Set<Vessel>().FindAsync(routeDigits);
             if (vessel == null)
                 throw new KeyNotFoundException("Vessel not found.");
 
