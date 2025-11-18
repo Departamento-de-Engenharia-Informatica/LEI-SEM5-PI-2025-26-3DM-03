@@ -1,0 +1,79 @@
+<div class="qualifications-container page resources-like">
+  <div class="page-header">
+    <div>
+      <h2 class="page-title">Qualifications</h2>
+      <p class="muted subtitle">Manage qualification codes used by Resources</p>
+    </div>
+    <div class="header-actions"></div>
+  </div>
+
+  <div *ngIf="successMessage" class="success-box">{{ successMessage }}</div>
+  <div *ngIf="error" class="error-box">{{ error }}</div>
+
+  <div class="toolbar">
+    <input
+      type="text"
+      placeholder="Search by code or description..."
+      [(ngModel)]="searchTerm"
+      (ngModelChange)="onSearchChange($event)"
+      class="search-input"
+    />
+    <button class="btn-secondary" (click)="clearSearch()">Clear</button>
+    <button class="btn-primary" (click)="newQualification()">+ New Qualification</button>
+  </div>
+
+  <div *ngIf="loading && !showForm" class="loading">A carregar...</div>
+
+  <ul class="qualification-list" *ngIf="!showForm && !loading">
+    <li *ngFor="let q of filtered()" class="qualification-item">
+      <div class="qualification-info">
+        <strong class="code">{{ q.code }}</strong>
+        <span class="description">{{ q.description }}</span>
+      </div>
+      <div class="actions">
+        <button class="edit-btn" (click)="editQualification(q)">Edit</button>
+        <button class="delete-btn" (click)="delete(q.code)">Delete</button>
+      </div>
+    </li>
+
+    <li *ngIf="!loading && filtered().length === 0" class="empty">
+      No qualifications found.
+    </li>
+  </ul>
+
+  <div *ngIf="showForm" class="qualification-form card">
+    <h3>{{ isEditing ? 'Edit Qualification' : 'Create Qualification' }}</h3>
+
+    <form (ngSubmit)="save()" autocomplete="off">
+      <div class="form-group">
+        <label for="code">Code</label>
+        <input
+          id="code"
+          type="text"
+          [(ngModel)]="current.code"
+          name="code"
+          required
+          [disabled]="isEditing"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <input
+          id="description"
+          type="text"
+          [(ngModel)]="current.description"
+          name="description"
+          required
+        />
+      </div>
+
+      <div class="form-actions">
+        <button class="btn-primary" type="submit">Save</button>
+        <button class="btn-secondary" type="button" (click)="cancel()">Cancel</button>
+      </div>
+    </form>
+
+    <div *ngIf="formError" class="error-box">{{ formError }}</div>
+  </div>
+</div>

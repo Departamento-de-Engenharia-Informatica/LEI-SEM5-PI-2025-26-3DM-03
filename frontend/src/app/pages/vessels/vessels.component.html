@@ -60,7 +60,16 @@
       </div>
 
       <div class="form-group">
-        <label for="vesselImo">IMO</label>
+        <div class="label-row">
+          <label for="vesselImo">IMO</label>
+          <button
+            type="button"
+            class="info-badge"
+            (click)="toggleImoHelp()"
+            aria-label="Como preencher o IMO">
+            !
+          </button>
+        </div>
         <input
           id="vesselImo"
           type="text"
@@ -72,6 +81,10 @@
           [disabled]="isEditing"
         />
         <small class="hint">Must contain exactly 7 digits (no spaces or letters)</small>
+        <div *ngIf="showImoHelp" class="info-box">
+          IMO uses 7 digits plus a check digit: (d1*7 + d2*6 + d3*5 + d4*4 + d5*3 + d6*2) % 10 = d7.
+          Example: 342354<b>0</b>.
+        </div>
       </div>
 
       <div class="form-group select-group">

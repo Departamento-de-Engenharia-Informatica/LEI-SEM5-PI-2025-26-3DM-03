@@ -27,6 +27,7 @@ export class VesselsComponent implements OnInit {
   showForm = false;
   currentVessel: Vessel = {};
   isEditing = false;
+  showImoHelp = false;
   originalImo: string | null = null;
   formError: string | null = null;
   successMessage: string | null = null;
@@ -96,6 +97,19 @@ export class VesselsComponent implements OnInit {
     this.currentVessel = {};
     this.showForm = false;
     this.formError = null;
+    this.showImoHelp = false;
+  }
+
+  // Same check-digit rule used by the API: 7 digits and valid checksum with weights 7..2
+  private isValidImo(imo: string): boolean {
+    if (!imo) return false;
+    const digits = imo.split('').map(d => Number(d));
+    if (digits.length !== 7 || digits.some(isNaN)) return false;
+
+    const weights = [7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((acc, w, i) => acc + digits[i] * w, 0);
+    const checkDigit = sum % 10;
+    return checkDigit === digits[6];
   }
 
   async save() {
@@ -111,8 +125,8 @@ export class VesselsComponent implements OnInit {
       this.formError = 'Vessel name is required.';
       return;
     }
-    if (!/^\d{7}$/.test(imo)) {
-      this.formError = 'Invalid IMO: must contain exactly 7 numeric digits.';
+    if (!/^\d{7}$/.test(imo) || !this.isValidImo(imo)) {
+      this.formError = 'Invalid IMO: must be 7 digits with a valid check digit.';
       return;
     }
     if (!vesselTypeId) {
@@ -145,7 +159,8 @@ export class VesselsComponent implements OnInit {
 
     } catch (err: any) {
       console.error('Save vessel failed', err);
-      this.formError = err?.message ?? 'Save failed — check the data.';
+      this.formError = err?.message ?? 'Save failed - check the data.';
+      try { this.cdr.detectChanges(); } catch {}
     }
   }
 
@@ -162,5 +177,9 @@ export class VesselsComponent implements OnInit {
   clearSearch() {
     this.searchTerm = '';
     this.loadVessels().catch(() => {});
+  }
+
+  toggleImoHelp() {
+    this.showImoHelp = !this.showImoHelp;
   }
 }
