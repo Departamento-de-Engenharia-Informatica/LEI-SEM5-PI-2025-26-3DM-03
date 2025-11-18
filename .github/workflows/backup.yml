@@ -84,18 +84,20 @@ jobs:
           SQL
 
       - name: Run backup script
+        id: run_backup
         if: env.USE_EPHEMERAL == 'true' || env.HAS_DB == 'true' || steps.find_sqlite.outputs.has_sqlite == 'true'
         run: |
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type "${BACKUP_KIND}" --out "${BACKUP_OUT}"
 
-      - name: Skip backup (no DB configured)
+      - name: Fail backup (no DB configured)
         if: env.USE_EPHEMERAL != 'true' && env.HAS_DB != 'true' && steps.find_sqlite.outputs.has_sqlite != 'true'
         run: |
-          echo "DB_CONNECTION secret not set. Skipping backup run."
+          echo "ERROR: No database configured or found (DB_CONNECTION empty and no port.db)." >&2
+          exit 1
 
       - name: Upload as GitHub artifact (full - 30 days)
-        if: env.BACKUP_KIND == 'full'
+        if: env.BACKUP_KIND == 'full' && steps.run_backup.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: db-full-${{ github.run_id }}
@@ -106,7 +108,7 @@ jobs:
           retention-days: 30
 
       - name: Upload as GitHub artifact (incremental - 7 days)
-        if: env.BACKUP_KIND != 'full'
+        if: env.BACKUP_KIND != 'full' && steps.run_backup.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: db-incremental-${{ github.run_id }}

@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: Planning & Scheduling API
+  version: 0.1.0
+  description: |
+    Serviço que recebe pedidos de planeamento diário e devolve um plano construído
+    por algoritmos configuráveis (mock/Prolog).
+servers:
+  - url: https://localhost:7167
+    description: Desenvolvimento local
+paths:
+  /api/scheduling/daily:
+    post:
+      summary: Gera plano diário para uma data/algoritmo
+      operationId: generateDailySchedule
+      tags: [Scheduling]
+      parameters:
+        - in: query
+          name: algorithm
+          required: true
+          schema:
+            $ref: '#/components/schemas/AlgorithmType'
+          description: Algoritmo desejado (ex.: `optimal`, `prolog`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DailyScheduleRequest'
+      responses:
+        '200':
+          description: Plano calculado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyScheduleResponse'
+        '400':
+          description: Pedido inválido / algoritmo não suportado
+components:
+  schemas:
+    AlgorithmType:
+      type: string
+      enum: [optimal, heuristic, multi-crane, prolog]
+    DailyScheduleRequest:
+      type: object
+      required: [date]
+      properties:
+        date:
+          type: string
+          format: date
+        strategy:
+          type: string
+        vessels:
+          type: array
+          items:
+            $ref: '#/components/schemas/VesselContext'
+        cranes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CraneContext'
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffContext'
+    VesselContext:
+      type: object
+      required: [id, arrivalHour, departureHour, unloadDuration, loadDuration]
+      properties:
+        id:
+          type: string
+        arrivalHour:
+          type: integer
+        departureHour:
+          type: integer
+        unloadDuration:
+          type: integer
+        loadDuration:
+          type: integer
+    CraneContext:
+      type: object
+      required: [id, availableFrom, availableTo]
+      properties:
+        id:
+          type: string
+        availableFrom:
+          type: string
+          format: date-time
+        availableTo:
+          type: string
+          format: date-time
+        capacity:
+          type: integer
+    StaffContext:
+      type: object
+      required: [id, shiftStart, shiftEnd]
+      properties:
+        id:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        shiftStart:
+          type: string
+          format: date-time
+        shiftEnd:
+          type: string
+          format: date-time
+    DailyScheduleResponse:
+      type: object
+      required: [date, algorithm, schedule]
+      properties:
+        date:
+          type: string
+          format: date
+        algorithm:
+          $ref: '#/components/schemas/AlgorithmType'
+        totalDelayMinutes:
+          type: integer
+        craneHoursUsed:
+          type: integer
+        schedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduledOperation'
+        warnings:
+          type: array
+          items:
+            type: string
+    ScheduledOperation:
+      type: object
+      required: [vesselId, startTime, endTime]
+      properties:
+        vesselId:
+          type: string
+        dockId:
+          type: string
+        craneIds:
+          type: array
+          items:
+            type: string
+        staffIds:
+          type: array
+          items:
+            type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        delayMinutes:
+          type: integer
+        multiCrane:
+          type: boolean
