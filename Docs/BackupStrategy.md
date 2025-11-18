@@ -5,7 +5,7 @@ Este documento propõe, justifica e descreve a implementação de uma estratégi
 - **RPO (Recovery Point Objective)**: Quanto de dados podemos perder (tempo máximo entre último backup consistente e falha).
 - **WRT (Work Recovery Time)**: Tempo para voltar a ter o sistema operacional e pronto para trabalho normal (subset de RTO incluindo tarefas pós‐restore: validações, reindexações, apontar DNS, etc.).
 
-> Nota: Assumimos que em produção haverá uma base de dados persistente (ex.: PostgreSQL ou SQL Server) e não o provider InMemory usado em dev. Ajustar comandos conforme o SGBD real escolhido.
+> Nota atual do projeto: o backend está a usar SQLite. Os workflows de CI geram backups do ficheiro SQLite (`.sqlite.gz`) e validam integridade via `PRAGMA integrity_check`. O plano abaixo mantém referências a PostgreSQL por ser o alvo natural quando se escalar; contudo, a implementação ativa do repositório está alinhada a SQLite.
 
 ---
 ## 1. Inventário de Ativos
@@ -106,7 +106,7 @@ Ativação de incrementais no repositório: definir a variável de repositório 
 4. Medir tempos: início → app saudável = WRT real. Igual comparar RPO efetivo = (timestamp incidente simulado - último ponto recuperado).
 5. Documentar diferenças e ajustar frequências se necessário.
 
-No CI, o workflow `.github/workflows/backup-verify.yml` executa semanalmente um ciclo de backup e restore em Postgres efémero e publica evidências como artefactos.
+No CI, o workflow `.github/workflows/backup-verify.yml` executa semanalmente um ciclo de backup e verificação em SQLite efémero e publica evidências como artefactos. O workflow `.github/workflows/backup.yml` permite também validação manual (`kind=verify`).
 
 ---
 ## 5. Métricas & Monitorização
@@ -178,7 +178,20 @@ Secrets necessários:
 | Retenção mensal | 12 meses | Planeado |
 
 ---
-## 11. Apêndice: Comandos (Exemplo PostgreSQL)
+## 11. Apêndice: Comandos (SQLite e PostgreSQL)
+### SQLite (implementado no CI)
+```bash
+# Backup (snapshot consistente)
+sqlite3 port.db ".backup '/tmp/port.snapshot'"
+gzip -c /tmp/port.snapshot > backup/db-full-$(date +%Y%m%d).sqlite.gz
+sha256sum backup/db-full-*.sqlite.gz > backup/db-full-$(date +%Y%m%d).sha256
+
+# Verificação
+gunzip -c backup/db-full-*.sqlite.gz > /tmp/restore.sqlite
+sqlite3 /tmp/restore.sqlite "PRAGMA integrity_check;"
+```
+
+### PostgreSQL (para futura migração)
 ```bash
 # Full
 pg_dump -Fc -d "$DB_CONNECTION" -f backup/db-full-$(date +%Y%m%d).dump

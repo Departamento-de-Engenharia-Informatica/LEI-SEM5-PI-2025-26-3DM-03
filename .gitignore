@@ -151,3 +151,6 @@ logs/
 # SQLite runtime artifacts (do not commit)
 *.db-wal
 *.db-shm
+
+# Explicit exceptions (allow a demo DB to be tracked for CI backup)
+!TodoApi/port.db
