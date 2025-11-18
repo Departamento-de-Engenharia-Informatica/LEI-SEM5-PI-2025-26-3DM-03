@@ -9,8 +9,13 @@ using System.IO;
 using System.Security.Claims;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.OpenApi.Models;
+using TodoApi.Application.Services.Scheduling;
+using TodoApi.Application.Services.Scheduling.Engines;
 using TodoApi.Models.Auth;
 using TodoApi.Models.PublicResources;
+using TodoApi.Models.Scheduling;
 using TodoApi.Services.Activation;
 
 // =====================================================
@@ -36,6 +41,17 @@ Directory.CreateDirectory(sharedResourcesRoot);
 builder.Services.Configure<SharedResourcesOptions>(options =>
 {
     options.RootPath = sharedResourcesRoot;
+});
+
+// Scheduling options (Prolog bridge)
+builder.Services.Configure<SchedulingOptions>(configuration.GetSection("Scheduling"));
+builder.Services.AddHttpClient<PrologHttpSchedulingEngine>((sp, client) =>
+{
+    var schedulingOptions = sp.GetRequiredService<IOptions<SchedulingOptions>>().Value;
+    if (!string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl))
+    {
+        client.BaseAddress = new Uri(schedulingOptions.PrologBaseUrl);
+    }
 });
 
 // Configure Kestrel only for local development. In containers or non-dev
@@ -104,6 +120,12 @@ builder.Services.AddScoped<TodoApi.Application.Services.Qualifications.IQualific
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IResourceRepository, TodoApi.Infrastructure.Repositories.EfResourceRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.Resources.IResourceService, TodoApi.Application.Services.Resources.ResourceService>();
 
+// ---------- Scheduling ----------
+builder.Services.AddScoped<ISchedulingService, SchedulingService>();
+builder.Services.AddScoped<IOperationalDataProvider, PassThroughOperationalDataProvider>();
+builder.Services.AddScoped<ISchedulingEngine, MockSchedulingEngine>();
+builder.Services.AddScoped<ISchedulingEngine>(sp => sp.GetRequiredService<PrologHttpSchedulingEngine>());
+
 // ---------- Staff ----------
 builder.Services.AddScoped<TodoApi.Domain.Repositories.IStaffRepository, TodoApi.Infrastructure.Repositories.EfStaffRepository>();
 builder.Services.AddScoped<TodoApi.Application.Services.Staff.IStaffService, TodoApi.Application.Services.Staff.StaffService>();
@@ -130,7 +152,14 @@ builder.Services.AddScoped<ActivationLinkService>();
 // Swagger / OpenAPI for API documentation
 // =====================================================
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.MapType<Microsoft.AspNetCore.Http.IFormFile>(() => new OpenApiSchema
+    {
+        Type = "string",
+        Format = "binary"
+    });
+});
 
 // =====================================================
 // Authentication and Authorization Configuration

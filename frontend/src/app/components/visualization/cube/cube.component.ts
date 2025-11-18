@@ -118,11 +118,11 @@ private buildShip(): THREE.Group {
   const group = new THREE.Group();
 
   // ---------- TEXTURAS ----------
-  const hullDiffuseTex = this.loader.load('assets/textures/hull_diffuse.jpg');
-  hullDiffuseTex.wrapS = hullDiffuseTex.wrapT = THREE.RepeatWrapping;
-  hullDiffuseTex.repeat.set(4, 1); // alonga no comprimento
+  const hullTextureDiffuse = this.loader.load('assets/textures/hull_teste.jpg');
+  hullTextureDiffuse.wrapS = hullTextureDiffuse.wrapT = THREE.RepeatWrapping;
+  hullTextureDiffuse.repeat.set(4, 1); // alonga no comprimento
 
-  const hullLowerTex = this.loader.load('assets/textures/hull_lower.jpg');
+  const hullLowerTex = this.loader.load('assets/textures/hull_lower_test.jpg');
   hullLowerTex.wrapS = hullLowerTex.wrapT = THREE.RepeatWrapping;
   hullLowerTex.repeat.set(4, 1);
 
@@ -137,11 +137,17 @@ private buildShip(): THREE.Group {
   containerTex.wrapS = containerTex.wrapT = THREE.RepeatWrapping;
   containerTex.repeat.set(2, 1);
 
+  const glassTex = this.loader.load('assets/textures/glass_opal.png');
+  glassTex.wrapS = glassTex.wrapT = THREE.ClampToEdgeWrapping;
+  glassTex.needsUpdate = true;
+
+
   // ----------------- Dimensões base -----------------
   const hullLength = 12.5;
   const hullWidth = 3.2;
   const hullHeight = 1.4;
   const deckInset = 0.4;
+
 
   const halfL = hullLength / 2;
   const halfW = hullWidth / 2;
@@ -152,8 +158,8 @@ private buildShip(): THREE.Group {
 
   // Casco acima de água (vermelho texturado)
   const hullRedMaterial = new THREE.MeshStandardMaterial({
-    map: hullDiffuseTex,
-    color: 0xffffff,
+    map: hullTextureDiffuse,
+    color: 0x8B0000,
     metalness: 0.35,
     roughness: 0.55,
   });
@@ -192,6 +198,7 @@ private buildShip(): THREE.Group {
 
   // Janelas
   const windowMaterial = new THREE.MeshStandardMaterial({
+    map: glassTex,
     color: 0x9fd4ff,
     metalness: 0.1,
     roughness: 0.05,
@@ -208,7 +215,6 @@ private buildShip(): THREE.Group {
   // =================================================
   // CASCO PRINCIPAL + PARTE SUBMERSA
   // =================================================
-
   const hullGeometry = new THREE.BoxGeometry(hullLength, hullHeight, hullWidth);
 
   const mainHull = new THREE.Mesh(hullGeometry, hullRedMaterial);
@@ -216,22 +222,57 @@ private buildShip(): THREE.Group {
   mainHull.receiveShadow = true;
   group.add(mainHull);
 
-  // Parte submersa (faixa preta texturada)
-  const underwaterHeight = hullHeight * 0.7;
-  const underwaterGeometry = new THREE.BoxGeometry(
-    hullLength * 0.98,
-    underwaterHeight,
-    hullWidth * 0.94,
-  );
+
+  const underwaterHeight = hullHeight * 0.9; // quão "fundo" é o casco
+  const halfWidthUnder = (hullWidth * 0.94) / 2;
+
+  // Calcula a extensão total do navio (frente da proa até trás da popa)
+  const sternLength = 1.6; // o valor que usas na geometria da popa
+  const shipFront = -halfL - hullHeight / 2;
+  const shipBack = halfL + sternLength;
+  const underwaterLength = shipBack - shipFront;
+  const shipCenterX = (shipFront + shipBack) / 2;
+
+  // Secção oval no plano ZY
+  const segments = 24;
+  const profile: THREE.Vector2[] = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = (i * Math.PI) / segments; // 0..π => meia elipse
+    const z = halfWidthUnder * Math.cos(t);      // largura (lado a lado)
+    const y = -underwaterHeight * 0.5 * Math.sin(t); // profundidade (para baixo)
+    profile.push(new THREE.Vector2(z, y));
+  }
+
+  const underwaterShape = new THREE.Shape();
+  underwaterShape.moveTo(profile[0].x, profile[0].y);
+  for (let i = 1; i < profile.length; i++) {
+    underwaterShape.lineTo(profile[i].x, profile[i].y);
+  }
+  underwaterShape.closePath();
+
+  const underwaterGeometry = new THREE.ExtrudeGeometry(underwaterShape, {
+    depth: underwaterLength,
+    bevelEnabled: false,
+  });
+
+  // Extrude vem alinhado no +Z; rodamos para que o comprimento fique no X
+  underwaterGeometry.rotateY(Math.PI / 2);
+  // Centra a geometria à volta da origem
+  underwaterGeometry.center();
 
   const redBottomY = -hullHeight / 2;
-  const underwaterTopY = redBottomY + 0.02;
-  const underwaterCenterY = underwaterTopY - underwaterHeight / 2;
 
   const underwaterHull = new THREE.Mesh(underwaterGeometry, hullBlackMaterial);
-  underwaterHull.position.set(0, underwaterCenterY, 0);
   underwaterHull.castShadow = true;
   underwaterHull.receiveShadow = true;
+
+  // Centro do casco alinhado com o centro do navio em X
+  underwaterHull.position.set(
+    shipCenterX,
+    redBottomY - underwaterHeight * 0.15, // ajusta para "encostar" ao vermelho
+    0,
+  );
+
   group.add(underwaterHull);
 
   // ============================================================
@@ -243,7 +284,7 @@ private buildShip(): THREE.Group {
   const bowGeo = new THREE.CylinderGeometry(
     bowRadius,
     bowRadius,
-    bowLength,
+    hullHeight,
     32
   );
   bowGeo.rotateY(Math.PI / 2);
@@ -254,19 +295,8 @@ private buildShip(): THREE.Group {
   bow.receiveShadow = true;
   group.add(bow);
 
-  const underwaterBowGeo = new THREE.CylinderGeometry(
-    bowRadius * 0.94,
-    bowRadius * 0.94,
-    underwaterHeight,
-    32
-  );
-  underwaterBowGeo.rotateY(Math.PI / 2);
+  
 
-  const underwaterBow = new THREE.Mesh(underwaterBowGeo, hullBlackMaterial);
-  underwaterBow.position.set(-halfL, underwaterCenterY, 0);
-  underwaterBow.castShadow = true;
-  underwaterBow.receiveShadow = true;
-  group.add(underwaterBow);
 
   // =================================================
   // POPA – BLOCO TRASEIRO (VERMELHO + PRETO)
@@ -285,12 +315,7 @@ private buildShip(): THREE.Group {
     underwaterHeight * 0.95,
     hullWidth * 0.94,
   );
-  const underwaterStern = new THREE.Mesh(underwaterSternGeo, hullBlackMaterial);
-  underwaterStern.position.set(halfL + 0.8, underwaterCenterY, 0);
-  underwaterStern.castShadow = true;
-  underwaterStern.receiveShadow = true;
-  group.add(underwaterStern);
-
+ 
   // =================================================
   // CONVÉS
   // =================================================
@@ -419,7 +444,7 @@ private buildShip(): THREE.Group {
     new THREE.CylinderGeometry(0.05, 0.05, 2.0, 12),
     mastMat,
   );
-  mainAntenna.position.set(-halfL - bowLength * 0.25, deckTopY + 0.9, 0);
+  mainAntenna.position.set(-halfL - hullHeight * 0.25, deckTopY + 0.9, 0);
   mainAntenna.castShadow = true;
   mainAntenna.receiveShadow = true;
   group.add(mainAntenna);
