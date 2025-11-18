@@ -56,12 +56,15 @@ export class DockCraneComponent implements AfterViewInit, OnDestroy {
     this.initThree();
 
     // Grua em treliça tipo “portal” (foto de referência)
+    // Ajuste de escala realista: reduzir altura total e proporções
+    // Valores originais: height 120, boom 115/60, gauge 65, clearance 65
+    // Novos valores ~40% dos anteriores para aproximar intervalo 30-50 m
     this.craneGroup = createPortalLatticeCraneModel({
-      height: 120,
-      seawardBoomLength: 115,
-      landsideBoomLength: 60,
-      gauge: 65,
-      clearance: 65,
+      height: 48,
+      seawardBoomLength: 80,
+      landsideBoomLength: 34,
+      gauge: 48,
+      clearance: 48,
     });
 
     if (this.craneGroup) this.scene.add(this.craneGroup);
@@ -144,8 +147,9 @@ export class DockCraneComponent implements AfterViewInit, OnDestroy {
     this.controls = new OrbitControls(this.camera, this.canvas);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.minDistance = 120;
-    this.controls.maxDistance = 800;
+    // Permitir aproximar mais (mais zoom)
+    this.controls.minDistance = 20; // antes 120
+    this.controls.maxDistance = 900;
     this.controls.minPolarAngle = Math.PI / 6;
     this.controls.maxPolarAngle = Math.PI / 2.1;
     this.controls.target.set(0, 70, 0);
@@ -240,6 +244,12 @@ export function createDockCraneModel(
   glassOpalTexture.wrapS = glassOpalTexture.wrapT = THREE.ClampToEdgeWrapping;
   glassOpalTexture.anisotropy = 6;
 
+  const stairTreadTexture = baseTextureLoader.load('stair_tread.svg');
+  stairTreadTexture.colorSpace = THREE.SRGBColorSpace;
+  stairTreadTexture.wrapS = stairTreadTexture.wrapT = THREE.RepeatWrapping;
+  stairTreadTexture.repeat.set(6, 6);
+  stairTreadTexture.anisotropy = 8;
+
   const blue = new THREE.MeshStandardMaterial({
     color: 0x1c4f82,
     metalness: 0.55,
@@ -279,9 +289,10 @@ export function createDockCraneModel(
     roughness: 0.3,
   });
   const walkwayMat = new THREE.MeshStandardMaterial({
-    color: 0xc2ccd8,
-    metalness: 0.35,
-    roughness: 0.6,
+    color: 0xf4f6f8,
+    metalness: 0.45,
+    roughness: 0.5,
+    map: stairTreadTexture,
   });
   const bogieMat = new THREE.MeshStandardMaterial({
     color: 0x8c97ab,
@@ -638,12 +649,12 @@ export function createDockCraneModel(
   catwalk.castShadow = catwalk.receiveShadow = true;
   group.add(catwalk);
 
-  const postGeo = new THREE.BoxGeometry(1.1, 6, 1.1);
+  const catwalkPostGeo = new THREE.BoxGeometry(1.1, 6, 1.1);
   const postCount: number = 4;
   for (let i = 0; i < postCount; i++) {
     const factor = postCount === 1 ? 0.5 : i / (postCount - 1);
     const px = catwalk.position.x - catwalkLength / 2 + factor * catwalkLength;
-    const postL = new THREE.Mesh(postGeo, blue);
+    const postL = new THREE.Mesh(catwalkPostGeo, blue);
     postL.position.set(px, catwalk.position.y - 3.5, catwalk.position.z - 2.2);
     const postR = postL.clone();
     postR.position.z = catwalk.position.z + 2.2;
@@ -664,32 +675,398 @@ export function createDockCraneModel(
     group.add(b);
   });
 
-  const ladderHeight = mainCab.position.y - 8;
-  const ladder = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, ladderHeight, 0.4),
-    dark
-  );
-  ladder.position.set(mainCab.position.x + 15, ladderHeight / 2, mainCab.position.z + 4);
-  ladder.castShadow = true;
-  group.add(ladder);
-
-  const rungGeo = new THREE.BoxGeometry(2.6, 0.15, 0.4);
-  const rungCount = 7;
-  for (let i = 0; i < rungCount; i++) {
-    const rung = new THREE.Mesh(rungGeo, dark);
-    rung.position.set(
-      ladder.position.x - 1.3,
-      ladder.position.y - ladderHeight / 2 + 1.2 + i * (ladderHeight / (rungCount + 1)),
-      ladder.position.z
-    );
-    rung.castShadow = true;
-    group.add(rung);
-  }
+  const deckTopY = deck.position.y + 0.6;
+  const ladderHeight = deckTopY + 0.4;
 
   const railMat = new THREE.MeshStandardMaterial({
     color: 0xf5f6f7,
     metalness: 0.4,
     roughness: 0.4,
+  });
+  const stairFrameMat = new THREE.MeshStandardMaterial({
+    color: 0xe2e8f1,
+    metalness: 0.35,
+    roughness: 0.45,
+  });
+
+  const rectBeamBetween = (
+    a: THREE.Vector3,
+    b: THREE.Vector3,
+    width: number,
+    height: number,
+    material: THREE.Material | THREE.Material[]
+  ) => {
+    const dir = new THREE.Vector3().subVectors(b, a);
+    const len = dir.length();
+    if (len < 1e-3) return new THREE.Group();
+    const beamGeo = new THREE.BoxGeometry(width, height, len);
+    const beam = new THREE.Mesh(beamGeo, material as THREE.Material);
+    const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+    beam.position.copy(mid);
+    const quat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 0, 1),
+      dir.clone().normalize()
+    );
+    beam.quaternion.copy(quat);
+    beam.castShadow = beam.receiveShadow = true;
+    return beam;
+  };
+
+  const createStraightStairFlight = (
+    stepCount: number,
+    width: number,
+    stepRise: number,
+    stepDepth: number,
+    material: THREE.Material
+  ) => {
+    const flight = new THREE.Group();
+    for (let i = 0; i < stepCount; i++) {
+      const step = new THREE.Mesh(
+        new THREE.BoxGeometry(width, stepRise, stepDepth),
+        material
+      );
+      step.position.set(0, stepRise * (i + 0.5), stepDepth * (i + 0.5));
+      step.castShadow = step.receiveShadow = true;
+      flight.add(step);
+    }
+    return flight;
+  };
+
+  // Nova escada tipo torre industrial (switchback), estilo da imagem
+  // parâmetros base
+  const stepsPerFlight = 7; // número de degraus por lanço
+  const stairWidth = 2.6;
+  const desiredMinFlights = 8;
+  const stepRun = 0.78; // profundidade de cada degrau
+  const stepRise = Math.max(1.4, Math.min(2.6, ladderHeight / (stepsPerFlight * desiredMinFlights))); // altura de cada degrau (escala da cena)
+  const landingDepth = 1.35;
+  const topLandingDepth = 2.2;
+  const stairBaseX = halfGauge + 3.2;
+  const stairBaseZ = mainCab.position.z - 4.5;
+  const stairRailHeight = 1.2;
+  const stairAttachX = halfGauge + 0.8;
+
+  // helper local para construir um lanço com degraus e guardas
+  const buildFlight = (
+    dir: 1 | -1,
+    width: number,
+    steps: number,
+    rise: number,
+    run: number,
+    mat: THREE.Material
+  ) => {
+    const g = new THREE.Group();
+    for (let i = 0; i < steps; i++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(width, rise, run), mat);
+      step.position.set(0, rise * (i + 0.5), dir * run * (i + 0.5));
+      step.castShadow = step.receiveShadow = true;
+      g.add(step);
+    }
+    // corrimãos laterais simples ao longo do lanço
+    const railOffset = width / 2 + 0.3;
+    const railLen = steps * run;
+    const railGeo = new THREE.BoxGeometry(0.2, 0.2, railLen);
+    const railL = new THREE.Mesh(railGeo, railMat);
+    const railR = new THREE.Mesh(railGeo, railMat);
+    const midY = rise * steps * 0.5 + stairRailHeight;
+    railL.position.set(-railOffset, midY, dir * railLen * 0.5);
+    railR.position.set( railOffset, midY, dir * railLen * 0.5);
+    railL.castShadow = railL.receiveShadow = true;
+    railR.castShadow = railR.receiveShadow = true;
+    g.add(railL, railR);
+    return g;
+  };
+
+  // constrói a torre completa com vários lanços em ziguezague
+  const buildStairTower = (
+    baseX: number,
+    baseZ: number,
+    targetHeight: number,
+    attachToX: number
+  ): { stairGroup: THREE.Group; topLanding: THREE.Mesh } => {
+    const stairGroup = new THREE.Group();
+    stairGroup.name = 'RearAccessStair';
+
+    // base de betão
+    const groundPad = new THREE.Mesh(
+      new THREE.BoxGeometry(stairWidth + 2.4, 0.5, 6),
+      walkwayMat
+    );
+    groundPad.position.set(baseX, 0.25, baseZ - 2.8);
+    groundPad.castShadow = groundPad.receiveShadow = true;
+    stairGroup.add(groundPad);
+
+    const flightHeight = stepsPerFlight * stepRise;
+    let flights = Math.ceil(targetHeight / flightHeight);
+    if (flights % 2 !== 0) flights += 1; // terminar alinhado ao ponto de entrada
+
+    let curY = 0;
+    let curZ = baseZ;
+    let dir: 1 | -1 = 1;
+    let minZ = baseZ;
+    let maxZ = baseZ;
+
+    const landingThickness = 0.8;
+
+    for (let f = 0; f < flights; f++) {
+      const flight = buildFlight(dir, stairWidth, stepsPerFlight, stepRise, stepRun, walkwayMat);
+      flight.position.set(baseX, curY, curZ);
+      stairGroup.add(flight);
+
+      // extremos deste lanço
+      curZ = curZ + dir * (stepsPerFlight * stepRun);
+      minZ = Math.min(minZ, curZ);
+      maxZ = Math.max(maxZ, curZ);
+
+      // plataforma intermédia (se não for o último lanço)
+      if (f < flights - 1) {
+        const landing = new THREE.Mesh(
+          new THREE.BoxGeometry(stairWidth + 2.2, landingThickness, landingDepth),
+          walkwayMat
+        );
+        const topY = curY + flightHeight - landingThickness / 2;
+        landing.position.set(baseX, topY, curZ + dir * (landingDepth / 2));
+        landing.castShadow = landing.receiveShadow = true;
+        stairGroup.add(landing);
+
+        minZ = Math.min(minZ, landing.position.z - landingDepth / 2);
+        maxZ = Math.max(maxZ, landing.position.z + landingDepth / 2);
+
+        const supportBeam = rectBeamBetween(
+          new THREE.Vector3(attachToX, topY, landing.position.z),
+          new THREE.Vector3(baseX - stairWidth / 2 - 0.2, topY, landing.position.z),
+          0.25,
+          0.25,
+          stairFrameMat
+        );
+        stairGroup.add(supportBeam);
+
+        // corrimão frontal da plataforma
+        const platRail = new THREE.Mesh(
+          new THREE.BoxGeometry(stairWidth + 1.6, stairRailHeight, 0.25),
+          railMat
+        );
+        platRail.position.set(
+          baseX,
+          topY + stairRailHeight / 2,
+          landing.position.z - dir * (landingDepth / 2)
+        );
+        platRail.castShadow = platRail.receiveShadow = true;
+        stairGroup.add(platRail);
+
+        // próximo lanço começa do lado oposto da plataforma
+        curZ = landing.position.z + (-dir) * (landingDepth / 2);
+        curY += flightHeight;
+        dir = (dir === 1 ? -1 : 1);
+      }
+    }
+
+    // plataforma do topo (alinhada ao eixo Z do ponto de entrada)
+    const topLandingThickness = 0.8;
+    const topLanding = new THREE.Mesh(
+      new THREE.BoxGeometry(stairWidth + 3, topLandingThickness, topLandingDepth),
+      walkwayMat
+    );
+    topLanding.position.set(baseX, targetHeight - topLandingThickness / 2, baseZ);
+    topLanding.castShadow = topLanding.receiveShadow = true;
+    stairGroup.add(topLanding);
+
+    const topRailFront = new THREE.Mesh(
+      new THREE.BoxGeometry(stairWidth + 2.2, stairRailHeight, 0.25),
+      railMat
+    );
+    topRailFront.position.set(
+      baseX,
+      targetHeight + stairRailHeight / 2 - 0.4,
+      baseZ + topLandingDepth / 2
+    );
+    const topRailRear = topRailFront.clone();
+    topRailRear.position.z = baseZ - topLandingDepth / 2;
+    const topRailSideL = new THREE.Mesh(
+      new THREE.BoxGeometry(0.25, stairRailHeight, topLandingDepth),
+      railMat
+    );
+    topRailSideL.position.set(baseX - (stairWidth + 2.2) / 2, targetHeight + stairRailHeight / 2 - 0.4, baseZ);
+    const topRailSideR = topRailSideL.clone();
+    topRailSideR.position.x = baseX + (stairWidth + 2.2) / 2;
+    [topRailFront, topRailRear, topRailSideL, topRailSideR].forEach((r) => {
+      r.castShadow = r.receiveShadow = true;
+      stairGroup.add(r);
+    });
+
+    const topSupport = rectBeamBetween(
+      new THREE.Vector3(attachToX, targetHeight - topLandingThickness / 2, topLanding.position.z),
+      new THREE.Vector3(baseX - stairWidth / 2 - 0.2, targetHeight - topLandingThickness / 2, topLanding.position.z),
+      0.3,
+      0.3,
+      stairFrameMat
+    );
+    stairGroup.add(topSupport);
+
+    const frameHeight = targetHeight + stairRailHeight + 0.8;
+
+    // coluna de apoio junto à perna
+    stairGroup.add(
+      rectBeamBetween(
+        new THREE.Vector3(attachToX, 0, baseZ),
+        new THREE.Vector3(attachToX, frameHeight, baseZ),
+        0.3,
+        0.3,
+        stairFrameMat
+      )
+    );
+
+    // estrutura externa tipo “torre” (4 cantos + anéis)
+    const towerMinX = baseX - stairWidth / 2 - 1.2;
+    const towerMaxX = baseX + stairWidth / 2 + 1.2;
+    const towerMinZ = minZ - 0.9;
+    const towerMaxZ = Math.max(maxZ, baseZ + topLandingDepth / 2) + 0.9;
+
+    const towerPostGeo = new THREE.BoxGeometry(0.55, frameHeight, 0.55);
+    const postPositions: [number, number][] = [
+      [towerMinX, towerMinZ],
+      [towerMaxX, towerMinZ],
+      [towerMinX, towerMaxZ],
+      [towerMaxX, towerMaxZ],
+    ];
+    postPositions.forEach(([px, pz]) => {
+      const post = new THREE.Mesh(towerPostGeo, stairFrameMat);
+      post.position.set(px, frameHeight / 2, pz);
+      post.castShadow = post.receiveShadow = true;
+      stairGroup.add(post);
+    });
+
+    const addRing = (y: number) => {
+      const corners = [
+        new THREE.Vector3(towerMinX, y, towerMinZ),
+        new THREE.Vector3(towerMaxX, y, towerMinZ),
+        new THREE.Vector3(towerMaxX, y, towerMaxZ),
+        new THREE.Vector3(towerMinX, y, towerMaxZ),
+      ];
+      for (let i = 0; i < 4; i++) {
+        const a = corners[i];
+        const b = corners[(i + 1) % 4];
+        stairGroup.add(rectBeamBetween(a, b, 0.25, 0.25, stairFrameMat));
+      }
+    };
+    addRing(0.6);
+    const flightHeightY = stepsPerFlight * stepRise;
+    for (let r = 1; r < flights; r++) addRing(r * flightHeightY - 0.3);
+    addRing(targetHeight - 0.4);
+
+    // escoras em X nas faces longas
+    const braceBottomY = 0.8;
+    const braceTopY = frameHeight - 0.8;
+    stairGroup.add(
+      rectBeamBetween(
+        new THREE.Vector3(towerMinX, braceBottomY, towerMaxZ),
+        new THREE.Vector3(towerMaxX, braceTopY, towerMaxZ),
+        0.25,
+        0.25,
+        stairFrameMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(towerMaxX, braceBottomY, towerMaxZ),
+        new THREE.Vector3(towerMinX, braceTopY, towerMaxZ),
+        0.25,
+        0.25,
+        stairFrameMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(towerMinX, braceBottomY, towerMinZ),
+        new THREE.Vector3(towerMaxX, braceTopY, towerMinZ),
+        0.25,
+        0.25,
+        stairFrameMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(towerMaxX, braceBottomY, towerMinZ),
+        new THREE.Vector3(towerMinX, braceTopY, towerMinZ),
+        0.25,
+        0.25,
+        stairFrameMat
+      )
+    );
+
+    return { stairGroup, topLanding };
+  };
+
+  const { stairGroup, topLanding } = buildStairTower(stairBaseX, stairBaseZ, ladderHeight, stairAttachX);
+  group.add(stairGroup);
+
+  const entryPlatformWidth = 12;
+  const entryPlatformDepth = 8;
+  const entryPlatformThickness = 1;
+  const entryPlatform = new THREE.Mesh(
+    new THREE.BoxGeometry(entryPlatformWidth, entryPlatformThickness, entryPlatformDepth),
+    walkwayMat
+  );
+  entryPlatform.position.set(
+    mainCab.position.x + 8.5,
+    ladderHeight - entryPlatformThickness / 2,
+    mainCab.position.z + 4
+  );
+  entryPlatform.castShadow = entryPlatform.receiveShadow = true;
+  group.add(entryPlatform);
+
+  const topLandingFrontEdge = new THREE.Vector3(
+    topLanding.position.x,
+    ladderHeight,
+    topLanding.position.z + topLandingDepth / 2
+  );
+  const entryBridgeEnd = new THREE.Vector3(
+    entryPlatform.position.x,
+    ladderHeight,
+    entryPlatform.position.z - entryPlatformDepth / 2
+  );
+  const bridgeWidth = 2.4;
+  group.add(
+    rectBeamBetween(topLandingFrontEdge, entryBridgeEnd, bridgeWidth, 0.45, walkwayMat)
+  );
+
+  const bridgeRailY = ladderHeight + stairRailHeight;
+  const bridgeHalfWidth = bridgeWidth / 2 - 0.2;
+  group.add(
+    rectBeamBetween(
+      new THREE.Vector3(topLandingFrontEdge.x - bridgeHalfWidth, bridgeRailY, topLandingFrontEdge.z),
+      new THREE.Vector3(entryBridgeEnd.x - bridgeHalfWidth, bridgeRailY, entryBridgeEnd.z),
+      0.2,
+      0.2,
+      railMat
+    ),
+    rectBeamBetween(
+      new THREE.Vector3(topLandingFrontEdge.x + bridgeHalfWidth, bridgeRailY, topLandingFrontEdge.z),
+      new THREE.Vector3(entryBridgeEnd.x + bridgeHalfWidth, bridgeRailY, entryBridgeEnd.z),
+      0.2,
+      0.2,
+      railMat
+    )
+  );
+
+  const entryRailHeight = 1.3;
+  const entryRailSide = new THREE.Mesh(
+    new THREE.BoxGeometry(0.3, entryRailHeight, entryPlatformDepth),
+    railMat
+  );
+  entryRailSide.position.set(
+    entryPlatform.position.x - entryPlatformWidth / 2,
+    ladderHeight + entryRailHeight / 2,
+    entryPlatform.position.z
+  );
+  const entryRailSideRight = entryRailSide.clone();
+  entryRailSideRight.position.x = entryPlatform.position.x + entryPlatformWidth / 2;
+  const entryRailFront = new THREE.Mesh(
+    new THREE.BoxGeometry(entryPlatformWidth, entryRailHeight, 0.3),
+    railMat
+  );
+  entryRailFront.position.set(
+    entryPlatform.position.x,
+    ladderHeight + entryRailHeight / 2,
+    entryPlatform.position.z + entryPlatformDepth / 2
+  );
+  [entryRailSide, entryRailSideRight, entryRailFront].forEach((rail) => {
+    rail.castShadow = rail.receiveShadow = true;
+    group.add(rail);
   });
   const sideRailGeo = new THREE.BoxGeometry(0.6, 1.8, 12);
   const frontRailGeo = new THREE.BoxGeometry(18, 1.8, 0.6);
@@ -816,6 +1193,12 @@ export function createPortalLatticeCraneModel(
   const canopyPaintTexture = loadTexture('cab_paint.png', 3.2, 1.2);
   const doorPaintTexture = loadTexture('door_paint.png', 1.8, 1.8);
   const glassTexture = loadTexture('glass_opal.png', 1, 1, THREE.ClampToEdgeWrapping);
+  // textura para degraus/chapas de piso (usar asset existente)
+  const checkerPlateTexture = new THREE.TextureLoader().load('assets/textures/stairs.png');
+  checkerPlateTexture.colorSpace = THREE.SRGBColorSpace;
+  checkerPlateTexture.wrapS = checkerPlateTexture.wrapT = THREE.RepeatWrapping;
+  checkerPlateTexture.anisotropy = 8;
+  checkerPlateTexture.repeat.set(6, 6);
 
   // materiais aproximados à foto
   const orange = new THREE.MeshStandardMaterial({
@@ -903,6 +1286,288 @@ export function createPortalLatticeCraneModel(
     mesh.castShadow = mesh.receiveShadow = true;
     return mesh;
   };
+
+  // =============================================================
+  // Helper: torre de escadas quadrada com corrimão + estrutura
+  // =============================================================
+  type StairTowerOpts = {
+    center: THREE.Vector3;
+    side: number;
+    baseY: number;
+    totalHeight: number;
+    stepRise: number;
+    treadDepth: number;
+    stairWidth: number;
+    stepMat: THREE.Material;
+    railMat: THREE.Material;
+    frameMat: THREE.Material;
+  };
+
+  function buildSquareStairTower(opts: StairTowerOpts): {
+    group: THREE.Group;
+    topCenter: THREE.Vector3;
+    topY: number;
+  } {
+    const {
+      center,
+      side,
+      baseY,
+      totalHeight,
+      stepRise,
+      treadDepth,
+      stairWidth,
+      stepMat,
+      railMat,
+      frameMat,
+    } = opts;
+
+    const group = new THREE.Group();
+    group.name = 'SquareSpiralStairTower';
+
+    const stepThickness = 0.28;
+    const railHeight = 1.0;
+
+    // quantos degraus cabem na altura total
+    const stepCount = Math.max(1, Math.floor(totalHeight / stepRise));
+    // quantos degraus por lado (4 lados do quadrado)
+    const stepsPerSide = Math.max(3, Math.floor(stepCount / 4));
+
+    const half = side / 2 - stairWidth * 0.3;
+
+    // cantos do quadrado em coordenadas locais (relativas ao center)
+    const corners = [
+      new THREE.Vector3(-half, 0, -half), // 0: frente esquerda (Z-)
+      new THREE.Vector3( half, 0, -half), // 1: frente direita
+      new THREE.Vector3( half, 0,  half), // 2: trás direita (Z+)
+      new THREE.Vector3(-half, 0,  half), // 3: trás esquerda
+    ];
+
+    const stepGeo = new THREE.BoxGeometry(stairWidth, stepThickness, treadDepth);
+
+    // pontos do corrimão (topo dos postes) para depois ligar com rectBeamBetween
+    const railPointsPerSide: THREE.Vector3[][] = [[], [], [], []];
+
+    let lastStepWorld = new THREE.Vector3();
+
+    for (let i = 0; i < stepCount; i++) {
+      const sideIndex = Math.floor(i / stepsPerSide) % 4;
+      const tOnSide = (i % stepsPerSide) / stepsPerSide;
+
+      const a = corners[sideIndex];
+      const b = corners[(sideIndex + 1) % 4];
+
+      const pxLocal = THREE.MathUtils.lerp(a.x, b.x, tOnSide);
+      const pzLocal = THREE.MathUtils.lerp(a.z, b.z, tOnSide);
+      const py = baseY + i * stepRise + stepThickness / 2;
+
+      const step = new THREE.Mesh(stepGeo, stepMat);
+
+      // rodar o degrau conforme o lado (para alinhar com a direcção da marcha)
+      switch (sideIndex) {
+        case 0: // frente (Z-), caminhamos em +X
+          step.rotation.y = Math.PI / 2;
+          break;
+        case 2: // trás (Z+), caminhamos em -X
+          step.rotation.y = -Math.PI / 2;
+          break;
+        default: // lados, caminhar em ±Z
+          step.rotation.y = 0;
+      }
+
+      step.position.set(center.x + pxLocal, py, center.z + pzLocal);
+      step.castShadow = step.receiveShadow = true;
+      group.add(step);
+
+      // offset para o lado "de fora" da torre (normal ao lado)
+      let railX = pxLocal;
+      let railZ = pzLocal;
+      const railOffset = stairWidth * 0.55;
+
+      if (sideIndex === 0) railZ -= railOffset;       // frente, Z-
+      else if (sideIndex === 1) railX += railOffset;  // direita, X+
+      else if (sideIndex === 2) railZ += railOffset;  // trás, Z+
+      else if (sideIndex === 3) railX -= railOffset;  // esquerda, X-
+
+      const postHeight = railHeight;
+      const postGeo = new THREE.BoxGeometry(0.18, postHeight, 0.18);
+      const post = new THREE.Mesh(postGeo, railMat);
+      const postWorld = new THREE.Vector3(
+        center.x + railX,
+        py + postHeight / 2,
+        center.z + railZ
+      );
+      post.position.copy(postWorld);
+      post.castShadow = post.receiveShadow = true;
+      group.add(post);
+
+      // guardar ponto do topo do poste para depois fazer corrimão contínuo
+      const railTop = postWorld.clone();
+      railTop.y += postHeight * 0.4;
+      railPointsPerSide[sideIndex].push(railTop);
+
+      // guardar posição do último degrau para a ponte de acesso
+      lastStepWorld.set(center.x + pxLocal, py + postHeight, center.z + pzLocal);
+    }
+
+    // corrimão horizontal em cada lado, ligando postes consecutivos
+    for (let sideIndex = 0; sideIndex < 4; sideIndex++) {
+      const pts = railPointsPerSide[sideIndex];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const a = pts[i];
+        const b = pts[i + 1];
+        group.add(rectBeamBetween(a, b, 0.16, 0.16, railMat));
+      }
+    }
+
+    // estrutura exterior da torre: 4 colunas + anéis horizontais
+    const frameHalf = side / 2 + 0.8;
+    const frameBottomY = baseY;
+    const frameTopY = baseY + stepCount * stepRise + 1.5;
+    const frameHeight = frameTopY - frameBottomY;
+
+    const cornerOffsets: [number, number][] = [
+      [-frameHalf, -frameHalf],
+      [ frameHalf, -frameHalf],
+      [ frameHalf,  frameHalf],
+      [-frameHalf,  frameHalf],
+    ];
+
+    const framePostGeo = new THREE.BoxGeometry(0.28, frameHeight, 0.28);
+    const frameCorners: THREE.Vector3[] = [];
+
+    cornerOffsets.forEach(([ox, oz]) => {
+      const post = new THREE.Mesh(framePostGeo, frameMat);
+      post.position.set(
+        center.x + ox,
+        frameBottomY + frameHeight / 2,
+        center.z + oz
+      );
+      post.castShadow = post.receiveShadow = true;
+      group.add(post);
+      frameCorners.push(
+        new THREE.Vector3(post.position.x, frameBottomY, post.position.z),
+        new THREE.Vector3(post.position.x, frameTopY, post.position.z)
+      );
+    });
+
+    // anéis horizontais em vários níveis
+    const ringLevels = 4;
+    for (let i = 0; i <= ringLevels; i++) {
+      const y =
+        frameBottomY + (i * (frameTopY - frameBottomY)) / ringLevels;
+      const cFL = new THREE.Vector3(center.x - frameHalf, y, center.z - frameHalf);
+      const cFR = new THREE.Vector3(center.x + frameHalf, y, center.z - frameHalf);
+      const cBR = new THREE.Vector3(center.x + frameHalf, y, center.z + frameHalf);
+      const cBL = new THREE.Vector3(center.x - frameHalf, y, center.z + frameHalf);
+
+      group.add(
+        rectBeamBetween(cFL, cFR, 0.24, 0.24, frameMat),
+        rectBeamBetween(cFR, cBR, 0.24, 0.24, frameMat),
+        rectBeamBetween(cBR, cBL, 0.24, 0.24, frameMat),
+        rectBeamBetween(cBL, cFL, 0.24, 0.24, frameMat)
+      );
+    }
+
+    return {
+      group,
+      topCenter: lastStepWorld.clone(),
+      topY: frameTopY,
+    };
+  }
+
+  // =============================================================
+  // Helper: escada em zig-zag (switchback) encostada ao pilar
+  // =============================================================
+  function buildZigZagStairTower(params: {
+    originX: number;
+    originZ: number;
+    baseY: number;
+    totalHeight: number;
+    stairWidth: number;
+    stepRise: number;
+    stepRun: number;
+    landingDepth: number;
+    stepMat: THREE.Material;
+    railMat: THREE.Material;
+    frameMat: THREE.Material;
+  }): { group: THREE.Group; topCenter: THREE.Vector3; bounds: {minZ:number; maxZ:number} } {
+    const { originX, originZ, baseY, totalHeight, stairWidth, stepRise, stepRun, landingDepth, stepMat, railMat, frameMat } = params;
+    const g = new THREE.Group(); g.name = 'ZigZagStairTower';
+
+    const stepsPerFlight = 8;
+    const flightHeight = stepsPerFlight * stepRise;
+    const flights = Math.max(1, Math.ceil(totalHeight / flightHeight));
+
+    let curY = baseY;
+    let curZ = originZ;
+    let dir: 1 | -1 = 1; // primeiro lanço para Z+
+    let minZ = originZ, maxZ = originZ;
+    const stepThickness = stepRise; // visual
+
+    for (let f = 0; f < flights; f++) {
+      const remaining = totalHeight - (curY - baseY);
+      const stepsThis = f === flights - 1 ? Math.max(1, Math.ceil(remaining / stepRise)) : stepsPerFlight;
+      // degraus
+      for (let i = 0; i < stepsThis; i++) {
+        const step = new THREE.Mesh(new THREE.BoxGeometry(stairWidth, stepThickness, stepRun), stepMat);
+        step.position.set(originX, curY + stepRise * (i + 0.5), curZ + dir * stepRun * (i + 0.5));
+        step.castShadow = step.receiveShadow = true;
+        g.add(step);
+      }
+      // corrimões simples em ambos os lados do lanço
+      const railOffset = stairWidth/2 + 0.25;
+      const start = new THREE.Vector3(originX, curY + stepRise * 0.5 + 0.6, curZ + dir * stepRun * 0.5);
+      const end = new THREE.Vector3(originX, curY + stepsThis * stepRise - stepRise * 0.5 + 0.6, curZ + dir * (stepsThis * stepRun - stepRun * 0.5));
+      g.add(
+        rectBeamBetween(new THREE.Vector3(originX - railOffset, start.y, start.z), new THREE.Vector3(originX - railOffset, end.y, end.z), 0.16, 0.16, railMat),
+        rectBeamBetween(new THREE.Vector3(originX + railOffset, start.y, start.z), new THREE.Vector3(originX + railOffset, end.y, end.z), 0.16, 0.16, railMat)
+      );
+
+      curY += stepsThis * stepRise;
+      curZ += dir * stepsThis * stepRun;
+      minZ = Math.min(minZ, curZ); maxZ = Math.max(maxZ, curZ);
+
+      if (f < flights - 1) {
+        const land = new THREE.Mesh(new THREE.BoxGeometry(stairWidth + 1.2, 0.3, landingDepth), stepMat);
+        land.position.set(originX, curY - 0.15, curZ + dir * (landingDepth / 2));
+        land.castShadow = land.receiveShadow = true; g.add(land);
+        // guarda frontal do patamar
+        g.add(rectBeamBetween(
+          new THREE.Vector3(originX - (stairWidth/2), land.position.y + 0.8, land.position.z + dir * (landingDepth/2)),
+          new THREE.Vector3(originX + (stairWidth/2), land.position.y + 0.8, land.position.z + dir * (landingDepth/2)),
+          0.16, 0.16, railMat
+        ));
+        curZ += dir * landingDepth; minZ = Math.min(minZ, curZ); maxZ = Math.max(maxZ, curZ);
+        dir = dir === 1 ? -1 : 1;
+      }
+    }
+
+    // armação exterior simples
+    const frameMinX = originX - (stairWidth/2) - 0.8;
+    const frameMaxX = originX + (stairWidth/2) + 0.8;
+    const frameMinZ = minZ - 0.8; const frameMaxZ = maxZ + 0.8;
+    const frameHeight = totalHeight + 1.2; const frameBottomY = baseY;
+    const postGeo = new THREE.BoxGeometry(0.28, frameHeight, 0.28);
+    const posts = [
+      new THREE.Vector3(frameMinX, frameBottomY + frameHeight/2, frameMinZ),
+      new THREE.Vector3(frameMaxX, frameBottomY + frameHeight/2, frameMinZ),
+      new THREE.Vector3(frameMinX, frameBottomY + frameHeight/2, frameMaxZ),
+      new THREE.Vector3(frameMaxX, frameBottomY + frameHeight/2, frameMaxZ),
+    ];
+    posts.forEach(p => { const m = new THREE.Mesh(postGeo, frameMat); m.position.copy(p); m.castShadow = m.receiveShadow = true; g.add(m); });
+    const rings = 3;
+    for (let i=0;i<=rings;i++){
+      const y = frameBottomY + (i * frameHeight)/rings - frameHeight/2 + (frameBottomY + frameHeight/2);
+      g.add(
+        rectBeamBetween(new THREE.Vector3(frameMinX, y, frameMinZ), new THREE.Vector3(frameMaxX, y, frameMinZ), 0.24, 0.24, frameMat),
+        rectBeamBetween(new THREE.Vector3(frameMaxX, y, frameMinZ), new THREE.Vector3(frameMaxX, y, frameMaxZ), 0.24, 0.24, frameMat),
+        rectBeamBetween(new THREE.Vector3(frameMaxX, y, frameMaxZ), new THREE.Vector3(frameMinX, y, frameMaxZ), 0.24, 0.24, frameMat),
+        rectBeamBetween(new THREE.Vector3(frameMinX, y, frameMaxZ), new THREE.Vector3(frameMinX, y, frameMinZ), 0.24, 0.24, frameMat)
+      );
+    }
+
+    return { group: g, topCenter: new THREE.Vector3(originX, baseY + totalHeight, curZ), bounds: {minZ, maxZ} };
+  }
 
   /* 1) Portal (pernas + travessas + bogies) ---------------------------- */
 
@@ -1101,7 +1766,9 @@ export function createPortalLatticeCraneModel(
   slewGroup.add(turret);
 
   // Cabine única e mais realista com janelas e acabamento com grão
-  const cabW = 26, cabH = 14, cabD = 18;
+  // Redimensionar cabine para proporção mais humana (antes 26 x 14 x 18)
+  // Novo alvo ~ (18 x 11 x 14) metros assumindo 1 unidade = 1 m.
+  const cabW = 18, cabH = 11, cabD = 14;
   const cabBodyMat = new THREE.MeshStandardMaterial({
     color: 0xd9dbdf,
     metalness: 0.65,
@@ -1172,11 +1839,8 @@ export function createPortalLatticeCraneModel(
   const winRight = winLeft.clone();
   winRight.position.set(cabW / 2 + 0.51, 0.5, 0);
   winRight.rotation.y = -Math.PI / 2;
-  const winRoof = new THREE.Mesh(new THREE.PlaneGeometry(cabW - 8, 3), glass);
-  winRoof.position.set(0, cabH / 2 - 0.1, -cabD / 2 - 0.3);
-  winRoof.rotation.x = THREE.MathUtils.degToRad(78);
-  winRoof.rotation.y = Math.PI;
-  operatorCab.add(winSeaward, winDown, winLeft, winRight, winRoof);
+  // remover a "tampa" frontal (painel superior inclinado)
+  operatorCab.add(winSeaward, winDown, winLeft, winRight);
 
   // molduras finas das janelas para evitar look de "buraco" na chapa
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x9a1f0f, metalness: 0.2, roughness: 0.6 });
@@ -1516,54 +2180,88 @@ export function createPortalLatticeCraneModel(
     cylinderBetween(apex, railBackR,  0.35, cableMat)
   );
 
-  // Acesso: escada pela direita até plataforma junto à lateral da cabine
-  const ladderX = operatorCab.position.x + cabW / 2 + 4;
-  const ladderZ = operatorCab.position.z;
-  // nível da plataforma ao nível do piso da cabine
-  const ladderTopY = slewGroup.position.y + operatorCab.position.y;
-  const ladderH = ladderTopY - 0.5;
-  const ladderSide = new THREE.Mesh(new THREE.BoxGeometry(0.6, ladderH, 0.4), dark);
-  ladderSide.position.set(ladderX - 0.6, ladderH/2, ladderZ);
-  const ladderSideR = ladderSide.clone(); ladderSideR.position.x = ladderX + 0.6;
-  group.add(ladderSide, ladderSideR);
-  const rungGeo = new THREE.BoxGeometry(1.6, 0.15, 0.35);
-  const rungs = Math.max(8, Math.floor(ladderH / 2.0));
-  for (let i=0;i<rungs;i++){
-    const y = 1.0 + i * (ladderH / (rungs+1));
-    const rung = new THREE.Mesh(rungGeo, dark);
-    rung.position.set(ladderX, y, ladderZ);
-    rung.castShadow = true; group.add(rung);
-  }
-  // plataforma de acesso junto à lateral direita da cabine
-  const plat = new THREE.Mesh(new THREE.BoxGeometry(10, 1, 4), new THREE.MeshStandardMaterial({color:0xc2ccd8, metalness:0.35, roughness:0.6}));
-  plat.position.set(operatorCab.position.x + cabW / 2 + 2, ladderTopY - 0.5, operatorCab.position.z);
-  plat.castShadow = plat.receiveShadow = true; group.add(plat);
-  // guarda na aresta externa (lado fora)
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(10, 1.2, 0.4), new THREE.MeshStandardMaterial({color:0xf5f6f7, metalness:0.4, roughness:0.4}));
-  guard.position.set(plat.position.x + 5.0, plat.position.y + 0.9, plat.position.z);
-  guard.rotation.y = Math.PI / 2;
-  group.add(guard);
+  // === Torre de escadas quadrada tipo porto (substitui a escada vertical) ===
+  const stairStepMat = new THREE.MeshStandardMaterial({
+    color: 0xbfc6cf,
+    metalness: 0.5,
+    roughness: 0.45,
+    map: checkerPlateTexture,
+  });
+  const stairRailMat = new THREE.MeshStandardMaterial({
+    color: 0xf5f6f7,
+    metalness: 0.35,
+    roughness: 0.45,
+  });
+  const stairFrameMat = new THREE.MeshStandardMaterial({
+    color: 0xe2e6ee,
+    metalness: 0.4,
+    roughness: 0.5,
+  });
 
-  // ponte/c passadiço entre a plataforma e a cabine (sem lacunas)
-  const bridgeWalkwayMat = new THREE.MeshStandardMaterial({ color: 0xc2ccd8, metalness: 0.35, roughness: 0.6 });
-  const guardMat = new THREE.MeshStandardMaterial({color:0xf5f6f7, metalness:0.4, roughness:0.4});
-  const bridgeStart = new THREE.Vector3(plat.position.x - 5, plat.position.y, plat.position.z);
-  // liga directamente à parede direita da cabine
-  const bridgeEnd = new THREE.Vector3(operatorCab.position.x + cabW/2, plat.position.y, operatorCab.position.z);
-  group.add(rectBeamBetween(bridgeStart, bridgeEnd, 2.2, 0.35, bridgeWalkwayMat));
-  // guarda-corpos no passadiço
-  const railYOffset = 0.9;
-  const railZOff = 1.1;
-  group.add(rectBeamBetween(
-    new THREE.Vector3(bridgeStart.x, bridgeStart.y + railYOffset, bridgeStart.z - railZOff),
-    new THREE.Vector3(bridgeEnd.x,   bridgeEnd.y   + railYOffset, bridgeEnd.z   - railZOff),
-    0.2, 0.8, guardMat
-  ));
-  group.add(rectBeamBetween(
-    new THREE.Vector3(bridgeStart.x, bridgeStart.y + railYOffset, bridgeStart.z + railZOff),
-    new THREE.Vector3(bridgeEnd.x,   bridgeEnd.y   + railYOffset, bridgeEnd.z   + railZOff),
-    0.2, 0.8, guardMat
-  ));
+  // nível do piso à frente da porta da cabine
+  const entryLevelY = slewGroup.position.y + operatorCab.position.y;
+
+  // centro da torre de escadas: encostada ao pilar direito do portal
+  const stairCenter = new THREE.Vector3(
+    halfGauge + 7, // mesmo ao lado da perna direita
+    0,
+    0              // a meio em Z
+  );
+
+  // altura útil da torre: praticamente até ao nível de entrada da cabina
+  const targetTowerHeight = entryLevelY - 1.0;
+
+  const stairTower = buildZigZagStairTower({
+    originX: stairCenter.x,
+    originZ: stairCenter.z,
+    baseY: 0,
+    totalHeight: targetTowerHeight,
+    stairWidth: 1.4,
+    stepRise: 0.55,
+    stepRun: 1.25,
+    landingDepth: 2.4,
+    stepMat: stairStepMat,
+    railMat: stairRailMat,
+    frameMat: stairFrameMat,
+  });
+  group.add(stairTower.group);
+
+  const topPlat = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.4, 4.2), stairStepMat);
+  // Encosta exactamente ao nível da porta da cabine
+  topPlat.position.set(stairTower.topCenter.x, entryLevelY, stairTower.topCenter.z);
+  topPlat.castShadow = topPlat.receiveShadow = true;
+  group.add(topPlat);
+
+  const bridgeWalkwayMat = new THREE.MeshStandardMaterial({
+    color: 0xc2ccd8,
+    metalness: 0.35,
+    roughness: 0.6,
+  });
+  const guardMat = stairRailMat;
+  // Com torre mais próxima, a plataforma já quase toca na porta.
+  // Criar um passadiço curto robusto (ou zero gap se estiver colado).
+  const bridgeStart = new THREE.Vector3(topPlat.position.x, topPlat.position.y + 0.05, topPlat.position.z);
+  const bridgeEnd = new THREE.Vector3(operatorCab.position.x + cabW / 2, bridgeStart.y, operatorCab.position.z);
+  const bridgeSpan = bridgeEnd.clone().sub(bridgeStart).length();
+  if (bridgeSpan > 0.6) { // só se ainda houver distância relevante
+    const bridgeWidth = 1.8;
+    const bridgeDeck = rectBeamBetween(bridgeStart, bridgeEnd, bridgeWidth, 0.35, bridgeWalkwayMat);
+    group.add(bridgeDeck);
+    const railYOffset = 0.85;
+    const railHalfW = bridgeWidth / 2 - 0.12;
+    group.add(
+      rectBeamBetween(
+        new THREE.Vector3(bridgeStart.x, bridgeStart.y + railYOffset, bridgeStart.z - railHalfW),
+        new THREE.Vector3(bridgeEnd.x, bridgeEnd.y + railYOffset, bridgeEnd.z - railHalfW),
+        0.18, 0.18, guardMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(bridgeStart.x, bridgeStart.y + railYOffset, bridgeStart.z + railHalfW),
+        new THREE.Vector3(bridgeEnd.x, bridgeEnd.y + railYOffset, bridgeEnd.z + railHalfW),
+        0.18, 0.18, guardMat
+      )
+    );
+  }
 
   // escoras adicionais ligando a coroa (lateral) às vigas superiores
   const topFL = new THREE.Vector3(-halfGauge - 1, topY, -halfClear - 1);
