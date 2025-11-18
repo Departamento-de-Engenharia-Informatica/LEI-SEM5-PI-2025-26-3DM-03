@@ -151,6 +151,12 @@ namespace TodoApi.Migrations
                             Id = 5,
                             Active = true,
                             Name = "LogisticsOperator"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Active = true,
+                            Name = "SystemUser"
                         });
                 });
 

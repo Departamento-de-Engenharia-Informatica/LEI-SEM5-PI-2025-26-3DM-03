@@ -421,7 +421,8 @@ namespace TodoApi.Models
                 new { Id = 2, Name = "ExternalIamProvider", Active = true },
                 new { Id = 3, Name = "PortAuthorityOfficer", Active = true },
                 new { Id = 4, Name = "ShippingAgentRepresentative", Active = true },
-                new { Id = 5, Name = "LogisticsOperator", Active = true }
+                new { Id = 5, Name = "LogisticsOperator", Active = true },
+                new { Id = 6, Name = "SystemUser", Active = true }
             );
 
             // Optional: seed a sample admin user for local testing (email must match the authenticated Google email used for tests)
