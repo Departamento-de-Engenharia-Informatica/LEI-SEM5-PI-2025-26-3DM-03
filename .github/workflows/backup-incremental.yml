@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BACKUP_OUT: backup_out
-      DB_TYPE: postgres
+      DB_TYPE: sqlite
       DB_CONNECTION: ${{ secrets.DB_CONNECTION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -27,27 +27,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install tools (psql, awscli)
+      - name: Install tools (sqlite3, awscli)
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y sqlite3
           pipx install awscli || pip install --user awscli || true
 
       - name: Ensure output dir
         run: mkdir -p "${BACKUP_OUT}"
 
-      - name: Run incremental backup (requires DB_CONNECTION)
-        if: ${{ env.DB_CONNECTION != '' }}
+      - name: Detect SQLite db file
+        id: find_sqlite
+        run: |
+          set -e
+          if [ -f "port.db" ]; then echo "has_sqlite=true" >> $GITHUB_OUTPUT; echo "path=port.db" >> $GITHUB_OUTPUT; exit 0; fi
+          if [ -f "TodoApi/port.db" ]; then echo "has_sqlite=true" >> $GITHUB_OUTPUT; echo "path=TodoApi/port.db" >> $GITHUB_OUTPUT; exit 0; fi
+          echo "has_sqlite=false" >> $GITHUB_OUTPUT
+
+      - name: Run incremental backup (requires DB file)
+        id: run_backup
+        if: ${{ env.DB_CONNECTION != '' || steps.find_sqlite.outputs.has_sqlite == 'true' }}
         run: |
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type incremental --out "${BACKUP_OUT}"
 
-      - name: Skip (DB not configured)
-        if: ${{ env.DB_CONNECTION == '' }}
-        run: echo "DB_CONNECTION not set; skipping incremental backup."
+      - name: Fail (DB not configured)
+        if: ${{ env.DB_CONNECTION == '' && steps.find_sqlite.outputs.has_sqlite != 'true' }}
+        run: |
+          echo "ERROR: SQLite DB not found and DB_CONNECTION empty; cannot run incremental backup." >&2
+          exit 1
 
       - name: Upload artifact (7 days)
-        if: ${{ env.DB_CONNECTION != '' }}
+        if: ${{ steps.run_backup.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: db-incremental-${{ github.run_id }}

@@ -42,6 +42,29 @@ namespace TodoApi.Controllers.Vessels
             {
                 return BadRequest(ex.Message);
             }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateException ex)
+            {
+                var msg = ex.InnerException?.Message ?? ex.Message ?? "Unable to save vessel.";
+                if (msg.Contains("UNIQUE constraint failed: Vessels.Imo", StringComparison.OrdinalIgnoreCase) ||
+                    msg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Conflict("A vessel with this IMO already exists.");
+                }
+
+                return Conflict("Unable to save vessel.");
+            }
+            catch (Exception ex)
+            {
+                var msg = ex.InnerException?.Message ?? ex.Message;
+                if (!string.IsNullOrWhiteSpace(msg) &&
+                    (msg.Contains("UNIQUE constraint failed: Vessels.Imo", StringComparison.OrdinalIgnoreCase) ||
+                     msg.Contains("duplicate key", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return Conflict("A vessel with this IMO already exists.");
+                }
+
+                return StatusCode(StatusCodes.Status500InternalServerError, "Unable to save vessel.");
+            }
         }
 
         [HttpPut("{imo}")]
