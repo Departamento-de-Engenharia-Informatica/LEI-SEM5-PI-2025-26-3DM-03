@@ -33,10 +33,17 @@ namespace TodoApi.Controllers.Qualifications
         [HttpPost]
         public async Task<ActionResult<QualificationDTO>> PostQualification(CreateQualificationDTO dto)
         {
-            var qualification = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetQualification),
-                new { code = qualification.Code },
-                qualification);
+            try
+            {
+                var qualification = await _service.CreateAsync(dto);
+                return CreatedAtAction(nameof(GetQualification),
+                    new { code = qualification.Code },
+                    qualification);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ex.Message);
+            }
         }
 
         [HttpPut("{code}")]
