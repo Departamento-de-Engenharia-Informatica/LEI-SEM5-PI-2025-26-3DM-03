@@ -238,7 +238,7 @@ export function createDockCraneModel(
   group.name = 'DockCraneModel';
 
   const baseTextureLoader = new THREE.TextureLoader();
-  baseTextureLoader.setPath('assets/app/textures/');
+  baseTextureLoader.setPath('assets/textures/');
   const glassOpalTexture = baseTextureLoader.load('glass_opal.png');
   glassOpalTexture.colorSpace = THREE.SRGBColorSpace;
   glassOpalTexture.wrapS = glassOpalTexture.wrapT = THREE.ClampToEdgeWrapping;
@@ -508,7 +508,45 @@ export function createDockCraneModel(
     mesh.castShadow = mesh.receiveShadow = true;
     return mesh;
   };
-  
+
+  // reforA�o lateral para o boom: dois tubos paralelos ligados por escoras
+  const reinforcementOffsetZ = boomDepth * 2.4;
+  const reinforcementDrop = 1.5;
+  const sideBeamGeo = new THREE.BoxGeometry(totalBoomLength, boomThickness * 0.45, boomDepth * 0.55);
+  const makeSideBeam = (offsetZ: number) => {
+    const beam = new THREE.Mesh(sideBeamGeo, yellow);
+    beam.position.set(boomCenterX, pivotY - reinforcementDrop, pivotZ + offsetZ);
+    beam.castShadow = beam.receiveShadow = true;
+    return beam;
+  };
+  const leftBeam = makeSideBeam(-reinforcementOffsetZ);
+  const rightBeam = makeSideBeam(reinforcementOffsetZ);
+  group.add(leftBeam, rightBeam);
+
+  const reinforcementSegments = 8;
+  for (let i = 0; i <= reinforcementSegments; i++) {
+    const factor = i / reinforcementSegments;
+    const xPos = -landsideBoomLength + factor * totalBoomLength;
+    const mainPoint = new THREE.Vector3(xPos, pivotY, pivotZ);
+    const leftPoint = new THREE.Vector3(xPos, pivotY - reinforcementDrop, pivotZ - reinforcementOffsetZ);
+    const rightPoint = new THREE.Vector3(xPos, pivotY - reinforcementDrop, pivotZ + reinforcementOffsetZ);
+    group.add(
+      cylinderBetween(mainPoint, leftPoint, 0.7, yellow),
+      cylinderBetween(mainPoint, rightPoint, 0.7, yellow),
+      cylinderBetween(leftPoint, rightPoint, 0.5, yellow)
+    );
+
+    if (i < reinforcementSegments) {
+      const nextFactor = (i + 1) / reinforcementSegments;
+      const nextX = -landsideBoomLength + nextFactor * totalBoomLength;
+      const nextLeft = new THREE.Vector3(nextX, pivotY - reinforcementDrop, pivotZ - reinforcementOffsetZ);
+      const nextRight = new THREE.Vector3(nextX, pivotY - reinforcementDrop, pivotZ + reinforcementOffsetZ);
+      group.add(
+        cylinderBetween(leftPoint, nextLeft, 0.45, yellow),
+        cylinderBetween(rightPoint, nextRight, 0.45, yellow)
+      );
+    }
+  }
 
   const mastTopWorld = new THREE.Vector3(
     mastTopMesh.position.x,
@@ -566,6 +604,35 @@ export function createDockCraneModel(
   spreader.position.set(0, -13, 0);
   spreader.castShadow = spreader.receiveShadow = true;
   trolley.add(spreader);
+
+  // Reforço estrutural visual do agarrador (dois "ferros" laterais + travessas)
+  // Dá a sensação de robustez para segurar contentores pesados.
+  {
+    const spLen = 36; // igual ao comprimento do spreader
+    const yReinf = -12.4; // um pouco acima do spreader para não intersetar
+    const halfGapZ = 3.6; // afastamento lateral dos dois longarinas
+    const barSize = 1.1;  // espessura das barras
+
+    // Duas longarinas (direita e esquerda)
+    const barGeo = new THREE.BoxGeometry(spLen, barSize, barSize);
+    const leftBar = new THREE.Mesh(barGeo, dark);
+    leftBar.position.set(0, yReinf, -halfGapZ);
+    const rightBar = new THREE.Mesh(barGeo, dark);
+    rightBar.position.set(0, yReinf,  halfGapZ);
+
+    // Travessas a unir as longarinas em vários pontos do comprimento
+    const crossEvery = 6; // passo entre travessas
+    const startX = -spLen / 2 + 1.5;
+    for (let x = startX; x <= spLen / 2 - 1.5; x += crossEvery) {
+      const cross = new THREE.Mesh(
+        new THREE.BoxGeometry(barSize * 0.85, barSize * 0.85, halfGapZ * 2),
+        dark
+      );
+      cross.position.set(x, yReinf, 0);
+      trolley.add(cross);
+    }
+    trolley.add(leftBar, rightBar);
+  }
 
   const ropeGeo = new THREE.CylinderGeometry(0.55, 0.55, 10, 8);
   const ropeOffsets: [number, number][] = [
@@ -1173,7 +1240,7 @@ export function createPortalLatticeCraneModel(
 
   // loader para texturas externas
   const textureLoader = new THREE.TextureLoader();
-  textureLoader.setPath('assets/app/textures/');
+  textureLoader.setPath('assets/textures/');
   const loadTexture = (
     file: string,
     repeatX = 1,
