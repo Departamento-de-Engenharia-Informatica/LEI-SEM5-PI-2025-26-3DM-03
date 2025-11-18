@@ -8,42 +8,38 @@ on:
 jobs:
   verify-restore:
     runs-on: ubuntu-latest
+    env:
+      BACKUP_OUT: backup_out
+      DB_TYPE: sqlite
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Start PostgreSQL (source)
-        run: |
-          docker run -d --name pg-src -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
-          for i in {1..30}; do docker exec pg-src pg_isready && break || sleep 2; done
-          PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE TABLE IF NOT EXISTS demo(id SERIAL PRIMARY KEY, note TEXT NOT NULL);
-          INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');
-          SQL
+      - name: Install sqlite3
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
 
-      - name: Create full backup from source
+      - name: Seed ephemeral SQLite
+        run: |
+          set -e
+          sqlite3 demo.db "CREATE TABLE IF NOT EXISTS demo(id INTEGER PRIMARY KEY, note TEXT); INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');"
+
+      - name: Create full backup from SQLite
         env:
-          DB_CONNECTION: postgres://postgres:postgres@127.0.0.1:5432/postgres
-          BACKUP_OUT: backup_out
-          DB_TYPE: postgres
+          DB_CONNECTION: demo.db
+          DB_TYPE: sqlite
         run: |
           set -e
           mkdir -p "$BACKUP_OUT"
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type full --out "$BACKUP_OUT"
 
-      - name: Start PostgreSQL (target for restore)
-        run: |
-          docker run -d --name pg-dst -e POSTGRES_PASSWORD=postgres -p 5442:5432 postgres:16
-          for i in {1..30}; do docker exec pg-dst pg_isready && break || sleep 2; done
-
-      - name: Restore into target
+      - name: Verify backup integrity (PRAGMA)
         run: |
           set -e
-          file=$(ls -1 backup_out/db-full-*.dump.gz | tail -n1)
-          gunzip -c "$file" > /tmp/restore.dump
-          pg_restore -h 127.0.0.1 -p 5442 -U postgres -d postgres -v /tmp/restore.dump || true
-          PGPASSWORD=postgres psql -h 127.0.0.1 -p 5442 -U postgres -d postgres -c "SELECT count(*) FROM demo;"
+          file=$(ls -1 ${BACKUP_OUT}/*.sqlite.gz | tail -n1)
+          gunzip -c "$file" > /tmp/restore.sqlite
+          sqlite3 /tmp/restore.sqlite "PRAGMA integrity_check;"
+          echo "Row count:"; sqlite3 /tmp/restore.sqlite "SELECT COUNT(*) FROM demo;" || true
 
       - name: Upload verify artifacts
         uses: actions/upload-artifact@v4

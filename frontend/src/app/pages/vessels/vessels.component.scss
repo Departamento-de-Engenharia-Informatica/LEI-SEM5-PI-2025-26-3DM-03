@@ -178,6 +178,50 @@
       color: rgba(15, 23, 42, 0.55);
       margin-top: 0.25rem;
     }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .info-badge {
+      background: #02284a;
+      color: #fff;
+      border: none;
+      border-radius: 999px;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
+      position: relative;
+      top: -2px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 0;
+      transition: transform 0.15s ease, background 0.15s ease;
+
+      &:hover {
+        transform: translateY(-1px);
+        background: #033666;
+      }
+    }
+
+    .info-box {
+      margin-top: 0.4rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      background: #ecfeff;
+      color: #0f172a;
+      font-size: 0.88rem;
+      border: 1px solid rgba(14, 165, 233, 0.3);
+      line-height: 1.4;
+
+      b {
+        font-weight: 700;
+      }
+    }
   }
 
   .form-actions {

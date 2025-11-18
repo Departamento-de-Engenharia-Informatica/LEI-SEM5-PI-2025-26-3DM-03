@@ -233,6 +233,13 @@ export function createDockCraneModel(
   const group = new THREE.Group();
   group.name = 'DockCraneModel';
 
+  const baseTextureLoader = new THREE.TextureLoader();
+  baseTextureLoader.setPath('assets/app/textures/');
+  const glassOpalTexture = baseTextureLoader.load('glass_opal.png');
+  glassOpalTexture.colorSpace = THREE.SRGBColorSpace;
+  glassOpalTexture.wrapS = glassOpalTexture.wrapT = THREE.ClampToEdgeWrapping;
+  glassOpalTexture.anisotropy = 6;
+
   const blue = new THREE.MeshStandardMaterial({
     color: 0x1c4f82,
     metalness: 0.55,
@@ -263,6 +270,7 @@ export function createDockCraneModel(
     roughness: 0.12,
     transparent: true,
     opacity: 0.9,
+    map: glassOpalTexture,
   });
 
   const cableMat = new THREE.MeshStandardMaterial({
@@ -786,11 +794,35 @@ export function createPortalLatticeCraneModel(
   const group = new THREE.Group();
   group.name = 'PortalLatticeCrane';
 
+  // loader para texturas externas
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.setPath('assets/app/textures/');
+  const loadTexture = (
+    file: string,
+    repeatX = 1,
+    repeatY = 1,
+    wrap: THREE.Wrapping = THREE.RepeatWrapping
+  ) => {
+    const tex = textureLoader.load(file);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = tex.wrapT = wrap;
+    tex.anisotropy = 8;
+    tex.repeat.set(repeatX, repeatY);
+    return tex;
+  };
+  const cranePaintTexture = loadTexture('crane_yellow.png', 3.5, 1.8);
+  const cabPaintTexture = loadTexture('cab_paint.png', 2.4, 1.6);
+  const cabBrushedTexture = loadTexture('cab_brushed.png', 2.6, 1.8);
+  const canopyPaintTexture = loadTexture('cab_paint.png', 3.2, 1.2);
+  const doorPaintTexture = loadTexture('door_paint.png', 1.8, 1.8);
+  const glassTexture = loadTexture('glass_opal.png', 1, 1, THREE.ClampToEdgeWrapping);
+
   // materiais aproximados à foto
   const orange = new THREE.MeshStandardMaterial({
     color: 0xf2c53d,
     metalness: 0.45,
     roughness: 0.38,
+    map: cranePaintTexture,
   });
   const blueCab = new THREE.MeshStandardMaterial({
     color: 0x1e7fbe,
@@ -816,43 +848,13 @@ export function createPortalLatticeCraneModel(
     clearcoat: 0.35,
     clearcoatRoughness: 0.04,
     side: THREE.DoubleSide,
+    map: glassTexture,
   });
   const cableMat = new THREE.MeshStandardMaterial({
     color: 0x151a20,
     metalness: 0.85,
     roughness: 0.3,
   });
-
-  // pequena textura procedural de pintura com grão (CanvasTexture)
-  const makePaintTexture = (hex: number, noise = 0.05, w = 256, h = 256) => {
-    const cnv = document.createElement('canvas');
-    cnv.width = w; cnv.height = h;
-    const ctx = cnv.getContext('2d');
-    if (!ctx) return undefined;
-    const base = new THREE.Color(hex);
-    ctx.fillStyle = `#${base.getHexString()}`;
-    ctx.fillRect(0, 0, w, h);
-    const img = ctx.getImageData(0, 0, w, h);
-    const data = img.data;
-    for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 255 * noise;
-      data[i] = Math.max(0, Math.min(255, data[i] + n));
-      data[i+1] = Math.max(0, Math.min(255, data[i+1] + n));
-      data[i+2] = Math.max(0, Math.min(255, data[i+2] + n));
-    }
-    ctx.putImageData(img, 0, 0);
-    const tex = new THREE.CanvasTexture(cnv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-    tex.anisotropy = 4;
-    return tex;
-  };
-
-  const yellowTexture = makePaintTexture(0xf2c53d, 0.03);
-  if (yellowTexture) {
-    orange.map = yellowTexture;
-    orange.needsUpdate = true;
-  }
 
   // helper local para vigas rectangulares entre 2 pontos neste modelo
   const rectBeamBetween = (
@@ -1100,14 +1102,20 @@ export function createPortalLatticeCraneModel(
 
   // Cabine única e mais realista com janelas e acabamento com grão
   const cabW = 26, cabH = 14, cabD = 18;
+  const cabBodyMat = new THREE.MeshStandardMaterial({
+    color: 0xd9dbdf,
+    metalness: 0.65,
+    roughness: 0.3,
+    map: cabBrushedTexture,
+  });
   const cabPaintMat = new THREE.MeshStandardMaterial({
     color: 0xf1bd20,
     metalness: 0.4,
     roughness: 0.5,
-    map: makePaintTexture(0xf1bd20, 0.04),
+    map: cabPaintTexture,
   });
   const operatorCab = new THREE.Group();
-  const cabBody = new THREE.Mesh(new THREE.BoxGeometry(cabW, cabH, cabD), cabPaintMat);
+  const cabBody = new THREE.Mesh(new THREE.BoxGeometry(cabW, cabH, cabD), cabBodyMat);
   cabBody.castShadow = cabBody.receiveShadow = true;
   operatorCab.add(cabBody);
   const cabFloor = new THREE.Mesh(
@@ -1188,7 +1196,7 @@ export function createPortalLatticeCraneModel(
     color: 0xa45c12,
     metalness: 0.4,
     roughness: 0.55,
-    map: makePaintTexture(0xa45c12, 0.06),
+    map: doorPaintTexture,
   });
   const cabDoor = new THREE.Mesh(new THREE.BoxGeometry(doorThickness, doorHeight, doorWidth), doorMat);
   cabDoor.position.set(cabW / 2 + doorThickness / 2, doorBottomY + doorHeight / 2, 0);
@@ -1233,78 +1241,194 @@ export function createPortalLatticeCraneModel(
   doorHandle.position.set(cabW / 2 + doorThickness + 0.2, doorBottomY + doorHeight * 0.35, 1.6);
   operatorCab.add(doorHandle);
 
-  // Telhado com dois módulos compridos interligados por pilares
+  // Telhado com módulos detalhados e passadiço técnico
   const canopyGroup = new THREE.Group();
   const canopyBaseY = cabH / 2 + 0.3;
-  const podHeight = 0.9;
-  const podSpacingX = (cabW / 2) - 3.0;
+  const podHeight = 1.2;
+  const podSpacingX = cabW / 2 - 3.0;
   const podLength = cabD + 6;
-  const podMat = new THREE.MeshStandardMaterial({
-    color: 0xf5c849,
-    metalness: 0.35,
-    roughness: 0.45,
-    map: makePaintTexture(0xf5c849, 0.025),
+  const ribMat = new THREE.MeshStandardMaterial({ color: 0xb47e1a, metalness: 0.55, roughness: 0.35 });
+  const roofWalkwayMat = new THREE.MeshStandardMaterial({ color: 0xcbd4dd, metalness: 0.3, roughness: 0.55 });
+  const railMat = new THREE.MeshStandardMaterial({ color: 0xf7f9fc, metalness: 0.2, roughness: 0.4 });
+  const ventMat = new THREE.MeshStandardMaterial({ color: 0xbac3cc, metalness: 0.65, roughness: 0.3 });
+  const beaconMat = new THREE.MeshStandardMaterial({
+    color: 0xfff5c3,
+    emissive: 0xffb347,
+    emissiveIntensity: 1.4,
+    transparent: true,
+    opacity: 0.85,
   });
-  const podGeo = new THREE.BoxGeometry(4.4, podHeight, podLength);
-  const podLeft = new THREE.Mesh(podGeo, podMat);
-  podLeft.position.set(-podSpacingX, canopyBaseY + podHeight, 0);
-  const podRight = podLeft.clone();
-  podRight.position.x = podSpacingX;
-  podLeft.castShadow = podRight.castShadow = true;
-  podLeft.receiveShadow = podRight.receiveShadow = true;
-  canopyGroup.add(podLeft, podRight);
 
-  const pillarZs = [-podLength / 2 + 2, -2, 2, podLength / 2 - 2];
-  pillarZs.forEach((z, idx) => {
-    canopyGroup.add(
-      rectBeamBetween(
-        new THREE.Vector3(-podSpacingX, canopyBaseY, z),
-        new THREE.Vector3(-podSpacingX, canopyBaseY + podHeight * 0.5, z),
-        0.5,
-        0.5,
-        dark
-      ),
-      rectBeamBetween(
-        new THREE.Vector3(podSpacingX, canopyBaseY, z),
-        new THREE.Vector3(podSpacingX, canopyBaseY + podHeight * 0.5, z),
-        0.5,
-        0.5,
-        dark
-      )
-    );
-    const tie = rectBeamBetween(
-      new THREE.Vector3(-podSpacingX, canopyBaseY + podHeight * 0.6, z),
-      new THREE.Vector3(podSpacingX, canopyBaseY + podHeight * 0.6, z),
-      0.35,
-      0.35,
-      dark
-    );
-    canopyGroup.add(tie);
-    if (idx < pillarZs.length - 1) {
-      const nextZ = pillarZs[idx + 1];
-      canopyGroup.add(
-        rectBeamBetween(
-          new THREE.Vector3(-podSpacingX, canopyBaseY + podHeight * 0.6, z),
-          new THREE.Vector3(-podSpacingX, canopyBaseY + podHeight * 0.6, nextZ),
-          0.3,
-          0.3,
-          dark
-        ),
-        rectBeamBetween(
-          new THREE.Vector3(podSpacingX, canopyBaseY + podHeight * 0.6, z),
-          new THREE.Vector3(podSpacingX, canopyBaseY + podHeight * 0.6, nextZ),
-          0.3,
-          0.3,
-          dark
-        )
+  const buildCanopyPod = (sign: number) => {
+    const pod = new THREE.Group();
+    const base = new THREE.Mesh(new THREE.BoxGeometry(4.6, podHeight, podLength), cabPaintMat);
+    base.position.set(0, podHeight / 2, 0);
+    base.castShadow = base.receiveShadow = true;
+    pod.add(base);
+
+    const capLayers = 3;
+    for (let i = 0; i < capLayers; i++) {
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(4.2 - i * 0.9, 0.2, podLength - 1.2),
+        cabPaintMat
       );
+      cap.position.set(0, podHeight + 0.2 + i * 0.2, 0);
+      cap.castShadow = cap.receiveShadow = true;
+      pod.add(cap);
     }
-  });
-  const canopySkin = new THREE.Mesh(new THREE.BoxGeometry(cabW - 6, 0.35, cabD + 4), cabPaintMat);
-  canopySkin.position.set(0, canopyBaseY + podHeight * 0.65, 0);
-  canopySkin.rotation.x = THREE.MathUtils.degToRad(2.5);
+
+    const ribSegments = 5;
+    for (let i = 0; i <= ribSegments; i++) {
+      const z = -podLength / 2 + (i * podLength) / ribSegments;
+      const sideRibL = rectBeamBetween(
+        new THREE.Vector3(-2.4, podHeight * 0.1, z),
+        new THREE.Vector3(-2.4, podHeight + 0.45, z),
+        0.25,
+        0.25,
+        ribMat
+      );
+      const sideRibR = rectBeamBetween(
+        new THREE.Vector3(2.4, podHeight * 0.1, z),
+        new THREE.Vector3(2.4, podHeight + 0.45, z),
+        0.25,
+        0.25,
+        ribMat
+      );
+      pod.add(sideRibL, sideRibR);
+    }
+
+    const endBraceFront = rectBeamBetween(
+      new THREE.Vector3(-2.2, podHeight * 0.1, -podLength / 2 + 0.4),
+      new THREE.Vector3(2.2, podHeight + 0.5, -podLength / 2 + 0.4),
+      0.35,
+      0.35,
+      ribMat
+    );
+    const endBraceBack = rectBeamBetween(
+      new THREE.Vector3(2.2, podHeight * 0.1, podLength / 2 - 0.4),
+      new THREE.Vector3(-2.2, podHeight + 0.5, podLength / 2 - 0.4),
+      0.35,
+      0.35,
+      ribMat
+    );
+    pod.add(endBraceFront, endBraceBack);
+    pod.position.set(sign * podSpacingX, canopyBaseY, 0);
+    canopyGroup.add(pod);
+  };
+  buildCanopyPod(-1);
+  buildCanopyPod(1);
+
+  const canopySkin = new THREE.Mesh(
+    new THREE.BoxGeometry(podSpacingX * 2 - 1, 0.25, podLength + 2),
+    cabPaintMat
+  );
+  canopySkin.position.set(0, canopyBaseY + podHeight * 0.55, 0);
+  canopySkin.rotation.x = THREE.MathUtils.degToRad(3);
   canopySkin.castShadow = canopySkin.receiveShadow = true;
   canopyGroup.add(canopySkin);
+
+  const braceZs = [-podLength / 2 + 1.2, podLength / 2 - 1.2];
+  braceZs.forEach((z) => {
+    canopyGroup.add(
+      rectBeamBetween(
+        new THREE.Vector3(-podSpacingX, canopyBaseY + podHeight * 0.2, z),
+        new THREE.Vector3(podSpacingX, canopyBaseY + podHeight * 0.2, z),
+        0.45,
+        0.45,
+        ribMat
+      )
+    );
+  });
+
+  const walkwayY = canopyBaseY + podHeight + 0.9;
+  const walkwayLength = podLength - 4;
+  const walkwayWidth = podSpacingX * 2 - 3.2;
+  const walkwayHalfW = walkwayWidth / 2;
+  const walkwayHalfL = walkwayLength / 2;
+  const walkwayDeck = new THREE.Mesh(new THREE.BoxGeometry(walkwayWidth, 0.25, walkwayLength), roofWalkwayMat);
+  walkwayDeck.position.set(0, walkwayY, 0);
+  walkwayDeck.castShadow = walkwayDeck.receiveShadow = true;
+  canopyGroup.add(walkwayDeck);
+
+  [-walkwayHalfL, walkwayHalfL].forEach((z) => {
+    canopyGroup.add(
+      rectBeamBetween(
+        new THREE.Vector3(-podSpacingX + 0.3, canopyBaseY + podHeight * 0.8, z),
+        new THREE.Vector3(-walkwayHalfW, walkwayY, z),
+        0.3,
+        0.3,
+        ribMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(podSpacingX - 0.3, canopyBaseY + podHeight * 0.8, z),
+        new THREE.Vector3(walkwayHalfW, walkwayY, z),
+        0.3,
+        0.3,
+        ribMat
+      )
+    );
+  });
+
+  const addRail = (a: THREE.Vector3, b: THREE.Vector3) =>
+    canopyGroup.add(rectBeamBetween(a, b, 0.18, 0.18, railMat));
+  const postPositions = 4;
+  for (let i = 0; i <= postPositions; i++) {
+    const z = -walkwayHalfL + (i * walkwayLength) / postPositions;
+    canopyGroup.add(
+      rectBeamBetween(
+        new THREE.Vector3(-walkwayHalfW, walkwayY, z),
+        new THREE.Vector3(-walkwayHalfW, walkwayY + 1.2, z),
+        0.18,
+        0.18,
+        railMat
+      ),
+      rectBeamBetween(
+        new THREE.Vector3(walkwayHalfW, walkwayY, z),
+        new THREE.Vector3(walkwayHalfW, walkwayY + 1.2, z),
+        0.18,
+        0.18,
+        railMat
+      )
+    );
+  }
+  addRail(
+    new THREE.Vector3(-walkwayHalfW, walkwayY + 1.2, -walkwayHalfL),
+    new THREE.Vector3(-walkwayHalfW, walkwayY + 1.2, walkwayHalfL)
+  );
+  addRail(
+    new THREE.Vector3(walkwayHalfW, walkwayY + 1.2, -walkwayHalfL),
+    new THREE.Vector3(walkwayHalfW, walkwayY + 1.2, walkwayHalfL)
+  );
+  addRail(
+    new THREE.Vector3(-walkwayHalfW, walkwayY + 1.2, -walkwayHalfL),
+    new THREE.Vector3(walkwayHalfW, walkwayY + 1.2, -walkwayHalfL)
+  );
+  addRail(
+    new THREE.Vector3(-walkwayHalfW, walkwayY + 1.2, walkwayHalfL),
+    new THREE.Vector3(walkwayHalfW, walkwayY + 1.2, walkwayHalfL)
+  );
+
+  const ventOffsets = [-walkwayHalfL + 2, 0, walkwayHalfL - 2];
+  ventOffsets.forEach((z) => {
+    const vent = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.2, 24), ventMat);
+    vent.position.set(0, walkwayY + 0.8, z);
+    vent.castShadow = vent.receiveShadow = true;
+    const ventCap = new THREE.Mesh(new THREE.ConeGeometry(0.75, 0.5, 24), ventMat);
+    ventCap.position.set(0, walkwayY + 1.5, z);
+    canopyGroup.add(vent, ventCap);
+  });
+
+  const beaconOffsetsX = [-walkwayHalfW + 0.5, walkwayHalfW - 0.5];
+  const beaconOffsetsZ = [-walkwayHalfL + 0.7, walkwayHalfL - 0.7];
+  beaconOffsetsX.forEach((x) => {
+    beaconOffsetsZ.forEach((z) => {
+      const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 14), beaconMat);
+      beacon.position.set(x, walkwayY + 1.4, z);
+      beacon.castShadow = true as any;
+      canopyGroup.add(beacon);
+    });
+  });
+
   operatorCab.add(canopyGroup);
   // posicionada ligeiramente atrás do pivot e centrada lateralmente
   operatorCab.position.set(12, 11, 10);
@@ -1421,12 +1545,12 @@ export function createPortalLatticeCraneModel(
   group.add(guard);
 
   // ponte/c passadiço entre a plataforma e a cabine (sem lacunas)
-  const walkwayMat = new THREE.MeshStandardMaterial({color:0xc2ccd8, metalness:0.35, roughness:0.6});
+  const bridgeWalkwayMat = new THREE.MeshStandardMaterial({ color: 0xc2ccd8, metalness: 0.35, roughness: 0.6 });
   const guardMat = new THREE.MeshStandardMaterial({color:0xf5f6f7, metalness:0.4, roughness:0.4});
   const bridgeStart = new THREE.Vector3(plat.position.x - 5, plat.position.y, plat.position.z);
   // liga directamente à parede direita da cabine
   const bridgeEnd = new THREE.Vector3(operatorCab.position.x + cabW/2, plat.position.y, operatorCab.position.z);
-  group.add(rectBeamBetween(bridgeStart, bridgeEnd, 2.2, 0.35, walkwayMat));
+  group.add(rectBeamBetween(bridgeStart, bridgeEnd, 2.2, 0.35, bridgeWalkwayMat));
   // guarda-corpos no passadiço
   const railYOffset = 0.9;
   const railZOff = 1.1;

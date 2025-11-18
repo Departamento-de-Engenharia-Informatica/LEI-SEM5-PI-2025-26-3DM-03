@@ -46,9 +46,11 @@ namespace TodoApi.Models.Vessels
 
         public static Vessel ToModel(CreateVesselDTO dto)
         {
+            // Persist IMO only as cleaned digits to respect DB length and uniqueness
+            var normalizedImo = new string(dto.Imo.Where(char.IsDigit).ToArray());
             return new Vessel
             {
-                Imo = dto.Imo,
+                Imo = normalizedImo,
                 Name = dto.Name,
                 VesselTypeId = dto.VesselTypeId,
                 Operator = dto.Operator
