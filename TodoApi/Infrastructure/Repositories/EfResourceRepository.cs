@@ -16,12 +16,16 @@ namespace TodoApi.Infrastructure.Repositories
 
         public async Task<List<Resource>> GetAllAsync()
         {
-            return await _context.Resources.ToListAsync();
+            return await _context.Resources
+                .Include(r => r.RequiredQualifications)
+                .ToListAsync();
         }
 
         public async Task<Resource?> GetByCodeAsync(string code)
         {
-            return await _context.Resources.FindAsync(code);
+            return await _context.Resources
+                .Include(r => r.RequiredQualifications)
+                .FirstOrDefaultAsync(r => r.Code == code);
         }
 
         public async Task AddAsync(Resource resource)
@@ -33,6 +37,12 @@ namespace TodoApi.Infrastructure.Repositories
         public async Task UpdateAsync(Resource resource)
         {
             _context.Resources.Update(resource);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(Resource resource)
+        {
+            _context.Resources.Remove(resource);
             await _context.SaveChangesAsync();
         }
 

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -29,7 +30,7 @@ namespace TodoApi.Application.Services.Resources
 
         public async Task<ResourceDTO> CreateAsync(CreateResourceDTO dto)
         {
-            if (await _repository.ExistsAsync(dto.Code))
+            if (await _repository.ExistsAsync(dto.Code!))
                 throw new InvalidOperationException($"A resource with code '{dto.Code}' already exists.");
 
             var resource = ResourceMapper.ToModel(dto);
@@ -66,6 +67,15 @@ namespace TodoApi.Application.Services.Resources
 
             resource.Status = "Active";
             await _repository.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(string code)
+        {
+            var resource = await _repository.GetByCodeAsync(code);
+            if (resource is null)
+                throw new KeyNotFoundException("Resource not found.");
+
+            await _repository.DeleteAsync(resource);
         }
     }
 }

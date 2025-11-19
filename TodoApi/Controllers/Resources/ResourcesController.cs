@@ -62,5 +62,13 @@ namespace TodoApi.Controllers.Resources
             await _service.ActivateAsync(code);
             return NoContent();
         }
+
+        // DELETE: api/Resources/{code}
+        [HttpDelete("{code}")]
+        public async Task<IActionResult> DeleteResource(string code)
+        {
+            await _service.DeleteAsync(code);
+            return NoContent();
+        }
     }
 }
