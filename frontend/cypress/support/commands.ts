@@ -10,14 +10,15 @@ declare global {
 
 Cypress.Commands.add('loginAsAdmin', () => {
   const user = {
-    name: "DevLapr5 salvador",
-    email: "salvadordevlapr@gmail.com",
-    role: "admin",
-    roles: ["admin"],
-    avatarUrl: "https://lh3.googleusercontent.com/a/ACg8ocKzql...s96-c"
+    name: 'DevLapr5 salvador',
+    email: 'salvadordevlapr@gmail.com',
+    role: 'admin',
+    roles: ['admin'],
+    avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocKzql...s96-c',
   };
 
-  window.localStorage.setItem('user', JSON.stringify(user));
+  window.localStorage.setItem('auth_token', JSON.stringify(user));
+  window.localStorage.setItem('userAvatar', user.avatarUrl);
 });
 
 export {};

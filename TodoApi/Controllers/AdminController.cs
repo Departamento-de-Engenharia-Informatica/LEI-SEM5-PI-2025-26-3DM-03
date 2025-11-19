@@ -47,7 +47,10 @@ namespace TodoApi.Controllers
                 var latestToken = u.ActivationTokens?
                     .OrderByDescending(t => t.CreatedAtUtc)
                     .FirstOrDefault();
-                var hasPendingActivation = latestToken != null && latestToken.RedeemedAtUtc == null && latestToken.ExpiresAtUtc > now;
+                var hasPendingActivation = !u.Active &&
+                    latestToken != null &&
+                    latestToken.RedeemedAtUtc == null &&
+                    latestToken.ExpiresAtUtc > now;
                 return new
                 {
                     u.Id,
@@ -61,6 +64,12 @@ namespace TodoApi.Controllers
                         Pending = hasPendingActivation,
                         LastSentUtc = latestToken?.CreatedAtUtc,
                         LastRedeemedUtc = latestToken?.RedeemedAtUtc
+                    },
+                    RoleChange = new
+                    {
+                        u.LastRoleChangeSummary,
+                        LastSentUtc = u.LastRoleChangeSentUtc,
+                        ConfirmedUtc = u.LastRoleChangeConfirmedUtc
                     }
                 };
             });
@@ -181,10 +190,16 @@ namespace TodoApi.Controllers
                 .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
+            if (user.Active)
+            {
+                return BadRequest(new { message = "Utilizador já ativo. Os links de ativação apenas são necessários no primeiro acesso." });
+            }
+
             var hasAnyRole = user.UserRoles.Any(ur => ur.Role != null && ur.Role.Active);
             if (!hasAnyRole) return BadRequest(new { message = "user must have at least one active role" });
 
             var result = await _activationLinks.CreateAndSendAsync(user);
+            if (result == null) return BadRequest(new { message = "unable to create activation link for this user" });
             return Ok(new { expiresAtUtc = result.ExpiresAtUtc, link = result.Link });
         }
 
@@ -216,6 +231,7 @@ namespace TodoApi.Controllers
         private async Task<IActionResult?> TryReplaceRoles(AppUser user, List<Role> newRoles)
         {
             var existingRoles = user.UserRoles?.ToList() ?? new List<UserRole>();
+            var hadActiveRoles = existingRoles.Any(ur => ur.Role != null && ur.Role.Active);
             var userWasAdmin = existingRoles.Any(ur => ur.Role != null && ur.Role.Name == "Admin" && ur.Role.Active);
             var willRemainAdmin = newRoles.Any(r => r.Name == "Admin" && r.Active);
 
@@ -231,6 +247,8 @@ namespace TodoApi.Controllers
                 }
             }
 
+            var previousRoleIds = existingRoles.Select(ur => ur.RoleId).ToList();
+
             _db.UserRoles.RemoveRange(existingRoles);
             foreach (var role in newRoles)
             {
@@ -238,17 +256,30 @@ namespace TodoApi.Controllers
             }
             await _db.SaveChangesAsync();
 
-            await TriggerActivationIfNeeded(user, existingRoles, newRoles);
+            await NotifyRoleChangeIfNeeded(user, previousRoleIds, newRoles);
+            if (!user.Active)
+            {
+                await TriggerActivationIfNeeded(user, hadActiveRoles, newRoles.Any(r => r.Active));
+            }
             return null;
         }
 
-        private async Task TriggerActivationIfNeeded(AppUser user, IReadOnlyCollection<UserRole> previousRoles, IReadOnlyCollection<Role> newRoles)
+        private async Task TriggerActivationIfNeeded(AppUser user, bool hadActiveRoles, bool hasActiveRolesNow)
         {
-            var hadActiveRoles = previousRoles.Any(ur => ur.Role != null && ur.Role.Active);
-            var hasActiveRolesNow = newRoles.Any(r => r.Active);
             if (!hadActiveRoles && hasActiveRolesNow && !user.Active)
             {
                 await _activationLinks.CreateAndSendAsync(user);
+            }
+        }
+
+        private async Task NotifyRoleChangeIfNeeded(AppUser user, IReadOnlyCollection<int> previousRoleIds, IReadOnlyCollection<Role> newRoles)
+        {
+            if (previousRoleIds == null || previousRoleIds.Count == 0) return;
+            var previousSet = new HashSet<int>(previousRoleIds);
+            var newRoleIds = new HashSet<int>(newRoles.Select(r => r.Id));
+            if (!previousSet.SetEquals(newRoleIds))
+            {
+                await _activationLinks.SendRoleChangeNotificationAsync(user, newRoles);
             }
         }
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -18,6 +19,7 @@ namespace TodoApi.Services.Activation
     public class ActivationOptions
     {
         public string BaseUrl { get; set; } = "https://localhost:7167";
+        public string FrontendUrl { get; set; } = "https://localhost:4200";
         public int TokenLifetimeMinutes { get; set; } = 1440;
         public ActivationEmailOptions Email { get; set; } = new ActivationEmailOptions();
     }
@@ -50,10 +52,17 @@ namespace TodoApi.Services.Activation
             _options = options.Value ?? new ActivationOptions();
         }
 
-        public async Task<ActivationLinkResult> CreateAndSendAsync(AppUser user, CancellationToken cancellationToken = default)
+        public async Task<ActivationLinkResult?> CreateAndSendAsync(AppUser user, CancellationToken cancellationToken = default)
         {
             if (user == null) throw new ArgumentNullException(nameof(user));
             if (string.IsNullOrWhiteSpace(user.Email)) throw new InvalidOperationException("User email is required to send an activation link.");
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (user.Active)
+            {
+                _logger.LogInformation("Skipping activation link for already active user {Email}", user.Email);
+                return null;
+            }
 
             var token = GenerateToken();
             var tokenHash = HashToken(token);
@@ -71,27 +80,69 @@ namespace TodoApi.Services.Activation
             await _db.SaveChangesAsync(cancellationToken);
 
             var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl) ? "https://localhost:7167" : _options.BaseUrl;
-            var link = $"{baseUrl.TrimEnd('/')}/activation/confirm?token={token}";
+            var link = $"{baseUrl.TrimEnd('/')}/activation/start?token={token}";
 
-            await SendEmailAsync(user.Email, $"Ative a sua conta ({user.Email})", BuildEmailBody(user, link, expiresAt));
+            await SendEmailAsync(
+                user.Email,
+                $"Ative a sua conta ({user.Email})",
+                BuildActivationEmailBody(user, link, expiresAt));
 
             return new ActivationLinkResult(link, expiresAt);
         }
 
-        public async Task<ActivationToken?> RedeemAsync(string token, string? ipAddress, CancellationToken cancellationToken = default)
+        public async Task<ActivationToken?> GetPendingTokenAsync(string token, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(token)) return null;
 
             var hash = HashToken(token);
             var entity = await _db.ActivationTokens
                 .Include(t => t.AppUser)
-                .Where(t => t.TokenHash == hash)
+                .Where(t => t.TokenHash == hash && t.RedeemedAtUtc == null && t.ExpiresAtUtc >= DateTime.UtcNow)
                 .OrderByDescending(t => t.CreatedAtUtc)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (entity == null) return null;
-            if (entity.RedeemedAtUtc != null) return null;
-            if (entity.ExpiresAtUtc < DateTime.UtcNow) return null;
+            return entity;
+        }
+
+        public async Task<ActivationToken?> RedeemAsync(
+            string token,
+            string? ipAddress,
+            string? externalId,
+            string? email,
+            string? name,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(token)) return null;
+
+            var entity = await GetPendingTokenAsync(token, cancellationToken);
+            if (entity == null || entity.AppUser == null) return null;
+
+            var expectedEmail = entity.AppUser.Email?.Trim().ToLowerInvariant();
+            var providedEmail = email?.Trim().ToLowerInvariant();
+            var emailMatches = !string.IsNullOrEmpty(expectedEmail) && expectedEmail == providedEmail;
+
+            var existingExternalId = entity.AppUser.ExternalId;
+            var externalMatches = !string.IsNullOrEmpty(existingExternalId)
+                && !string.IsNullOrEmpty(externalId)
+                && string.Equals(existingExternalId, externalId, StringComparison.Ordinal);
+
+            if (!emailMatches)
+            {
+                // If we already stored an external identifier, allow that to unlock the account
+                if (!externalMatches)
+                {
+                    return null;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(externalId) && string.IsNullOrEmpty(existingExternalId))
+            {
+                entity.AppUser.ExternalId = externalId;
+            }
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                entity.AppUser.Name = name;
+            }
 
             entity.RedeemedAtUtc = DateTime.UtcNow;
             entity.RedeemedByIp = ipAddress;
@@ -104,16 +155,61 @@ namespace TodoApi.Services.Activation
             return entity;
         }
 
-        private static string BuildEmailBody(AppUser user, string link, DateTime expiresAt)
+        public async Task SendRoleChangeNotificationAsync(AppUser user, IEnumerable<Role> roles, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (user == null || string.IsNullOrWhiteSpace(user.Email)) return;
+            if (!user.Active) return;
+
+            var roleEnumerable = roles ?? Enumerable.Empty<Role>();
+            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl) ? "https://localhost:7167" : _options.BaseUrl;
+            var roleList = string.Join(", ", roleEnumerable.Where(r => r != null).Select(r => r.Name));
+            var link = $"{baseUrl.TrimEnd('/')}/activation/role-change?email={WebUtility.UrlEncode(user.Email)}";
+            if (!string.IsNullOrWhiteSpace(roleList))
+            {
+                link += $"&roles={WebUtility.UrlEncode(roleList)}";
+            }
+            var subject = "As suas permissões foram atualizadas";
+            var body = BuildRoleChangeBody(user, roleEnumerable, link);
+            await SendEmailAsync(user.Email, subject, body);
+
+            user.LastRoleChangeSentUtc = DateTime.UtcNow;
+            user.LastRoleChangeSummary = string.IsNullOrWhiteSpace(roleList) ? null : roleList;
+            user.LastRoleChangeConfirmedUtc = null;
+            _db.AppUsers.Update(user);
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+
+        private static string BuildActivationEmailBody(AppUser user, string link, DateTime expiresAt)
         {
             var friendlyName = string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name;
             var expires = expiresAt.ToString("u");
             var sb = new StringBuilder();
             sb.AppendLine($"Olá {friendlyName},<br/><br/>");
-            sb.AppendLine("Foi-lhe atribuída uma conta na plataforma Port Management. Para a ativar clique no link abaixo:<br/><br/>");
-            sb.AppendLine($"<a href=\"{link}\">{link}</a><br/><br/>");
-            sb.AppendLine($"Este link expira em {expires} UTC.<br/><br/>");
+            sb.AppendLine("Foi-lhe atribuída uma conta na plataforma Port Management. Para confirmar a sua identidade e ativar o acesso, inicie sessão através do link abaixo:<br/><br/>");
+            sb.AppendLine($"<a href=\"{link}\">Ativar conta e iniciar sessão</a><br/><br/>");
+            sb.AppendLine($"O link expira em {expires} UTC e é necessário utilizar a mesma conta IAM configurada pelo administrador.<br/><br/>");
             sb.AppendLine("Se não estava à espera deste email, ignore-o.");
+            return sb.ToString();
+        }
+
+        private static string BuildRoleChangeBody(AppUser user, IEnumerable<Role> roles, string link)
+        {
+            var friendlyName = string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name;
+            var roleList = string.Join(", ", roles.Select(r => r.Name));
+            var sb = new StringBuilder();
+            sb.AppendLine($"Olá {friendlyName},<br/><br/>");
+            if (!string.IsNullOrWhiteSpace(roleList))
+            {
+                sb.AppendLine($"As suas permissões foram atualizadas para: <strong>{roleList}</strong>.<br/><br/>");
+            }
+            else
+            {
+                sb.AppendLine("As suas permissões foram atualizadas.<br/><br/>");
+            }
+            sb.AppendLine("Confirme esta alteração visitando a página abaixo:<br/><br/>");
+            sb.AppendLine($"<a href=\"{link}\">Confirmar alteração de funções</a><br/><br/>");
+            sb.AppendLine("Caso não tenha solicitado esta alteração contacte o administrador.");
             return sb.ToString();
         }
 
