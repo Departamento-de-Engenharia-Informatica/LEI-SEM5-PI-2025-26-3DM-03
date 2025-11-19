@@ -146,9 +146,7 @@ export class CargoVesselComponent implements AfterViewInit, OnDestroy {
       this.modelUrl,
       (gltf) => {
         this.vesselRoot = gltf.scene;
-        this.stripDeckStructuresExceptBridge(this.vesselRoot);
         this.prepareVessel(this.vesselRoot);
-        this.logMeshNames(this.vesselRoot);
         this.scene.add(this.vesselRoot);
       },
       undefined,
@@ -183,42 +181,6 @@ export class CargoVesselComponent implements AfterViewInit, OnDestroy {
     const scaledBox = new THREE.Box3().setFromObject(model);
     const center = scaledBox.getCenter(new THREE.Vector3());
     model.position.set(-center.x, -scaledBox.min.y + 12, -center.z);
-  }
-
-  private stripDeckStructuresExceptBridge(model: THREE.Group): void {
-    const tempBox = new THREE.Box3();
-    const center = new THREE.Vector3();
-    const deckThreshold = 10;
-    const pilotMinZ = 8;
-    const pilotMaxZ = 13.5;
-    const removable: THREE.Object3D[] = [];
-    model.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) {
-        return;
-      }
-      tempBox.setFromObject(child);
-      if (!Number.isFinite(tempBox.min.x) || tempBox.isEmpty()) {
-        return;
-      }
-      tempBox.getCenter(center);
-      if (center.y <= deckThreshold) {
-        return;
-      }
-      const withinPilot = center.z >= pilotMinZ && center.z <= pilotMaxZ;
-      if (withinPilot) {
-        return;
-      }
-      removable.push(child);
-    });
-    removable.forEach((obj) => obj.parent?.remove(obj));
-  }
-
-  private logMeshNames(model: THREE.Object3D): void {
-    model.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        console.log('[CargoVesselComponent] mesh:', obj.name);
-      }
-    });
   }
 
   private startAnimationLoop(): void {
