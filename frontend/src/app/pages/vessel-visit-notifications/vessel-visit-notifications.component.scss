@@ -106,6 +106,30 @@
 .detail-grid .value{margin-top:.18rem;font-size:.92rem;font-weight:600;color:#111827}
 .cargo-blk .label{font-size:.8rem;color:#6b7280;margin-bottom:.2rem}
 .cargo-blk .text{font-size:.95rem;color:#374151}
+.cargo-blk .tag-list{list-style:none;margin:.15rem 0 0;padding:0;display:flex;flex-wrap:wrap;gap:.35rem}
+.cargo-blk .tag-list li{background:#eef2ff;color:#1e3a8a;border-radius:999px;padding:.15rem .65rem;font-size:.82rem;font-weight:600}
+.crew-blk{background:#f8fafc;border-radius:.6rem;padding:.6rem}
+.crew-blk .label{font-size:.8rem;color:#475569;margin-bottom:.35rem}
+.crew-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:.4rem}
+.crew-list li{background:#fff;border:1px solid #e2e8f0;border-radius:.6rem;padding:.45rem .6rem;display:flex;flex-direction:column}
+.crew-name{font-weight:700;color:#0f172a}
+.crew-meta{font-size:.82rem;color:#475569}
+.empty-note{font-size:.85rem;color:#94a3b8}
+.decision-panel{border:1px solid #e2e8f0;border-radius:12px;padding:.85rem .95rem;display:flex;flex-direction:column;gap:.75rem;background:#fefefe;margin-top:.5rem}
+.panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+.panel-title{font-size:1rem;font-weight:700;color:#0f172a}
+.panel-head p{margin:.1rem 0 0;color:#64748b;font-size:.85rem}
+.badge.waiting{background:#fff7ed;color:#a16207;border:1px solid #fde68a;padding:.25rem .75rem;border-radius:999px;font-size:.78rem;font-weight:700}
+.decision-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.65rem}
+.decision-fields label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;color:#475569;font-weight:600}
+.decision-fields label span{font-weight:600}
+.decision-fields input,.decision-fields select{padding:.45rem .6rem;border-radius:.55rem;border:1px solid #d1d5db;background:#fff;font-size:.9rem}
+.decision-fields .stretch{grid-column:1/-1}
+.decision-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+.btn.success{background:#16a34a;border-color:transparent;color:#fff;font-weight:600;box-shadow:0 8px 20px rgba(22,163,74,.28)}
+.btn.success:hover{background:#15803d}
+.btn.danger{background:#dc2626;border-color:transparent;color:#fff;font-weight:600;box-shadow:0 8px 20px rgba(220,38,38,.28)}
+.btn.danger:hover{background:#b91c1c}
 
 @media (max-width:720px){.detail-grid{grid-template-columns:minmax(0,1fr)}}
 

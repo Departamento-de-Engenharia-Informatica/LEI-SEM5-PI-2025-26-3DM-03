@@ -1,6 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { debounceTime, takeUntil } from 'rxjs/operators';
 import { VesselVisitNotificationsService } from '../../services/vessel-visits/vessel-visit-notifications.service';
 import { CreateVesselVisitNotificationDTO, VesselVisitNotificationDTO, VisitStatus, ContainerItemDTO, CrewMemberDTO } from '../../models/vessel-visit-notification';
 import { DocksService } from '../../services/docks/docks.service';
@@ -16,7 +18,7 @@ import { ToastService } from '../../components/toast/toast.service';
   templateUrl: './vessel-visit-notifications.component.html',
   styleUrls: ['./vessel-visit-notifications.component.scss']
 })
-export class VesselVisitNotificationsComponent implements OnInit {
+export class VesselVisitNotificationsComponent implements OnInit, OnDestroy {
   loading = false;
   error: string | null = null;
 
@@ -53,6 +55,8 @@ export class VesselVisitNotificationsComponent implements OnInit {
   // Details modal
   showDetails = false;
   selected: VesselVisitNotificationDTO | null = null;
+  private filterChanges$ = new Subject<void>();
+  private destroy$ = new Subject<void>();
 
   constructor(
     private vvn: VesselVisitNotificationsService,
@@ -64,7 +68,16 @@ export class VesselVisitNotificationsComponent implements OnInit {
   ) {}
 
   async ngOnInit() {
+    this.filterChanges$
+      .pipe(debounceTime(350), takeUntil(this.destroy$))
+      .subscribe(() => this.loadNotifications());
     await Promise.all([this.loadNotifications(), this.loadDocks(), this.loadVessels()]);
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.filterChanges$.complete();
   }
 
   async loadDocks() {
@@ -107,10 +120,21 @@ export class VesselVisitNotificationsComponent implements OnInit {
     }
   }
 
-  applyFilterSort() {
-    // Fetch from server using current filters
-    this.page = 1; // reset to first page on filter change
-    this.loadNotifications();
+  applyFilterSort(immediate = false) {
+    if (this.from && this.to) {
+      const fromDate = new Date(this.from);
+      const toDate = new Date(this.to);
+      if (fromDate > toDate) {
+        this.toast.error('Intervalo inválido. "De" deve ser anterior ou igual a "Até".');
+        return;
+      }
+    }
+    this.page = 1;
+    if (immediate) {
+      this.loadNotifications();
+    } else {
+      this.filterChanges$.next();
+    }
   }
 
   resetFilters() {
@@ -179,7 +203,7 @@ export class VesselVisitNotificationsComponent implements OnInit {
       const created = await this.vvn.create(payload);
       // Optimistically update list
       this.notifications = [created, ...this.notifications];
-      this.applyFilterSort();
+      this.applyFilterSort(true);
       this.showCreate = false;
       this.toast.success('Notificação criada');
     } catch (e: any) {
@@ -271,7 +295,7 @@ export class VesselVisitNotificationsComponent implements OnInit {
       // update list
       const idx = this.notifications.findIndex(x => x.id === id);
       if (idx >= 0) this.notifications[idx] = fresh;
-      this.applyFilterSort();
+      this.applyFilterSort(true);
       this.editMode = false;
       this.toast.success('Alterações guardadas');
     } catch (e: any) {
