@@ -34,6 +34,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly containerTargetSpan = 55;
   private readonly containerColors = [0xff8c5f, 0x00c2ff, 0xff4f81, 0x7dd87d, 0xffbf69, 0x9b5de5];
   private containerUnitSize = new THREE.Vector3(40, 16, 80);
+  private readonly warehouseModelUrls = ['assets/models/warehouse.glb', 'assets/warehouse.glb'];
+  private warehousePrototype?: THREE.Group;
+  private warehouseLoading?: Promise<THREE.Group>;
+  private warehouseBaseDimensions?: THREE.Vector3;
 
   constructor(private zone: NgZone) {}
 
@@ -91,6 +95,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.addLights();
     this.addWater();
     this.addPlatform();
+    this.addServiceRoad();
     this.addWarehouses();
     this.addContainerFields();
     this.addCranes();
@@ -155,7 +160,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addPlatform() {
-    const deckDepth = 1050;
+    const deckDepth = 1350;
     const deckOffsetZ = -200;
     const dockFloorTileSize = 260;
     const deckTexture = this.createDockFloorTexture(1500 / dockFloorTileSize, deckDepth / dockFloorTileSize);
@@ -189,60 +194,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       )
     );
     apron.rotation.x = -Math.PI / 2;
-    apron.position.set(0, 61, deckOffsetZ + deckDepth / 2 - 100);
+    apron.position.set(0, 61, 320);
     apron.receiveShadow = true;
     this.scene.add(apron);
 
   }
 
-  private addWarehouses() {
-    const plans = [
-      { width: 260, height: 120, depth: 220, x: -360, z: -420 },
-      { width: 320, height: 140, depth: 240, x: 80, z: -400 },
-      { width: 280, height: 110, depth: 200, x: 420, z: -430 },
-    ];
-
-    plans.forEach((plan, index) => {
-      const warehouse = this.buildWarehouse(plan.width, plan.height, plan.depth, index);
-      warehouse.position.set(plan.x, plan.height / 2 + 60, plan.z);
-      this.scene.add(warehouse);
-    });
-  }
-
-  private buildWarehouse(width: number, height: number, depth: number, index: number): THREE.Group {
-    const group = new THREE.Group();
-    const baseColor = [0x37506b, 0x324860, 0x2d3f58][index % 3];
-    const shell = new THREE.Mesh(
-      this.trackGeometry(new THREE.BoxGeometry(width, height, depth)),
-      this.trackMaterial(new THREE.MeshStandardMaterial({ color: baseColor, roughness: 0.55, metalness: 0.15 }))
-    );
-    shell.castShadow = true;
-    shell.receiveShadow = true;
-    group.add(shell);
-
-    const roof = new THREE.Mesh(
-      this.trackGeometry(new THREE.CylinderGeometry(width / 2, width / 2, depth, 4, 1, true)),
-      this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xd5dae3, roughness: 0.3, metalness: 0.2 }))
-    );
-    roof.rotation.z = Math.PI / 2;
-    roof.scale.set(1, 1, 1.02);
-    roof.position.y = height / 2;
-    roof.castShadow = true;
-    group.add(roof);
-
-    const door = new THREE.Mesh(
-      this.trackGeometry(new THREE.BoxGeometry(width * 0.25, height * 0.6, 4)),
-      this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xe8f1ff, roughness: 0.2, metalness: 0.3 }))
-    );
-    door.position.set(-width * 0.2, -height * 0.1, depth / 2 + 0.1);
-    group.add(door);
-
-    const sideDoor = door.clone();
-    sideDoor.position.set(width * 0.3, -height * 0.1, depth / 2 + 0.1);
-    group.add(sideDoor);
-
-    return group;
-  }
   private addDockDetails() {
     const bollardGeo = this.trackGeometry(new THREE.CylinderGeometry(4, 4, 8, 16));
     const bollardMat = this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xfaf3c0, roughness: 0.3 }));
@@ -253,18 +210,110 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(bollard);
     }
 
-    const lampGeo = this.trackGeometry(new THREE.CylinderGeometry(2, 2, 40, 12));
-    const lampMat = this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xadb5bd, roughness: 0.5 }));
-    for (let i = -4; i <= 4; i++) {
-      const pole = new THREE.Mesh(lampGeo, lampMat);
-      pole.position.set(-650 + i * 180, 90, -280);
-      pole.castShadow = true;
-      this.scene.add(pole);
+  }
 
-      const lamp = new THREE.Mesh(this.trackGeometry(new THREE.SphereGeometry(5, 12, 12)), this.trackMaterial(new THREE.MeshBasicMaterial({ color: 0xfff7d6 })));
-      lamp.position.set(-650 + i * 180, 115, -280);
-      this.scene.add(lamp);
+  private addServiceRoad() {
+    const roadWidth = 520;
+    const roadDepth = 1350;
+    const road = new THREE.Mesh(
+      this.trackGeometry(new THREE.PlaneGeometry(roadWidth, roadDepth)),
+      this.trackMaterial(
+        new THREE.MeshStandardMaterial({
+          color: 0x4b4b50,
+          roughness: 0.9,
+          metalness: 0.05,
+        })
+      )
+    );
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(-410, 60.5, -180);
+    road.receiveShadow = true;
+    this.scene.add(road);
+
+  }
+
+  private addWarehouses() {
+    const placements: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number }[] = [
+      { position: new THREE.Vector3(-460, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
+      { position: new THREE.Vector3(60, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
+      { position: new THREE.Vector3(580, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
+    ];
+
+    this.getWarehousePrototype()
+      .then((prototype) => {
+        placements.forEach((placement) => {
+          const warehouse = this.instantiateWarehouse(prototype, placement);
+          this.scene.add(warehouse);
+        });
+      })
+      .catch((error) => console.warn('[FinalScene] Falha ao carregar warehouse GLB', error));
+  }
+
+  private getWarehousePrototype(): Promise<THREE.Group> {
+    if (this.warehousePrototype) {
+      return Promise.resolve(this.warehousePrototype);
     }
+    if (!this.warehouseLoading) {
+      this.warehouseLoading = new Promise((resolve, reject) => {
+        const urls = [...this.warehouseModelUrls];
+        const loadNext = () => {
+          const url = urls.shift();
+          if (!url) {
+            reject(new Error('Sem modelo GLB de armazém disponível'));
+            return;
+          }
+          this.gltfLoader.load(
+            url,
+            (gltf) => {
+              const root = gltf.scene;
+              root.traverse((obj) => {
+                if (obj instanceof THREE.Mesh) {
+                  obj.castShadow = true;
+                  obj.receiveShadow = true;
+                }
+              });
+              const box = new THREE.Box3().setFromObject(root);
+              const size = new THREE.Vector3();
+              const center = new THREE.Vector3();
+              box.getSize(size);
+              box.getCenter(center);
+              root.position.x -= center.x;
+              root.position.z -= center.z;
+              root.position.y -= box.min.y;
+              this.warehouseBaseDimensions = size;
+              this.warehousePrototype = root;
+              resolve(root);
+            },
+            undefined,
+            (error) => {
+              console.warn('[FinalScene] erro ao carregar warehouse modelo', url, error);
+              loadNext();
+            }
+          );
+        };
+        loadNext();
+      });
+    }
+
+    return this.warehouseLoading;
+  }
+
+  private instantiateWarehouse(
+    prototype: THREE.Group,
+    placement: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number }
+  ): THREE.Group {
+    const warehouse = prototype.clone(true);
+    const dims = this.warehouseBaseDimensions ?? new THREE.Vector3(1, 1, 1);
+    warehouse.scale.set(placement.size.x / dims.x, placement.size.y / dims.y, placement.size.z / dims.z);
+    warehouse.position.copy(placement.position);
+    warehouse.rotation.y = placement.rotation ?? 0;
+    warehouse.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+    return warehouse;
   }
 
   private animate = () => {
@@ -328,14 +377,22 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addContainerFields() {
-    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] = [];
-    const laneZ = [-260, -140, -20, 100];
-    laneZ.forEach((z, idx) => {
-      const cols = 5 + (idx % 2);
-      const rows = 2 + (idx % 2);
-      const maxLevels = 4 + (idx % 3);
-      placements.push({ position: new THREE.Vector3(-220, 60, z), cols, rows, maxLevels });
-      placements.push({ position: new THREE.Vector3(220, 60, z), cols, rows, maxLevels });
+    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] =
+      [];
+    const laneZ = [-420, -320, -220, -120, -20, 80];
+    const laneX = [-320, 0, 320];
+    const laneHeights = [7, 6, 5, 4, 3, 2];
+    laneZ.forEach((z, idxZ) => {
+      laneX.forEach((x, idxX) => {
+        const cols = 4;
+        const rows = 3;
+        const baseMax = laneHeights[idxZ % laneHeights.length];
+        let maxLevels = Math.max(2, baseMax - Math.max(0, idxX - 1));
+        if (idxZ === 0) {
+          maxLevels = Math.max(1, baseMax - idxX - (idxX === 2 ? 2 : idxX));
+        }
+        placements.push({ position: new THREE.Vector3(x, 60, z), cols, rows, maxLevels });
+      });
     });
 
     this.getContainerStackPrototype()
@@ -384,7 +441,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
-        const stackHeight = 1 + ((row + col + seed) % Math.max(1, maxLevels));
+        const maxAllowed = Math.max(1, maxLevels);
+        const stackHeight = Math.max(2, 1 + ((row + col * 2 + seed) % maxAllowed));
         for (let level = 0; level < stackHeight; level++) {
           const color = this.containerColors[(row + col + level + seed) % this.containerColors.length];
           const container = this.cloneContainerPrototype(prototype, color);
