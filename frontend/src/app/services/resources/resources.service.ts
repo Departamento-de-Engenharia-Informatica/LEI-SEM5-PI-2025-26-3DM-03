@@ -95,4 +95,12 @@ export class ResourcesService {
     });
     if (!res.ok) throw new Error(`Request failed ${res.status}`);
   }
+
+  async delete(code: string): Promise<void> {
+    const res = await this.requestWithFallback(`${this.apiUrl}/${encodeURIComponent(code)}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    if (!res.ok) throw new Error(`Request failed ${res.status}`);
+  }
 }

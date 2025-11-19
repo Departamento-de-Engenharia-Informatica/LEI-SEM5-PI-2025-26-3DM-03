@@ -14,14 +14,18 @@ export interface CreateResourceDTO {
   description: string;
   type: string;
   operationalCapacity: number;
+  status: string;
   assignedArea?: string | null;
   setupTimeMinutes?: number | null;
+  requiredQualifications: string[];
 }
 
 export interface UpdateResourceDTO {
   description: string;
+  type: string;
   operationalCapacity: number;
+  status: string;
   assignedArea?: string | null;
   setupTimeMinutes?: number | null;
-  status?: string;
+  requiredQualifications: string[];
 }
