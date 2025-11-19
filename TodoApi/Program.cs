@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
 using TodoApi.Domain.Repositories;
@@ -532,8 +534,12 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
+<<<<<<< HEAD
     await context.Database.MigrateAsync();
     await EnsureRoleChangeColumnsAsync(context, scope.ServiceProvider.GetService<ILoggerFactory>());
+=======
+    await EnsureDatabaseMigratedAsync(context, app.Environment);
+>>>>>>> f4979f1b6b56adfe2a160f54f2b20c776bae9b46
 
     try
     {
@@ -622,6 +628,7 @@ using (var scope = app.Services.CreateScope())
 // =====================================================
 app.Run();
 
+<<<<<<< HEAD
 static async Task EnsureRoleChangeColumnsAsync(PortContext context, ILoggerFactory? loggerFactory)
 {
     var logger = loggerFactory?.CreateLogger("Startup");
@@ -671,3 +678,22 @@ static async Task EnsureRoleChangeColumnsAsync(PortContext context, ILoggerFacto
         }
     }
 }
+=======
+static async Task EnsureDatabaseMigratedAsync(PortContext context, IWebHostEnvironment environment)
+{
+    try
+    {
+        await context.Database.MigrateAsync();
+    }
+    catch (SqliteException ex) when (environment.IsDevelopment() && IsDuplicateTableError(ex))
+    {
+        Console.WriteLine("[PortContext] SQLite schema already exists but migrations were not recorded. Resetting local database...");
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.MigrateAsync();
+    }
+}
+
+static bool IsDuplicateTableError(SqliteException ex) =>
+    ex.SqliteErrorCode == 1 &&
+    ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase);
+>>>>>>> f4979f1b6b56adfe2a160f54f2b20c776bae9b46

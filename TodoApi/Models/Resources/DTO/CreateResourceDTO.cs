@@ -6,13 +6,13 @@ namespace TodoApi.Models.Resources
     {
         [Required]
         [RegularExpression("^[a-zA-Z0-9]+$", ErrorMessage = "Code must be alphanumeric")]
-        public string Code { get; set; }
+        public string? Code { get; set; }
 
         [Required]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         [Required]
-        public string Type { get; set; }
+        public string? Type { get; set; }
 
         [Required]
         [Range(0.1, double.MaxValue, ErrorMessage = "Operational capacity must be positive")]

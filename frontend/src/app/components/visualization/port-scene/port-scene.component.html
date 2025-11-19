@@ -1,3 +1,46 @@
 <div class="port-scene">
-  <canvas #canvas3d id="portCanvas"></canvas>
+  <canvas
+    #canvas3d
+    id="portCanvas"
+    aria-label="Visualização tridimensional do terminal de contentores"
+  ></canvas>
+
+  <section class="port-panel" aria-live="polite">
+    <header class="panel-head">
+      <div>
+        <p class="panel-title">Contentores em Cena</p>
+        <p class="panel-total">Total renderizado • {{ totalContainers }}</p>
+      </div>
+      <p class="panel-hint">Passe o cursor sobre um contentor colorido ou use os atalhos abaixo.</p>
+    </header>
+
+    <div class="panel-body" *ngIf="selectedContainer; else emptySelection">
+      <p class="panel-label">Contentor selecionado</p>
+      <p class="panel-id">{{ selectedContainer.id }}</p>
+      <div class="panel-row">
+        <span>Localização</span>
+        <strong>{{ selectedContainer.locationLabel }}</strong>
+      </div>
+      <div class="panel-row">
+        <span>Nível</span>
+        <strong>N{{ selectedContainer.stackLevel }}</strong>
+      </div>
+    </div>
+    <ng-template #emptySelection>
+      <p class="panel-empty">Clique num contentor para ver a posição e nível.</p>
+    </ng-template>
+
+    <div class="panel-featured" *ngIf="featuredContainers.length">
+      <span class="panel-featured__label">Atalhos rápidos</span>
+      <div class="panel-featured__list">
+        <button
+          type="button"
+          *ngFor="let container of featuredContainers"
+          (click)="focusContainer(container)"
+        >
+          {{ container.id }}
+        </button>
+      </div>
+    </div>
+  </section>
 </div>

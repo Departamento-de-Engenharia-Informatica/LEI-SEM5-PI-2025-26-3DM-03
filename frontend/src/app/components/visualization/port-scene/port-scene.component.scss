@@ -4,6 +4,8 @@
   background: linear-gradient(180deg, #f9fbff 0%, #edf4fb 100%);
   border: 1px solid rgba(15, 23, 42, 0.04);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
 }
 
 #portCanvas {
@@ -18,9 +20,128 @@
     inset 0 -18px 35px rgba(96, 125, 139, 0.25);
 }
 
+.port-panel {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  width: min(320px, 36vw);
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  background: rgba(8, 19, 40, 0.82);
+  color: #f8fbff;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.panel-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0;
+}
+
+.panel-total {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(248, 251, 255, 0.85);
+}
+
+.panel-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(248, 251, 255, 0.65);
+}
+
+.panel-body {
+  background: rgba(248, 251, 255, 0.08);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.panel-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+  color: rgba(248, 251, 255, 0.8);
+}
+
+.panel-id {
+  font-weight: 600;
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem;
+}
+
+.panel-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+
+  span {
+    color: rgba(248, 251, 255, 0.7);
+  }
+}
+
+.panel-empty {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: rgba(248, 251, 255, 0.75);
+}
+
+.panel-featured {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.panel-featured__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: rgba(248, 251, 255, 0.75);
+}
+
+.panel-featured__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+
+  button {
+    border: none;
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    background: rgba(248, 251, 255, 0.9);
+    color: #0f172a;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.35);
+    }
+  }
+}
+
 @media (max-width: 1024px) {
   #portCanvas {
     height: 52vh;
+  }
+
+  .port-panel {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
   }
 }
 
@@ -34,5 +155,10 @@
     min-height: 260px;
     height: 45vh;
     border-radius: 12px;
+  }
+
+  .port-panel {
+    padding: 1rem;
+    border-radius: 16px;
   }
 }

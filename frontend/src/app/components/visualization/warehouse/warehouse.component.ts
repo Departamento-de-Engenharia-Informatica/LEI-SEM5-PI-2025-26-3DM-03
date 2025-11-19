@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 @Component({
   selector: 'app-warehouse',
@@ -23,6 +24,9 @@ export class WarehouseComponent implements AfterViewInit, OnDestroy {
   private camera!: THREE.PerspectiveCamera;
   private controls!: OrbitControls;
   private animationId: number | null = null;
+  private gltfLoader = new GLTFLoader();
+  private readonly warehouseModelUrl = 'assets/models/warehouse.glb';
+  private warehouseRoot?: THREE.Group;
 
   // dimensões principais do módulo
   private readonly WAREHOUSE_WIDTH = 180;
@@ -214,203 +218,45 @@ export class WarehouseComponent implements AfterViewInit, OnDestroy {
   // --------------------------------------------------
 
   private addWarehouse(): void {
-    const w = this.WAREHOUSE_WIDTH;
-    const d = this.WAREHOUSE_DEPTH;
-    const h = this.WAREHOUSE_HEIGHT;
-
-    const warehouse = this.createWarehouseModule(w, d, h);
-    warehouse.position.set(0, 0, 0);
-    this.scene.add(warehouse);
+    this.gltfLoader.load(
+      this.warehouseModelUrl,
+      (gltf) => {
+        this.warehouseRoot = gltf.scene;
+        this.prepareWarehouseModel(this.warehouseRoot);
+        this.scene.add(this.warehouseRoot);
+      },
+      undefined,
+      (error) => {
+        console.error('[WarehouseComponent] Falha ao carregar warehouse.glb', error);
+      }
+    );
   }
 
-  private createWarehouseModule(
-    w: number,
-    d: number,
-    h: number,
-  ): THREE.Group {
-    const group = new THREE.Group();
-
-    // ---------------- BASE / FUNDAÇÃO ----------------
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: 0x9fa1a5,
-      roughness: 0.85,
-    });
-    const base = new THREE.Mesh(
-      new THREE.BoxGeometry(w + 40, 6, d + 40),
-      baseMat,
-    );
-    base.position.y = 3;
-    base.receiveShadow = true;
-    group.add(base);
-
-    const plinthMat = new THREE.MeshStandardMaterial({
-      color: 0xbdbfc3,
-      roughness: 0.8,
-    });
-    const plinth = new THREE.Mesh(
-      new THREE.BoxGeometry(w + 30, 4, d + 30),
-      plinthMat,
-    );
-    plinth.position.y = 6;
-    plinth.receiveShadow = true;
-    group.add(plinth);
-
-    // ---------------- PAREDES ----------------
-    const wallGroup = new THREE.Group();
-
-    const concreteBaseMat = new THREE.MeshStandardMaterial({
-      color: 0xd7d8db,
-      roughness: 0.85,
-      metalness: 0.05,
+  private prepareWarehouseModel(model: THREE.Group): void {
+    model.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        const material = child.material;
+        if (Array.isArray(material)) {
+          material.forEach((mat) => (mat.envMapIntensity = 1));
+        } else if (material) {
+          (material as THREE.MeshStandardMaterial).envMapIntensity = 1;
+        }
+      }
     });
 
-    const metalWallMat = new THREE.MeshStandardMaterial({
-      color: 0xc4c7cb,
-      roughness: 0.6,
-      metalness: 0.45,
-    });
+    const initialBox = new THREE.Box3().setFromObject(model);
+    const size = initialBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const targetSpan = 360;
+    const scale = targetSpan / maxDim;
+    model.scale.setScalar(scale);
+    model.updateMatrixWorld(true);
 
-    const concreteHeight = 10;
-    const metalHeight = h - concreteHeight;
-
-    // faixa de betão inferior
-    const concrete = new THREE.Mesh(
-      new THREE.BoxGeometry(w, concreteHeight, d),
-      concreteBaseMat,
-    );
-    concrete.position.y = 6 + concreteHeight / 2;
-    wallGroup.add(concrete);
-
-    // corpo metálico superior
-    const metal = new THREE.Mesh(
-      new THREE.BoxGeometry(w, metalHeight, d),
-      metalWallMat,
-    );
-    metal.position.y = 6 + concreteHeight + metalHeight / 2;
-    wallGroup.add(metal);
-
-    // painéis verticais salientes na frente
-    const panelMat = new THREE.MeshStandardMaterial({
-      color: 0xaeb1b6,
-      roughness: 0.4,
-      metalness: 0.6,
-    });
-
-    for (let x = -w / 2 + 3; x <= w / 2 - 3; x += 3.2) {
-      const panel = new THREE.Mesh(
-        new THREE.BoxGeometry(2.2, metalHeight * 0.95, 1.2),
-        panelMat,
-      );
-      panel.position.set(
-        x,
-        6 + concreteHeight + metalHeight / 2,
-        d / 2 + 0.7,
-      );
-      panel.castShadow = true;
-      wallGroup.add(panel);
-    }
-
-    // cantos reforçados
-    const cornerMat = new THREE.MeshStandardMaterial({
-      color: 0x64686d,
-      roughness: 0.45,
-      metalness: 0.4,
-    });
-
-    const cornerGeom = new THREE.BoxGeometry(4, h + 4, 4);
-    const corner1 = new THREE.Mesh(cornerGeom, cornerMat);
-    corner1.position.set(-w / 2 - 2, 6 + h / 2, d / 2 - 2);
-    const corner2 = corner1.clone();
-    corner2.position.x = w / 2 + 2;
-    const corner3 = corner1.clone();
-    corner3.position.z = -d / 2 + 2;
-    const corner4 = corner2.clone();
-    corner4.position.z = -d / 2 + 2;
-
-    wallGroup.add(corner1, corner2, corner3, corner4);
-
-    group.add(wallGroup);
-
-    // ---------------- TELHADO ----------------
-
-    const roofGroup = new THREE.Group();
-
-    const roofMat = new THREE.MeshStandardMaterial({
-      color: 0x595c61,
-      roughness: 0.45,
-      metalness: 0.55,
-    });
-
-    const roofThickness = 3;
-    const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(w + 10, roofThickness, d + 18),
-      roofMat,
-    );
-    const roofHeight = 6 + h + 6;
-    roof.position.y = roofHeight;
-    roof.rotation.x = THREE.MathUtils.degToRad(11);
-    roof.castShadow = true;
-    roof.receiveShadow = true;
-    roofGroup.add(roof);
-
-    // beiral frontal
-    const eaveGeom = new THREE.BoxGeometry(w + 12, 2, 4);
-    const eaveMat = new THREE.MeshStandardMaterial({
-      color: 0x4b4e52,
-      metalness: 0.6,
-      roughness: 0.35,
-    });
-    const eave = new THREE.Mesh(eaveGeom, eaveMat);
-    eave.position.set(0, roofHeight + 1, d / 2 + 6);
-    eave.castShadow = true;
-    roofGroup.add(eave);
-
-    // claraboias
-    const skylightMat = new THREE.MeshStandardMaterial({
-      color: 0xaed4ff,
-      roughness: 0.12,
-      metalness: 0.05,
-      transparent: true,
-      opacity: 0.7,
-    });
-
-    const skylightGeom = new THREE.BoxGeometry(18, 1, 6);
-    for (let i = -2; i <= 2; i += 2) {
-      const sky = new THREE.Mesh(skylightGeom, skylightMat);
-      sky.position.set(i * 22, roofHeight + 2, -d / 6);
-      sky.rotation.x = THREE.MathUtils.degToRad(11);
-      sky.castShadow = true;
-      roofGroup.add(sky);
-    }
-
-    // caleiras laterais
-    const gutterMat = new THREE.MeshStandardMaterial({
-      color: 0x3f4246,
-      metalness: 0.65,
-      roughness: 0.3,
-    });
-
-    const gutterGeom = new THREE.BoxGeometry(2, 2, d + 12);
-    const gutterLeft = new THREE.Mesh(gutterGeom, gutterMat);
-    gutterLeft.position.set(-w / 2 - 5, roofHeight - 1, 0);
-    const gutterRight = gutterLeft.clone();
-    gutterRight.position.x = w / 2 + 5;
-    roofGroup.add(gutterLeft, gutterRight);
-
-    // tubos de queda
-    const pipeGeom = new THREE.CylinderGeometry(0.9, 0.9, h, 8);
-    const pipe1 = new THREE.Mesh(pipeGeom, gutterMat);
-    pipe1.position.set(-w / 2 - 5, 6 + h / 2, d / 2 - 6);
-    const pipe2 = pipe1.clone();
-    pipe2.position.x = w / 2 + 5;
-
-    roofGroup.add(pipe1, pipe2);
-
-    group.add(roofGroup);
-
-    // ---------------- DETALHES FINAIS ----------------
-
-    return group;
+    const finalBox = new THREE.Box3().setFromObject(model);
+    const center = finalBox.getCenter(new THREE.Vector3());
+    model.position.set(-center.x, -finalBox.min.y + 4, -center.z);
   }
 
   // --------------------------------------------------
@@ -418,6 +264,9 @@ export class WarehouseComponent implements AfterViewInit, OnDestroy {
   // --------------------------------------------------
 
   private startAnimationLoop = () => {
+    if (this.warehouseRoot) {
+      this.warehouseRoot.rotation.y += 0.0008;
+    }
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.animationId = requestAnimationFrame(this.startAnimationLoop);
