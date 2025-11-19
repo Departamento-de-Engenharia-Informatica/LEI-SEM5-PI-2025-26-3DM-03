@@ -67,4 +67,10 @@ export class AdminService {
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   }
+
+  async sendRoleChangeLink(id: number) {
+    const res = await this.requestWithFallback(`${apiBase}/users/${id}/role-change-links`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
 }

@@ -37,13 +37,13 @@ namespace TodoApi.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                return InvalidLink("O link de ativação é inválido ou já expirou.");
+                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou já expirou.</p>");
             }
 
             var pending = await _activationLinkService.GetPendingTokenAsync(token, cancellationToken);
             if (pending == null)
             {
-                return InvalidLink("O link de ativação é inválido ou já expirou.");
+                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou já expirou.</p>");
             }
 
             var redirect = Url.ActionLink(nameof(Confirm), values: new { token }) ?? $"/activation/confirm?token={WebUtility.UrlEncode(token)}";
@@ -62,7 +62,7 @@ namespace TodoApi.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                return InvalidLink("O link de ativação é inválido.");
+                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido.</p>");
             }
 
             var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
@@ -75,7 +75,7 @@ namespace TodoApi.Controllers
             if (activation == null || activation.AppUser == null)
             {
                 _logger.LogWarning("Falha ao ativar conta. Token inválido ou identidade {Email} recusada.", email);
-                return InvalidLink("O link de ativação é inválido ou não corresponde à sua conta IAM.");
+                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou não corresponde à sua conta IAM.</p>");
             }
 
             var frontend = string.IsNullOrWhiteSpace(_options.FrontendUrl) ? "https://localhost:4200" : _options.FrontendUrl;
@@ -111,16 +111,49 @@ namespace TodoApi.Controllers
                 }
             }
 
-            var message = $@"<html><body style=""font-family:Arial,sans-serif"">
-                <h2>Mudança de função confirmada</h2>
-                <p>{roleText}</p>
-                <p>Conta: {safeEmail}</p>
-                <p>Pode iniciar sessão normalmente para utilizar as novas funcionalidades.</p>
-                </body></html>";
-            return Content(message, "text/html");
+            var body = $@"<p>{roleText}</p>
+                <p>Conta: <strong>{safeEmail}</strong></p>
+                <p>Pode iniciar sessão normalmente para utilizar as novas funcionalidades.</p>";
+            return StyledContent("Mudança de função confirmada", body);
         }
 
-        private static ContentResult InvalidLink(string message)
-            => new ContentResult { Content = $"<h3>{WebUtility.HtmlEncode(message)}</h3>", ContentType = "text/html" };
+        private ContentResult StyledContent(string title, string bodyHtml)
+        {
+            var html = $@"<!DOCTYPE html>
+<html lang=""pt"">
+<head>
+    <meta charset=""utf-8"">
+    <title>{WebUtility.HtmlEncode(title)}</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            background: #f4f6fb;
+            color: #1f2a37;
+        }}
+        .card {{
+            background: white;
+            border-radius: 8px;
+            padding: 32px;
+            max-width: 640px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1);
+        }}
+        h1, h2 {{
+            margin-top: 0;
+            color: #0f172a;
+        }}
+        p {{ line-height: 1.6; }}
+    </style>
+</head>
+<body>
+    <div class=""card"">
+        <h2>{WebUtility.HtmlEncode(title)}</h2>
+        {bodyHtml}
+    </div>
+</body>
+</html>";
+
+            return new ContentResult { Content = html, ContentType = "text/html" };
+        }
     }
 }

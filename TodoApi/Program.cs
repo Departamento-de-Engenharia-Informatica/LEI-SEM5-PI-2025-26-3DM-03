@@ -331,23 +331,10 @@ else
                     await db.SaveChangesAsync();
                 }
 
-                // If no local user exists, create a placeholder inactive record and deny login
+                // If no local user exists, deny login and instruct admin to create account
                 if (user == null)
                 {
-                    // Create new local user as INACTIVE by default
-                    user = new TodoApi.Models.Auth.AppUser
-                    {
-                        ExternalId = sub,
-                        Email = email ?? string.Empty,
-                        Name = name,
-                        Active = false // must be activated manually
-                    };
-
-                    db.AppUsers.Add(user);
-                    await db.SaveChangesAsync();
-
-                    // Deny login immediately and redirect with reason
-                    var frontendUrl = "https://localhost:4200";
+                    var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
                     context.Response.Redirect(frontendUrl + "?auth=denied&reason=not_authorized");
                     return;
