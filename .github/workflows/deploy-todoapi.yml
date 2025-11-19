@@ -5,6 +5,16 @@ on:
     branches: [ main ]
     paths:
       - 'TodoApi/**'
+
+      - name: Debug ambiente na VM
+        run: |
+          set -x
+          echo "Diretório atual:"; pwd
+          echo "Docker version:"; docker version || true
+          echo "Lista raiz:"; ls -al
+          echo "Conteúdo TodoApi:"; ls -al TodoApi || true
+          echo "Mostrar Dockerfile:"; sed -n '1,120p' TodoApi/Dockerfile || true
+
       - 'frameworkDDD/**'
       - '.github/workflows/deploy-todoapi.yml'
   workflow_dispatch:
@@ -12,11 +22,12 @@ on:
       runTestsOnly:
         description: 'Run build & tests without container push'
         type: boolean
-        default: false
-      disableOidc:
-        description: 'Disable OIDC (DISABLE_OIDC=true)'
-        type: boolean
-        default: true
+          if docker pull "$IMAGE"; then
+            echo "Pull OK, não precisa build local."
+          else
+            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
+            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
+          fi
       imageTag:
         description: 'Custom image tag'
         required: false
