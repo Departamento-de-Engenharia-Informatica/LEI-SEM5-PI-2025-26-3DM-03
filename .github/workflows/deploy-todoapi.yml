@@ -144,7 +144,8 @@ jobs:
 # -------------------------
   deploy-to-dei:
     needs: containerize
-    if: ${{ inputs.deployToDei == 'true' }}
+    # Executa deploy automaticamente em push para main; em workflow_dispatch só se input deployToDei == true
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deployToDei == 'true') }}
     runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout (para build local se necessário)
