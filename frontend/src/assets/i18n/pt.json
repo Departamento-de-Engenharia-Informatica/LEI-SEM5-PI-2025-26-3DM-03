@@ -16,7 +16,8 @@
     "port3d": "Porto 3D",
     "cube": "Demo 3D",
     "house_3d": "Casa 3D",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "final_3d": "3D Final"
   },
   "staff": {
     "title": "Equipa",
@@ -199,3 +200,4 @@
   }
 }
 }
+

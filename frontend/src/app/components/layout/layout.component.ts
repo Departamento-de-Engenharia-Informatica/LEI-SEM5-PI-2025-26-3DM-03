@@ -68,10 +68,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
   { key: 'port3d', label_en: 'Port 3D', label_pt: 'Porto 3D', icon: 'bi-map', route: '/port', roles: ['admin','operator','agent','authority'] },
   { key: 'house_3d', label_en: 'House 3D', label_pt: 'Casa 3D', icon: 'bi-building', route: '/house-3d', roles: ['admin','operator','agent','authority'] },
   { key: 'craneDemo', label_en: 'Crane Model', label_pt: 'Grua STS', icon: 'bi-lightning', route: '/crane', roles: ['admin','operator','agent','authority'] },
+  { key: 'truck3d', label_en: 'Truck 3D', label_pt: 'Camião DAF', icon: 'bi-truck', route: '/truck', roles: ['admin','operator','agent','authority'] },
+  { key: 'cargoVessel3d', label_en: 'Cargo Vessel', label_pt: 'Navio Porta-Contentores', icon: 'bi-ship', route: '/cargo-vessel', roles: ['admin','operator','agent','authority'] },
     // Three.js demo (accessible to all roles)
     { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', icon: 'bi-box', route: '/cube', roles: ['admin','operator','agent','authority'] },
     // Admin settings only
-    { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
+    { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] },
+    // Final immersive experience
+    { key: 'final_3d', label_en: '3D Final', label_pt: '3D Final', icon: 'bi-bricks', route: '/final-3d', roles: ['admin','operator','agent','authority'] }
   ];
   // menu currently shown in the template — updated when auth state changes
   displayedMenu: MenuItem[] = [];
@@ -159,6 +163,15 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (e.key === 'userAvatar') { this.loadAvatar(); try { this.cdr.detectChanges(); } catch {} }
   };
 
+  // Allow a public minimal route for the 3D viewer
+  get isViewerRoute(): boolean {
+    try {
+      return this.router.url.startsWith('/viewer');
+    } catch {
+      return false;
+    }
+  }
+
   
 
   // Localized label helper
@@ -206,3 +219,4 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
 }
+

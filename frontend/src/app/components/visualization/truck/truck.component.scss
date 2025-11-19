@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.truck-viewer {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 140px);
+  min-height: 480px;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f4f6fa 0%, #e5ecf5 100%);
+  box-shadow:
+    0 20px 40px rgba(12, 32, 79, 0.15),
+    0 2px 8px rgba(12, 32, 79, 0.08);
+}
+
+.truck-viewer__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.truck-viewer__hint {
+  position: absolute;
+  left: 24px;
+  bottom: 20px;
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background-color: rgba(17, 26, 45, 0.78);
+  color: #f6fbff;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
