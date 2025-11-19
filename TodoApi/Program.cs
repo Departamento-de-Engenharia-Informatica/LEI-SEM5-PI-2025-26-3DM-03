@@ -7,6 +7,7 @@ using TodoApi.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Linq;
@@ -275,9 +276,6 @@ else
         // Prevent Google from reusing the previous login session
         context.ProtocolMessage.LoginHint = null;
 
-        // Ensure a fresh OIDC handshake for every login attempt
-        context.ProtocolMessage.State = Guid.NewGuid().ToString("N");
-
         var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
         logger?.LogInformation("[OIDC] Redirecting to Google with forced redirect_uri={RedirectUri}", context.ProtocolMessage.RedirectUri);
 
@@ -303,6 +301,7 @@ else
                 var sub   = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? context.Principal?.FindFirst("sub")?.Value;
                 var email = context.Principal?.FindFirst(ClaimTypes.Email)?.Value ?? context.Principal?.FindFirst("email")?.Value;
                 var name  = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
+                var isActivationFlow = context.Properties?.Items?.ContainsKey("activation_flow") == true;
 
                 var hostingEnv = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
                 using var scope = context.HttpContext.RequestServices.CreateScope();
@@ -332,30 +331,17 @@ else
                     await db.SaveChangesAsync();
                 }
 
-                // If no local user exists, create a placeholder inactive record and deny login
+                // If no local user exists, deny login and instruct admin to create account
                 if (user == null)
                 {
-                    // Create new local user as INACTIVE by default
-                    user = new TodoApi.Models.Auth.AppUser
-                    {
-                        ExternalId = sub,
-                        Email = email ?? string.Empty,
-                        Name = name,
-                        Active = false // must be activated manually
-                    };
-
-                    db.AppUsers.Add(user);
-                    await db.SaveChangesAsync();
-
-                    // Deny login immediately and redirect with reason
-                    var frontendUrl = "https://localhost:4200";
+                    var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
                     context.Response.Redirect(frontendUrl + "?auth=denied&reason=not_authorized");
                     return;
                 }
 
                 // Deny access if the local user exists but is inactive
-                if (!user.Active)
+                if (!user.Active && !isActivationFlow)
                 {
                     var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
@@ -370,7 +356,7 @@ else
                     .ToList() ?? new List<string>();
 
                 // Deny access if the user has no active roles
-                if (activeRoles.Count == 0)
+                if (activeRoles.Count == 0 && !isActivationFlow)
                 {
                     var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
@@ -380,7 +366,7 @@ else
 
                 // Inject role claims into the ClaimsPrincipal so that [Authorize(Roles=...)] attributes work properly
                 var identity = context.Principal?.Identity as ClaimsIdentity;
-                if (identity != null)
+                if (identity != null && user.Active)
                 {
                     foreach (var r in activeRoles)
                         identity.AddClaim(new Claim(ClaimTypes.Role, r));
@@ -393,7 +379,7 @@ else
                 // OpenID Connect handler still needs to perform the SignIn (issue the cookie).
                 // Instead, set the authentication properties RedirectUri so the handler will
                 // complete the sign-in and perform the redirect after creating the cookie.
-                if (hostingEnv.IsDevelopment())
+                if (hostingEnv.IsDevelopment() && string.IsNullOrEmpty(context.Properties?.RedirectUri))
                 {
                     context.Properties ??= new AuthenticationProperties();
                     context.Properties.RedirectUri = "https://localhost:4200?auth=ok";
@@ -535,7 +521,34 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
-    await EnsureDatabaseMigratedAsync(context, app.Environment);
+    var loggerFactory = scope.ServiceProvider.GetService<ILoggerFactory>();
+    var startupLogger = loggerFactory?.CreateLogger("Startup");
+
+    var forcedReset = false;
+    if (await ShouldRecreateSqliteDatabaseAsync(context, startupLogger, app.Environment.ContentRootPath))
+    {
+        startupLogger?.LogWarning("Recreating SQLite database so EF Core migrations can be applied cleanly.");
+        await context.Database.EnsureDeletedAsync();
+        forcedReset = true;
+    }
+
+    var migrationAttempt = 0;
+    while (true)
+    {
+        try
+        {
+            await context.Database.MigrateAsync();
+            break;
+        }
+        catch (SqliteException ex) when (migrationAttempt == 0 && !forcedReset && ShouldResetOnSqliteSchemaConflict(ex))
+        {
+            startupLogger?.LogWarning(ex, "Encountered SQLite schema conflict during migration. Deleting database and retrying once.");
+            await context.Database.EnsureDeletedAsync();
+            migrationAttempt++;
+            continue;
+        }
+    }
+    await EnsureRoleChangeColumnsAsync(context, loggerFactory);
 
     try
     {
@@ -624,20 +637,123 @@ using (var scope = app.Services.CreateScope())
 // =====================================================
 app.Run();
 
-static async Task EnsureDatabaseMigratedAsync(PortContext context, IWebHostEnvironment environment)
+static async Task<bool> ShouldRecreateSqliteDatabaseAsync(PortContext context, ILogger? logger, string? contentRootPath)
 {
     try
     {
-        await context.Database.MigrateAsync();
+        var pending = await context.Database.GetPendingMigrationsAsync();
+        if (!pending.Any())
+        {
+            return false;
+        }
+
+        var applied = await context.Database.GetAppliedMigrationsAsync();
+        if (applied.Any())
+        {
+            return false;
+        }
+
+        if (!context.Database.IsSqlite())
+        {
+            return false;
+        }
+
+        var builder = new SqliteConnectionStringBuilder(context.Database.GetDbConnection().ConnectionString);
+        var dataSource = builder.DataSource;
+        if (string.IsNullOrWhiteSpace(dataSource))
+        {
+            return false;
+        }
+
+        var basePath = !string.IsNullOrWhiteSpace(contentRootPath)
+            ? contentRootPath!
+            : Directory.GetCurrentDirectory();
+        var absolutePath = Path.IsPathRooted(dataSource)
+            ? dataSource
+            : Path.GetFullPath(Path.Combine(basePath, dataSource));
+
+        builder.DataSource = absolutePath;
+
+        await using var connection = new SqliteConnection(builder.ToString());
+        await connection.OpenAsync();
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('__EFMigrationsHistory','__EFMigrationsLock');";
+            var result = await command.ExecuteScalarAsync();
+            var existingTables = Convert.ToInt32(result ?? 0);
+            if (existingTables > 0)
+            {
+                logger?.LogWarning("Detected {Count} existing SQLite tables without migration history. Database file: {File}", existingTables, absolutePath);
+                return true;
+            }
+        }
     }
-    catch (SqliteException ex) when (environment.IsDevelopment() && IsDuplicateTableError(ex))
+    catch (Exception ex)
     {
-        Console.WriteLine("[PortContext] SQLite schema already exists but migrations were not recorded. Resetting local database...");
-        await context.Database.EnsureDeletedAsync();
-        await context.Database.MigrateAsync();
+        logger?.LogWarning(ex, "Failed to inspect SQLite database for migration history issues.");
     }
+
+    return false;
 }
 
-static bool IsDuplicateTableError(SqliteException ex) =>
-    ex.SqliteErrorCode == 1 &&
-    ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase);
+static bool ShouldResetOnSqliteSchemaConflict(SqliteException ex)
+{
+    if (ex.SqliteErrorCode == 1 && ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+static async Task EnsureRoleChangeColumnsAsync(PortContext context, ILoggerFactory? loggerFactory)
+{
+    var logger = loggerFactory?.CreateLogger("Startup");
+    var conn = context.Database.GetDbConnection();
+    try
+    {
+        await conn.OpenAsync();
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA table_info('AppUsers');";
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    existing.Add(reader.GetString(1));
+                }
+            }
+        }
+
+        var statements = new List<string>();
+        if (!existing.Contains("LastRoleChangeSentUtc"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeSentUtc TEXT");
+        if (!existing.Contains("LastRoleChangeSummary"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeSummary TEXT");
+        if (!existing.Contains("LastRoleChangeConfirmedUtc"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeConfirmedUtc TEXT");
+
+        foreach (var sql in statements)
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = sql;
+            await alter.ExecuteNonQueryAsync();
+            logger?.LogInformation("Applied fallback column addition: {Sql}", sql);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger?.LogWarning(ex, "Failed to ensure role change columns via fallback");
+    }
+    finally
+    {
+        if (conn.State == System.Data.ConnectionState.Open)
+        {
+            await conn.CloseAsync();
+        }
+    }
+}

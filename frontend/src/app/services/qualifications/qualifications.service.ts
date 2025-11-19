@@ -1,11 +1,7 @@
 import { Injectable } from '@angular/core';
+import { Qualification, QualificationPayload } from '../../models/qualification';
 
 const baseUrl = 'https://localhost:7167/api';
-
-export interface QualificationPayload {
-  code: string;
-  description: string;
-}
 
 @Injectable({ providedIn: 'root' })
 export class QualificationsService {
@@ -24,25 +20,25 @@ export class QualificationsService {
     }
   }
 
-  async getAll(search?: string) {
+  async getAll(search?: string): Promise<Qualification[]> {
     const url = search
       ? `${baseUrl}${this.apiUrl}?search=${encodeURIComponent(search)}`
       : baseUrl + this.apiUrl;
 
     const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) await this.handleError(res);
-    return await res.json();
+    return await res.json() as Qualification[];
   }
 
-  async getByCode(code: string) {
+  async getByCode(code: string): Promise<Qualification> {
     const res = await fetch(`${baseUrl}${this.apiUrl}/${encodeURIComponent(code)}`, {
       credentials: 'include'
     });
     if (!res.ok) await this.handleError(res);
-    return await res.json();
+    return await res.json() as Qualification;
   }
 
-  async create(payload: QualificationPayload) {
+  async create(payload: QualificationPayload): Promise<Qualification> {
     const res = await fetch(baseUrl + this.apiUrl, {
       method: 'POST',
       credentials: 'include',
@@ -50,7 +46,7 @@ export class QualificationsService {
       body: JSON.stringify(payload)
     });
     if (!res.ok) await this.handleError(res);
-    return await res.json();
+    return await res.json() as Qualification;
   }
 
   async update(code: string, payload: QualificationPayload) {

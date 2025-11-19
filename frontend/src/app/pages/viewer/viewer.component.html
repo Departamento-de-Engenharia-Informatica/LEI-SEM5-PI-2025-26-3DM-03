@@ -1,0 +1,16 @@
+<div class="viewer-shell">
+  <header class="viewer-header">
+    <div class="title">Modelo 3D (teste)</div>
+    <nav class="viewer-menu" aria-label="Menu 3D">
+      <button class="btn" [class.active]="mode==='port'" (click)="setMode('port')">Porto 3D</button>
+      <button class="btn" [class.active]="mode==='crane'" (click)="setMode('crane')">Grua</button>
+      <button class="btn" [class.active]="mode==='demo'" (click)="setMode('demo')">Demo</button>
+    </nav>
+  </header>
+
+  <section class="viewer-stage">
+    <app-port-scene *ngIf="mode==='port'"></app-port-scene>
+    <app-dock-crane *ngIf="mode==='crane'"></app-dock-crane>
+    <app-cube *ngIf="mode==='demo'"></app-cube>
+  </section>
+</div>

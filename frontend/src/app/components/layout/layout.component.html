@@ -1,5 +1,5 @@
-  <!-- Application root: render login OR layout depending on auth state -->
-<ng-container *ngIf="auth.loggedIn$ | async; else publicArea">
+  <!-- Application root: render app when logged-in; when logged-out allow a public viewer route; otherwise show login -->
+<ng-container *ngIf="auth.loggedIn$ | async; else unauthArea">
 <div   class="app-shell"> 
   <header class="app-header" role="banner">
     <div class="header-left">
@@ -106,10 +106,17 @@
   </div>
 </div>
 
-</ng-container>
- 
+ </ng-container>
+
+<ng-template #unauthArea>
+  <ng-container *ngIf="isViewerRoute; else publicArea">
+    <!-- Public 3D viewer route -->
+    <router-outlet></router-outlet>
+  </ng-container>
+</ng-template>
+
 <ng-template #publicArea>
-	<app-login></app-login>
+  <app-login></app-login>
 </ng-template>
 
 

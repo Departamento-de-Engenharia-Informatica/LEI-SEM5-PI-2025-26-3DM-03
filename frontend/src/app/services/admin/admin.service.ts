@@ -4,9 +4,9 @@ const apiBase = '/admin';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private async requestWithFallback(urlPath: string, options?: RequestInit): Promise<Response> {
-    const proxyUrl = `${urlPath}`.startsWith('/') ? urlPath : `/${urlPath}`;
-    const directUrl = `https://localhost:7167${proxyUrl}`;
+  private async requestWithFallback(path: string, options?: RequestInit): Promise<Response> {
+    const relative = path.startsWith('/') ? path : `/${path}`;
+    const direct = `https://localhost:7167${relative}`;
 
     const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 2500) => {
       const controller = new AbortController();
@@ -18,12 +18,11 @@ export class AdminService {
     };
 
     try {
-      const rDirect = await fetchWithTimeout(directUrl, options, 2000);
-      if (rDirect.ok || rDirect.status === 404) return rDirect;
+      const proxied = await fetchWithTimeout(relative, options, 2500);
+      if (proxied.ok) return proxied;
     } catch {}
 
-    const rProxy = await fetchWithTimeout(proxyUrl, options, 2500);
-    return rProxy;
+    return await fetchWithTimeout(direct, options, 2500);
   }
 
   async getUsers(): Promise<any[]> {
@@ -65,6 +64,12 @@ export class AdminService {
 
   async sendActivationLink(id: number) {
     const res = await this.requestWithFallback(`${apiBase}/users/${id}/activation-links`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) throw new Error(await res.text());
+    return await res.json();
+  }
+
+  async sendRoleChangeLink(id: number) {
+    const res = await this.requestWithFallback(`${apiBase}/users/${id}/role-change-links`, { method: 'POST', credentials: 'include' });
     if (!res.ok) throw new Error(await res.text());
     return await res.json();
   }

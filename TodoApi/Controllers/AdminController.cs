@@ -47,7 +47,10 @@ namespace TodoApi.Controllers
                 var latestToken = u.ActivationTokens?
                     .OrderByDescending(t => t.CreatedAtUtc)
                     .FirstOrDefault();
-                var hasPendingActivation = latestToken != null && latestToken.RedeemedAtUtc == null && latestToken.ExpiresAtUtc > now;
+                var hasPendingActivation = !u.Active &&
+                    latestToken != null &&
+                    latestToken.RedeemedAtUtc == null &&
+                    latestToken.ExpiresAtUtc > now;
                 return new
                 {
                     u.Id,
@@ -61,6 +64,12 @@ namespace TodoApi.Controllers
                         Pending = hasPendingActivation,
                         LastSentUtc = latestToken?.CreatedAtUtc,
                         LastRedeemedUtc = latestToken?.RedeemedAtUtc
+                    },
+                    RoleChange = new
+                    {
+                        u.LastRoleChangeSummary,
+                        LastSentUtc = u.LastRoleChangeSentUtc,
+                        ConfirmedUtc = u.LastRoleChangeConfirmedUtc
                     }
                 };
             });
@@ -86,10 +95,37 @@ namespace TodoApi.Controllers
             if (!CallerIsAdmin()) return Forbid();
             if (string.IsNullOrWhiteSpace(dto.Email)) return BadRequest(new { message = "email required" });
 
-            var exists = await _db.AppUsers.AnyAsync(u => u.Email == dto.Email);
-            if (exists) return Conflict(new { message = "user already exists" });
+            var normalizedEmail = dto.Email.Trim();
+            var existing = await _db.AppUsers.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
+            if (existing != null)
+            {
+                if (existing.Active)
+                {
+                    return Conflict(new { message = "user already exists" });
+                }
 
-            var user = new AppUser { Email = dto.Email.Trim(), Name = dto.Name, Active = false };
+                _db.UserRoles.RemoveRange(existing.UserRoles ?? Enumerable.Empty<UserRole>());
+                _db.ActivationTokens.RemoveRange(existing.ActivationTokens ?? Enumerable.Empty<ActivationToken>());
+
+                existing.Name = dto.Name;
+                existing.Active = false;
+                _db.AppUsers.Update(existing);
+                await _db.SaveChangesAsync();
+
+                if (dto.RoleId.HasValue)
+                {
+                    var role = await _db.Roles.FindAsync(dto.RoleId.Value);
+                    if (role != null)
+                    {
+                        var error = await TryReplaceRoles(existing, new List<Role> { role });
+                        if (error != null) return error;
+                    }
+                }
+
+                return CreatedAtAction(nameof(GetUsers), new { id = existing.Id }, new { existing.Id, existing.Email, existing.Name, existing.Active });
+            }
+
+            var user = new AppUser { Email = normalizedEmail, Name = dto.Name, Active = false };
             _db.AppUsers.Add(user);
             await _db.SaveChangesAsync();
 
@@ -181,10 +217,16 @@ namespace TodoApi.Controllers
                 .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
+            if (user.Active)
+            {
+                return BadRequest(new { message = "Utilizador já ativo. Os links de ativação apenas são necessários no primeiro acesso." });
+            }
+
             var hasAnyRole = user.UserRoles.Any(ur => ur.Role != null && ur.Role.Active);
             if (!hasAnyRole) return BadRequest(new { message = "user must have at least one active role" });
 
             var result = await _activationLinks.CreateAndSendAsync(user);
+            if (result == null) return BadRequest(new { message = "unable to create activation link for this user" });
             return Ok(new { expiresAtUtc = result.ExpiresAtUtc, link = result.Link });
         }
 
@@ -193,7 +235,10 @@ namespace TodoApi.Controllers
         public async Task<IActionResult> DeleteUser(int id)
         {
             if (!CallerIsAdmin()) return Forbid();
-            var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
+            var user = await _db.AppUsers
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .Include(u => u.ActivationTokens)
+                .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
             // Prefer soft-deactivate
@@ -207,8 +252,17 @@ namespace TodoApi.Controllers
                 if (!otherAdmins.Any()) return BadRequest(new { message = "cannot remove the last active admin" });
             }
 
-            user.Active = false;
-            _db.AppUsers.Update(user);
+            if (!user.Active)
+            {
+                _db.ActivationTokens.RemoveRange(user.ActivationTokens ?? Enumerable.Empty<ActivationToken>());
+                _db.UserRoles.RemoveRange(user.UserRoles ?? Enumerable.Empty<UserRole>());
+                _db.AppUsers.Remove(user);
+            }
+            else
+            {
+                user.Active = false;
+                _db.AppUsers.Update(user);
+            }
             await _db.SaveChangesAsync();
             return NoContent();
         }
@@ -216,6 +270,7 @@ namespace TodoApi.Controllers
         private async Task<IActionResult?> TryReplaceRoles(AppUser user, List<Role> newRoles)
         {
             var existingRoles = user.UserRoles?.ToList() ?? new List<UserRole>();
+            var hadActiveRoles = existingRoles.Any(ur => ur.Role != null && ur.Role.Active);
             var userWasAdmin = existingRoles.Any(ur => ur.Role != null && ur.Role.Name == "Admin" && ur.Role.Active);
             var willRemainAdmin = newRoles.Any(r => r.Name == "Admin" && r.Active);
 
@@ -236,20 +291,54 @@ namespace TodoApi.Controllers
             {
                 _db.UserRoles.Add(new UserRole { AppUserId = user.Id, RoleId = role.Id });
             }
+
+            var summary = string.Join(", ", newRoles.Select(r => r.Name));
+            user.LastRoleChangeSummary = string.IsNullOrWhiteSpace(summary) ? null : summary;
+            user.LastRoleChangeSentUtc = null;
+            user.LastRoleChangeConfirmedUtc = null;
+
             await _db.SaveChangesAsync();
 
-            await TriggerActivationIfNeeded(user, existingRoles, newRoles);
+            if (!user.Active)
+            {
+                await TriggerActivationIfNeeded(user, hadActiveRoles, newRoles.Any(r => r.Active));
+            }
             return null;
         }
 
-        private async Task TriggerActivationIfNeeded(AppUser user, IReadOnlyCollection<UserRole> previousRoles, IReadOnlyCollection<Role> newRoles)
+        private async Task TriggerActivationIfNeeded(AppUser user, bool hadActiveRoles, bool hasActiveRolesNow)
         {
-            var hadActiveRoles = previousRoles.Any(ur => ur.Role != null && ur.Role.Active);
-            var hasActiveRolesNow = newRoles.Any(r => r.Active);
             if (!hadActiveRoles && hasActiveRolesNow && !user.Active)
             {
                 await _activationLinks.CreateAndSendAsync(user);
             }
+        }
+
+        // POST /admin/users/{id}/role-change-links
+        [HttpPost("users/{id}/role-change-links")]
+        public async Task<IActionResult> SendRoleChangeLink(int id)
+        {
+            if (!CallerIsAdmin()) return Forbid();
+            var user = await _db.AppUsers
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .FirstOrDefaultAsync(u => u.Id == id);
+            if (user == null) return NotFound();
+
+            if (!user.Active) return BadRequest(new { message = "user must be active to receive role change notifications" });
+
+            var roles = user.UserRoles?
+                .Where(ur => ur.Role != null && ur.Role.Active)
+                .Select(ur => ur.Role!)
+                .ToList() ?? new List<Role>();
+
+            if (roles.Count == 0) return BadRequest(new { message = "user must have at least one active role" });
+
+            await _activationLinks.SendRoleChangeNotificationAsync(user, roles);
+            return Ok(new
+            {
+                sentUtc = user.LastRoleChangeSentUtc,
+                summary = user.LastRoleChangeSummary
+            });
         }
     }
 }
