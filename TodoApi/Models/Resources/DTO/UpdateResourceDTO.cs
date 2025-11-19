@@ -5,7 +5,7 @@ namespace TodoApi.Models.Resources
     public class UpdateResourceDTO
     {
         [Required]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         [Required]
         [Range(0.1, double.MaxValue, ErrorMessage = "Operational capacity must be positive")]
