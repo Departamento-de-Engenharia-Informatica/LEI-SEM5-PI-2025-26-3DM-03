@@ -1,4 +1,4 @@
-ï»¿import { AfterViewInit, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, NgZone, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as THREE from 'three';
 import {
@@ -11,6 +11,7 @@ import {
   ProceduralTextureDescriptor,
 } from '../../../services/visualization/port-layout.service';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 type VesselPalette = {
   hull: number;
@@ -33,6 +34,14 @@ type DockMaterialSet = {
   side: THREE.MeshStandardMaterial;
   bottom: THREE.MeshStandardMaterial;
   trim: THREE.MeshStandardMaterial;
+};
+
+type ContainerHotspot = {
+  id: string;
+  object: THREE.Object3D;
+  worldPosition: THREE.Vector3;
+  stackLevel: number;
+  locationLabel: string;
 };
 
 @Component({
@@ -221,24 +230,53 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     { hull: 0x0b4f6c, deck: 0xf5f0e1, accent: 0xf4a259, cabin: 0xffffff },
     { hull: 0x274060, deck: 0xe9f1ff, accent: 0x4ecdc4, cabin: 0xfffbe6 },
   ];
+  private gltfLoader = new GLTFLoader();
+  // cache para não carregar o modelo muitas vezes
+  private containerStackPrototype?: THREE.Group;
+  private containerStackLoading?: Promise<THREE.Group>;
+  private platform?: THREE.Mesh;
+  private readonly portModelUrls = [
+    'assets/models/port-yard.glb',
+    'assets/models/untitled.glb',
+  ];
+  private readonly portModelTargetSpan = 3200;
+  private readonly portModelVerticalOffset = 10;
+  private portModel?: THREE.Group;
+  private raycaster = new THREE.Raycaster();
+  private pointer = new THREE.Vector2();
+  private containerMeshes: THREE.Mesh[] = [];
+  private containerLookup = new Map<THREE.Object3D, ContainerHotspot>();
+  private hoverOutline?: THREE.BoxHelper;
+  private selectionOutline?: THREE.BoxHelper;
+  public selectedContainer?: ContainerHotspot;
+  public hoveredContainer?: ContainerHotspot;
+  public totalContainers = 0;
+  public featuredContainers: ContainerHotspot[] = [];
+  private containerHotspots: ContainerHotspot[] = [];
+  private stagedContainers: { object: THREE.Object3D; stackLevelHint?: number }[] = [];
+  private glbContainerObjects: THREE.Object3D[] = [];
+  private baseSceneBuilt = false;
+  private pointerEventsAttached = false;
+  private readonly pointerMoveHandler = (event: PointerEvent) => this.onPointerMove(event);
+  private readonly pointerClickHandler = (event: MouseEvent) => this.onPointerClick(event);
 
-  constructor(private layoutApi: PortLayoutService) {}
+  constructor(private layoutApi: PortLayoutService, private zone: NgZone) {}
 
   ngAfterViewInit(): void {
     this.initThree();
-    this.layoutApi.getLayout().subscribe({
-      next: (layout) => this.buildFromLayout(layout),
-      error: (err) => {
-        console.error('[PortScene] failed to load layout', err);
-        this.buildFallback();
-      },
-    });
+    this.attachPointerEvents();
+    // Construção simplificada: plataforma + stacks GLB
+    this.buildSimplePlatformWithGlbStacks();
+    return;
   }
 
   ngOnDestroy(): void {
     if (this.animationId !== null) cancelAnimationFrame(this.animationId);
     this.controls?.dispose();
     this.renderer?.dispose();
+    this.detachPointerEvents();
+    if (this.hoverOutline) this.scene.remove(this.hoverOutline);
+    if (this.selectionOutline) this.scene.remove(this.selectionOutline);
     this.containerGeometry.dispose();
     this.containerMaterials.forEach((mat) => mat.dispose());
     this.yardStripeMaterial.dispose();
@@ -269,6 +307,93 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.resetGeneratedAssets();
   }
 
+  // Cena simplificada: plataforma plana e alguns stacks GLB em cima
+  private buildSimplePlatformWithGlbStacks() {
+    this.resetGeneratedAssets();
+    this.resetContainerTracking();
+
+    // Luz ambiente já criada em initThree(). Aqui criamos uma plataforma simples.
+    const platformSize = new THREE.Vector2(1200, 700);
+    const platformGeo = new THREE.BoxGeometry(platformSize.x, 6, platformSize.y);
+    const platformMat = new THREE.MeshStandardMaterial({ color: 0xa9b4c2, roughness: 0.85, metalness: 0.05 });
+    const platform = new THREE.Mesh(platformGeo, platformMat);
+    platform.position.set(0, -3, 0);
+    platform.castShadow = false;
+    platform.receiveShadow = true;
+    this.scene.add(platform);
+    this.platform = platform;
+
+    // Grid leve opcional para referência visual
+    if (this.showDebugHelpers) {
+      const grid = new THREE.GridHelper(Math.max(platformSize.x, platformSize.y), 20, 0x666666, 0xbbbbbb);
+      grid.position.y = 0.05;
+      this.scene.add(grid);
+    }
+
+    // Posiciona a câmara a enquadrar a plataforma
+    const dist = platformSize.x * 0.9;
+    this.controls.target.set(0, 0, 0);
+    this.camera.position.set(-dist, dist * 0.6, dist * 0.7);
+    this.camera.far = Math.max(this.camera.far, dist * 6);
+    this.camera.updateProjectionMatrix();
+    this.camera.lookAt(this.controls.target);
+
+    // Carrega o GLB e espalha alguns stacks numa grelha 3x2
+    this.getContainerStackPrototype()
+      .then((proto) => {
+        const rows = 2;
+        const cols = 3;
+        const marginX = 420; // espaçamento entre stacks (para stacks maiores)
+        const marginZ = 480;
+        const startX = -((cols - 1) * marginX) / 2;
+        const startZ = -((rows - 1) * marginZ) / 2;
+        const baseY = 0; // topo da plataforma
+
+        // Calcula a pegada (footprint) do protótipo para ajustar a área da plataforma
+        const protoBox = new THREE.Box3().setFromObject(proto);
+        const protoSize = new THREE.Vector3();
+        protoBox.getSize(protoSize);
+        const totalW = cols * protoSize.x + (cols - 1) * marginX;
+        const totalD = rows * protoSize.z + (rows - 1) * marginZ;
+        const pad = 200; // margem extra em torno
+        const targetW = totalW + pad;
+        const targetD = totalD + pad;
+        if (this.platform) {
+          const baseW = (platform.geometry as THREE.BoxGeometry).parameters.width;
+          const baseD = (platform.geometry as THREE.BoxGeometry).parameters.depth;
+          this.platform.scale.x = targetW / baseW;
+          this.platform.scale.z = targetD / baseD;
+        }
+        // Reajusta câmara para cobrir a nova plataforma
+        const cover = Math.max(targetW, targetD);
+        const newDist = cover * 0.9;
+        this.controls.target.set(0, 0, 0);
+        this.camera.position.set(-newDist, newDist * 0.6, newDist * 0.7);
+        this.camera.far = Math.max(this.camera.far, newDist * 6);
+        this.camera.updateProjectionMatrix();
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const clone = proto.clone(true);
+            clone.position.set(startX + c * marginX, baseY, startZ + r * marginZ);
+            // pequenas variações para naturalidade
+            clone.rotation.y = (c % 2 === 0 ? 1 : -1) * 0.04;
+            this.scene.add(clone);
+            this.markContainer(clone, 3);
+          }
+        }
+        this.finalizeContainerTracking(true);
+        this.baseSceneBuilt = true;
+        this.animate();
+      })
+      .catch((err) => {
+        console.error('[PortScene] falha ao carregar GLB para plataforma', err);
+        // Mesmo sem GLB, arranca render para ver plataforma
+        this.baseSceneBuilt = true;
+        this.animate();
+      });
+  }
+
   private get canvas(): HTMLCanvasElement {
     return this.canvasRef.nativeElement;
   }
@@ -291,6 +416,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = this.toneMappingExposure;
+    this.canvas.style.cursor = 'grab';
 
     // Basic lights (helps later US 3.3.5)
   const ambient = new THREE.AmbientLight(0xffffff, 0.4);
@@ -316,7 +442,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   sunDisk.position.copy(dir.position).setLength(3600);
     this.scene.add(sunDisk);
 
-  // Luz secundÃƒÂ¡ria suave para preencher sombras
+  // Luz secundÃ¡ria suave para preencher sombras
   const fill = new THREE.DirectionalLight(0xffffff, 0.25);
   fill.position.set(1200, 700, -800);
   this.scene.add(fill);
@@ -338,14 +464,16 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     console.log('[PortScene] layout recebido', layout);
     const sceneLayout = this.hasSceneContent(layout) ? layout : this.createDemoLayout();
     if (sceneLayout !== layout) {
-      console.info('[PortScene] usando layout demonstrativo enquanto nÃƒÂ£o existem dados reais');
+      console.info('[PortScene] usando layout demonstrativo enquanto nÃ£o existem dados reais');
     }
     this.resetGeneratedAssets();
+    this.resetContainerTracking();
+    this.baseSceneBuilt = false;
     this.addBackdropElements(sceneLayout);
     // CENA BASE
     // ----------
 
-    // --- ÃƒÂGUA (com ondulaÃƒÂ§ÃƒÂ£o) ---
+    // --- ÃGUA (com ondulaÃ§Ã£o) ---
     const segs = 200;
     this.waterGeom = new THREE.PlaneGeometry(sceneLayout.water.width, sceneLayout.water.height, segs, segs);
     this.waterBase = (this.waterGeom.attributes['position'].array as Float32Array).slice(0);
@@ -371,10 +499,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     water.receiveShadow = true;
     this.scene.add(water);
 
-    // --- MATERIAIS DE BETÃƒO / ASFALTO ---
+    // --- MATERIAIS DE BETÃO / ASFALTO ---
     const dockMaterialSet = this.createDockMaterialSet(sceneLayout.materials?.dock);
 
-    // Asfalto principal dos yards: base color + ruÃ­do para variaÃ§Ã£o
+    // Asfalto principal dos yards: base color + ruído para variação
     const yardBasePrimary = '#d4dae4';
     const yardBaseSecondary = '#b5bdc9';
     const yardTex = this.createProceduralTexture(
@@ -417,10 +545,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       metalness: 0.01,
     });
 
-    // 1) ZONAS DE TERRA (yards / Ã¢â‚¬Å“porto em siÃ¢â‚¬Â, ainda sem contentores)
+    // 1) ZONAS DE TERRA (yards / â€œporto em siâ€, ainda sem contentores)
     // ---------------------------------------------------------------
     for (const a of sceneLayout.landAreas) {
-      const height = 6; // espessura da placa de betÃƒÂ£o/asfalto
+      const height = 6; // espessura da placa de betÃ£o/asfalto
       const geo = new THREE.BoxGeometry(a.width, height, a.depth);
       const mats: THREE.Material[] = [
         yardSideMat,  // +x
@@ -440,7 +568,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.addYardLighting(a, a.y + height);
     }
 
-    // 2.b) ArmazÃƒÂ©ns (StorageAreaType.Warehouse -> volumes fechados)
+    // 2.b) ArmazÃ©ns (StorageAreaType.Warehouse -> volumes fechados)
     for (const w of sceneLayout.warehouses ?? []) {
       const geo = new THREE.BoxGeometry(w.size.width, w.size.height, w.size.depth);
       const mats: THREE.Material[] = [
@@ -460,7 +588,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(mesh);
     }
 
-    // 2) CAIS PRINCIPAIS (docks junto ÃƒÂ  ÃƒÂ¡gua)
+    // 2) CAIS PRINCIPAIS (docks junto Ã  Ã¡gua)
     // --------------------------------------
     let firstDockCenter: THREE.Vector3 | null = null;
 
@@ -471,7 +599,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       }
     }
 
-    // 3) CÃƒâ€šMARA APONTADA PARA O PORTO
+    // 3) CÃ‚MARA APONTADA PARA O PORTO
     // -------------------------------
     if (firstDockCenter) {
       this.framePort(firstDockCenter, sceneLayout);
@@ -486,7 +614,322 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(grid);
     }
 
+    this.queueModelContainers();
+    this.finalizeContainerTracking(true);
+    this.baseSceneBuilt = true;
     this.animate();
+  }
+
+  private attachPointerEvents() {
+    if (this.pointerEventsAttached) return;
+    this.pointerEventsAttached = true;
+    this.zone.runOutsideAngular(() => {
+      this.canvas.addEventListener('pointermove', this.pointerMoveHandler);
+      this.canvas.addEventListener('click', this.pointerClickHandler);
+    });
+  }
+
+  private detachPointerEvents() {
+    if (!this.pointerEventsAttached) return;
+    this.pointerEventsAttached = false;
+    this.canvas.removeEventListener('pointermove', this.pointerMoveHandler);
+    this.canvas.removeEventListener('click', this.pointerClickHandler);
+  }
+
+  private onPointerMove(event: PointerEvent) {
+    if (!this.camera) return;
+    this.updatePointer(event);
+    const hovered = this.findContainerIntersection();
+    if ((hovered?.id ?? null) !== (this.hoveredContainer?.id ?? null)) {
+      this.zone.run(() => {
+        this.hoveredContainer = hovered;
+      });
+    }
+    if (!this.selectedContainer || hovered?.id !== this.selectedContainer.id) {
+      this.updateHoverOutline(hovered?.object);
+    } else {
+      this.updateHoverOutline(undefined);
+    }
+    this.canvas.style.cursor = hovered ? 'pointer' : 'grab';
+  }
+
+  private onPointerClick(event: MouseEvent) {
+    if (!this.camera) return;
+    this.updatePointer(event);
+    const picked = this.findContainerIntersection();
+    this.zone.run(() => this.setSelectedContainer(picked));
+  }
+
+  public focusContainer(container: ContainerHotspot) {
+    this.setSelectedContainer(container);
+  }
+
+  private setSelectedContainer(container?: ContainerHotspot) {
+    this.selectedContainer = container;
+    this.updateSelectionOutline(container?.object);
+    if (container) {
+      this.focusCameraOn(container);
+    }
+  }
+
+  private focusCameraOn(container: ContainerHotspot) {
+    if (!this.controls || !this.camera) return;
+    const target = this.getObjectCenter(container.object, container.worldPosition);
+    this.controls.target.copy(target);
+    const cameraOffset = this.camera.position.clone().sub(target);
+    const distance = cameraOffset.length();
+    const desired = Math.max(180, distance * 0.65);
+    cameraOffset.setLength(desired);
+    const newPosition = target.clone().add(cameraOffset);
+    this.camera.position.copy(newPosition);
+    this.controls.update();
+  }
+
+  private getObjectCenter(object: THREE.Object3D, fallback?: THREE.Vector3): THREE.Vector3 {
+    const box = new THREE.Box3().setFromObject(object);
+    if (!box.isEmpty() && Number.isFinite(box.min.x)) {
+      return box.getCenter(new THREE.Vector3());
+    }
+    if (fallback) {
+      return fallback.clone();
+    }
+    const position = new THREE.Vector3();
+    object.getWorldPosition(position);
+    return position;
+  }
+
+  private updatePointer(event: PointerEvent | MouseEvent) {
+    const rect = this.canvas.getBoundingClientRect();
+    this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  }
+
+  private findContainerIntersection(): ContainerHotspot | undefined {
+    if (!this.containerMeshes.length) return undefined;
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const intersections = this.raycaster.intersectObjects(this.containerMeshes, false);
+    if (!intersections.length) return undefined;
+    const mesh = intersections[0].object;
+    return this.containerLookup.get(mesh) ?? undefined;
+  }
+
+  private updateHoverOutline(target?: THREE.Object3D) {
+    if (!target) {
+      if (this.hoverOutline) this.hoverOutline.visible = false;
+      return;
+    }
+    if (!this.hoverOutline) {
+      this.hoverOutline = new THREE.BoxHelper(target, 0xffffff);
+      this.scene.add(this.hoverOutline);
+    } else {
+      this.hoverOutline.setFromObject(target);
+      this.hoverOutline.visible = true;
+    }
+  }
+
+  private updateSelectionOutline(target?: THREE.Object3D) {
+    if (!target) {
+      if (this.selectionOutline) this.selectionOutline.visible = false;
+      return;
+    }
+    if (!this.selectionOutline) {
+      this.selectionOutline = new THREE.BoxHelper(target, 0x06d6a0);
+      this.scene.add(this.selectionOutline);
+    } else {
+      this.selectionOutline.setFromObject(target);
+      this.selectionOutline.visible = true;
+    }
+  }
+
+  private finalizeContainerTracking(clearExisting = false) {
+    this.scene.updateMatrixWorld(true);
+    if (clearExisting) {
+      this.containerMeshes = [];
+      this.containerLookup.clear();
+      this.containerHotspots = [];
+      this.totalContainers = 0;
+      this.featuredContainers = [];
+      this.hoveredContainer = undefined;
+      this.selectedContainer = undefined;
+      this.updateHoverOutline(undefined);
+      this.updateSelectionOutline(undefined);
+    }
+    let index = this.containerHotspots.length + 1;
+    const tempBox = new THREE.Box3();
+    for (const entry of this.stagedContainers) {
+      const target = entry.object;
+      if (!target) continue;
+      tempBox.setFromObject(target);
+      let worldPosition = new THREE.Vector3();
+      if (!Number.isFinite(tempBox.min.x) || tempBox.isEmpty()) {
+        target.getWorldPosition(worldPosition);
+      } else {
+        tempBox.getCenter(worldPosition);
+      }
+      const meshes: THREE.Mesh[] = [];
+      target.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          meshes.push(child);
+        }
+      });
+      if (!meshes.length && target instanceof THREE.Mesh) {
+        meshes.push(target);
+      }
+      if (!meshes.length) {
+        continue;
+      }
+      const id = `CNT-${index.toString().padStart(3, '0')}`;
+      const stackLevel = entry.stackLevelHint ?? Math.max(1, Math.round(worldPosition.y / 14));
+      const hotspot: ContainerHotspot = {
+        id,
+        object: target,
+        worldPosition: worldPosition.clone(),
+        stackLevel,
+        locationLabel: `X ${worldPosition.x.toFixed(0)} | Y ${worldPosition.y.toFixed(0)} | Z ${worldPosition.z.toFixed(0)}`,
+      };
+      meshes.forEach((mesh) => {
+        this.containerMeshes.push(mesh);
+        this.containerLookup.set(mesh, hotspot);
+      });
+      this.containerHotspots.push(hotspot);
+      index++;
+    }
+    this.totalContainers = this.containerHotspots.length;
+    this.featuredContainers = this.containerHotspots.slice(0, 4);
+    this.stagedContainers = [];
+  }
+
+  private loadReferenceModel() {
+    const tryUrls = [...this.portModelUrls];
+    const loadNext = () => {
+      const url = tryUrls.shift();
+      if (!url) {
+        console.error('[PortScene] falha ao carregar modelo GLB (todas as fontes tentadas)');
+        return;
+      }
+      this.gltfLoader.load(
+        url,
+        (gltf) => {
+        this.portModel = gltf.scene;
+        this.normalizePortModel(this.portModel);
+        this.portModel.traverse((obj) => {
+          if (!(obj instanceof THREE.Mesh)) return;
+          obj.castShadow = true;
+          obj.receiveShadow = true;
+        });
+        this.scene.add(this.portModel);
+        this.glbContainerObjects = this.extractModelContainers(this.portModel);
+        if (this.baseSceneBuilt) {
+          this.queueModelContainers();
+          this.finalizeContainerTracking();
+        }
+        },
+        undefined,
+        (error) => {
+          console.warn('[PortScene] falha ao carregar', url, error);
+          loadNext();
+        }
+      );
+    };
+    loadNext();
+  }
+
+  // Helper para carregar e manter em cache o modelo de stack de contentores (untitled.glb)
+  private getContainerStackPrototype(): Promise<THREE.Group> {
+    if (this.containerStackPrototype) {
+      return Promise.resolve(this.containerStackPrototype);
+    }
+
+    if (!this.containerStackLoading) {
+      this.containerStackLoading = new Promise((resolve, reject) => {
+        const tryUrls = [...this.portModelUrls];
+        const loadNext = () => {
+          const url = tryUrls.shift();
+          if (!url) {
+            reject(new Error('Sem URL válido para GLB'));
+            return;
+          }
+          this.gltfLoader.load(
+            url,
+            (gltf) => {
+              const root = gltf.scene;
+              root.traverse((obj: THREE.Object3D) => {
+                const mesh = obj as THREE.Mesh;
+                if ((mesh as any).isMesh) {
+                  mesh.castShadow = true;
+                  mesh.receiveShadow = true;
+                }
+              });
+              // Normalização de escala/posição: ajusta para max ~600 e apoia em y=0
+              const box = new THREE.Box3().setFromObject(root);
+              const size = new THREE.Vector3();
+              box.getSize(size);
+              const maxDim = Math.max(size.x, size.y, size.z) || 1;
+              const target = 600; // alvo do maior lado (stacks bem maiores)
+              const scale = target / maxDim;
+              root.scale.setScalar(scale);
+              root.updateMatrixWorld(true);
+              const box2 = new THREE.Box3().setFromObject(root);
+              const center = new THREE.Vector3();
+              box2.getCenter(center);
+              root.position.x -= center.x;
+              root.position.z -= center.z;
+              root.position.y -= box2.min.y; // assenta na plataforma (y=0)
+
+              this.containerStackPrototype = root;
+              resolve(root);
+            },
+            undefined,
+            (err) => {
+              console.warn('[PortScene] erro a carregar GLB', url, err);
+              loadNext();
+            }
+          );
+        };
+        loadNext();
+      });
+    }
+
+    return this.containerStackLoading;
+  }
+
+  private normalizePortModel(root: THREE.Object3D) {
+    const targetSpan = this.portModelTargetSpan;
+    const tempBox = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    tempBox.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = targetSpan / maxDim;
+    root.scale.setScalar(scale);
+    root.updateMatrixWorld(true);
+    const scaledBox = new THREE.Box3().setFromObject(root);
+    const center = new THREE.Vector3();
+    scaledBox.getCenter(center);
+    root.position.sub(center);
+    root.position.y -= scaledBox.min.y;
+    root.position.y += this.portModelVerticalOffset;
+  }
+
+  private extractModelContainers(root: THREE.Object3D): THREE.Object3D[] {
+    const matches: THREE.Object3D[] = [];
+    root.traverse((obj) => {
+      if (this.isGlbContainerNode(obj)) {
+        matches.push(obj);
+      }
+    });
+    return matches;
+  }
+
+  private isGlbContainerNode(obj: THREE.Object3D): boolean {
+    const name = obj.name?.toLowerCase() ?? '';
+    if (!name || !name.includes('container')) {
+      return false;
+    }
+    const parentName = obj.parent?.name?.toLowerCase() ?? '';
+    if (parentName.includes('container')) {
+      return false;
+    }
+    return true;
   }
 
   private buildDock(dock: DockLayout, dockMaterials: DockMaterialSet): THREE.Vector3 {
@@ -511,7 +954,39 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.addDockFenders(dock);
     this.decorateDock(dock, dockMaterials);
 
+    // Adiciona automaticamente alguns stacks GLB de contentores nesta dock
+    this.addGlbContainerStacksForDock(dock);
+
     return new THREE.Vector3(dock.position.x, dock.position.y, dock.position.z);
+  }
+
+  // Coloca alguns stacks GLB de contentores ao longo da dock (na zona de buffer)
+  private addGlbContainerStacksForDock(dock: DockLayout) {
+    const bands = this.computeDockBands(dock);
+    const groundY = dock.size.height + 0.2;
+    const stacksCount = Math.max(3, Math.floor(dock.size.length / 180)); // ~um stack por 180 de comprimento
+    const usableLength = dock.size.length * 0.8; // evita extremos
+    const startX = -usableLength / 2;
+    const stepX = usableLength / Math.max(1, stacksCount - 1);
+
+    this.getContainerStackPrototype()
+      .then((proto) => {
+        for (let i = 0; i < stacksCount; i++) {
+          const localX = startX + i * stepX;
+          // alterna levemente no eixo Z dentro da banda de buffer
+          const jitterZ = (i % 2 === 0 ? -1 : 1) * Math.min(4, bands.bufferWidth * 0.2);
+          const localZ = bands.bufferZ + jitterZ;
+
+          const clone = proto.clone(true);
+          clone.position.copy(this.relativeToDock(dock, new THREE.Vector3(localX, groundY, localZ)));
+          clone.rotation.y = dock.rotationY;
+          this.scene.add(clone);
+
+          this.markContainer(clone, 3);
+          this.finalizeContainerTracking();
+        }
+      })
+      .catch((err) => console.error('[PortScene] falha ao obter protótipo de stack GLB', err));
   }
 
   private hasSceneContent(layout: PortLayoutDTO): boolean {
@@ -526,10 +1001,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     return {
       units: 'meters',
 
-      // Espelho de Ã¡gua amplo e porto encostado a um lado
+      // Espelho de água amplo e porto encostado a um lado
       water: { width: 3600, height: 2200, y: -2 },
 
-      // Placas principais do yard atrÃ¡s do cais
+      // Placas principais do yard atrás do cais
       landAreas: [
         {
           storageAreaId: 1001,
@@ -551,7 +1026,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
         },
       ],
 
-      // Um Ãºnico terminal enorme paralelo ao mar
+      // Um único terminal enorme paralelo ao mar
       docks: [
         {
           dockId: 1,
@@ -562,7 +1037,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
         },
       ],
 
-      // ArmazÃ©ns alinhados mais atrÃ¡s
+      // Armazéns alinhados mais atrás
       warehouses: [
         {
           storageAreaId: 2001,
@@ -673,6 +1148,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           container.castShadow = true;
           container.receiveShadow = true;
           this.scene.add(container);
+          this.markContainer(container, level + 1);
         }
         placed++;
         if (placed > 80) {
@@ -687,6 +1163,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.generatedTextures.forEach((tex) => tex.dispose());
     this.generatedMaterials = [];
     this.generatedTextures = [];
+  }
+
+  private resetContainerTracking() {
+    this.containerMeshes = [];
+    this.containerLookup.clear();
+    this.containerHotspots = [];
+    this.stagedContainers = [];
+    this.totalContainers = 0;
+    this.featuredContainers = [];
+    this.hoveredContainer = undefined;
+    this.selectedContainer = undefined;
+    this.updateHoverOutline(undefined);
+    this.updateSelectionOutline(undefined);
   }
 
   private computeDockBands(dock: DockLayout): DockBandInfo {
@@ -705,6 +1194,17 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     const bufferZ = quayZ + quayWidth / 2 + bufferWidth / 2;
     const roadZ = dock.size.width / 2 - roadWidth / 2 - 2;
     return { quayWidth, roadWidth, bufferWidth, quayZ, bufferZ, roadZ };
+  }
+
+  private markContainer(object: THREE.Object3D, stackLevelHint?: number) {
+    this.stagedContainers.push({ object, stackLevelHint });
+  }
+
+  private queueModelContainers() {
+    if (!this.glbContainerObjects.length) return;
+    for (const obj of this.glbContainerObjects) {
+      this.markContainer(obj);
+    }
   }
 
   private createDockMaterialSet(desc?: DockMaterialDTO): DockMaterialSet {
@@ -1221,6 +1721,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       container.castShadow = true;
       container.receiveShadow = true;
       group.add(container);
+      this.markContainer(container, i + 1);
     }
 
     const topper = new THREE.Mesh(
@@ -1231,6 +1732,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     topper.position.set(0, blocks * 14, 0);
     topper.castShadow = topper.receiveShadow = true;
     group.add(topper);
+    this.markContainer(topper, blocks + 1);
 
     return group;
   }
@@ -1538,6 +2040,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       mini.castShadow = true;
       mini.receiveShadow = true;
       group.add(mini);
+      this.markContainer(mini, 1);
     }
 
     return group;
@@ -1631,7 +2134,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   };
 
   private framePort(center: THREE.Vector3, layout: PortLayoutDTO) {
-    // Ajusta a cÃƒÂ¢mara para enquadrar principal cais considerando comprimento
+    // Ajusta a cÃ¢mara para enquadrar principal cais considerando comprimento
     const length = layout.docks[0]?.size.length || 1000;
     const dist = length * this.orbitDistanceFactor;
     this.controls.target.copy(center);
@@ -1645,6 +2148,8 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.camera.lookAt(this.controls.target);
   }
 }
+
+
 
 
 

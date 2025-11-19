@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Models;
 using TodoApi.Domain.Repositories;
@@ -533,7 +535,7 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
-    await context.Database.MigrateAsync();
+    await EnsureDatabaseMigratedAsync(context, app.Environment);
 
     try
     {
@@ -621,3 +623,21 @@ using (var scope = app.Services.CreateScope())
 // Run the application
 // =====================================================
 app.Run();
+
+static async Task EnsureDatabaseMigratedAsync(PortContext context, IWebHostEnvironment environment)
+{
+    try
+    {
+        await context.Database.MigrateAsync();
+    }
+    catch (SqliteException ex) when (environment.IsDevelopment() && IsDuplicateTableError(ex))
+    {
+        Console.WriteLine("[PortContext] SQLite schema already exists but migrations were not recorded. Resetting local database...");
+        await context.Database.EnsureDeletedAsync();
+        await context.Database.MigrateAsync();
+    }
+}
+
+static bool IsDuplicateTableError(SqliteException ex) =>
+    ex.SqliteErrorCode == 1 &&
+    ex.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase);

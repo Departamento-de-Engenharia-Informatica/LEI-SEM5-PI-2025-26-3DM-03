@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading;
 using TodoApi.Models.Qualifications;
@@ -305,8 +307,25 @@ namespace TodoApi.Models
                         v => SerializeDictIntDouble(v),
                         v => DeserializeDictIntDouble(v));
 
-                    entity.Property(sa => sa.ServedDockIds).HasConversion(listConverter);
-                    entity.Property(sa => sa.DockDistances).HasConversion(dictConverter);
+                    var listComparer = new ValueComparer<List<int>>(
+                        (a, b) => a != null && b != null && a.SequenceEqual(b),
+                        v => v == null ? 0 : v.Aggregate(0, (acc, x) => HashCode.Combine(acc, x.GetHashCode())),
+                        v => v == null ? new List<int>() : v.ToList());
+
+                    var dictComparer = new ValueComparer<Dictionary<int, double>>(
+                        (a, b) => a != null && b != null &&
+                                   a.OrderBy(kv => kv.Key).SequenceEqual(b.OrderBy(kv => kv.Key)),
+                        v => v == null ? 0 : v.OrderBy(kv => kv.Key)
+                                        .Aggregate(0, (acc, kv) => HashCode.Combine(acc, kv.Key.GetHashCode(), kv.Value.GetHashCode())),
+                        v => v == null ? new Dictionary<int, double>() : v.ToDictionary(kv => kv.Key, kv => kv.Value));
+
+                    entity.Property(sa => sa.ServedDockIds)
+                        .HasConversion(listConverter)
+                        .Metadata.SetValueComparer(listComparer);
+
+                    entity.Property(sa => sa.DockDistances)
+                        .HasConversion(dictConverter)
+                        .Metadata.SetValueComparer(dictComparer);
                 });
             // =======================
             //   Dados iniciais (seeding)
@@ -421,7 +440,8 @@ namespace TodoApi.Models
                 new { Id = 2, Name = "ExternalIamProvider", Active = true },
                 new { Id = 3, Name = "PortAuthorityOfficer", Active = true },
                 new { Id = 4, Name = "ShippingAgentRepresentative", Active = true },
-                new { Id = 5, Name = "LogisticsOperator", Active = true }
+                new { Id = 5, Name = "LogisticsOperator", Active = true },
+                new { Id = 6, Name = "SystemUser", Active = true }
             );
 
             // Optional: seed a sample admin user for local testing (email must match the authenticated Google email used for tests)
