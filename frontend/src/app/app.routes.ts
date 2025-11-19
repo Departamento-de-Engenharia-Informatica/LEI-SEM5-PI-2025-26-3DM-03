@@ -3,6 +3,8 @@ import { Cube } from './components/visualization/cube/cube.component';
 import { PortSceneComponent } from './components/visualization/port-scene/port-scene.component';
 import { WarehouseComponent } from './components/visualization/warehouse/warehouse.component';
 import { DockCraneComponent } from './components/visualization/crane/dockcrane.component';
+import { TruckComponent } from './components/visualization/truck/truck.component';
+import { CargoVesselComponent } from './components/visualization/vessel/cargo-vessel.component';
 import { AuthGuard } from './services/auth/auth.guard';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
@@ -40,6 +42,10 @@ export const routes: Routes = [
   { path: 'port', component: PortSceneComponent },
   // Standalone crane viewer
   { path: 'crane', component: DockCraneComponent },
+  // Truck GLB viewer
+  { path: 'truck', component: TruckComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  // Cargo vessel GLB viewer
+  { path: 'cargo-vessel', component: CargoVesselComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
 
   // Redirect root & wildcard to dashboard so every role has a landing page
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
