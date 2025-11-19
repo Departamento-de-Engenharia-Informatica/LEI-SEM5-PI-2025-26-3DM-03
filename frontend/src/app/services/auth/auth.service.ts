@@ -107,6 +107,7 @@ export class AuthService  {
       if (lower.includes('operator') || lower.includes('logistic')) return 'operator';
       if (lower.includes('agent') || lower.includes('representative')) return 'agent';
       if (lower.includes('authority') || lower.includes('port')) return 'authority';
+      if (lower.includes('system')) return 'system';
       // fallback: return lower-cased short token
       return lower;
     };
