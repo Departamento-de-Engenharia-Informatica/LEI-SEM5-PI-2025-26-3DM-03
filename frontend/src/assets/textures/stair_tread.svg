@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="plateBg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#8b949f"/>
+      <stop offset="1" stop-color="#6e757d"/>
+    </linearGradient>
+    <linearGradient id="ridgeFill" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#d0d5da"/>
+      <stop offset="0.5" stop-color="#7c848c"/>
+      <stop offset="1" stop-color="#2f3338"/>
+    </linearGradient>
+    <pattern id="diamondPattern" width="32" height="32" patternUnits="userSpaceOnUse" patternTransform="rotate(45 16 16)">
+      <path d="M8 16 L16 8 L24 16 L16 24 Z" fill="url(#ridgeFill)" stroke="#1c1e20" stroke-width="0.5" opacity="0.9"/>
+    </pattern>
+    <filter id="noise" x="0" y="0" width="1" height="1">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" fill="url(#plateBg)"/>
+  <rect width="256" height="256" fill="url(#diamondPattern)" opacity="0.9"/>
+  <rect width="256" height="256" filter="url(#noise)" opacity="0.35"/>
+</svg>

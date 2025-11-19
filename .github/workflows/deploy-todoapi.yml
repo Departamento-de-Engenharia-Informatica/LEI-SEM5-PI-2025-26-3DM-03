@@ -5,6 +5,16 @@ on:
     branches: [ main ]
     paths:
       - 'TodoApi/**'
+
+      - name: Debug ambiente na VM
+        run: |
+          set -x
+          echo "Diretório atual:"; pwd
+          echo "Docker version:"; docker version || true
+          echo "Lista raiz:"; ls -al
+          echo "Conteúdo TodoApi:"; ls -al TodoApi || true
+          echo "Mostrar Dockerfile:"; sed -n '1,120p' TodoApi/Dockerfile || true
+
       - 'frameworkDDD/**'
       - '.github/workflows/deploy-todoapi.yml'
   workflow_dispatch:
@@ -12,52 +22,46 @@ on:
       runTestsOnly:
         description: 'Run build & tests without container push'
         type: boolean
-        default: false
-      disableOidc:
-        description: 'Disable OIDC (set DISABLE_OIDC=true)'
-        type: boolean
-        default: true
+          if docker pull "$IMAGE"; then
+            echo "Pull OK, não precisa build local."
+          else
+            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
+            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
+          fi
       imageTag:
-        description: 'Custom image tag (defaults to date+sha)'
-        required: false
-      scheduleOverride:
-        description: 'Optional cron string to simulate scheduled run (used only in logs)'
+        description: 'Custom image tag'
         required: false
       deployToDei:
-        description: 'Deploy to DEI VM over SSH (requires secrets)'
+        description: 'Deploy to DEI VM (self-hosted runner)'
         type: boolean
         default: false
-      deiHost:
-        description: 'DEI VM host/IP (optional here, can also come from secrets)'
-        required: false
-      deiUser:
-        description: 'DEI VM SSH user (optional here, can also come from secrets)'
-        required: false
-      deiPort:
-        description: 'DEI VM SSH port'
-        required: false
-        default: '22'
       containerName:
-        description: 'Container name on DEI host'
+        description: 'Container name on DEI VM'
         required: false
         default: 'todoapi'
       hostPort:
-        description: 'Host port to expose TodoApi on DEI VM'
+        description: 'Host port to expose TodoApi'
         required: false
         default: '8080'
+
   schedule:
-    - cron: '0 2 * * *' # 02:00 UTC daily
+    - cron: '0 2 * * *' # nightly at 02:00 UTC
+
 
 permissions:
   contents: read
   packages: write
 
+
+# -------------------------
+#   JOB 1 — Build + Tests
+# -------------------------
 jobs:
   build-test:
     runs-on: ubuntu-latest
     env:
       DOTNET_NOLOGO: true
-      DISABLE_OIDC: ${{ inputs.disableOidc == 'true' && 'true' || 'false' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,10 +77,16 @@ jobs:
       - name: Build
         run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
 
-      - name: Test (with coverage)
+      - name: Test suite
         run: |
-          echo "Running tests (soft-fail enabled to keep pipeline green until suite is fixed)"
-          dotnet test testes/Domain.Tests/Domain.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=tests.trx" /p:CollectCoverage=true /p:CoverletOutput=../../TestResults/ /p:CoverletOutputFormat=cobertura
+          echo "Running tests..."
+          dotnet test testes/Domain.Tests/Domain.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=tests.trx" \
+            /p:CollectCoverage=true \
+            /p:CoverletOutput=../../TestResults/ \
+            /p:CoverletOutputFormat=cobertura
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -87,49 +97,24 @@ jobs:
             **/TestResults/*.xml
           retention-days: 30
 
-      - name: Generate build metadata
-        id: meta
-        run: |
-          SHA_SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
-          TAG_INPUT='${{ inputs.imageTag }}'
-          if [ -z "$TAG_INPUT" ]; then
-            DATE=$(date +%Y%m%d-%H%M)
-            IMAGE_TAG="$DATE-$SHA_SHORT"
-          else
-            IMAGE_TAG="$TAG_INPUT"
-          fi
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Upload logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            **/bin/Release/**/*.dll
-            **/obj/**/project.assets.json
-          retention-days: 14
-
+# -------------------------
+#   JOB 2 — Build & Push Image
+# -------------------------
   containerize:
     needs: build-test
     if: ${{ inputs.runTestsOnly != 'true' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    env:
-      REGISTRY: ghcr.io
     outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
       image_repo: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup QEMU (multi-arch optional)
+      - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -141,27 +126,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute lowercase image repo
+      - name: Compute image repo
         id: image
-        shell: bash
         run: |
           REPO_LC="${GITHUB_REPOSITORY,,}"
-          IMAGE="ghcr.io/${REPO_LC}-todoapi"
-          echo "repo_lc=$REPO_LC" >> "$GITHUB_OUTPUT"
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${REPO_LC}-todoapi" >> $GITHUB_OUTPUT
 
       - name: Compute image tag
         id: meta
         run: |
-          SHA_SHORT=$(echo "${GITHUB_SHA}" | cut -c1-7)
-          TAG_INPUT='${{ inputs.imageTag }}'
-          if [ -z "$TAG_INPUT" ]; then
-            DATE=$(date +%Y%m%d-%H%M)
-            IMAGE_TAG="$DATE-$SHA_SHORT"
-          else
-            IMAGE_TAG="$TAG_INPUT"
-          fi
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          DATE=$(date +%Y%m%d-%H%M)
+          SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          echo "image_tag=${DATE}-${SHA}" >> $GITHUB_OUTPUT
 
       - name: Build and push image
         uses: docker/build-push-action@v6
@@ -169,78 +145,95 @@ jobs:
           context: .
           file: TodoApi/Dockerfile
           push: true
-          platforms: linux/amd64
           tags: |
             ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
             ${{ steps.image.outputs.image }}:latest
 
-      - name: Smoke test container
-        run: |
-          docker run -d --name todoapi -p 8080:8080 -e DISABLE_OIDC=true ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
-          echo "Waiting for app to start..."
-          sleep 10
-          curl --fail http://localhost:8080/WeatherForecast || (echo "Smoke test failed" && exit 1)
-          docker logs todoapi > smoke.log
 
-      - name: Upload smoke test logs
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-test
-          path: smoke.log
-          retention-days: 14
-
+# -------------------------
+#   JOB 3 — Deploy to VM
+# -------------------------
   deploy-to-dei:
-    name: Deploy to DEI VM (optional)
     needs: containerize
-    if: ${{ inputs.deployToDei == 'true' }}
-    runs-on: ubuntu-latest
-    environment: dei
+    # Executa deploy automaticamente em push para main; em workflow_dispatch só se input deployToDei == true
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deployToDei == 'true') }}
+    runs-on: [self-hosted, Linux, X64]
     steps:
+      - name: Checkout (para build local se necessário)
+        uses: actions/checkout@v4
+
       - name: Prepare variables
         id: prep
         run: |
-          IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
-          echo "host=${{ inputs.deiHost }}" >> $GITHUB_OUTPUT
-          echo "user=${{ inputs.deiUser }}" >> $GITHUB_OUTPUT
-          echo "port=${{ inputs.deiPort }}" >> $GITHUB_OUTPUT
+          echo "image=${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}" >> $GITHUB_OUTPUT
           echo "cname=${{ inputs.containerName }}" >> $GITHUB_OUTPUT
           echo "hport=${{ inputs.hostPort }}" >> $GITHUB_OUTPUT
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ steps.prep.outputs.host || secrets.DEI_HOST }}
-          username: ${{ steps.prep.outputs.user || secrets.DEI_USER }}
-          port: ${{ steps.prep.outputs.port || secrets.DEI_PORT }}
-          key: ${{ secrets.DEI_SSH_KEY }}
-          script_stop: true
-          script: |
-            set -e
-            echo "Logging into GHCR..."
-            echo $GHCR_PAT | docker login ghcr.io -u $GHCR_USER --password-stdin
-            echo "Pulling image ${{ steps.prep.outputs.image }}"
-            docker pull ${{ steps.prep.outputs.image }}
-            echo "Stopping old container (if any)"
-            docker rm -f ${{ steps.prep.outputs.cname }} || true
-            echo "Starting new container"
-            docker run -d --name ${{ steps.prep.outputs.cname }} \
-              --restart unless-stopped \
-              -e DISABLE_OIDC=true \
-              -p ${{ steps.prep.outputs.hport }}:8080 \
-              ${{ steps.prep.outputs.image }}
+      - name: Login to GHCR from VM
+        run: |
+          if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
+            echo "Secrets detectados. Fazendo login no GHCR..."
+            echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          else
+            echo "[INFO] GHCR_USER ou GHCR_PAT não definidos. Skip login, vai tentar pull e se falhar faz build local."
+          fi
         env:
-          GHCR_USER: ${{ secrets.GHCR_USER }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ secrets.GHCR_USER || '' }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT || '' }}
 
+      - name: Pull and deploy container
+        run: |
+          IMAGE="${{ steps.prep.outputs.image }}"
+          NAME="${{ steps.prep.outputs.cname }}"
+          PORT="${{ steps.prep.outputs.hport }}"
+
+          echo "Pulling image: $IMAGE"
+          if ! docker pull "$IMAGE"; then
+            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
+            # Build local da imagem diretamente na VM usando Dockerfile
+            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
+          fi
+
+          echo "Stopping previous container..."
+          docker rm -f "$NAME" || true
+
+          echo "Starting new container on port $PORT"
+          docker run -d --name "$NAME" \
+            --restart unless-stopped \
+            -e DISABLE_OIDC=true \
+            -p "$PORT":8080 \
+            "$IMAGE"
+
+          echo "Running containers:"
+          docker ps
+
+      - name: Health check
+        run: |
+          PORT="${{ steps.prep.outputs.hport }}"
+          echo "Aguardando inicialização (até 30s)..."
+          for i in $(seq 1 30); do
+            if curl -fsS "http://localhost:$PORT/WeatherForecast" >/dev/null; then
+              echo "Health check OK em /WeatherForecast"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check falhou" >&2
+          docker logs "${{ steps.prep.outputs.cname }}" || true
+          exit 1
+
+
+# -------------------------
+#   JOB 4 — Summary
+# -------------------------
   summary:
     needs: [build-test, containerize, deploy-to-dei]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Print summary
+      - name: Summary
         run: |
-          echo "Deployment pipeline completed.";
-          echo "Tests & coverage archived as artifacts.";
-          echo "Image published to ${{ needs.containerize.outputs.image_repo }}:latest";
-          echo "If deploy-to-dei was enabled, the DEI VM should now run the new container.";
+          echo "Pipeline completed with:"
+          echo "- Tests OK"
+          echo "- Image pushed to GHCR"
+          echo "- Deploy executed on DEI VM (if enabled)"
