@@ -3,6 +3,7 @@ import { Cube } from './components/visualization/cube/cube.component';
 import { PortSceneComponent } from './components/visualization/port-scene/port-scene.component';
 import { WarehouseComponent } from './components/visualization/warehouse/warehouse.component';
 import { DockCraneComponent } from './components/visualization/crane/dockcrane.component';
+import { FinalSceneComponent } from './components/visualization/final-scene/final-scene.component';
 import { AuthGuard } from './services/auth/auth.guard';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
@@ -36,10 +37,14 @@ export const routes: Routes = [
   // Demo route for standalone warehouse object
   { path: 'warehouse', component: WarehouseComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   { path: 'house-3d', component: WarehouseComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'final-3d', component: FinalSceneComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   // Port 3D scene
   { path: 'port', component: PortSceneComponent },
   // Standalone crane viewer
   { path: 'crane', component: DockCraneComponent },
+
+  // Public minimal 3D viewer page (test-only)
+  { path: 'viewer', loadComponent: () => import('./pages/viewer/viewer.component').then(m => m.ViewerComponent) },
 
   // Redirect root & wildcard to dashboard so every role has a landing page
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },

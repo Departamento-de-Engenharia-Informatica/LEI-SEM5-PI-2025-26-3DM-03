@@ -71,7 +71,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // Three.js demo (accessible to all roles)
     { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', icon: 'bi-box', route: '/cube', roles: ['admin','operator','agent','authority'] },
     // Admin settings only
-    { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] }
+    { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] },
+    // Final immersive experience
+    { key: 'final_3d', label_en: '3D Final', label_pt: '3D Final', icon: 'bi-bricks', route: '/final-3d', roles: ['admin','operator','agent','authority'] }
   ];
   // menu currently shown in the template — updated when auth state changes
   displayedMenu: MenuItem[] = [];
@@ -159,6 +161,15 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (e.key === 'userAvatar') { this.loadAvatar(); try { this.cdr.detectChanges(); } catch {} }
   };
 
+  // Allow a public minimal route for the 3D viewer
+  get isViewerRoute(): boolean {
+    try {
+      return this.router.url.startsWith('/viewer');
+    } catch {
+      return false;
+    }
+  }
+
   
 
   // Localized label helper
@@ -206,3 +217,4 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
 }
+
