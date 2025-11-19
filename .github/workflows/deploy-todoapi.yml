@@ -160,10 +160,15 @@ jobs:
 
       - name: Login to GHCR from VM
         run: |
-          echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
+            echo "Secrets detectados. Fazendo login no GHCR..."
+            echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+          else
+            echo "[INFO] GHCR_USER ou GHCR_PAT não definidos. Skip login, vai tentar pull e se falhar faz build local."
+          fi
         env:
-          GHCR_USER: ${{ secrets.GHCR_USER }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ secrets.GHCR_USER || '' }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT || '' }}
 
       - name: Pull and deploy container
         run: |
