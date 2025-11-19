@@ -1,45 +1,60 @@
 describe('Vessel Types - Create', () => {
-
   beforeEach(() => {
     cy.loginAsAdmin();
 
-    cy.intercept('GET', 'https://localhost:7167/authtest/me', {
+    cy.intercept('GET', '**/authtest/me', {
       statusCode: 200,
       body: {
-        name: "DevLapr5 salvador",
-        email: "salvadordevlapr@gmail.com",
-        role: "admin",
-        roles: ["admin"]
-      }
-    });
+        name: 'DevLapr5 salvador',
+        email: 'salvadordevlapr@gmail.com',
+        role: 'admin',
+        roles: ['admin'],
+      },
+    }).as('authMe');
 
-    // intercept da listagem inicial
-    cy.intercept('GET', 'https://localhost:7167/api/VesselTypes').as('loadVesselTypes');
+    cy.intercept('GET', '**/api/VesselTypes').as('loadVesselTypes');
 
     cy.visit('/vessel-types');
 
-    // ESPERAR pela tabela carregar
-    cy.wait('@loadVesselTypes');
+    cy.wait(['@authMe', '@loadVesselTypes']);
 
-    // ESPERAR pela presença da secção Criar tipo (garante que o DOM está pronto)
-    cy.contains('Criar tipo').should('exist');
+    cy.contains('h2, h3, h4', 'Criar tipo').should('be.visible');
   });
 
-  it('should create a new vessel type', () => {
+  it('should create a new vessel type and display it in the listing', () => {
+    const vesselTypeName = `AutoTest Ship ${Date.now()}`;
 
-    // 1. Agora o formulário EXISTE, então podemos escrever
-    cy.get('input[placeholder="ex: Container Ship"]').type('AutoTest Ship');
-    cy.get('input[placeholder="Descrição opcional"]').type('Created via Cypress');
+    cy.intercept('POST', '**/api/VesselTypes').as('createVesselType');
 
-    cy.get('input[placeholder="0"]').eq(0).clear().type('1000');
-    cy.get('input[placeholder="0"]').eq(1).clear().type('12');
-    cy.get('input[placeholder="0"]').eq(2).clear().type('20');
-    cy.get('input[placeholder="0"]').eq(3).clear().type('8');
+    cy.contains('h3', 'Criar tipo')
+      .should('be.visible')
+      .parents('section.card')
+      .first()
+      .as('createSection');
 
-    cy.contains('button', 'Criar').click();
+    cy.get('@createSection').within(() => {
+      cy.contains('label', 'Nome').find('input').clear().type(vesselTypeName);
+      cy.contains('label', 'Descrição').find('input').clear().type('Created via Cypress');
+      cy.contains('label', 'Capacidade (TEU)').find('input[type="number"]').clear().type('1000');
+      cy.contains('label', 'Max Rows').find('input[type="number"]').clear().type('12');
+      cy.contains('label', 'Max Bays').find('input[type="number"]').clear().type('220');
+      cy.contains('label', 'Max Tiers').find('input[type="number"]').clear().type('32');
 
-    // 2. validar criação
-    cy.contains('td', 'AutoTest Ship').should('exist');
+      cy.contains('button', 'Criar').should('be.enabled').click();
+    });
+
+    cy.wait('@createVesselType').then(({ request, response }) => {
+      expect(request.body).to.include({
+        name: vesselTypeName,
+        description: 'Created via Cypress',
+      });
+      expect(Number(request.body.capacity)).to.eq(1000);
+      expect(Number(request.body.operationalConstraints?.maxRows)).to.eq(12);
+      expect(Number(request.body.operationalConstraints?.maxBays)).to.eq(220);
+      expect(Number(request.body.operationalConstraints?.maxTiers)).to.eq(32);
+      expect(response?.statusCode).to.eq(201);
+    });
+
+    cy.contains('td', vesselTypeName, { timeout: 10_000 }).should('be.visible');
   });
-
 });
