@@ -18,7 +18,7 @@
   <section class="list">
     <h3>Users</h3>
     <table>
-      <thead><tr><th>Email</th><th>Name</th><th>Roles</th><th>Status</th><th>Activation</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Email</th><th>Name</th><th>Roles</th><th>Status</th><th>1º acesso</th><th>Mudança de roles</th><th>Actions</th></tr></thead>
       <tbody>
         <tr *ngFor="let u of users">
           <td>{{ u.email }}</td>
@@ -39,11 +39,22 @@
               <span *ngIf="u.activation?.pending" class="pending">Link pendente</span>
               <span *ngIf="!u.activation?.pending && u.activation?.lastRedeemedUtc" class="complete">Ativado em {{ u.activation.lastRedeemedUtc | date:'short' }}</span>
               <small *ngIf="u.activation?.lastSentUtc">Último envio: {{ u.activation.lastSentUtc | date:'short' }}</small>
-              <button class="btn-ghost" (click)="sendActivation(u)" [disabled]="!u.roles || u.roles.length === 0">Enviar link</button>
+              <button class="btn-ghost" (click)="sendActivation(u)" [disabled]="u.active || !u.roles || u.roles.length === 0">Enviar link</button>
               <div class="activation-link" *ngIf="lastActivationLink[u.id]">
                 <small>Link copiado:</small>
                 <code>{{ lastActivationLink[u.id].link }}</code>
               </div>
+            </div>
+          </td>
+          <td>
+            <div class="activation-cell">
+              <span *ngIf="u.roleChange?.lastSentUtc; else noRoleChange">
+                <small>Último envio: {{ u.roleChange.lastSentUtc | date:'short' }}</small><br>
+                <span *ngIf="u.roleChange?.summary">Papeis: {{ u.roleChange.summary }}</span><br>
+                <span *ngIf="u.roleChange?.confirmedUtc" class="complete">Confirmado em {{ u.roleChange.confirmedUtc | date:'short' }}</span>
+                <span *ngIf="!u.roleChange?.confirmedUtc" class="pending">Aguardando confirmação</span>
+              </span>
+              <ng-template #noRoleChange><small>Sem alterações recentes</small></ng-template>
             </div>
           </td>
           <td>

@@ -63,6 +63,16 @@ namespace TodoApi.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime?>("LastRoleChangeConfirmedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("LastRoleChangeSentUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastRoleChangeSummary")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(200)

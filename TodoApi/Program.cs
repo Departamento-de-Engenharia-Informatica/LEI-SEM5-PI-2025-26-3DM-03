@@ -5,6 +5,7 @@ using TodoApi.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Linq;
@@ -273,9 +274,6 @@ else
         // Prevent Google from reusing the previous login session
         context.ProtocolMessage.LoginHint = null;
 
-        // Ensure a fresh OIDC handshake for every login attempt
-        context.ProtocolMessage.State = Guid.NewGuid().ToString("N");
-
         var logger = context.HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger("OIDC");
         logger?.LogInformation("[OIDC] Redirecting to Google with forced redirect_uri={RedirectUri}", context.ProtocolMessage.RedirectUri);
 
@@ -301,6 +299,7 @@ else
                 var sub   = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? context.Principal?.FindFirst("sub")?.Value;
                 var email = context.Principal?.FindFirst(ClaimTypes.Email)?.Value ?? context.Principal?.FindFirst("email")?.Value;
                 var name  = context.Principal?.FindFirst(ClaimTypes.Name)?.Value ?? context.Principal?.Identity?.Name;
+                var isActivationFlow = context.Properties?.Items?.ContainsKey("activation_flow") == true;
 
                 var hostingEnv = context.HttpContext.RequestServices.GetRequiredService<Microsoft.AspNetCore.Hosting.IWebHostEnvironment>();
                 using var scope = context.HttpContext.RequestServices.CreateScope();
@@ -353,7 +352,7 @@ else
                 }
 
                 // Deny access if the local user exists but is inactive
-                if (!user.Active)
+                if (!user.Active && !isActivationFlow)
                 {
                     var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
@@ -368,7 +367,7 @@ else
                     .ToList() ?? new List<string>();
 
                 // Deny access if the user has no active roles
-                if (activeRoles.Count == 0)
+                if (activeRoles.Count == 0 && !isActivationFlow)
                 {
                     var frontendUrl = hostingEnv.IsDevelopment() ? "https://localhost:4200" : "/";
                     context.HandleResponse();
@@ -378,7 +377,7 @@ else
 
                 // Inject role claims into the ClaimsPrincipal so that [Authorize(Roles=...)] attributes work properly
                 var identity = context.Principal?.Identity as ClaimsIdentity;
-                if (identity != null)
+                if (identity != null && user.Active)
                 {
                     foreach (var r in activeRoles)
                         identity.AddClaim(new Claim(ClaimTypes.Role, r));
@@ -391,7 +390,7 @@ else
                 // OpenID Connect handler still needs to perform the SignIn (issue the cookie).
                 // Instead, set the authentication properties RedirectUri so the handler will
                 // complete the sign-in and perform the redirect after creating the cookie.
-                if (hostingEnv.IsDevelopment())
+                if (hostingEnv.IsDevelopment() && string.IsNullOrEmpty(context.Properties?.RedirectUri))
                 {
                     context.Properties ??= new AuthenticationProperties();
                     context.Properties.RedirectUri = "https://localhost:4200?auth=ok";
@@ -534,6 +533,7 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<PortContext>();
     await context.Database.MigrateAsync();
+    await EnsureRoleChangeColumnsAsync(context, scope.ServiceProvider.GetService<ILoggerFactory>());
 
     try
     {
@@ -621,3 +621,53 @@ using (var scope = app.Services.CreateScope())
 // Run the application
 // =====================================================
 app.Run();
+
+static async Task EnsureRoleChangeColumnsAsync(PortContext context, ILoggerFactory? loggerFactory)
+{
+    var logger = loggerFactory?.CreateLogger("Startup");
+    var conn = context.Database.GetDbConnection();
+    try
+    {
+        await conn.OpenAsync();
+        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA table_info('AppUsers');";
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    existing.Add(reader.GetString(1));
+                }
+            }
+        }
+
+        var statements = new List<string>();
+        if (!existing.Contains("LastRoleChangeSentUtc"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeSentUtc TEXT");
+        if (!existing.Contains("LastRoleChangeSummary"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeSummary TEXT");
+        if (!existing.Contains("LastRoleChangeConfirmedUtc"))
+            statements.Add("ALTER TABLE AppUsers ADD COLUMN LastRoleChangeConfirmedUtc TEXT");
+
+        foreach (var sql in statements)
+        {
+            using var alter = conn.CreateCommand();
+            alter.CommandText = sql;
+            await alter.ExecuteNonQueryAsync();
+            logger?.LogInformation("Applied fallback column addition: {Sql}", sql);
+        }
+    }
+    catch (Exception ex)
+    {
+        logger?.LogWarning(ex, "Failed to ensure role change columns via fallback");
+    }
+    finally
+    {
+        if (conn.State == System.Data.ConnectionState.Open)
+        {
+            await conn.CloseAsync();
+        }
+    }
+}
