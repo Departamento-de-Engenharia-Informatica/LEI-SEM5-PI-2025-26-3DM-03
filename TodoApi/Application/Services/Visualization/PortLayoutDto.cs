@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace TodoApi.Application.Services.Visualization
@@ -10,6 +11,7 @@ namespace TodoApi.Application.Services.Visualization
         public List<DockLayoutDto> Docks { get; set; } = new();
         public List<WarehouseLayoutDto> Warehouses { get; set; } = new();
         public MaterialLibraryDto Materials { get; set; } = new MaterialLibraryDto();
+        public List<ActiveDockedVesselDto> ActiveVessels { get; set; } = new List<ActiveDockedVesselDto>();
     }
 
     public class WaterPatchDto
@@ -169,5 +171,19 @@ namespace TodoApi.Application.Services.Visualization
         public double Strength { get; set; } = 0.4;
         public double Rotation { get; set; } = 0.0;
     }
-}
 
+    public class ActiveDockedVesselDto
+    {
+        public long NotificationId { get; set; }
+        public long DockId { get; set; }
+        public string VesselId { get; set; } = string.Empty;
+        public string? VesselName { get; set; }
+        public DateTime ArrivalDate { get; set; }
+        public DateTime? DepartureDate { get; set; }
+        public string Status { get; set; } = "Approved";
+        public long? OfficerId { get; set; }
+        public double DisplayLength { get; set; }
+        public double EstimatedBeam { get; set; }
+        public int SequenceOnDock { get; set; }
+    }
+}

@@ -4,6 +4,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createPortalLatticeCraneModel } from '../crane/dockcrane.component';
+import { firstValueFrom } from 'rxjs';
+import {
+  DockLayout,
+  DockedVesselPlacement,
+  PortLayoutDTO,
+  PortLayoutService,
+} from '../../../services/visualization/port-layout.service';
 
 @Component({
   selector: 'app-final-scene',
@@ -68,6 +75,15 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private cargoVesselPrototype?: THREE.Group;
   private cargoVesselLoading?: Promise<THREE.Group>;
   private cargoVesselHalfBeam = 0;
+  private readonly maxBerthLanes = 1;
+  private layoutData?: PortLayoutDTO;
+  private dynamicVesselGroups: THREE.Object3D[] = [];
+  private dockNameSprites: THREE.Sprite[] = [];
+  private vesselLabelSprites: THREE.Sprite[] = [];
+  private dockSpanInfo?: { minEdge: number; maxEdge: number; span: number };
+  private readonly dockDeckSlots = [-360, 360];
+  private dockDeckOverrides = new Map<number, number>();
+  private readonly enablePlaceholderCargoVessels = false;
   private readonly truckModelUrls = ['assets/models/Truck_DAF.glb', 'assets/Truck_DAF.glb'];
   private readonly truckTargetSpan = 220;
   private truckPrototype?: THREE.Group;
@@ -80,12 +96,13 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   };
   fullscreenActive = false;
 
-  constructor(private zone: NgZone) {}
+  constructor(private zone: NgZone, private layoutApi: PortLayoutService) {}
 
   ngAfterViewInit(): void {
     this.initRenderer();
     this.buildScene();
     this.attachInputListeners();
+    this.loadPortAssignments();
     document.addEventListener('fullscreenchange', this.handleFullscreenChange);
 
     this.zone.runOutsideAngular(() => {
@@ -104,6 +121,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.detachInputListeners();
     this.controls?.dispose();
     this.renderer?.dispose();
+    this.clearDynamicVessels();
+    this.clearDockLabels();
     this.disposableGeometries.forEach((geom) => geom.dispose());
     this.disposableMaterials.forEach((mat) => mat.dispose());
     this.disposableTextures.forEach((tex) => tex.dispose());
@@ -756,7 +775,233 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       crane.rotation.y = Math.PI;
       this.scene.add(crane);
     });
-    this.placeCargoVessels(offsets);
+    if (this.enablePlaceholderCargoVessels) {
+      this.placeCargoVessels(offsets);
+    }
+  }
+
+  private loadPortAssignments() {
+    firstValueFrom(this.layoutApi.getLayout())
+      .then((layout) => this.zone.runOutsideAngular(() => this.applyLayoutAssignments(layout)))
+      .catch((err) => console.warn('[FinalScene] Falha ao carregar layout dinâmico', err));
+  }
+
+  private applyLayoutAssignments(layout: PortLayoutDTO) {
+    this.layoutData = layout;
+    const docks = layout.docks ?? [];
+    this.dockSpanInfo = this.computeDockSpan(docks);
+    this.computeDockDeckOverrides(docks);
+    this.updateDockLabels(docks);
+    this.clearDynamicVessels();
+
+    const active = (layout.activeVessels ?? []).filter(
+      (v): v is DockedVesselPlacement =>
+        !!v && typeof v.dockId === 'number' && this.isVesselWithinSchedule(v)
+    );
+    if (!active.length || !docks.length) {
+      return;
+    }
+
+    const dockMap = new Map<number, DockLayout>(docks.map((d) => [d.dockId, d]));
+    this.placeAssignedCargoVesselsFromLayout(active, dockMap);
+  }
+
+  private clearDynamicVessels() {
+    for (const obj of this.dynamicVesselGroups) {
+      this.scene.remove(obj);
+    }
+    this.dynamicVesselGroups = [];
+    for (const sprite of this.vesselLabelSprites) {
+      this.scene.remove(sprite);
+    }
+    this.vesselLabelSprites = [];
+  }
+
+  private clearDockLabels() {
+    for (const sprite of this.dockNameSprites) {
+      this.scene.remove(sprite);
+    }
+    this.dockNameSprites = [];
+  }
+
+  private updateDockLabels(docks: DockLayout[]) {
+    this.clearDockLabels();
+    if (!docks.length) return;
+    docks.forEach((dock) => {
+      const label = this.createLabelSprite(dock.name || `Dock ${dock.dockId}`, {
+        background: 'rgba(255,255,255,0.9)',
+        color: '#0d1b2a',
+        scale: 140,
+      });
+      const x = this.mapDockToDeckX(dock);
+      label.position.set(x, this.deckHeight + 120, this.quayEdgeZ - 130);
+      this.scene.add(label);
+      this.dockNameSprites.push(label);
+    });
+  }
+
+  private computeDockSpan(docks: DockLayout[]): { minEdge: number; maxEdge: number; span: number } {
+    if (!docks.length) {
+      return { minEdge: -this.deckWidth / 2, maxEdge: this.deckWidth / 2, span: this.deckWidth };
+    }
+    let minEdge = Infinity;
+    let maxEdge = -Infinity;
+    docks.forEach((dock) => {
+      const min = dock.position.x - dock.size.length / 2;
+      const max = dock.position.x + dock.size.length / 2;
+      minEdge = Math.min(minEdge, min);
+      maxEdge = Math.max(maxEdge, max);
+    });
+    if (!isFinite(minEdge) || !isFinite(maxEdge)) {
+      minEdge = -this.deckWidth / 2;
+      maxEdge = this.deckWidth / 2;
+    }
+    return { minEdge, maxEdge, span: Math.max(1, maxEdge - minEdge) };
+  }
+
+  private mapDockToDeckX(dock: DockLayout): number {
+    if (this.dockDeckOverrides.has(dock.dockId)) {
+      return this.dockDeckOverrides.get(dock.dockId)!;
+    }
+    const span = this.dockSpanInfo ?? this.computeDockSpan(this.layoutData?.docks ?? []);
+    const ratio = span.span > 0 ? (dock.position.x - span.minEdge) / span.span : 0.5;
+    const deckSpan = this.deckWidth - this.deckMarginToEdge * 2;
+    return (ratio - 0.5) * deckSpan;
+  }
+
+  private computeDockDeckOverrides(docks: DockLayout[]) {
+    this.dockDeckOverrides.clear();
+    if (!docks.length) return;
+    if (docks.length <= this.dockDeckSlots.length) {
+      const sorted = [...docks].sort((a, b) => a.position.x - b.position.x);
+      sorted.forEach((dock, idx) => {
+        this.dockDeckOverrides.set(dock.dockId, this.dockDeckSlots[idx]);
+      });
+    }
+  }
+
+  private placeAssignedCargoVesselsFromLayout(
+    assignments: DockedVesselPlacement[],
+    dockMap: Map<number, DockLayout>
+  ) {
+    const ordered = [...assignments].sort((a, b) => {
+      if (a.dockId === b.dockId) {
+        return (a.sequenceOnDock ?? 0) - (b.sequenceOnDock ?? 0);
+      }
+      return a.dockId - b.dockId;
+    });
+
+    this.getCargoVesselPrototype()
+      .then((prototype) => {
+        const berthZBase = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance;
+        const laneSpacing = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 18;
+        ordered.forEach((info) => {
+          const dock = dockMap.get(info.dockId);
+          if (!dock) return;
+          const baseX = this.mapDockToDeckX(dock);
+          const seq = typeof info.sequenceOnDock === 'number' ? info.sequenceOnDock : 0;
+          const laneIndex = Math.max(0, Math.min(this.maxBerthLanes - 1, seq));
+          const z = berthZBase + laneIndex * laneSpacing;
+          const vessel = this.instantiateCargoVessel(prototype);
+          vessel.position.set(baseX, this.waterLevelY + this.cargoVesselFreeboard, z);
+          vessel.rotation.y = Math.PI / 2;
+          this.scene.add(vessel);
+          this.dynamicVesselGroups.push(vessel);
+          this.addVesselLabel(info, dock, baseX, z);
+        });
+      })
+      .catch((err) => console.warn('[FinalScene] Falha ao preparar navios aprovados', err));
+  }
+
+  private addVesselLabel(info: DockedVesselPlacement, dock: DockLayout, x: number, z: number) {
+    const label = this.createLabelSprite(`${info.vesselName ?? info.vesselId} — ${dock.name ?? `Dock ${dock.dockId}`}`, {
+      background: 'rgba(9,25,53,0.92)',
+      color: '#f4f7fb',
+      scale: 160,
+    });
+    label.position.set(x, this.waterLevelY + this.cargoVesselFreeboard + 90, z - this.cargoVesselHalfBeam * 0.4);
+    this.scene.add(label);
+    this.vesselLabelSprites.push(label);
+  }
+
+  private createLabelSprite(
+    text: string,
+    opts?: { background?: string; color?: string; scale?: number }
+  ): THREE.Sprite {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new THREE.Sprite();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.paintRoundedRect(
+      ctx,
+      30,
+      canvas.height / 2 - 70,
+      canvas.width - 60,
+      140,
+      36,
+      opts?.background ?? 'rgba(255,255,255,0.95)'
+    );
+    ctx.fillStyle = opts?.color ?? '#0f1f32';
+    ctx.font = 'bold 64px "Inter", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    this.disposableTextures.push(texture);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    this.disposableMaterials.push(material);
+    const sprite = new THREE.Sprite(material);
+    const scale = opts?.scale ?? 140;
+    sprite.scale.set(scale, Math.max(40, scale * 0.35), 1);
+    return sprite;
+  }
+
+  private paintRoundedRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+    fillStyle: string
+  ) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  private isVesselWithinSchedule(vessel: DockedVesselPlacement): boolean {
+    const now = Date.now();
+    const arrival = vessel.arrivalDate ? Date.parse(vessel.arrivalDate) : NaN;
+    if (!Number.isNaN(arrival) && now < arrival) {
+      return false;
+    }
+    const departure = vessel.departureDate ? Date.parse(vessel.departureDate) : NaN;
+    if (!Number.isNaN(departure) && now > departure) {
+      return false;
+    }
+    return true;
   }
 
   private placeCargoVessels(offsets: number[]) {
@@ -766,6 +1011,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         offsets.forEach((x) => {
           const vessel = this.instantiateCargoVessel(prototype);
           vessel.position.set(x, this.waterLevelY + this.cargoVesselFreeboard, berthZ);
+          vessel.rotation.y = Math.PI / 2;
           this.scene.add(vessel);
         });
       })

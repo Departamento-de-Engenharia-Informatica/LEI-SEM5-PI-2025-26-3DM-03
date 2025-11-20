@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using TodoApi.Domain.Repositories;
 using TodoApi.Models.Docks;
 using TodoApi.Models.StorageAreas;
+using TodoApi.Models.Vessels;
 
 namespace TodoApi.Application.Services.Visualization
 {
@@ -12,11 +13,19 @@ namespace TodoApi.Application.Services.Visualization
     {
         private readonly IDockRepository _dockRepository;
         private readonly IStorageAreaRepository _storageAreaRepository;
+        private readonly IVesselVisitNotificationRepository _notificationRepository;
+        private readonly IVesselRepository _vesselRepository;
 
-        public PortLayoutService(IDockRepository dockRepository, IStorageAreaRepository storageAreaRepository)
+        public PortLayoutService(
+            IDockRepository dockRepository,
+            IStorageAreaRepository storageAreaRepository,
+            IVesselVisitNotificationRepository notificationRepository,
+            IVesselRepository vesselRepository)
         {
             _dockRepository = dockRepository;
             _storageAreaRepository = storageAreaRepository;
+            _notificationRepository = notificationRepository;
+            _vesselRepository = vesselRepository;
         }
 
         public async Task<PortLayoutDto> BuildLayoutAsync()
@@ -27,6 +36,7 @@ namespace TodoApi.Application.Services.Visualization
             var dockLayouts = BuildDockLayouts(docks);
             var yardLayouts = BuildYardLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Yard), dockLayouts);
             var warehouseLayouts = BuildWarehouseLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Warehouse), dockLayouts, yardLayouts);
+            var activeVessels = await BuildActiveVesselsAsync(dockLayouts);
 
             double docksSpan = dockLayouts.Count == 0
                 ? 2000
@@ -43,7 +53,8 @@ namespace TodoApi.Application.Services.Visualization
                 LandAreas = yardLayouts,
                 Docks = dockLayouts,
                 Warehouses = warehouseLayouts,
-                Materials = BuildMaterialLibrary()
+                Materials = BuildMaterialLibrary(),
+                ActiveVessels = activeVessels
             };
         }
 
@@ -172,6 +183,69 @@ namespace TodoApi.Application.Services.Visualization
             return result;
         }
 
+        private async Task<List<ActiveDockedVesselDto>> BuildActiveVesselsAsync(IReadOnlyList<DockLayoutDto> dockLayouts)
+        {
+            if (dockLayouts == null || dockLayouts.Count == 0)
+            {
+                return new List<ActiveDockedVesselDto>();
+            }
+
+            var notifications = await _notificationRepository.GetAllAsync();
+            var approved = notifications
+                .Where(v => v.ApprovedDockId.HasValue && string.Equals(v.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (approved.Count == 0)
+            {
+                return new List<ActiveDockedVesselDto>();
+            }
+
+            var dockLookup = dockLayouts.ToDictionary(d => d.DockId, d => d);
+            var vessels = await _vesselRepository.GetAllAsync();
+            var vesselLookup = vessels.ToDictionary(v => v.Imo, v => v, StringComparer.OrdinalIgnoreCase);
+
+            var result = new List<ActiveDockedVesselDto>();
+
+            foreach (var group in approved.GroupBy(v => v.ApprovedDockId!.Value))
+            {
+                if (!dockLookup.TryGetValue(group.Key, out var dock))
+                {
+                    continue;
+                }
+
+                var orderedByArrival = group
+                    .OrderBy(v => v.ArrivalDate)
+                    .ThenBy(v => v.Id)
+                    .ToList();
+
+                for (var index = 0; index < orderedByArrival.Count; index++)
+                {
+                    var visit = orderedByArrival[index];
+                    vesselLookup.TryGetValue(visit.VesselId, out var vessel);
+
+                    var displayLength = Math.Clamp(dock.Size.Length * 0.7, 120, dock.Size.Length - 12);
+                    var estimatedBeam = Math.Clamp(dock.Size.Width * 0.65, 32, dock.Size.Width);
+
+                    result.Add(new ActiveDockedVesselDto
+                    {
+                        NotificationId = visit.Id,
+                        DockId = dock.DockId,
+                        VesselId = visit.VesselId,
+                        VesselName = vessel?.Name,
+                        ArrivalDate = visit.ArrivalDate,
+                        DepartureDate = visit.DepartureDate,
+                        Status = visit.Status,
+                        OfficerId = visit.OfficerId,
+                        DisplayLength = displayLength,
+                        EstimatedBeam = estimatedBeam,
+                        SequenceOnDock = index
+                    });
+                }
+            }
+
+            return result;
+        }
+
         private static double ResolveAnchorX(
             StorageArea area,
             IReadOnlyDictionary<long, double> dockAnchors,
@@ -211,4 +285,3 @@ namespace TodoApi.Application.Services.Visualization
         }
     }
 }
-

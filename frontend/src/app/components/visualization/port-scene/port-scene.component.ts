@@ -10,7 +10,9 @@ import {
   SurfaceMaterialDTO,
   ProceduralTextureDescriptor,
   WarehouseLayout,
+  DockedVesselPlacement,
 } from '../../../services/visualization/port-layout.service';
+import { firstValueFrom } from 'rxjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -266,15 +268,25 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private pointerEventsAttached = false;
   private readonly pointerMoveHandler = (event: PointerEvent) => this.onPointerMove(event);
   private readonly pointerClickHandler = (event: MouseEvent) => this.onPointerClick(event);
+  private dockLabelSprites: THREE.Sprite[] = [];
+  private vesselLabelSprites: THREE.Sprite[] = [];
 
   constructor(private layoutApi: PortLayoutService, private zone: NgZone) {}
 
   ngAfterViewInit(): void {
     this.initThree();
     this.attachPointerEvents();
-    // Constru��o simplificada: plataforma + stacks GLB
-    this.buildSimplePlatformWithGlbStacks();
-    return;
+    this.loadPortLayout();
+  }
+
+  private async loadPortLayout() {
+    try {
+      const layout = await firstValueFrom(this.layoutApi.getLayout());
+      this.zone.runOutsideAngular(() => this.buildFromLayout(layout));
+    } catch (error) {
+      console.error('[PortScene] Falha ao obter layout dinâmico, usando fallback simplificado', error);
+      this.zone.runOutsideAngular(() => this.buildSimplePlatformWithGlbStacks());
+    }
   }
 
   ngOnDestroy(): void {
@@ -311,6 +323,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.forkliftBodyMaterial.dispose();
     this.forkliftMastMaterial.dispose();
     this.truckGlassMaterial.dispose();
+    this.clearLabelSprites();
     this.resetGeneratedAssets();
   }
 
@@ -475,6 +488,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     }
     this.resetGeneratedAssets();
     this.resetContainerTracking();
+    this.clearLabelSprites();
     this.baseSceneBuilt = false;
     this.addBackdropElements(sceneLayout);
     // CENA BASE
@@ -588,6 +602,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
 
     for (const d of sceneLayout.docks) {
       const dockCenter = this.buildDock(d, dockMaterialSet);
+      this.addDockLabel(d, dockCenter);
       if (!firstDockCenter) {
         firstDockCenter = dockCenter.clone();
       }
@@ -598,6 +613,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     if (firstDockCenter) {
       this.framePort(firstDockCenter, sceneLayout);
     }
+    this.addAssignedVessels(sceneLayout);
     // Helpers (apenas para desenvolvimento; remover depois se quiser)
     if (this.showDebugHelpers) {
       const axes = new THREE.AxesHelper(200);
@@ -1114,6 +1130,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           rotationY: 0,
         },
       ],
+      activeVessels: [],
     };
   }
 
@@ -1337,6 +1354,14 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.selectedContainer = undefined;
     this.updateHoverOutline(undefined);
     this.updateSelectionOutline(undefined);
+  }
+
+  private clearLabelSprites() {
+    for (const sprite of [...this.dockLabelSprites, ...this.vesselLabelSprites]) {
+      this.scene.remove(sprite);
+    }
+    this.dockLabelSprites = [];
+    this.vesselLabelSprites = [];
   }
 
   private computeDockBands(dock: DockLayout): DockBandInfo {
@@ -2121,6 +2146,86 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     return group;
   }
 
+  private addAssignedVessels(layout: PortLayoutDTO) {
+    const hasDocks = Array.isArray(layout.docks) && layout.docks.length > 0;
+    const assignments = Array.isArray(layout.activeVessels)
+      ? layout.activeVessels
+          .filter((v) => this.isVesselWithinSchedule(v))
+          .sort((a, b) => {
+          if (a.dockId === b.dockId) {
+            return (a.sequenceOnDock ?? 0) - (b.sequenceOnDock ?? 0);
+          }
+          return a.dockId - b.dockId;
+        })
+      : [];
+
+    if (!hasDocks || assignments.length === 0) {
+      return;
+    }
+
+    const dockMap = new Map<number, DockLayout>();
+    for (const dock of layout.docks) {
+      dockMap.set(dock.dockId, dock);
+    }
+
+    let paletteCursor = 0;
+    for (const vesselInfo of assignments) {
+      const dock = dockMap.get(vesselInfo.dockId);
+      if (!dock) continue;
+      const palette = this.vesselPalettes[paletteCursor++ % this.vesselPalettes.length];
+      const plannedLength =
+        vesselInfo.displayLength && vesselInfo.displayLength > 0
+          ? vesselInfo.displayLength
+          : dock.size.length * 0.65;
+      const length = Math.max(140, Math.min(plannedLength, dock.size.length - 20));
+      const vessel = this.createVessel(length, palette, vesselInfo.notificationId);
+
+      const seq = typeof vesselInfo.sequenceOnDock === 'number' ? vesselInfo.sequenceOnDock : 0;
+      const laneSpan = length + 60;
+      const usableLength = Math.max(120, dock.size.length - 120);
+      const slotsPerLane = Math.max(1, Math.floor(usableLength / laneSpan));
+      const slotIndex = seq % slotsPerLane;
+      const laneIndex = Math.floor(seq / slotsPerLane);
+      const forward = -dock.size.length / 2 + 60 + slotIndex * laneSpan + length / 2;
+      const beam =
+        vesselInfo.estimatedBeam && vesselInfo.estimatedBeam > 0
+          ? vesselInfo.estimatedBeam
+          : dock.size.width * 0.5;
+      const lateral = -dock.size.width / 2 - 40 - laneIndex * (beam + 30);
+
+      const berth = this.relativeToDock(
+        dock,
+        new THREE.Vector3(forward, -dock.size.height / 2 + 6, lateral)
+      );
+      vessel.position.copy(berth);
+      vessel.rotation.y = dock.rotationY + Math.PI;
+      vessel.userData = {
+        vesselVisitId: vesselInfo.notificationId,
+        vesselId: vesselInfo.vesselId,
+        vesselName: vesselInfo.vesselName,
+        arrivalDate: vesselInfo.arrivalDate,
+        departureDate: vesselInfo.departureDate,
+      };
+
+      this.scene.add(vessel);
+      this.addVesselLabel(vessel, vesselInfo, dock);
+    }
+  }
+
+  private isVesselWithinSchedule(vessel: DockedVesselPlacement): boolean {
+    if (!vessel) return false;
+    const now = Date.now();
+    const arrival = vessel.arrivalDate ? Date.parse(vessel.arrivalDate) : NaN;
+    if (!Number.isNaN(arrival) && now < arrival) {
+      return false;
+    }
+    const departure = vessel.departureDate ? Date.parse(vessel.departureDate) : NaN;
+    if (!Number.isNaN(departure) && now > departure) {
+      return false;
+    }
+    return true;
+  }
+
   private addVessels(layout: PortLayoutDTO) {
     if (!layout.docks?.length) return;
     const vesselCount = Math.min(3, layout.docks.length);
@@ -2139,6 +2244,105 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       vessel.rotation.y = dock.rotationY + Math.PI;
       this.scene.add(vessel);
     }
+  }
+
+  private addDockLabel(dock: DockLayout, center: THREE.Vector3) {
+    if (!dock) return;
+    const label = this.createLabelSprite(dock.name || `Dock ${dock.dockId}`, {
+      background: 'rgba(255,255,255,0.92)',
+      color: '#0d1b2a',
+      scale: Math.max(110, dock.size.length * 0.2),
+    });
+    label.position.set(center.x, dock.position.y + dock.size.height + 25, center.z + dock.size.width * 0.15);
+    this.scene.add(label);
+    this.dockLabelSprites.push(label);
+  }
+
+  private addVesselLabel(vessel: THREE.Group, vesselInfo: DockedVesselPlacement, dock: DockLayout) {
+    const vesselName = vesselInfo.vesselName || vesselInfo.vesselId;
+    const dockName = dock.name || `Dock ${dock.dockId}`;
+    const label = this.createLabelSprite(`${vesselName} @ ${dockName}`, {
+      background: 'rgba(13,34,64,0.92)',
+      color: '#f4f7fb',
+      scale: Math.max(95, vesselInfo.displayLength * 0.3),
+    });
+    label.position.copy(vessel.position);
+    label.position.y += 32;
+    this.scene.add(label);
+    this.vesselLabelSprites.push(label);
+  }
+
+  private createLabelSprite(
+    text: string,
+    opts?: { background?: string; color?: string; scale?: number }
+  ): THREE.Sprite {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return new THREE.Sprite();
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    this.paintRoundedRect(
+      ctx,
+      24,
+      canvas.height / 2 - 60,
+      canvas.width - 48,
+      120,
+      32,
+      opts?.background ?? 'rgba(255,255,255,0.9)'
+    );
+    ctx.fillStyle = opts?.color ?? '#0f1f32';
+    ctx.font = 'bold 64px "Inter", "Segoe UI", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    const texture = this.trackTexture(new THREE.CanvasTexture(canvas));
+    if (texture) {
+      texture.needsUpdate = true;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.anisotropy = 4;
+    }
+    const material = this.trackMaterial(
+      new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        toneMapped: false,
+      })
+    );
+    const sprite = new THREE.Sprite(material);
+    const scale = opts?.scale ?? 140;
+    sprite.scale.set(scale, Math.max(40, scale * 0.35), 1);
+    return sprite;
+  }
+
+  private paintRoundedRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+    fillStyle: string
+  ) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.restore();
   }
 
   private createVessel(length: number, palette: VesselPalette, seed: number): THREE.Group {
@@ -2309,12 +2513,3 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.camera.lookAt(this.controls.target);
   }
 }
-
-
-
-
-
-
-
-
-
