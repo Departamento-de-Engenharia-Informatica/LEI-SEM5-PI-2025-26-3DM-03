@@ -173,7 +173,7 @@
     </ul>
   </div>
 
-  <div class="timeline" *ngIf="timeline?.segments.length; else noPlan">
+  <div class="timeline" *ngIf="timeline?.segments?.length; else noPlan">
     <div class="timeline-head">
       <span>{{ timeline?.startLabel }}</span>
       <span>{{ timeline?.endLabel }}</span>

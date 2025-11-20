@@ -37,6 +37,37 @@ type StaffFormShape = {
   shiftEnd: FormControl<string>;
 };
 
+type VesselFormValue = {
+  id: string;
+  arrivalHour: number;
+  departureHour: number;
+  unloadDuration: number;
+  loadDuration: number;
+};
+
+type CraneFormValue = {
+  id: string;
+  availableFrom: string;
+  availableTo: string;
+  capacity: number;
+};
+
+type StaffFormValue = {
+  id: string;
+  skills: string;
+  shiftStart: string;
+  shiftEnd: string;
+};
+
+type SchedulingFormShape = {
+  date: FormControl<string>;
+  algorithm: FormControl<'optimal' | 'prolog'>;
+  strategy: FormControl<string>;
+  vessels: FormArray<FormGroup<VesselFormShape>>;
+  cranes: FormArray<FormGroup<CraneFormShape>>;
+  staff: FormArray<FormGroup<StaffFormShape>>;
+};
+
 interface TimelineSegment {
   vesselId: string;
   startLabel: string;
@@ -63,14 +94,7 @@ interface TimelineView {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SchedulingComponent {
-  readonly form = this.fb.group({
-    date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
-    algorithm: this.fb.control<'optimal' | 'prolog'>('optimal', { validators: [Validators.required] }),
-    strategy: this.fb.control('default'),
-    vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
-    cranes: this.fb.array<FormGroup<CraneFormShape>>([]),
-    staff: this.fb.array<FormGroup<StaffFormShape>>([])
-  });
+  readonly form: FormGroup<SchedulingFormShape>;
 
   status: 'idle' | 'computing' | 'success' | 'error' = 'idle';
   statusMessage = 'Configure os dados e clique em "Calcular escala diária".';
@@ -85,6 +109,7 @@ export class SchedulingComponent {
     private readonly schedulingService: SchedulingService,
     private readonly cdr: ChangeDetectorRef
   ) {
+    this.form = this.createForm();
     this.useSampleData();
   }
 
@@ -100,7 +125,7 @@ export class SchedulingComponent {
     return this.form.controls.staff;
   }
 
-  addVesselRow(initial?: Partial<VesselFormShape['value']>): void {
+  addVesselRow(initial?: Partial<VesselFormValue>): void {
     this.vessels.push(
       this.fb.group({
         id: this.fb.control(initial?.id ?? '', { validators: [Validators.required] }),
@@ -112,7 +137,7 @@ export class SchedulingComponent {
     );
   }
 
-  addCraneRow(initial?: Partial<CraneFormShape['value']>): void {
+  addCraneRow(initial?: Partial<CraneFormValue>): void {
     this.cranes.push(
       this.fb.group({
         id: this.fb.control(initial?.id ?? ''),
@@ -123,7 +148,7 @@ export class SchedulingComponent {
     );
   }
 
-  addStaffRow(initial?: Partial<StaffFormShape['value']>): void {
+  addStaffRow(initial?: Partial<StaffFormValue>): void {
     this.staff.push(
       this.fb.group({
         id: this.fb.control(initial?.id ?? ''),
@@ -283,6 +308,17 @@ export class SchedulingComponent {
   private composeIso(date: string, time: string): string {
     const safeTime = time && time.length >= 4 ? time : '00:00';
     return new Date(`${date}T${safeTime}:00`).toISOString();
+  }
+
+  private createForm(): FormGroup<SchedulingFormShape> {
+    return this.fb.group({
+      date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
+      algorithm: this.fb.control<'optimal' | 'prolog'>('optimal', { validators: [Validators.required] }),
+      strategy: this.fb.control('default'),
+      vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
+      cranes: this.fb.array<FormGroup<CraneFormShape>>([]),
+      staff: this.fb.array<FormGroup<StaffFormShape>>([])
+    });
   }
 
   private buildTimeline(schedule: ScheduledOperationDto[]): TimelineView | null {

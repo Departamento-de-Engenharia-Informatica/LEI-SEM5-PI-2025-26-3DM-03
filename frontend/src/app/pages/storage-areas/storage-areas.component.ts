@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { StorageAreasService } from '../../services/storage-areas/storage-areas.service';
 import { StorageAreaDTO, CreateStorageAreaDTO, UpdateStorageAreaDTO } from '../../models/storage-area';
 
@@ -10,7 +9,7 @@ type SortKey = 'location' | 'type' | 'maxCapacityTEU' | 'currentOccupancyTEU';
 @Component({
   selector: 'app-storage-areas',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule],
   templateUrl: './storage-areas.component.html',
   styleUrls: ['./storage-areas.component.scss']
 })
