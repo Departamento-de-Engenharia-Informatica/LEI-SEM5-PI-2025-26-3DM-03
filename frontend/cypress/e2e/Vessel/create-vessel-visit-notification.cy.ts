@@ -160,7 +160,7 @@ describe('Vessel Visit Notifications - Create/Submit/Approve', () => {
     cy.contains('button', 'Nova').click();
 
     cy.get('form.form-grid').within(() => {
-      cy.get('select[name="vessel"]').select(vesselImo);
+      cy.get('input[name="imo"]').clear().type(vesselImo);
       cy.get('input[name="agent"]').clear().type(String(agentTaxNumber));
       cy.get('input[name="arr"]').clear().type(arrivalInput);
       cy.get('input[name="dep"]').clear().type(departureInput);
