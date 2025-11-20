@@ -26,17 +26,38 @@ namespace TodoApi.Security
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .ToList();
 
-            _allowedNetworks = ranges.Select(r => IPNetwork.Parse(r)).ToList();
+            _allowedNetworks = new List<IPNetwork>();
 
-            Console.WriteLine("[INFO] Allowed IP ranges loaded:");
-            foreach (var range in _allowedNetworks)
-                Console.WriteLine("  ✔ " + range);
+            foreach (var r in ranges)
+            {
+                try
+                {
+                    _allowedNetworks.Add(IPNetwork.Parse(r));
+                }
+                catch
+                {
+                    Console.WriteLine($"[ERROR] Invalid CIDR entry in allowed_ips.txt → \"{r}\"");
+                }
+            }
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var remoteIp = context.Connection.RemoteIpAddress;
 
+            // Permitir localhost APENAS em Development
+            var env = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            if (env.IsDevelopment())
+            {
+                if (remoteIp != null &&
+                    (remoteIp.Equals(IPAddress.Loopback) || remoteIp.Equals(IPAddress.IPv6Loopback)))
+                {
+                    await _next(context);
+                    return;
+                }
+            }
+
+            // Verifica se o IP é permitido pelas ranges
             bool allowed = _allowedNetworks.Any(net => net.Contains(remoteIp));
 
             if (!allowed)
@@ -51,7 +72,6 @@ namespace TodoApi.Security
             await _next(context);
         }
     }
-
     // -------------------------------
     // Helper class for IP ranges
     // -------------------------------
