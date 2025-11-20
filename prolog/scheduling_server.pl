@@ -185,7 +185,7 @@ resource_window_choice(AVar, S, E, IdxList) :-
     % For each resource index create implication
     forall(
         nth1(RIdx, IdxList, idx(_Id,StartW,EndW)),
-        (AVar #= RIdx) #=> (S #>= StartW, E #=< EndW)
+        (AVar #= RIdx) #==> ( (S #>= StartW) #/\ (E #=< EndW) )
     ).
 
 pairwise_non_overlap(AssignVars, StartVars, EndVars) :-
@@ -198,7 +198,7 @@ no_overlap_if_same(AssignVars, StartVars, EndVars, I, J) :-
     nth1(I, StartVars, S1), nth1(I, EndVars, E1),
     nth1(J, StartVars, S2), nth1(J, EndVars, E2),
     % If same resource then enforce non-overlap
-    (A1 #= A2) #=> (E1 #< S2 ; E2 #< S1).
+    (A1 #= A2) #==> ( (E1 #< S2) #\/ (E2 #< S1) ).
 
 extract_delay_vars([], []).
 extract_delay_vars([delay(Var,_,_)|T], [Var|Rest]) :- extract_delay_vars(T, Rest).
