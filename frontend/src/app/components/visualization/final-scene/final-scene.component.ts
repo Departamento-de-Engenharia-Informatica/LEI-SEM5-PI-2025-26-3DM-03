@@ -40,6 +40,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly deckHeight = 60;
   private readonly deckMarginToEdge = 15;
   private readonly apronDepth = 220;
+  private readonly logisticsRoadDepth = 320;
+  private readonly logisticsRoadWidthOffset = 0;
+  private readonly logisticsRoadCenterZ = -550;
+  private readonly containerLaneZ = [-420, -320, -220, -120, -20, 80];
+  private readonly containerLaneX = [-320, 0, 320];
+  private readonly containerLaneHeights = [7, 6, 5, 4, 3, 2];
+  private currentLogisticsRoadCenterZ = this.logisticsRoadCenterZ;
+  private currentLogisticsRoadCenterX = 0;
+  private currentLogisticsRoadWidth = this.deckWidth - this.logisticsRoadWidthOffset;
+  private currentLogisticsRoadDepth = this.logisticsRoadDepth;
+  private readonly logisticsRoadContainerWidthTrim = 40;
+  private readonly logisticsRoadFrontClearance = 25;
   private readonly cameraMoveSpeed = 260;
   private containerStackPrototype?: THREE.Group;
   private containerStackLoading?: Promise<THREE.Group>;
@@ -47,6 +59,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly containerTargetSpan = 55;
   private readonly containerColors = [0xff8c5f, 0x00c2ff, 0xff4f81, 0x7dd87d, 0xffbf69, 0x9b5de5];
   private containerUnitSize = new THREE.Vector3(40, 16, 80);
+  private readonly containerCols = 4;
+  private readonly containerRows = 3;
   private readonly warehouseModelUrls = ['assets/models/warehouse.glb', 'assets/warehouse.glb'];
   private warehousePrototype?: THREE.Group;
   private warehouseLoading?: Promise<THREE.Group>;
@@ -54,6 +68,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private cargoVesselPrototype?: THREE.Group;
   private cargoVesselLoading?: Promise<THREE.Group>;
   private cargoVesselHalfBeam = 0;
+  private readonly truckModelUrls = ['assets/models/Truck_DAF.glb', 'assets/Truck_DAF.glb'];
+  private readonly truckTargetSpan = 220;
+  private truckPrototype?: THREE.Group;
+  private truckLoading?: Promise<THREE.Group>;
   readonly cameraKeyState = {
     forward: false,
     backward: false,
@@ -183,6 +201,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.addWater();
     this.addPlatform();
     this.addWarehouses();
+    this.addLogisticsRoad();
+    this.addLogisticsTrucks();
+    this.addContainerRoads();
+    this.addRoadConnections();
     this.addContainerFields();
     this.addCranes();
     this.addDockDetails();
@@ -295,6 +317,151 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.add(bollard);
     }
 
+  }
+
+  private addLogisticsRoad() {
+    const baseRoadWidth = this.deckWidth - this.logisticsRoadWidthOffset;
+    const containerTrim = Math.min(this.logisticsRoadContainerWidthTrim, baseRoadWidth - 100);
+    const roadWidth = baseRoadWidth - containerTrim;
+    const roadCenterX = -containerTrim / 2;
+    let centerZ = this.logisticsRoadCenterZ;
+    let depth = this.logisticsRoadDepth;
+    const elevation = this.deckHeight + 1.5;
+
+    const halfDepth = depth / 2;
+    const spacingZ = this.containerUnitSize.z + 4;
+    const halfRowSpan = Math.max(0, ((this.containerRows - 1) * spacingZ) / 2);
+    const containerFrontExtent = halfRowSpan + this.containerUnitSize.z / 2 + this.logisticsRoadFrontClearance;
+    const containerMinZ = Math.min(...this.containerLaneZ) - containerFrontExtent;
+    const farEdge = centerZ + halfDepth;
+    if (farEdge > containerMinZ) {
+      const overlap = farEdge - containerMinZ;
+      depth = Math.max(30, depth - overlap);
+      centerZ -= overlap / 2;
+    }
+    this.currentLogisticsRoadCenterZ = centerZ;
+
+    const roadMaterial = this.trackMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x4b525d,
+        roughness: 0.95,
+        metalness: 0.02,
+      })
+    );
+    const stripeMaterial = this.trackMaterial(
+      new THREE.MeshStandardMaterial({ color: 0xf5e87a, roughness: 0.6, metalness: 0.05 })
+    );
+    const stripeDepth = 4;
+    const stripeOffset = 28;
+
+    const road = new THREE.Mesh(this.trackGeometry(new THREE.PlaneGeometry(roadWidth, depth)), roadMaterial);
+    road.rotation.x = -Math.PI / 2;
+    road.position.set(roadCenterX, elevation, centerZ);
+    road.receiveShadow = true;
+    this.scene.add(road);
+    this.currentLogisticsRoadCenterX = roadCenterX;
+    this.currentLogisticsRoadWidth = roadWidth;
+    this.currentLogisticsRoadDepth = depth;
+
+    const stripeWidth = roadWidth - 120;
+    for (const offset of [-stripeOffset, stripeOffset]) {
+      const stripe = new THREE.Mesh(
+        this.trackGeometry(new THREE.PlaneGeometry(stripeWidth, stripeDepth)),
+        stripeMaterial
+      );
+      stripe.rotation.x = -Math.PI / 2;
+      stripe.position.set(roadCenterX, elevation + 0.2, centerZ + offset);
+      stripe.receiveShadow = false;
+      this.scene.add(stripe);
+    }
+  }
+
+  private addContainerRoads() {
+    const laneZ = this.containerLaneZ;
+    const laneX = this.containerLaneX;
+    if (laneZ.length < 2 || laneX.length < 2) {
+      return;
+    }
+    const baseY = this.deckHeight + 1.2;
+    const xSpan = laneX[laneX.length - 1] - laneX[0] + 260;
+    const zSpan = laneZ[laneZ.length - 1] - laneZ[0] + 260;
+    const horizontalWidth = 30;
+    const verticalWidth = 40;
+    const zCenter = laneZ[0] + (laneZ[laneZ.length - 1] - laneZ[0]) / 2;
+    const roadMaterial = this.trackMaterial(
+      new THREE.MeshStandardMaterial({
+        color: 0x414750,
+        roughness: 0.9,
+        metalness: 0.05,
+      })
+    );
+
+    for (let i = 0; i < laneX.length - 1; i++) {
+      const midX = (laneX[i] + laneX[i + 1]) / 2;
+      const strip = new THREE.Mesh(
+        this.trackGeometry(new THREE.PlaneGeometry(verticalWidth, zSpan)),
+        roadMaterial
+      );
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(midX, baseY + 0.05, zCenter);
+      strip.receiveShadow = true;
+      this.scene.add(strip);
+    }
+  }
+
+  private addRoadConnections() {
+    const laneX = this.containerLaneX;
+    if (laneX.length < 2) {
+      return;
+    }
+    const connectionMaterial = this.trackMaterial(
+      new THREE.MeshStandardMaterial({ color: 0x4b525d, roughness: 0.92, metalness: 0.03 })
+    );
+    const startZ = this.currentLogisticsRoadCenterZ + this.currentLogisticsRoadDepth / 2 - 1;
+    const targetZ = Math.min(...this.containerLaneZ) - this.containerUnitSize.z / 2 - 2;
+    const depth = targetZ - startZ;
+    if (depth <= 4) {
+      return;
+    }
+    const connectors: number[] = [];
+    for (let i = 0; i < laneX.length - 1; i++) {
+      connectors.push((laneX[i] + laneX[i + 1]) / 2);
+    }
+    connectors.forEach((x) => {
+      const width = 45;
+      const connector = new THREE.Mesh(
+        this.trackGeometry(new THREE.PlaneGeometry(width, depth)),
+        connectionMaterial
+      );
+      connector.rotation.x = -Math.PI / 2;
+      connector.position.set(x, this.deckHeight + 1.3, startZ + depth / 2);
+      connector.receiveShadow = true;
+      this.scene.add(connector);
+    });
+  }
+
+  private addLogisticsTrucks() {
+    const roadZ = this.currentLogisticsRoadCenterZ;
+    const laneOffset = 48;
+    const elevation = this.deckHeight + 1.5;
+
+    this.getTruckPrototype()
+      .then((prototype) => {
+        const centerX = this.currentLogisticsRoadCenterX;
+        const halfWidth = Math.max(20, this.currentLogisticsRoadWidth / 2);
+        const laneSpacing = Math.min(Math.max(halfWidth - 30, 40), 220);
+        const trucks = [
+          { position: new THREE.Vector3(centerX - laneSpacing, elevation, roadZ - laneOffset), rotation: Math.PI / 2 + 0.05 },
+          { position: new THREE.Vector3(centerX + laneSpacing, elevation, roadZ + laneOffset), rotation: Math.PI / 2 - 0.04 },
+        ];
+        trucks.forEach((config) => {
+          const truck = this.instantiateTruck(prototype);
+          truck.position.copy(config.position);
+          truck.rotation.y = config.rotation;
+          this.scene.add(truck);
+        });
+      })
+      .catch((error) => console.warn('[FinalScene] Falha ao carregar Truck_DAF GLB', error));
   }
 
   private addWarehouses() {
@@ -543,15 +710,14 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addContainerFields() {
-    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] =
-      [];
-    const laneZ = [-420, -320, -220, -120, -20, 80];
-    const laneX = [-320, 0, 320];
-    const laneHeights = [7, 6, 5, 4, 3, 2];
+    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] = [];
+    const laneZ = this.containerLaneZ;
+    const laneX = this.containerLaneX;
+    const laneHeights = this.containerLaneHeights;
     laneZ.forEach((z, idxZ) => {
       laneX.forEach((x, idxX) => {
-        const cols = 4;
-        const rows = 3;
+        const cols = this.containerCols;
+        const rows = this.containerRows;
         const baseMax = laneHeights[idxZ % laneHeights.length];
         let maxLevels = Math.max(2, baseMax - Math.max(0, idxX - 1));
         if (idxZ === 0) {
@@ -730,5 +896,115 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     root.position.y -= normalizedBox.min.y;
     this.containerUnitSize = normalizedBox.getSize(new THREE.Vector3());
   }
-}
 
+  private getTruckPrototype(): Promise<THREE.Group> {
+    if (this.truckPrototype) {
+      return Promise.resolve(this.truckPrototype);
+    }
+
+    if (!this.truckLoading) {
+      this.truckLoading = new Promise((resolve, reject) => {
+        const urls = [...this.truckModelUrls];
+        const loadNext = () => {
+          const url = urls.shift();
+          if (!url) {
+            reject(new Error('Sem modelo GLB de camião disponível'));
+            return;
+          }
+          this.gltfLoader.load(
+            url,
+            (gltf) => {
+              try {
+                const prepared = this.prepareTruckPrototype(gltf.scene);
+                this.truckPrototype = prepared;
+                resolve(prepared);
+              } catch (e) {
+                reject(e);
+              }
+            },
+            undefined,
+            (error) => {
+              console.warn('[FinalScene] erro ao carregar modelo Truck', url, error);
+              loadNext();
+            }
+          );
+        };
+        loadNext();
+      });
+    }
+
+    return this.truckLoading;
+  }
+
+  private prepareTruckPrototype(source: THREE.Group): THREE.Group {
+    source.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        const material = child.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[];
+        if (Array.isArray(material)) {
+          material.forEach((mat) => (mat.envMapIntensity = 1.1));
+        } else if (material) {
+          material.envMapIntensity = 1.1;
+        }
+      }
+    });
+
+    this.mirrorTruckParts(source);
+
+    const initialBox = new THREE.Box3().setFromObject(source);
+    const size = initialBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = this.truckTargetSpan / maxDim;
+    source.scale.setScalar(scale);
+    source.updateMatrixWorld(true);
+
+    const pivot = new THREE.Group();
+    const scaledBox = new THREE.Box3().setFromObject(source);
+    const center = scaledBox.getCenter(new THREE.Vector3());
+    source.position.set(-center.x, -scaledBox.min.y, -center.z);
+    const height = scaledBox.getSize(new THREE.Vector3()).y;
+    source.position.y += Math.max(4, height * 0.02);
+    pivot.add(source);
+    pivot.updateMatrixWorld(true);
+    return pivot;
+  }
+
+  private mirrorTruckParts(model: THREE.Group): void {
+    const namesToMirror = ['Cube', 'truck_daf.003', 'truck_daf.002'];
+    for (const name of namesToMirror) {
+      const original = model.getObjectByName(name);
+      if (!original) {
+        continue;
+      }
+      const mirrored = original.clone(true);
+      mirrored.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          if (Array.isArray(obj.material)) {
+            obj.material = obj.material.map((mat) => mat.clone());
+          } else if (obj.material) {
+            obj.material = obj.material.clone();
+          }
+        }
+      });
+      mirrored.scale.x *= -1;
+      original.parent?.add(mirrored);
+    }
+  }
+
+  private instantiateTruck(prototype: THREE.Group): THREE.Group {
+    const truck = prototype.clone(true);
+    truck.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+        if (Array.isArray(obj.material)) {
+          obj.material = obj.material.map((mat) => (mat as THREE.Material).clone());
+        } else if (obj.material) {
+          obj.material = (obj.material as THREE.Material).clone();
+        }
+      }
+    });
+    return truck;
+  }
+}
