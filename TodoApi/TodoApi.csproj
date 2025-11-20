@@ -28,4 +28,8 @@
     <ProjectReference Include="..\frameworkDDD\FrameworkDDD.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="allowed_ips.txt" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
 </Project>
