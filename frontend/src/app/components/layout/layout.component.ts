@@ -61,6 +61,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'resources', label_en: 'Resources', label_pt: 'Recursos', icon: 'bi-collection', route: '/resources', roles: ['admin','operator'] },
     { key: 'qualifications', label_en: 'Qualifications', label_pt: 'Qualificações', icon: 'bi-award', route: '/qualifications', roles: ['admin','operator'] },
     { key: 'public_resources', label_en: 'Shared Resources', label_pt: 'Recursos Partilhados', icon: 'bi-folder2-open', route: '/public-resources', roles: ['admin','operator','agent','authority'] },
+    { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
