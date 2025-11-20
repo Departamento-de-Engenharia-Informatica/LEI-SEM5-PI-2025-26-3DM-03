@@ -434,6 +434,7 @@ builder.Services.AddAuthorization(options =>
 // =====================================================
 
 var app = builder.Build();
+app.UseMiddleware<TodoApi.Security.NetworkRestrictionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
