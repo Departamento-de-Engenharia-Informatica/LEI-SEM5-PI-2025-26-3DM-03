@@ -233,16 +233,45 @@
             <div class="label">Submetido em</div>
             <div class="value">{{ fmtDate(selected?.submissionTimestamp || null) }}</div>
           </div>
+          <div class="cell">
+            <div class="label">Agente (TaxNumber)</div>
+            <div class="value">{{ selected?.agentId || '-' }}</div>
+          </div>
+          <div class="cell" *ngIf="selected?.decisionTimestamp">
+            <div class="label">Decidido em</div>
+            <div class="value">{{ fmtDate(selected?.decisionTimestamp || null) }}</div>
+          </div>
+          <div class="cell" *ngIf="selected?.officerId">
+            <div class="label">Oficial responsável</div>
+            <div class="value">#{{ selected?.officerId }}</div>
+          </div>
         </div>
 
         <div class="cargo-blk" *ngIf="selected?.cargoManifest?.length">
-          <div class="label">Manifesto</div>
-          <div class="text">{{ selected?.cargoManifest?.join(', ') }}</div>
+          <div class="label">Manifesto ({{ selected?.cargoManifest?.length }})</div>
+          <ul class="tag-list">
+            <li *ngFor="let code of selected?.cargoManifest">{{ code }}</li>
+          </ul>
         </div>
 
         <div class="cargo-blk" *ngIf="selected?.rejectionReason">
           <div class="label">Motivo da rejeição</div>
           <div class="text">{{ selected?.rejectionReason }}</div>
+        </div>
+
+        <div class="crew-blk">
+          <div class="label">Tripulação declarada</div>
+          <ng-container *ngIf="selected?.crewMembers?.length; else noCrew">
+            <ul class="crew-list">
+              <li *ngFor="let crew of selected?.crewMembers">
+                <span class="crew-name">{{ crew.name }}</span>
+                <span class="crew-meta">ID {{ crew.citizenId || '—' }} • {{ crew.nationality || 'N/A' }}</span>
+              </li>
+            </ul>
+          </ng-container>
+          <ng-template #noCrew>
+            <div class="empty-note">Sem tripulação declarada.</div>
+          </ng-template>
         </div>
 
         <!-- Agent actions (left) -->
@@ -257,25 +286,40 @@
         </div>
 
         <!-- Decision actions (right) only for submitted/pending -->
-        <div class="actions-bar decision-actions" *ngIf="auth.hasAny(['admin','authority']) && ((selected?.status||'').toLowerCase()==='submitted' || (selected?.status||'').toLowerCase()==='pendingapproval' || (selected?.status||'').toLowerCase()==='approvalpending')">
-          <label class="inline">
-            <span class="sr-only">Doca</span>
-            <select [(ngModel)]="approveDockId">
-              <option [ngValue]="null">— Doca —</option>
-              <option *ngFor="let d of docks" [ngValue]="d.id">{{ d.name }}</option>
-            </select>
-          </label>
-          <label class="inline">
-            <span class="sr-only">Officer</span>
-            <input type="number" [(ngModel)]="approveOfficerId" placeholder="OfficerId" />
-          </label>
-          <button type="button" class="btn primary" (click)="approveSelected()">Aprovar</button>
-          <label class="inline grow">
-            <span class="sr-only">Motivo</span>
-            <input [(ngModel)]="rejectReason" placeholder="Motivo rejeição" />
-          </label>
-          <button type="button" class="btn" (click)="rejectSelected()">Rejeitar</button>
-        </div>
+        <section class="decision-panel" *ngIf="auth.hasAny(['admin','authority']) && ((selected?.status||'').toLowerCase()==='submitted' || (selected?.status||'').toLowerCase()==='pendingapproval' || (selected?.status||'').toLowerCase()==='approvalpending')">
+          <header class="panel-head">
+            <div>
+              <div class="panel-title">Decisão da visita</div>
+              <p>Seleciona a doca e regista a decisão do oficial.</p>
+            </div>
+            <span class="badge waiting">A aguardar decisão</span>
+          </header>
+          <div class="decision-fields">
+            <label>
+              <span>Doca atribuída</span>
+              <select [(ngModel)]="approveDockId">
+                <option [ngValue]="null">— Doca —</option>
+                <option *ngFor="let d of docks" [ngValue]="d.id">{{ d.name }}</option>
+              </select>
+            </label>
+            <label>
+              <span>Officer Id</span>
+              <input type="number" [(ngModel)]="approveOfficerId" placeholder="ex.: 42" />
+            </label>
+            <label class="stretch">
+              <span>Motivo da rejeição</span>
+              <input [(ngModel)]="rejectReason" placeholder="Obrigatório para rejeitar" />
+            </label>
+          </div>
+          <div class="decision-actions">
+            <button type="button" class="btn success" (click)="approveSelected()" [disabled]="!approveDockId">
+              ✔ Aprovar
+            </button>
+            <button type="button" class="btn danger" (click)="rejectSelected()" [disabled]="!rejectReason">
+              ✖ Rejeitar
+            </button>
+          </div>
+        </section>
 
         <div class="actions-bar footer-actions">
           <button type="button" class="btn" (click)="closeDetails()">Fechar</button>

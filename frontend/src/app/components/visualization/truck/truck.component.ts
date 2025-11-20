@@ -102,29 +102,6 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
     ground.receiveShadow = true;
     this.scene.add(ground);
 
-    const padMaterial = new THREE.MeshStandardMaterial({
-      color: 0xdfe3e8,
-      roughness: 0.8,
-      metalness: 0.02,
-    });
-    const pad = new THREE.Mesh(new THREE.CircleGeometry(300, 64), padMaterial);
-    pad.rotation.x = -Math.PI / 2;
-    pad.position.set(0, 0.1, 0);
-    pad.receiveShadow = true;
-    this.scene.add(pad);
-
-    const outlineMaterial = new THREE.MeshBasicMaterial({
-      color: 0xf7c948,
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide,
-    });
-    const outline = new THREE.Mesh(new THREE.RingGeometry(220, 230, 80), outlineMaterial);
-    outline.rotation.x = -Math.PI / 2;
-    outline.position.y = 0.2;
-    outline.renderOrder = 2;
-    this.scene.add(outline);
-
     const ambient = new THREE.AmbientLight(0xffffff, 0.4);
     const hemi = new THREE.HemisphereLight(0xfefefe, 0x4c5560, 0.6);
     hemi.position.set(0, 600, 0);

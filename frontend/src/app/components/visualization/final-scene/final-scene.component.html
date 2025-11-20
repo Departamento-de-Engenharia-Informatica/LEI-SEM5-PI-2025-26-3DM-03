@@ -1,4 +1,4 @@
-<div class="final-scene">
+<div class="final-scene" #sceneWrapper>
   <canvas
     #canvas3d
     class="final-scene__canvas"
@@ -6,6 +6,14 @@
   ></canvas>
 
   <section class="final-scene__panel">
+    <button
+      type="button"
+      class="final-scene__fullscreen"
+      (click)="toggleFullscreen()"
+      [attr.aria-pressed]="fullscreenActive"
+    >
+      {{ fullscreenActive ? 'Sair de ecrã inteiro' : 'Ver em ecrã inteiro' }}
+    </button>
     <p class="panel-eyebrow">3D Final</p>
     <h2>Terminal Atlantico</h2>
     <p>Use o rato para orbitar, a roda para zoom e arraste com o botao direito para mover.</p>

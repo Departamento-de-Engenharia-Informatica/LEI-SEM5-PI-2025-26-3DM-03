@@ -14,6 +14,7 @@ import { createPortalLatticeCraneModel } from '../crane/dockcrane.component';
 })
 export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas3d', { static: true }) private canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('sceneWrapper', { static: true }) private wrapperRef!: ElementRef<HTMLDivElement>;
 
   private renderer!: THREE.WebGLRenderer;
   private camera!: THREE.PerspectiveCamera;
@@ -28,6 +29,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly disposableTextures: THREE.Texture[] = [];
   private readonly gltfLoader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
+  private readonly waterLevelY = 52;
+  private readonly quayEdgeZ = 360;
+  private readonly cargoVesselClearance = 22;
+  private readonly cargoVesselFreeboard = 6;
+  private readonly cargoVesselTargetLength = 480;
+  private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
+  private readonly deckWidth = 1500;
+  private readonly deckDepth = 1350;
+  private readonly deckHeight = 60;
+  private readonly deckMarginToEdge = 15;
+  private readonly apronDepth = 220;
+  private readonly cameraMoveSpeed = 260;
   private containerStackPrototype?: THREE.Group;
   private containerStackLoading?: Promise<THREE.Group>;
   private readonly containerStackUrls = ['assets/models/containers.glb'];
@@ -38,12 +51,24 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private warehousePrototype?: THREE.Group;
   private warehouseLoading?: Promise<THREE.Group>;
   private warehouseBaseDimensions?: THREE.Vector3;
+  private cargoVesselPrototype?: THREE.Group;
+  private cargoVesselLoading?: Promise<THREE.Group>;
+  private cargoVesselHalfBeam = 0;
+  readonly cameraKeyState = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+  };
+  fullscreenActive = false;
 
   constructor(private zone: NgZone) {}
 
   ngAfterViewInit(): void {
     this.initRenderer();
     this.buildScene();
+    this.attachInputListeners();
+    document.addEventListener('fullscreenchange', this.handleFullscreenChange);
 
     this.zone.runOutsideAngular(() => {
       this.animate();
@@ -57,12 +82,74 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.animationId = null;
     }
     window.removeEventListener('resize', this.handleResize);
+    document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+    this.detachInputListeners();
     this.controls?.dispose();
     this.renderer?.dispose();
     this.disposableGeometries.forEach((geom) => geom.dispose());
     this.disposableMaterials.forEach((mat) => mat.dispose());
     this.disposableTextures.forEach((tex) => tex.dispose());
   }
+
+  private attachInputListeners() {
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  }
+
+  private detachInputListeners() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+  }
+
+  private handleKeyDown = (event: KeyboardEvent) => {
+    const key = event.key.toLowerCase();
+    let handled = false;
+    if (key === 'w') {
+      this.cameraKeyState.forward = true;
+      handled = true;
+    } else if (key === 's') {
+      this.cameraKeyState.backward = true;
+      handled = true;
+    } else if (key === 'a') {
+      this.cameraKeyState.left = true;
+      handled = true;
+    } else if (key === 'd') {
+      this.cameraKeyState.right = true;
+      handled = true;
+    }
+    if (handled) {
+      event.preventDefault();
+    }
+  };
+
+  private handleKeyUp = (event: KeyboardEvent) => {
+    const key = event.key.toLowerCase();
+    if (key === 'w') {
+      this.cameraKeyState.forward = false;
+    } else if (key === 's') {
+      this.cameraKeyState.backward = false;
+    } else if (key === 'a') {
+      this.cameraKeyState.left = false;
+    } else if (key === 'd') {
+      this.cameraKeyState.right = false;
+    }
+  };
+
+  toggleFullscreen() {
+    const wrapper = this.wrapperRef?.nativeElement;
+    if (!wrapper) {
+      return;
+    }
+    if (!document.fullscreenElement) {
+      wrapper.requestFullscreen?.().catch((err) => console.warn('[FinalScene] Fullscreen falhou', err));
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
+
+  private handleFullscreenChange = () => {
+    this.fullscreenActive = !!document.fullscreenElement;
+  };
 
   private initRenderer() {
     const canvas = this.canvasRef.nativeElement;
@@ -95,7 +182,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.addLights();
     this.addWater();
     this.addPlatform();
-    this.addServiceRoad();
     this.addWarehouses();
     this.addContainerFields();
     this.addCranes();
@@ -144,7 +230,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     const water = new THREE.Mesh(this.waterGeom, waterMaterial);
     water.rotation.x = -Math.PI / 2;
-    water.position.y = -8;
+    water.position.y = this.waterLevelY;
     water.receiveShadow = true;
     this.scene.add(water);
 
@@ -155,18 +241,17 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       )
     );
     foam.rotation.x = -Math.PI / 2;
-    foam.position.set(0, -7.5, 0);
+    foam.position.set(0, this.waterLevelY + 0.5, 0);
     this.scene.add(foam);
   }
 
   private addPlatform() {
-    const deckDepth = 1350;
-    const deckOffsetZ = -200;
+    const deckOffsetZ = this.getDeckOffsetZ();
     const dockFloorTileSize = 260;
-    const deckTexture = this.createDockFloorTexture(1500 / dockFloorTileSize, deckDepth / dockFloorTileSize);
-    const apronTexture = this.createDockFloorTexture(1500 / dockFloorTileSize, Math.max(220 / dockFloorTileSize, 1));
+    const deckTexture = this.createDockFloorTexture(this.deckWidth / dockFloorTileSize, this.deckDepth / dockFloorTileSize);
+    const apronTexture = this.createDockFloorTexture(this.deckWidth / dockFloorTileSize, Math.max(this.apronDepth / dockFloorTileSize, 1));
     const deck = new THREE.Mesh(
-      this.trackGeometry(new THREE.BoxGeometry(1500, 60, deckDepth)),
+      this.trackGeometry(new THREE.BoxGeometry(this.deckWidth, this.deckHeight, this.deckDepth)),
       this.trackMaterial(
         new THREE.MeshStandardMaterial({
           map: deckTexture,
@@ -176,14 +261,14 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         })
       )
     );
-    deck.position.y = 30;
+    deck.position.y = this.deckHeight / 2;
     deck.position.z = deckOffsetZ;
     deck.castShadow = true;
     deck.receiveShadow = true;
     this.scene.add(deck);
 
     const apron = new THREE.Mesh(
-      this.trackGeometry(new THREE.PlaneGeometry(1500, 220)),
+      this.trackGeometry(new THREE.PlaneGeometry(this.deckWidth, this.apronDepth)),
       this.trackMaterial(
         new THREE.MeshStandardMaterial({
           map: apronTexture,
@@ -194,7 +279,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       )
     );
     apron.rotation.x = -Math.PI / 2;
-    apron.position.set(0, 61, 320);
+    apron.position.set(0, this.deckHeight + 1, this.quayEdgeZ - this.apronDepth / 2);
     apron.receiveShadow = true;
     this.scene.add(apron);
 
@@ -209,26 +294,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       bollard.castShadow = true;
       this.scene.add(bollard);
     }
-
-  }
-
-  private addServiceRoad() {
-    const roadWidth = 520;
-    const roadDepth = 1350;
-    const road = new THREE.Mesh(
-      this.trackGeometry(new THREE.PlaneGeometry(roadWidth, roadDepth)),
-      this.trackMaterial(
-        new THREE.MeshStandardMaterial({
-          color: 0x4b4b50,
-          roughness: 0.9,
-          metalness: 0.05,
-        })
-      )
-    );
-    road.rotation.x = -Math.PI / 2;
-    road.position.set(-410, 60.5, -180);
-    road.receiveShadow = true;
-    this.scene.add(road);
 
   }
 
@@ -316,22 +381,89 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return warehouse;
   }
 
+  private getCargoVesselPrototype(): Promise<THREE.Group> {
+    if (this.cargoVesselPrototype) {
+      return Promise.resolve(this.cargoVesselPrototype);
+    }
+
+    if (!this.cargoVesselLoading) {
+      this.cargoVesselLoading = new Promise((resolve, reject) => {
+        const urls = [...this.cargoVesselModelUrls];
+        const loadNext = () => {
+          const url = urls.shift();
+          if (!url) {
+            reject(new Error('Sem modelo GLB de navio disponA-vel'));
+            return;
+          }
+          this.gltfLoader.load(
+            url,
+            (gltf) => {
+              const root = gltf.scene;
+              this.prepareCargoVesselPrototype(root);
+              this.cargoVesselPrototype = root;
+              resolve(root);
+            },
+            undefined,
+            (error) => {
+              console.warn('[FinalScene] erro ao carregar cargo vessel modelo', url, error);
+              loadNext();
+            }
+          );
+        };
+        loadNext();
+      });
+    }
+
+    return this.cargoVesselLoading;
+  }
+
+  private prepareCargoVesselPrototype(root: THREE.Group) {
+    root.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+
+    const initialBox = new THREE.Box3().setFromObject(root);
+    const initialSize = initialBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(initialSize.x, initialSize.y, initialSize.z) || 1;
+    const scale = this.cargoVesselTargetLength / maxDim;
+    root.scale.setScalar(scale);
+    root.updateMatrixWorld(true);
+
+    const sizedBox = new THREE.Box3().setFromObject(root);
+    const sizedDims = sizedBox.getSize(new THREE.Vector3());
+    if (sizedDims.z > sizedDims.x) {
+      root.rotation.y = Math.PI / 2;
+      root.updateMatrixWorld(true);
+    }
+
+    const finalBox = new THREE.Box3().setFromObject(root);
+    const center = finalBox.getCenter(new THREE.Vector3());
+    root.position.set(-center.x, -finalBox.min.y, -center.z);
+    const finalSize = finalBox.getSize(new THREE.Vector3());
+    this.cargoVesselHalfBeam = finalSize.z / 2;
+  }
+
   private animate = () => {
+    const delta = this.clock.getDelta();
+    const elapsed = this.clock.elapsedTime;
     if (this.waterGeom && this.waterBase) {
       const attr = this.waterGeom.getAttribute('position') as THREE.BufferAttribute;
       const arr = attr.array as Float32Array;
-      const t = this.clock.getElapsedTime();
       for (let i = 0; i < arr.length; i += 3) {
         const baseZ = this.waterBase[i + 2];
         const baseX = this.waterBase[i];
         const baseY = this.waterBase[i + 1];
-        const wave = Math.sin(baseX * 0.002 + t * 0.6) + Math.cos(baseY * 0.0025 - t * 0.9);
+        const wave = Math.sin(baseX * 0.002 + elapsed * 0.6) + Math.cos(baseY * 0.0025 - elapsed * 0.9);
         arr[i + 2] = baseZ + wave * 1.4;
       }
       attr.needsUpdate = true;
       this.waterGeom.computeVertexNormals();
     }
 
+    this.updateCameraKeyboardMovement(delta);
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.animationId = requestAnimationFrame(this.animate);
@@ -350,6 +482,36 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.renderer.setSize(width, height);
   };
 
+  private updateCameraKeyboardMovement(delta: number) {
+    if (!this.camera || !this.controls) {
+      return;
+    }
+    const forwardAxis = (this.cameraKeyState.forward ? 1 : 0) - (this.cameraKeyState.backward ? 1 : 0);
+    const strafeAxis = (this.cameraKeyState.right ? 1 : 0) - (this.cameraKeyState.left ? 1 : 0);
+    if (forwardAxis === 0 && strafeAxis === 0) {
+      return;
+    }
+
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    forward.y = 0;
+    if (forward.lengthSq() === 0) {
+      forward.set(0, 0, -1);
+    }
+    forward.normalize();
+    const up = new THREE.Vector3(0, 1, 0);
+    const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+    const move = new THREE.Vector3();
+    move.addScaledVector(forward, forwardAxis);
+    move.addScaledVector(right, strafeAxis);
+    if (move.lengthSq() === 0) {
+      return;
+    }
+    move.normalize().multiplyScalar(this.cameraMoveSpeed * delta);
+    this.camera.position.add(move);
+    this.controls.target.add(move);
+  }
+
   private trackMaterial<T extends THREE.Material>(material: T): T {
     this.disposableMaterials.push(material);
     return material;
@@ -363,6 +525,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private trackTexture<T extends THREE.Texture>(texture: T): T {
     this.disposableTextures.push(texture);
     return texture;
+  }
+
+  private getDeckOffsetZ(): number {
+    return this.quayEdgeZ - this.deckMarginToEdge - this.deckDepth / 2;
   }
 
   private createDockFloorTexture(repeatX: number, repeatY: number): THREE.Texture {
@@ -410,19 +576,45 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private addCranes() {
     const offsets = [-360, 360];
+    const craneZ = 250;
     offsets.forEach((x) => {
       const crane = createPortalLatticeCraneModel({
         height: 90,
-        seawardBoomLength: 190,
+        seawardBoomLength: 150,
         landsideBoomLength: 80,
         gauge: 74,
         clearance: 70,
       });
-      crane.position.set(x, 60, 250);
+      crane.position.set(x, 60, craneZ);
       crane.scale.setScalar(1.4);
       crane.rotation.y = Math.PI;
       this.scene.add(crane);
     });
+    this.placeCargoVessels(offsets);
+  }
+
+  private placeCargoVessels(offsets: number[]) {
+    this.getCargoVesselPrototype()
+      .then((prototype) => {
+        const berthZ = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance;
+        offsets.forEach((x) => {
+          const vessel = this.instantiateCargoVessel(prototype);
+          vessel.position.set(x, this.waterLevelY + this.cargoVesselFreeboard, berthZ);
+          this.scene.add(vessel);
+        });
+      })
+      .catch((error) => console.warn('[FinalScene] Falha ao carregar cargo_vessel GLB', error));
+  }
+
+  private instantiateCargoVessel(prototype: THREE.Group): THREE.Group {
+    const vessel = prototype.clone(true);
+    vessel.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+    return vessel;
   }
 
   private buildContainerStack(
