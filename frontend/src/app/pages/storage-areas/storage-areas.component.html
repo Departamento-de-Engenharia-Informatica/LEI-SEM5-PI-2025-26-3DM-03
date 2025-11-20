@@ -1,42 +1,80 @@
-<div class="page">
-  <header class="header">
-    <h2>Áreas de Armazenamento</h2>
+<div class="storage-page">
+  <header class="page-header">
+    <div class="title-block">
+      <h1>Áreas de Armazenamento</h1>
+      <p>Coordena a capacidade de armazenagem do porto com visibilidade rápida de ocupação.</p>
+    </div>
 
-    <div class="actions">
-      <input
-        type="search"
-        placeholder="Pesquisar por localização ou tipo..."
-        [(ngModel)]="q"
-        (ngModelChange)="applyFilterSort()"
-      />
-
-      <div class="sort">
-        <label>Ordenar por</label>
-        <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
-          <option value="location">Localização</option>
-          <option value="type">Tipo</option>
-          <option value="maxCapacityTEU">Capacidade</option>
-          <option value="currentOccupancyTEU">Ocupação</option>
-        </select>
-        <button class="btn" (click)="changeSort(sortKey)">
-          {{ sortDir === 'asc' ? '▲' : '▼' }}
+    <div class="header-controls">
+      <div class="search-field">
+        <span class="search-icon">🔍</span>
+        <input
+          type="search"
+          placeholder="Pesquisar por localização ou tipo..."
+          [(ngModel)]="q"
+          (ngModelChange)="applyFilterSort()"
+        />
+        <button
+          type="button"
+          class="clear-btn"
+          *ngIf="q"
+          (click)="q=''; applyFilterSort();"
+          aria-label="Limpar pesquisa"
+        >
+          ✕
         </button>
+      </div>
+
+      <div class="sort-field">
+        <label>Ordenar por</label>
+        <div class="sort-input">
+          <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
+            <option value="location">Localização</option>
+            <option value="type">Tipo</option>
+            <option value="maxCapacityTEU">Capacidade</option>
+            <option value="currentOccupancyTEU">Ocupação</option>
+          </select>
+          <button class="icon-toggle" type="button" (click)="changeSort(sortKey)">
+            {{ sortDir === 'asc' ? '▲' : '▼' }}
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
-  <div *ngIf="loading" class="card skeleton">A carregar...</div>
-  <div *ngIf="error" class="card error">{{ error }}</div>
+  <section class="status-row" *ngIf="loading || error">
+    <div *ngIf="loading" class="status-pill muted">A carregar áreas...</div>
+    <div *ngIf="error" class="status-pill error">{{ error }}</div>
+  </section>
 
-  <div class="grid" *ngIf="!loading">
-    <!-- criar -->
-    <div class="card">
-      <h3>Criar nova área</h3>
+  <section class="summary-grid" *ngIf="summaryMetrics.length">
+    <article
+      class="summary-card"
+      *ngFor="let metric of summaryMetrics"
+      [class.summary-card--highlight]="metric.highlight"
+    >
+      <div class="summary-icon" aria-hidden="true">{{ metric.icon }}</div>
+      <div class="summary-info">
+        <span class="summary-label">{{ metric.label }}</span>
+        <span class="summary-value">{{ metric.value }}</span>
+        <span class="summary-hint">{{ metric.hint }}</span>
+      </div>
+    </article>
+  </section>
+
+  <div class="layout" *ngIf="!loading">
+    <aside class="card form-card">
+      <header class="card-header">
+        <h2>Criar nova área</h2>
+        <p>Preenche os campos e cria a área instantaneamente.</p>
+      </header>
+
       <form (ngSubmit)="create()" class="form">
         <label>
           <span>Localização</span>
           <input [(ngModel)]="newArea.location" name="location" required />
         </label>
+
         <label>
           <span>Tipo</span>
           <select [(ngModel)]="newArea.type" name="type">
@@ -44,23 +82,35 @@
             <option value="Warehouse">Warehouse</option>
           </select>
         </label>
-        <div class="row">
-          <label>
-            <span>Capacidade (TEU)</span>
-            <input type="number" [(ngModel)]="newArea.maxCapacityTEU" name="capacity" />
+
+        <div class="row metrics-grid">
+          <label class="metric-field">
+            <span>Capacidade</span>
+            <div class="input-with-unit">
+              <input type="number" [(ngModel)]="newArea.maxCapacityTEU" name="capacity" min="0" />
+              <span class="unit">TEU</span>
+            </div>
           </label>
-          <label>
-            <span>Ocupação Atual (TEU)</span>
-            <input type="number" [(ngModel)]="newArea.currentOccupancyTEU" name="occupancy" />
+          <label class="metric-field">
+            <span>Ocupação</span>
+            <div class="input-with-unit">
+              <input type="number" [(ngModel)]="newArea.currentOccupancyTEU" name="occupancy" min="0" />
+              <span class="unit">TEU</span>
+            </div>
           </label>
         </div>
-        <button class="btn primary" type="submit">Criar</button>
-      </form>
-    </div>
 
-    <!-- lista -->
-    <div class="card">
-      <h3>Lista de Áreas</h3>
+        <button class="btn primary full" type="submit">Criar</button>
+      </form>
+    </aside>
+
+    <main class="card list-card">
+      <header class="list-header">
+        <div>
+          <h2>Lista de Áreas</h2>
+          <p>{{ filtered.length }} área(s) a mostrar</p>
+        </div>
+      </header>
 
       <table class="table" *ngIf="filtered.length; else emptyState">
         <thead>
@@ -74,28 +124,68 @@
         </thead>
         <tbody>
           <tr *ngFor="let area of filtered">
-            <td>{{ area.location }}</td>
-            <td>{{ area.type }}</td>
-            <td>{{ area.maxCapacityTEU }}</td>
-            <td>{{ area.currentOccupancyTEU }}</td>
-            <td class="right">
-              <button class="btn" (click)="openEdit(area)">Editar</button>
-              <button class="btn danger" (click)="delete(area.id)">Eliminar</button>
+            <td>
+              <div class="cell-main">
+                <span class="cell-title">{{ area.location }}</span>
+                <span class="cell-sub">{{ area.type }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="badge" [class.badge-alt]="area.type === 'Warehouse'">{{ area.type }}</span>
+            </td>
+            <td>
+              <div class="stat">
+                <span class="stat-value">{{ area.maxCapacityTEU ?? '—' }}</span>
+                <span class="stat-hint">Cap.</span>
+              </div>
+            </td>
+            <td>
+              <div class="occupancy">
+                <div class="progress" role="presentation">
+                  <div
+                    class="progress-bar"
+                    [style.width.%]="getOccupancyPercent(area) ?? 0"
+                  ></div>
+                </div>
+                <div class="progress-meta">
+                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU ?? '—' }} TEU</span>
+                  <span class="percent" *ngIf="getOccupancyPercent(area) !== null">
+                    {{ percentFormatter.format(getOccupancyPercent(area)!) }}%
+                  </span>
+                </div>
+              </div>
+            </td>
+            <td class="right actions">
+              <button class="icon-btn" type="button" (click)="openEdit(area)" aria-label="Editar área">
+                ✎
+              </button>
+              <button class="icon-btn danger" type="button" (click)="delete(area.id)" aria-label="Eliminar área">
+                🗑
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
 
       <ng-template #emptyState>
-        <div class="empty">Sem resultados.</div>
+        <div class="empty-state">
+          <div class="emoji">📦</div>
+          <p>Sem resultados. Cria uma nova área à esquerda.</p>
+        </div>
       </ng-template>
-    </div>
+    </main>
   </div>
 
-  <!-- Modal Edição -->
   <div class="modal-backdrop" *ngIf="editing">
     <div class="modal">
-      <h3>Editar Área</h3>
+      <header class="modal-header">
+        <div>
+          <h3>Editar área</h3>
+          <p>Atualiza os dados e guarda para sincronizar com o Backoffice.</p>
+        </div>
+        <button class="icon-btn" type="button" (click)="closeEdit()" aria-label="Fechar">✕</button>
+      </header>
+
       <form (ngSubmit)="saveEdit()" class="form">
         <label>
           <span>Localização</span>
@@ -108,14 +198,20 @@
             <option value="Warehouse">Warehouse</option>
           </select>
         </label>
-        <div class="row">
-          <label>
-            <span>Capacidade (TEU)</span>
-            <input type="number" [(ngModel)]="editing!.maxCapacityTEU" name="edit_capacity" />
+        <div class="row metrics-grid">
+          <label class="metric-field">
+            <span>Capacidade</span>
+            <div class="input-with-unit">
+              <input type="number" [(ngModel)]="editing!.maxCapacityTEU" name="edit_capacity" min="0" />
+              <span class="unit">TEU</span>
+            </div>
           </label>
-          <label>
-            <span>Ocupação Atual (TEU)</span>
-            <input type="number" [(ngModel)]="editing!.currentOccupancyTEU" name="edit_occupancy" />
+          <label class="metric-field">
+            <span>Ocupação</span>
+            <div class="input-with-unit">
+              <input type="number" [(ngModel)]="editing!.currentOccupancyTEU" name="edit_occupancy" min="0" />
+              <span class="unit">TEU</span>
+            </div>
           </label>
         </div>
 

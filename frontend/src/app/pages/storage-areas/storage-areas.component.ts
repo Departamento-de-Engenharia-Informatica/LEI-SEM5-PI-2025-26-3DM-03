@@ -35,6 +35,9 @@ export class StorageAreasComponent implements OnInit {
   // edição
   editing: UpdateStorageAreaDTO | null = null;
 
+  readonly integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+  readonly percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+
   constructor(private svc: StorageAreasService) {}
 
   async ngOnInit() {
@@ -89,6 +92,61 @@ export class StorageAreasComponent implements OnInit {
     this.applyFilterSort();
   }
 
+  get summaryMetrics() {
+    const visible = this.filtered.length;
+    const total = this.areas.length;
+
+    const capacityValues = this.filtered
+      .map((area) => this.asNumber(area.maxCapacityTEU))
+      .filter((val): val is number => val !== null);
+    const occupancyValues = this.filtered
+      .map((area) => this.asNumber(area.currentOccupancyTEU))
+      .filter((val): val is number => val !== null);
+
+    const totalCapacity = capacityValues.reduce((acc, val) => acc + val, 0);
+    const totalOccupancy = occupancyValues.reduce((acc, val) => acc + val, 0);
+    const hasCapacity = capacityValues.length > 0;
+    const usage = totalCapacity > 0 ? (totalOccupancy / totalCapacity) * 100 : null;
+    const available = hasCapacity ? Math.max(totalCapacity - totalOccupancy, 0) : null;
+
+    const typeSet = new Set(
+      this.filtered
+        .map((area) => area.type)
+        .filter((type): type is string => !!type)
+    );
+
+    return [
+      {
+        icon: '📦',
+        label: 'Áreas visíveis',
+        value: this.integerFormatter.format(visible),
+        hint: total === visible ? 'Todas as áreas listadas' : `${this.integerFormatter.format(total)} no total`
+      },
+      {
+        icon: '🏗',
+        label: 'Capacidade disponível',
+        value: hasCapacity ? `${this.integerFormatter.format(totalCapacity)} TEU` : '—',
+        hint: hasCapacity ? `${this.integerFormatter.format(available ?? 0)} TEU livres` : 'Sem capacidade registada'
+      },
+      {
+        icon: '📊',
+        label: 'Ocupação média',
+        value: usage !== null ? `${this.percentFormatter.format(usage)}%` : '—',
+        hint: typeSet.size ? `${typeSet.size} tipos diferentes` : 'Sem tipos definidos',
+        highlight: usage !== null && usage >= 75
+      }
+    ];
+  }
+
+  getOccupancyPercent(area: StorageAreaDTO): number | null {
+    const capacity = this.asNumber(area.maxCapacityTEU);
+    const occupancy = this.asNumber(area.currentOccupancyTEU);
+    if (capacity === null || capacity <= 0 || occupancy === null) {
+      return null;
+    }
+    return Math.min(100, Math.max(0, (occupancy / capacity) * 100));
+  }
+
   // === CRUD ===
   async create() {
     this.error = null;
@@ -137,5 +195,9 @@ export class StorageAreasComponent implements OnInit {
     } catch (e: any) {
       this.error = e?.message || 'Erro ao eliminar área';
     }
+  }
+
+  private asNumber(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 }
