@@ -1,0 +1,226 @@
+<section class="page-heading">
+  <div>
+    <h1>Planeamento diário de operações</h1>
+    <p>
+      Gere a sequência de carga/descarga para o dia pretendido, respeitando a disponibilidade de
+      cais, grua e equipas. O backend consolida os dados e devolve a escala com a soma mínima de
+      atrasos.
+    </p>
+  </div>
+  <button type="button" class="ghost" (click)="useSampleData()">Repor dados de amostra</button>
+</section>
+
+<form class="schedule-form" [formGroup]="form" (ngSubmit)="generateSchedule()">
+  <div class="form-grid">
+    <label>
+      Data alvo
+      <input type="date" formControlName="date" required />
+    </label>
+
+    <label>
+      Algoritmo
+      <select formControlName="algorithm">
+        <option value="optimal">Motor interno (heurística ótima)</option>
+        <option value="prolog">Motor Prolog externo</option>
+      </select>
+    </label>
+
+    <label>
+      Estratégia
+      <select formControlName="strategy">
+        <option value="default">Equilíbrio carga/descarga</option>
+        <option value="aggressive">Agressivo (min delay)</option>
+        <option value="balanced">Balanceado por recursos</option>
+      </select>
+    </label>
+  </div>
+
+  <section class="panel" formArrayName="vessels">
+    <header>
+      <div>
+        <h2>Navios</h2>
+        <p>Defina a chegada, partida desejada e duração das operações (horas).</p>
+      </div>
+      <button type="button" (click)="addVesselRow()">Adicionar navio</button>
+    </header>
+
+    <table class="editor-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Chegada</th>
+          <th>Partida desejada</th>
+          <th>Descarga</th>
+          <th>Carga</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let group of vessels.controls; let i = index; trackBy: trackByIndex" [formGroupName]="i">
+          <td><input formControlName="id" placeholder="va" required /></td>
+          <td><input type="number" min="0" formControlName="arrivalHour" /></td>
+          <td><input type="number" min="0" formControlName="departureHour" /></td>
+          <td><input type="number" min="1" formControlName="unloadDuration" /></td>
+          <td><input type="number" min="0" formControlName="loadDuration" /></td>
+          <td><button type="button" class="icon" (click)="removeVessel(i)">✕</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel two-column">
+    <div formArrayName="cranes">
+      <header>
+        <div>
+          <h2>Gruas</h2>
+          <p>Disponibilidade diária da infraestrutura.</p>
+        </div>
+        <button type="button" (click)="addCraneRow()">Adicionar grua</button>
+      </header>
+      <table class="editor-table compact">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th>Cap.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let group of cranes.controls; let i = index; trackBy: trackByIndex" [formGroupName]="i">
+            <td><input formControlName="id" placeholder="CR-1" /></td>
+            <td><input type="time" formControlName="availableFrom" /></td>
+            <td><input type="time" formControlName="availableTo" /></td>
+            <td><input type="number" min="1" formControlName="capacity" /></td>
+            <td><button type="button" class="icon" (click)="removeCrane(i)">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div formArrayName="staff">
+      <header>
+        <div>
+          <h2>Equipas</h2>
+          <p>Turnos ativos e qualificações necessárias.</p>
+        </div>
+        <button type="button" (click)="addStaffRow()">Adicionar equipa</button>
+      </header>
+      <table class="editor-table compact">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Skills</th>
+            <th>Início</th>
+            <th>Fim</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let group of staff.controls; let i = index; trackBy: trackByIndex" [formGroupName]="i">
+            <td><input formControlName="id" placeholder="ST-1" /></td>
+            <td><input formControlName="skills" placeholder="crane,logistics" /></td>
+            <td><input type="time" formControlName="shiftStart" /></td>
+            <td><input type="time" formControlName="shiftEnd" /></td>
+            <td><button type="button" class="icon" (click)="removeStaff(i)">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="form-actions">
+    <button type="submit" [disabled]="status === 'computing'">
+      {{ status === 'computing' ? 'A gerar...' : 'Calcular escala diária' }}
+    </button>
+    <span class="helper">Serão enviados todos os dados acima para o módulo Planning & Scheduling.</span>
+  </footer>
+</form>
+
+<section class="status-card" [class.loading]="status === 'computing'" [class.error]="status === 'error'">
+  <h3>Estado do cálculo</h3>
+  <p>{{ statusMessage }}</p>
+  <p *ngIf="errorMessage" class="error-text">{{ errorMessage }}</p>
+  <p *ngIf="computationMs && status === 'success'">Tempo de resposta: {{ computationMs }} ms</p>
+</section>
+
+<section class="results" *ngIf="result">
+  <header>
+    <h2>Resultado para {{ result.date }}</h2>
+    <span class="chip">{{ result.algorithm }}</span>
+  </header>
+
+  <div class="summary-grid">
+    <article>
+      <h3>Atraso total</h3>
+      <strong>{{ result.totalDelayMinutes }} min</strong>
+    </article>
+    <article>
+      <h3>Horas de grua utilizadas</h3>
+      <strong>{{ result.craneHoursUsed }}</strong>
+    </article>
+    <article>
+      <h3>Operações</h3>
+      <strong>{{ result.schedule.length }}</strong>
+    </article>
+  </div>
+
+  <div class="warning-list" *ngIf="warnings.length">
+    <h3>Avisos</h3>
+    <ul>
+      <li *ngFor="let warning of warnings">{{ warning }}</li>
+    </ul>
+  </div>
+
+  <div class="timeline" *ngIf="timeline?.segments.length; else noPlan">
+    <div class="timeline-head">
+      <span>{{ timeline?.startLabel }}</span>
+      <span>{{ timeline?.endLabel }}</span>
+    </div>
+    <div class="timeline-body">
+      <div
+        *ngFor="let segment of timeline?.segments"
+        class="timeline-segment"
+        [style.width.%]="segment.widthPercent"
+        [style.margin-left.%]="segment.offsetPercent"
+        [class.delayed]="segment.delayed"
+      >
+        <span>{{ segment.vesselId }}</span>
+        <small>{{ segment.startLabel }} → {{ segment.endLabel }}</small>
+        <small>{{ segment.delayLabel }}</small>
+        <small *ngIf="segment.resourcesLabel">Recursos: {{ segment.resourcesLabel }}</small>
+      </div>
+    </div>
+  </div>
+  <ng-template #noPlan>
+    <p class="empty-state">Sem operações para a data especificada.</p>
+  </ng-template>
+
+  <table class="result-table" *ngIf="result.schedule.length">
+    <thead>
+      <tr>
+        <th>Navio</th>
+        <th>Início</th>
+        <th>Fim</th>
+        <th>Duração</th>
+        <th>Atraso</th>
+        <th>Gruas</th>
+        <th>Equipa</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let operation of result.schedule">
+        <td>{{ operation.vesselId }}</td>
+        <td>{{ formatTime(operation.startTime) }}</td>
+        <td>{{ formatTime(operation.endTime) }}</td>
+        <td>{{ operationDurationMinutes(operation) }} min</td>
+        <td [class.delayed]="operation.delayMinutes > 0">
+          {{ operation.delayMinutes > 0 ? operation.delayMinutes + ' min' : 'A tempo' }}
+        </td>
+        <td>{{ operation.craneIds.join(', ') || '—' }}</td>
+        <td>{{ operation.staffIds.join(', ') || '—' }}</td>
+      </tr>
+    </tbody>
+  </table>
+</section>

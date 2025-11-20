@@ -7,7 +7,6 @@ namespace TodoApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
 public class SchedulingController : ControllerBase
 {
     private readonly ISchedulingService _schedulingService;

@@ -20,6 +20,7 @@ export const routes: Routes = [
   { path: 'resources', loadComponent: () => import('./pages/resources/resources.component').then(m => m.ResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
   { path: 'qualifications', loadComponent: () => import('./pages/qualifications/qualifications.component').then(m => m.QualificationsComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
   { path: 'staff', loadComponent: () => import('./pages/staff/staff.component').then(m => m.StaffComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
+  { path: 'scheduling', loadComponent: () => import('./pages/scheduling/scheduling.component').then(m => m.SchedulingComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator'] } },
   { path: 'representatives', loadComponent: () => import('./pages/representatives/representatives.component').then(m => m.RepresentativesComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'shipping-agents', loadComponent: () => import('./pages/shipping-agents/shipping-agents.component').then(m => m.ShippingAgentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
