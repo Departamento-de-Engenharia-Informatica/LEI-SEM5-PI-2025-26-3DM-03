@@ -55,6 +55,7 @@
                 <span *ngIf="!u.roleChange?.confirmedUtc" class="pending">Aguardando confirmação</span>
               </span>
               <ng-template #noRoleChange><small>Sem alterações recentes</small></ng-template>
+              <button class="btn-ghost" (click)="sendRoleChange(u)" [disabled]="!u.active || !u.roles || u.roles.length === 0">Enviar atualização</button>
             </div>
           </td>
           <td>

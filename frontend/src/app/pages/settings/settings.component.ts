@@ -78,4 +78,13 @@ export class SettingsComponent implements OnInit {
       await this.load();
     } catch (e: any) { this.error = e?.message || 'Failed'; }
   }
+
+  async sendRoleChange(u: any) {
+    try {
+      await this.admin.sendRoleChangeLink(u.id);
+      await this.load();
+    } catch (e: any) {
+      this.error = e?.message || 'Failed';
+    }
+  }
 }

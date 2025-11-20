@@ -10,6 +10,7 @@ namespace TodoApi.Domain.Repositories
         Task<Resource?> GetByCodeAsync(string code);
         Task AddAsync(Resource resource);
         Task UpdateAsync(Resource resource);
+        Task DeleteAsync(Resource resource);
         Task<bool> ExistsAsync(string code);
         Task SaveChangesAsync();
     }
