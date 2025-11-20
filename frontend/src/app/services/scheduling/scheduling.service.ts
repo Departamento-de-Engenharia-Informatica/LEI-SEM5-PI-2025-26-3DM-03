@@ -43,13 +43,30 @@ export interface ScheduledOperationDto {
   multiCrane: boolean;
 }
 
+export interface ScheduleSummaryMetrics {
+  algorithm: string;
+  totalDelayMinutes: number;
+  craneHoursUsed: number;
+  computationMilliseconds: number;
+}
+
+export interface ScheduleComparisonDto {
+  selected: ScheduleSummaryMetrics;
+  baseline: ScheduleSummaryMetrics;
+  delayDeltaMinutes: number;
+  computationDeltaMilliseconds: number;
+}
+
 export interface DailyScheduleResponse {
   date: string;
   algorithm: string;
+  computationMilliseconds: number;
   totalDelayMinutes: number;
   craneHoursUsed: number;
   schedule: ScheduledOperationDto[];
   warnings: string[];
+  summary: ScheduleSummaryMetrics;
+  comparison?: ScheduleComparisonDto | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -89,6 +106,13 @@ export class SchedulingService {
     const payload = (await response.json()) as DailyScheduleResponse;
     payload.warnings ??= [];
     payload.schedule ??= [];
+    payload.computationMilliseconds ??= 0;
+    payload.summary ??= {
+      algorithm: payload.algorithm,
+      totalDelayMinutes: payload.totalDelayMinutes,
+      craneHoursUsed: payload.craneHoursUsed,
+      computationMilliseconds: payload.computationMilliseconds
+    };
     return payload;
   }
 }

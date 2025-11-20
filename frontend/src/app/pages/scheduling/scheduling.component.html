@@ -22,6 +22,7 @@
       <select formControlName="algorithm">
         <option value="optimal">Motor interno (heurística ótima)</option>
         <option value="prolog">Motor Prolog externo</option>
+        <option value="heuristic">Heurística rápida (greedy)</option>
       </select>
     </label>
 
@@ -149,6 +150,7 @@
   <header>
     <h2>Resultado para {{ result.date }}</h2>
     <span class="chip">{{ result.algorithm }}</span>
+    <span class="pill" *ngIf="comparisonLabel">{{ comparisonLabel }}</span>
   </header>
 
   <div class="summary-grid">
@@ -164,6 +166,36 @@
       <h3>Operações</h3>
       <strong>{{ result.schedule.length }}</strong>
     </article>
+    <article>
+      <h3>Tempo de cálculo (API)</h3>
+      <strong>{{ result.summary.computationMilliseconds }} ms</strong>
+      <small *ngIf="computationMs">Browser: {{ computationMs }} ms</small>
+    </article>
+  </div>
+
+  <div class="comparison" *ngIf="result.comparison as comparison">
+    <h3>Comparação com {{ comparison.baseline.algorithm }}</h3>
+    <div class="comparison-grid">
+      <div>
+        <p>Algoritmo atual</p>
+        <strong>{{ comparison.selected.totalDelayMinutes }} min atraso</strong>
+        <small>{{ comparison.selected.computationMilliseconds }} ms</small>
+      </div>
+      <div>
+        <p>Base</p>
+        <strong>{{ comparison.baseline.totalDelayMinutes }} min atraso</strong>
+        <small>{{ comparison.baseline.computationMilliseconds }} ms</small>
+      </div>
+      <div>
+        <p>Diferença</p>
+        <strong [class.delayed]="(comparison.delayDeltaMinutes || 0) > 0">
+          {{ comparison.delayDeltaMinutes }} min
+        </strong>
+        <small>
+          Tempo: {{ comparison.computationDeltaMilliseconds }} ms
+        </small>
+      </div>
+    </div>
   </div>
 
   <div class="warning-list" *ngIf="warnings.length">

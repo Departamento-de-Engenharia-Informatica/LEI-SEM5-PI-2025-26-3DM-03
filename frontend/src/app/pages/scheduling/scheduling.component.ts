@@ -59,9 +59,11 @@ type StaffFormValue = {
   shiftEnd: string;
 };
 
+type AlgorithmOption = 'optimal' | 'prolog' | 'heuristic';
+
 type SchedulingFormShape = {
   date: FormControl<string>;
-  algorithm: FormControl<'optimal' | 'prolog'>;
+  algorithm: FormControl<AlgorithmOption>;
   strategy: FormControl<string>;
   vessels: FormArray<FormGroup<VesselFormShape>>;
   cranes: FormArray<FormGroup<CraneFormShape>>;
@@ -103,6 +105,7 @@ export class SchedulingComponent {
   warnings: string[] = [];
   timeline: TimelineView | null = null;
   computationMs: number | null = null;
+  comparisonLabel: string | null = null;
 
   constructor(
     private readonly fb: NonNullableFormBuilder,
@@ -197,6 +200,7 @@ export class SchedulingComponent {
     this.timeline = null;
     this.warnings = [];
     this.errorMessage = null;
+    this.comparisonLabel = null;
     this.cdr.markForCheck();
   }
 
@@ -216,6 +220,7 @@ export class SchedulingComponent {
     this.timeline = null;
     this.warnings = [];
     this.computationMs = null;
+    this.comparisonLabel = null;
     this.cdr.markForCheck();
 
     const date = this.form.controls.date.value;
@@ -268,10 +273,13 @@ export class SchedulingComponent {
       this.result = response;
       this.timeline = this.buildTimeline(response.schedule);
       this.warnings = response.warnings ?? [];
+      this.comparisonLabel = response.comparison
+        ? `Comparado com ${response.comparison.baseline.algorithm}`
+        : null;
       this.status = 'success';
       this.statusMessage = 'Plano diário gerado com sucesso.';
       this.errorMessage = null;
-      this.computationMs = Math.round(performance.now() - startedAt);
+      this.computationMs = response.computationMilliseconds || Math.round(performance.now() - startedAt);
     } catch (error: any) {
       console.error('Scheduling failed', error);
       this.errorMessage = error?.message ?? 'Falha ao gerar o plano.';
@@ -313,7 +321,7 @@ export class SchedulingComponent {
   private createForm(): FormGroup<SchedulingFormShape> {
     return this.fb.group({
       date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
-      algorithm: this.fb.control<'optimal' | 'prolog'>('optimal', { validators: [Validators.required] }),
+      algorithm: this.fb.control<AlgorithmOption>('optimal', { validators: [Validators.required] }),
       strategy: this.fb.control('default'),
       vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
       cranes: this.fb.array<FormGroup<CraneFormShape>>([]),

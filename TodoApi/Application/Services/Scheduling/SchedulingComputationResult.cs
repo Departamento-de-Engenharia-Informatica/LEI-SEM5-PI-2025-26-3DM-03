@@ -18,13 +18,24 @@ public class SchedulingComputationResult
 
     public IReadOnlyCollection<string> Warnings { get; init; } = Array.Empty<string>();
 
-    public DailyScheduleResponse ToResponse() => new()
+    public DailyScheduleResponse ToResponse(
+        int computationMilliseconds = 0,
+        ScheduleComparisonDto? comparison = null) => new()
     {
         Date = Date,
         Algorithm = Algorithm,
+        ComputationMilliseconds = computationMilliseconds,
         TotalDelayMinutes = TotalDelayMinutes,
         CraneHoursUsed = CraneHoursUsed,
         Schedule = Schedule.ToList(),
-        Warnings = Warnings.ToList()
+        Warnings = Warnings.ToList(),
+        Summary = new ScheduleSummaryMetrics
+        {
+            Algorithm = Algorithm,
+            TotalDelayMinutes = TotalDelayMinutes,
+            CraneHoursUsed = CraneHoursUsed,
+            ComputationMilliseconds = computationMilliseconds
+        },
+        Comparison = comparison
     };
 }
