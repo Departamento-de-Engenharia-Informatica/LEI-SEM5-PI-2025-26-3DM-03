@@ -41,6 +41,9 @@ export class DocksComponent implements OnInit, OnDestroy {
   error: string | null = null;
   saving = false;
 
+  private readonly integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+  private readonly decimalFormatter = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
   private _sub: any;
   constructor(private docksService: DocksService, private cdr: ChangeDetectorRef, private toast: ToastService) {}
 
@@ -112,6 +115,47 @@ export class DocksComponent implements OnInit, OnDestroy {
       this.sortDir = 'asc';
     }
     this.applyFilterSort();
+  }
+
+  get summaryMetrics() {
+    const visible = this.filtered.length;
+    const total = this.docks.length;
+
+    const lengthValues = this.filtered
+      .map(d => this.asNumber(d.length))
+      .filter((v): v is number => v !== null);
+    const depthValues = this.filtered
+      .map(d => this.asNumber(d.depth))
+      .filter((v): v is number => v !== null);
+    const draftValues = this.filtered
+      .map(d => this.asNumber(d.maxDraft))
+      .filter((v): v is number => v !== null);
+
+    const totalLength = lengthValues.reduce((acc, val) => acc + val, 0);
+    const avgDepth = depthValues.length ? depthValues.reduce((acc, val) => acc + val, 0) / depthValues.length : null;
+    const peakDraft = draftValues.length ? Math.max(...draftValues) : null;
+
+    return [
+      {
+        icon: '🗂',
+        label: 'Docas visíveis',
+        value: this.integerFormatter.format(visible),
+        hint: total === visible ? 'Todas as docas listadas' : `${this.integerFormatter.format(total)} no total`
+      },
+      {
+        icon: '📏',
+        label: 'Comprimento combinado',
+        value: totalLength ? `${this.integerFormatter.format(totalLength)} m` : '—',
+        hint: lengthValues.length ? `${lengthValues.length} com comprimento definido` : 'Sem valores de comprimento'
+      },
+      {
+        icon: '🌊',
+        label: 'Profundidade média',
+        value: avgDepth !== null ? `${this.decimalFormatter.format(avgDepth)} m` : '—',
+        hint: draftValues.length ? `Max draft visível: ${this.integerFormatter.format(peakDraft ?? 0)} m` : 'Sem valores registados',
+        highlight: draftValues.length > 0
+      }
+    ];
   }
 
   // ---- CRUD ----
@@ -197,5 +241,9 @@ export class DocksComponent implements OnInit, OnDestroy {
       this.error = err?.message || 'Erro ao eliminar dock';
       try { this.toast.error(this.error ?? 'Erro ao eliminar dock'); } catch {}
     }
+  }
+
+  private asNumber(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
   }
 }

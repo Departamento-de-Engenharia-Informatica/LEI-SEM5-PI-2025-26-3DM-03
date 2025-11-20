@@ -71,6 +71,21 @@
     </div>
   </section>
 
+  <section class="summary-grid" *ngIf="summaryMetrics.length">
+    <article
+      class="summary-card"
+      *ngFor="let metric of summaryMetrics"
+      [class.summary-card--highlight]="metric.highlight"
+    >
+      <div class="summary-icon" aria-hidden="true">{{ metric.icon }}</div>
+      <div class="summary-info">
+        <span class="summary-label">{{ metric.label }}</span>
+        <span class="summary-value">{{ metric.value }}</span>
+        <span class="summary-hint">{{ metric.hint }}</span>
+      </div>
+    </article>
+  </section>
+
   <!-- Layout principal -->
   <div class="layout">
     <!-- Formulário lateral -->
@@ -87,6 +102,8 @@
           class="form"
           (ngSubmit)="createDock()"
         >
+          <div class="form-caption">Preenche os campos e cria a doca instantaneamente.</div>
+
           <label>
             <span>Nome</span>
             <input
@@ -96,6 +113,13 @@
             />
           </label>
 
+            <label>
+              <span>Localização</span>
+              <input
+                [(ngModel)]="newDock.location"
+                name="location"
+              />
+            </label>
           <label>
             <span>Localização</span>
             <input
@@ -150,10 +174,13 @@
         >
           <div class="card-head">
             <div class="meta">
-              <div class="name">{{ dock.name }}</div>
-              <div class="loc">
-                {{ dock.location || 'Sem localização definida' }}
+              <div class="name-line">
+                <span class="name">{{ dock.name }}</span>
+                <span class="tag" *ngIf="dock.location; else locationFallback">{{ dock.location }}</span>
               </div>
+              <ng-template #locationFallback>
+                <span class="tag muted">Sem localização</span>
+              </ng-template>
             </div>
             <div class="actions">
               <button
