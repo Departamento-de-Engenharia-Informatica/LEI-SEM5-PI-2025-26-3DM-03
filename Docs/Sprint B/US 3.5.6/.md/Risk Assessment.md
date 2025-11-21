@@ -1,48 +1,46 @@
 # Risk Assessment & Mitigation Plan  
 ### Digital Port Ecosystem  
 ### Prepared by: System Administrator  
-### Version: 1.0  
+### Version: 1.1  
 ---
 
 ## 1. Purpose
-This document catalogues and evaluates risks that threaten the Digital Port Ecosystem at an architectural and operational level.  
-Every risk entry records:
-- Category (technical, operational, security, compliance, etc.)
-- Likelihood rating  
-- Impact rating  
-- Mitigation strategy  
-- Residual risk level after mitigation
+This document identifies, evaluates, and categorizes the main risks associated with the digital ecosystem developed for the port management system.  
+For each risk, the following elements are defined:
 
-The intent is to ensure the platform remains resilient, compliant, and aligned with business continuity expectations.
+- Category (technical, operational, security, compliance, UX)  
+- Probability  
+- Impact  
+- Initial risk level  
+- Mitigation strategy  
+- Residual risk after mitigation  
+
+The goal is to ensure the availability, security, integrity, and operational continuity of the solution.
 
 ---
 
 ## 2. Risk Rating Scale
 
-### **Likelihood (L)**
+### Probability (P)
 | Value | Description |
 |-------|-------------|
-| 1 | Very unlikely |
-| 2 | Unlikely |
-| 3 | Possible |
-| 4 | Likely |
-| 5 | Almost certain |
+| **1** | Low — unlikely; requires exceptional conditions |
+| **2** | Medium — possible throughout the system lifecycle |
+| **3** | High — very likely, especially in production environments |
 
-### **Impact (I)**
+### Impact (I)
 | Value | Description |
 |-------|-------------|
-| 1 | Negligible (no service interruption) |
-| 2 | Minor (slight degradation) |
-| 3 | Moderate (some functionality unavailable) |
-| 4 | Major (critical operations affected) |
-| 5 | Severe (system-wide outage or data loss) |
+| **1** | Low — limited impact, no significant service interruption |
+| **2** | Medium — partial degradation or temporary unavailability |
+| **3** | High — critical failure, data loss, or full service interruption |
 
-### **Risk Level = L × I**
+### Risk level = P × I
 | Score | Severity |
 |-------|----------|
-| 1–5 | Low |
-| 6–12 | Medium |
-| 13–25 | High |
+| **1–3** | Low |
+| **4–6** | Medium |
+| **7–9** | High |
 
 ---
 
@@ -50,147 +48,143 @@ The intent is to ensure the platform remains resilient, compliant, and aligned w
 
 ### 3.1 Volatile Development Storage
 - **Category:** Technical  
-- **Description:** Several services rely on in-memory data stores during development; restarts wipe state and may mask persistence defects that surface later.  
-- **Likelihood:** 4  
-- **Impact:** 4  
-- **Risk Level:** 16 (High)  
-**Mitigation:** Establish a persistent backing store in all staging environments; schedule automated snapshots; enforce environment flags preventing in-memory mode in production.  
-**Residual Risk:** Medium
+- **Description:** Development environments rely on volatile in-memory storage, which can hide real persistence issues.  
+- **P:** 3  
+- **I:** 3  
+- **Initial Risk:** 9 (High)  
+**Mitigation:** Use persistent storage mechanisms consistent across staging and production; disable in-memory modes in critical environments.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
-### 3.2 Monolithic Backend Instance
+### 3.2 Monolithic Backend Deployment
 - **Category:** Technical  
-- **Description:** The API is deployed as a single instance—hardware or process failure causes full outage.  
-- **Likelihood:** 3  
-- **Impact:** 5  
-- **Risk Level:** 15 (High)  
-**Mitigation:** Containerize and deploy multiple replicas behind a load balancer; enable readiness/liveness checks; incorporate rolling updates.  
-**Residual Risk:** Medium
+- **Description:** The solution is deployed as a single instance; a failure results in complete service downtime.  
+- **P:** 2  
+- **I:** 3  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** Implement replication with multiple instances, health checks, and rolling updates.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
-### 3.3 Portal Coupled to API Availability
-- **Category:** Technical  
-- **Description:** The SPA loads live data for every interaction, so API downtime makes the UI unusable.  
-- **Likelihood:** 3  
-- **Impact:** 4  
-- **Risk Level:** 12 (Medium)  
-**Mitigation:** Introduce cached configuration and read-only fallback views; implement retry/backoff policies; mirror critical data in CDN edge caches.  
-**Residual Risk:** Low
+### 3.3 API-Coupled Frontend
+- **Category:** Technical / UX  
+- **Description:** The SPA depends on real-time backend calls; API downtime renders the interface unusable.  
+- **P:** 2  
+- **I:** 2  
+- **Initial Risk:** 4 (Medium)  
+**Mitigation:** Cache essential data, implement read-only fallbacks, and apply retry/backoff mechanisms.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
 ---
 
 ## 4. Security & Compliance Risks
 
-### 4.1 External Identity Provider Dependency
-- **Category:** Security / External  
-- **Description:** Authentication depends on a third-party OIDC provider; outages or rate limits block access for all users.  
-- **Likelihood:** 2  
-- **Impact:** 5  
-- **Risk Level:** 10 (Medium)  
-**Mitigation:** Maintain emergency privileged accounts with MFA; provide short-lived offline tokens; monitor provider status and trigger continuity plan when degraded.  
-**Residual Risk:** Low
+### 4.1 Unauthorized Access from External Networks
+- **Category:** Security / Operational  
+- **Description:** Possible access attempts from external networks without VPN.  
+- **P:** 2  
+- **I:** 3  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** Strict firewall rules; whitelist DEI/VPN IPs; validated configuration file for allowed endpoints.  
+**Residual Risk:** 1 / 3 / 3 (Low)
 
-### 4.2 Authentication Cookie Misconfiguration
+### 4.2 Authentication & Authorization Misconfiguration
 - **Category:** Security  
-- **Description:** Incorrect `Secure`/`SameSite` settings can allow token theft or break login flows across domains.  
-- **Likelihood:** 3  
-- **Impact:** 4  
-- **Risk Level:** 12 (Medium)  
-**Mitigation:** Enforce policy-as-code for cookie flags; validate via automated integration tests; harden TLS termination and HSTS.  
-**Residual Risk:** Low
+- **Description:** Misconfigurations may compromise sessions or allow privilege abuse.  
+- **P:** 2  
+- **I:** 3  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** Strong token validation; correct IAM integration; granular access control; suspicious activity logging.  
+**Residual Risk:** 1 / 3 / 3 (Low)
 
-### 4.3 Insufficient Input Validation
+### 4.3 Input Validation Weaknesses
 - **Category:** Security  
-- **Description:** Forms allow unvalidated identifiers and contact details, potentially leading to data quality issues or injection vectors.  
-- **Likelihood:** 4  
-- **Impact:** 3  
-- **Risk Level:** 12 (Medium)  
-**Mitigation:** Add backend validators plus shared DTO schemas; implement client-side constraints; sanitize before persistence.  
-**Residual Risk:** Medium
+- **Description:** Insufficient validation may lead to invalid data or security vulnerabilities.  
+- **P:** 3  
+- **I:** 2  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** Shared validation schemas; sanitization before persistence; automated test coverage.  
+**Residual Risk:** 2 / 2 / 4 (Medium)
 
 ### 4.4 Sensitive Data Exposure in Logs
 - **Category:** Security / Compliance  
-- **Description:** Debug logging may capture personally identifiable information or operational secrets.  
-- **Likelihood:** 3  
-- **Impact:** 4  
-- **Risk Level:** 12 (Medium)  
-**Mitigation:** Apply structured logging with redaction filters; enforce retention limits; audit log streams regularly.  
-**Residual Risk:** Low
+- **Description:** Logs may unintentionally include sensitive information.  
+- **P:** 2  
+- **I:** 3  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** Automated redaction; short retention period; periodic audit of log storage.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
 ---
 
 ## 5. Operational Risks
 
-### 5.1 Data Seeding & Configuration Drift
-- **Category:** Operational  
-- **Description:** Seed scripts may fail silently, leading to missing reference data across environments.  
-- **Likelihood:** 3  
-- **Impact:** 3  
-- **Risk Level:** 9 (Medium)  
-**Mitigation:** Add health endpoints to verify seed state; log failures with alerts; provide an idempotent “reseed” command.  
-**Residual Risk:** Low
+### 5.1 Deployment or VM Failure
+- **Category:** Technical / Operational  
+- **Description:** Deployment issues may leave the module unavailable.  
+- **P:** 2  
+- **I:** 2  
+- **Initial Risk:** 4 (Medium)  
+**Mitigation:** CI/CD pipeline with tests; detailed logs; fast rollback; reproducible staging environment.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
-### 5.2 Duplicate or Conflicting Registry Entries
-- **Category:** Operational  
-- **Description:** Users can attempt to register entities already present in the system, causing inconsistencies.  
-- **Likelihood:** 3  
-- **Impact:** 2  
-- **Risk Level:** 6 (Medium)  
-**Mitigation:** Implement uniqueness checks server-side; validate before submission; surface actionable error messages.  
-**Residual Risk:** Low
+### 5.2 Data Loss from Misconfiguration or VM Failure
+- **Category:** Technical  
+- **Description:** Critical VM failures or human error may cause data loss.  
+- **P:** 3  
+- **I:** 3  
+- **Initial Risk:** 9 (High)  
+**Mitigation:** Regular backups; off-site storage; restore testing; version control of configurations.  
+**Residual Risk:** 1 / 3 / 3 (Low)
 
-### 5.3 Monitoring Gaps for Critical Services
-- **Category:** Operational  
-- **Description:** Limited observability can delay detection of degradations in cargo tracking, scheduling, or integration gateways.  
-- **Likelihood:** 3  
-- **Impact:** 4  
-- **Risk Level:** 12 (Medium)  
-**Mitigation:** Define SLO metrics per service; integrate alerting with on-call escalation; maintain runbooks for incident response.  
-**Residual Risk:** Low
+### 5.3 Suspicious Shell Access Undetected
+- **Category:** Security / Operational  
+- **Description:** Unauthorized remote access attempts may go undetected.  
+- **P:** 3  
+- **I:** 2  
+- **Initial Risk:** 6 (Medium)  
+**Mitigation:** MFA after failed authentication; restricted login hours; automatic alerts; regular audit of authentication logs.  
+**Residual Risk:** 2 / 2 / 4 (Medium)
 
 ---
 
-## 6. User Experience & Workflow Risks
+## 6. UX & Workflow Risks
 
-### 6.1 Inconsistent UI/Backend Validation
-- **Category:** UX / Operational  
-- **Description:** Differences between client and server rules cause user confusion and repeated submissions.  
-- **Likelihood:** 4  
-- **Impact:** 2  
-- **Risk Level:** 8 (Medium)  
-**Mitigation:** Reuse validation schemas across tiers; provide inline guidance; surface validation summaries near inputs.  
-**Residual Risk:** Low
+### 6.1 Configuration File Errors
+- **Category:** Technical / Operational  
+- **Description:** Configuration files may contain invalid entries or values.  
+- **P:** 2  
+- **I:** 2  
+- **Initial Risk:** 4 (Medium)  
+**Mitigation:** Automatic validation; error logs; simple and documented file structure.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
 ### 6.2 Lack of Visibility Into Process Status
 - **Category:** UX / Operational  
-- **Description:** Users receive no feedback when asynchronous operations (manifest processing, vessel scheduling) are pending or delayed.  
-- **Likelihood:** 3  
-- **Impact:** 3  
-- **Risk Level:** 9 (Medium)  
-**Mitigation:** Add progress indicators and notifications; expose audit trails; enable subscription to status updates.  
-**Residual Risk:** Low
+- **Description:** Asynchronous processes may appear stalled to the user.  
+- **P:** 2  
+- **I:** 2  
+- **Initial Risk:** 4 (Medium)  
+**Mitigation:** Progress indicators; status notifications; accessible audit trail.  
+**Residual Risk:** 1 / 2 / 2 (Low)
 
 ---
 
 ## 7. Summary Table
 
-| Risk | Category | L | I | Risk Level | Residual |
-|------|----------|---|---|-----------|----------|
-| Volatile development storage | Technical | 4 | 4 | **16 (High)** | Medium |
-| Monolithic backend instance | Technical | 3 | 5 | **15 (High)** | Medium |
-| SPA coupled to API | Technical | 3 | 4 | 12 | Low |
-| External identity dependency | Security | 2 | 5 | 10 | Low |
-| Cookie misconfiguration | Security | 3 | 4 | 12 | Low |
-| Weak input validation | Security | 4 | 3 | 12 | Medium |
-| Sensitive data in logs | Security | 3 | 4 | 12 | Low |
-| Seed/configuration drift | Operational | 3 | 3 | 9 | Low |
-| Duplicate registry entries | Operational | 3 | 2 | 6 | Low |
-| Monitoring gaps | Operational | 3 | 4 | 12 | Low |
-| UI/backend inconsistency | UX/Operational | 4 | 2 | 8 | Low |
-| Process status opacity | UX/Operational | 3 | 3 | 9 | Low |
+| ID | Risk | Category | P | I | Level | Residual |
+|----|-------|-----------|---|---|--------|-----------|
+| R1 | Unauthorized external access | Security/Operational | 2 | 3 | 6 (M) | 1/3/3 |
+| R2 | Misconfigured permissions | Security | 2 | 3 | 6 (M) | 1/3/3 |
+| R3 | Deployment failure | Technical/Operational | 2 | 2 | 4 (M) | 1/2/2 |
+| R4 | Data loss | Technical | 3 | 3 | 9 (H) | 1/3/3 |
+| R5 | Public folder exposure | Security/Operational | 2 | 2 | 4 (M) | 1/2/2 |
+| R6 | Undetected suspicious shell activity | Security/Operational | 3 | 2 | 6 (M) | 2/2/4 |
+| R7 | Performance degradation | Technical/Operational | 2 | 2 | 4 (M) | 1/2/2 |
+| R8 | Configuration file errors | Technical/Operational | 2 | 2 | 4 (M) | 1/2/2 |
 
 ---
 
 ## 8. Conclusion
-The assessment highlights systemic risks to availability, integrity, security, and usability across the Digital Port Ecosystem. When coupled with the proposed mitigations, residual exposure is reduced to acceptable levels, supporting resilient operations and regulatory compliance.  
-A follow-up `MBCO.md` will define minimum business continuity objectives and link mitigation tasks to the release plan.
+The risk analysis highlights the main factors that may impact the digital ecosystem and defines mitigation measures that reduce risk to acceptable levels.  
+This document forms the basis for the **MBCO (US 3.5.7)** and the **backup strategy (US 3.5.8)**, ensuring operational continuity and system resilience.
 
 ---
