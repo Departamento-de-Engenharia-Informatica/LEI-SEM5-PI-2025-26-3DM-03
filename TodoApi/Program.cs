@@ -127,6 +127,7 @@ builder.Services.AddScoped<TodoApi.Application.Services.Resources.IResourceServi
 builder.Services.AddScoped<ISchedulingService, SchedulingService>();
 builder.Services.AddScoped<IOperationalDataProvider, PassThroughOperationalDataProvider>();
 builder.Services.AddScoped<ISchedulingEngine, MockSchedulingEngine>();
+builder.Services.AddScoped<ISchedulingEngine, HeuristicSchedulingEngine>();
 builder.Services.AddScoped<ISchedulingEngine>(sp => sp.GetRequiredService<PrologHttpSchedulingEngine>());
 
 // ---------- Staff ----------
@@ -436,11 +437,12 @@ builder.Services.AddAuthorization(options =>
 var app = builder.Build();
 app.UseMiddleware<TodoApi.Security.NetworkRestrictionMiddleware>();
 
-if (app.Environment.IsDevelopment())
+// Enable Swagger in ALL environments (Development + Production)
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoApi v1");
+});
 
 app.UseHttpsRedirection();
 

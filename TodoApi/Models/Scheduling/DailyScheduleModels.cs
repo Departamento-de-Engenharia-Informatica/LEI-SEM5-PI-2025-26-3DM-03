@@ -61,6 +61,8 @@ public class DailyScheduleResponse
 
     public string Algorithm { get; set; } = string.Empty;
 
+    public int ComputationMilliseconds { get; set; }
+
     public int TotalDelayMinutes { get; set; }
 
     public int CraneHoursUsed { get; set; }
@@ -68,6 +70,10 @@ public class DailyScheduleResponse
     public IList<ScheduledOperationDto> Schedule { get; set; } = new List<ScheduledOperationDto>();
 
     public IList<string> Warnings { get; set; } = new List<string>();
+
+    public ScheduleSummaryMetrics Summary { get; set; } = new();
+
+    public ScheduleComparisonDto? Comparison { get; set; }
 }
 
 public class ScheduledOperationDto
@@ -87,4 +93,26 @@ public class ScheduledOperationDto
     public int DelayMinutes { get; set; }
 
     public bool MultiCrane { get; set; }
+}
+
+public class ScheduleSummaryMetrics
+{
+    public string Algorithm { get; set; } = string.Empty;
+
+    public int TotalDelayMinutes { get; set; }
+
+    public int CraneHoursUsed { get; set; }
+
+    public int ComputationMilliseconds { get; set; }
+}
+
+public class ScheduleComparisonDto
+{
+    public ScheduleSummaryMetrics Selected { get; set; } = new();
+
+    public ScheduleSummaryMetrics Baseline { get; set; } = new();
+
+    public int DelayDeltaMinutes { get; set; }
+
+    public int ComputationDeltaMilliseconds { get; set; }
 }

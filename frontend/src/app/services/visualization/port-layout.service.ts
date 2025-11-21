@@ -53,6 +53,7 @@ export interface PortLayoutDTO {
   docks: DockLayout[];
   warehouses: WarehouseLayout[];
   materials?: MaterialLibraryDTO;
+  activeVessels?: DockedVesselPlacement[];
 }
 
 export interface MaterialLibraryDTO {
@@ -80,6 +81,20 @@ export interface ProceduralTextureDescriptor {
   scale?: number;
   strength?: number;
   rotation?: number;
+}
+
+export interface DockedVesselPlacement {
+  notificationId: number;
+  dockId: number;
+  vesselId: string;
+  vesselName?: string | null;
+  arrivalDate: string;
+  departureDate?: string | null;
+  status?: string;
+  officerId?: number | null;
+  displayLength: number;
+  estimatedBeam: number;
+  sequenceOnDock: number;
 }
 
 @Injectable({ providedIn: 'root' })

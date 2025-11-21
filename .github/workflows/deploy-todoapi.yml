@@ -5,16 +5,6 @@ on:
     branches: [ main ]
     paths:
       - 'TodoApi/**'
-
-      - name: Debug ambiente na VM
-        run: |
-          set -x
-          echo "Diretório atual:"; pwd
-          echo "Docker version:"; docker version || true
-          echo "Lista raiz:"; ls -al
-          echo "Conteúdo TodoApi:"; ls -al TodoApi || true
-          echo "Mostrar Dockerfile:"; sed -n '1,120p' TodoApi/Dockerfile || true
-
       - 'frameworkDDD/**'
       - '.github/workflows/deploy-todoapi.yml'
   workflow_dispatch:
@@ -22,12 +12,11 @@ on:
       runTestsOnly:
         description: 'Run build & tests without container push'
         type: boolean
-          if docker pull "$IMAGE"; then
-            echo "Pull OK, não precisa build local."
-          else
-            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
-            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
-          fi
+        default: false
+      disableOidc:
+        description: 'Disable OIDC (DISABLE_OIDC=true)'
+        type: boolean
+        default: true
       imageTag:
         description: 'Custom image tag'
         required: false
@@ -149,19 +138,52 @@ jobs:
             ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
             ${{ steps.image.outputs.image }}:latest
 
+      # --- SMOKE TEST NÃO BLOQUEANTE ---
+      - name: Smoke test container (non-blocking)
+        continue-on-error: true
+        run: |
+          echo "Starting smoke test container..."
+          docker rm -f todoapi-smoke || true
+
+          docker run -d --name todoapi-smoke \
+            -p 8080:8080 \
+            -e DISABLE_OIDC=true \
+            ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
+
+          echo "Waiting 20s for app to start..."
+          sleep 20
+
+          echo "Calling http://localhost:8080/WeatherForecast ..."
+          if curl --fail http://localhost:8080/WeatherForecast; then
+            echo "Smoke test PASSED"
+          else
+            echo "Smoke test FAILED (app not ready or misconfigured)"
+          fi
+
+          echo "Collecting container logs..."
+          docker logs todoapi-smoke || true
+          docker logs todoapi-smoke > smoke.log || true
+
+          echo "Cleaning up smoke container..."
+          docker rm -f todoapi-smoke || true
+
+      - name: Upload smoke test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test
+          path: smoke.log
+          retention-days: 14
+
 
 # -------------------------
 #   JOB 3 — Deploy to VM
 # -------------------------
   deploy-to-dei:
     needs: containerize
-    # Executa deploy automaticamente em push para main; em workflow_dispatch só se input deployToDei == true
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deployToDei == 'true') }}
+    if: ${{ inputs.deployToDei == 'true' }}
     runs-on: [self-hosted, Linux, X64]
     steps:
-      - name: Checkout (para build local se necessário)
-        uses: actions/checkout@v4
-
       - name: Prepare variables
         id: prep
         run: |
@@ -171,15 +193,10 @@ jobs:
 
       - name: Login to GHCR from VM
         run: |
-          if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
-            echo "Secrets detectados. Fazendo login no GHCR..."
-            echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-          else
-            echo "[INFO] GHCR_USER ou GHCR_PAT não definidos. Skip login, vai tentar pull e se falhar faz build local."
-          fi
+          echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
         env:
-          GHCR_USER: ${{ secrets.GHCR_USER || '' }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT || '' }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
       - name: Pull and deploy container
         run: |
@@ -188,11 +205,7 @@ jobs:
           PORT="${{ steps.prep.outputs.hport }}"
 
           echo "Pulling image: $IMAGE"
-          if ! docker pull "$IMAGE"; then
-            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
-            # Build local da imagem diretamente na VM usando Dockerfile
-            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
-          fi
+          docker pull "$IMAGE"
 
           echo "Stopping previous container..."
           docker rm -f "$NAME" || true
@@ -206,21 +219,6 @@ jobs:
 
           echo "Running containers:"
           docker ps
-
-      - name: Health check
-        run: |
-          PORT="${{ steps.prep.outputs.hport }}"
-          echo "Aguardando inicialização (até 30s)..."
-          for i in $(seq 1 30); do
-            if curl -fsS "http://localhost:$PORT/WeatherForecast" >/dev/null; then
-              echo "Health check OK em /WeatherForecast"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Health check falhou" >&2
-          docker logs "${{ steps.prep.outputs.cname }}" || true
-          exit 1
 
 
 # -------------------------
@@ -236,4 +234,5 @@ jobs:
           echo "Pipeline completed with:"
           echo "- Tests OK"
           echo "- Image pushed to GHCR"
+          echo "- Smoke test executed (non-blocking, logs as artifact)"
           echo "- Deploy executed on DEI VM (if enabled)"

@@ -9,34 +9,125 @@ namespace TodoApi.Security
         private readonly RequestDelegate _next;
         private readonly List<IPNetwork> _allowedNetworks;
 
+        private static Timer? _debounceTimer;
+        private static readonly object _lock = new();
         public NetworkRestrictionMiddleware(RequestDelegate next, IConfiguration config)
         {
             _next = next;
+            _allowedNetworks = new List<IPNetwork>();
 
-            var filePath = Path.Combine(AppContext.BaseDirectory, "allowed_ips.txt");
+            var filePath = Path.Combine(Directory.GetCurrentDirectory(), "allowed_ips.txt");
 
-            if (!File.Exists(filePath))
+            LoadAllowedIPs(filePath);   // 1) Initial load
+
+            // 2) Automatic file monitoring
+            var directory = Path.GetDirectoryName(filePath) ?? Directory.GetCurrentDirectory();
+
+            var watcher = new FileSystemWatcher(directory)
             {
-                Console.WriteLine("[WARNING] allowed_ips.txt not found. All requests will be denied.");
-                _allowedNetworks = new List<IPNetwork>();
-                return;
+                Filter = Path.GetFileName(filePath),
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
+            };
+            watcher.Changed += (s, e) => DebouncedReload(filePath);
+            watcher.Created += (s, e) => DebouncedReload(filePath);
+            watcher.Renamed += (s, e) => DebouncedReload(filePath);
+
+
+            watcher.EnableRaisingEvents = true;
+        }
+
+        private void DebouncedReload(string filePath)
+        {
+            lock (_lock)
+            {
+                _debounceTimer?.Dispose();
+
+                _debounceTimer = new Timer(_ =>
+                {
+                    Console.WriteLine("[INFO] allowed_ips.txt changed — reloading...");
+                    LoadAllowedIPs(filePath);
+                },
+                null,
+                200,                   // 200ms debounce
+                Timeout.Infinite);
+            }
+        }
+
+       private void LoadAllowedIPs(string filePath)
+        {
+            // Retry logic – avoids IOException while VS Code is writing the file
+            const int maxRetries = 5;
+            const int delay = 100;
+
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    if (!File.Exists(filePath))
+                    {
+                        Console.WriteLine("[WARNING] allowed_ips.txt not found — denying all requests");
+                        _allowedNetworks.Clear();
+                        return;
+                    }
+
+                    var ranges = File.ReadAllLines(filePath)
+                        .Where(line => !string.IsNullOrWhiteSpace(line))
+                        .ToList();
+
+                    var newList = new List<IPNetwork>();
+
+                    foreach (var r in ranges)
+                    {
+                        try
+                        {
+                            newList.Add(IPNetwork.Parse(r));
+                        }
+                        catch
+                        {
+                            Console.WriteLine($"[ERROR] Invalid CIDR entry → \"{r}\"");
+                        }
+                    }
+
+                    _allowedNetworks.Clear();
+                    _allowedNetworks.AddRange(newList);
+
+                    Console.WriteLine($"[INFO] Reloaded {_allowedNetworks.Count} IP ranges.");
+                    return;
+                }
+                catch (IOException)
+                {
+                    Thread.Sleep(delay);
+                }
             }
 
-            var ranges = File.ReadAllLines(filePath)
-                .Where(line => !string.IsNullOrWhiteSpace(line))
-                .ToList();
-
-            _allowedNetworks = ranges.Select(r => IPNetwork.Parse(r)).ToList();
-
-            Console.WriteLine("[INFO] Allowed IP ranges loaded:");
-            foreach (var range in _allowedNetworks)
-                Console.WriteLine("  ✔ " + range);
+            Console.WriteLine("[ERROR] Could not reload allowed_ips.txt — file is locked.");
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
             var remoteIp = context.Connection.RemoteIpAddress;
 
+            // Allow localhost ONLY in Development
+            var env = context.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            if (env.IsDevelopment())
+            {
+                if (remoteIp != null &&
+                    (remoteIp.Equals(IPAddress.Loopback) || remoteIp.Equals(IPAddress.IPv6Loopback)))
+                {
+                    await _next(context);
+                    return;
+                }
+            }
+
+            // Verify if the IP is allowed by the ranges
+            if (remoteIp == null)
+            {
+                Console.WriteLine("[ACCESS BLOCKED] Null IP detected.");
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                await context.Response.WriteAsync("Invalid IP.");
+                return;
+            }
+            
             bool allowed = _allowedNetworks.Any(net => net.Contains(remoteIp));
 
             if (!allowed)
@@ -51,7 +142,6 @@ namespace TodoApi.Security
             await _next(context);
         }
     }
-
     // -------------------------------
     // Helper class for IP ranges
     // -------------------------------
@@ -115,3 +205,4 @@ namespace TodoApi.Security
         }
     }
 }
+
