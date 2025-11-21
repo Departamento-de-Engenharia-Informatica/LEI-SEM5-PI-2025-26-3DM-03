@@ -2,51 +2,18 @@ name: Deploy TodoApi
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'TodoApi/**'
-
-      - name: Debug ambiente na VM
-        run: |
-          set -x
-          echo "Diretório atual:"; pwd
-          echo "Docker version:"; docker version || true
-          echo "Lista raiz:"; ls -al
-          echo "Conteúdo TodoApi:"; ls -al TodoApi || true
-          echo "Mostrar Dockerfile:"; sed -n '1,120p' TodoApi/Dockerfile || true
-
       - 'frameworkDDD/**'
       - '.github/workflows/deploy-todoapi.yml'
-  workflow_dispatch:
-    inputs:
-      runTestsOnly:
-        description: 'Run build & tests without container push'
-        type: boolean
-          if docker pull "$IMAGE"; then
-            echo "Pull OK, não precisa build local."
-          else
-            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
-            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
-          fi
-      imageTag:
-        description: 'Custom image tag'
-        required: false
-      deployToDei:
-        description: 'Deploy to DEI VM (self-hosted runner)'
-        type: boolean
-        default: false
-      containerName:
-        description: 'Container name on DEI VM'
-        required: false
-        default: 'todoapi'
-      hostPort:
-        description: 'Host port to expose TodoApi'
-        required: false
-        default: '8080'
 
+  # Permite correr manualmente a pipeline completa (igual a um push em main)
+  workflow_dispatch: {}
+
+  # Deploy/teste periódico (podes ajustar o cron)
   schedule:
     - cron: '0 2 * * *' # nightly at 02:00 UTC
-
 
 permissions:
   contents: read
@@ -54,7 +21,7 @@ permissions:
 
 
 # -------------------------
-#   JOB 1 — Build + Tests
+#   JOB 1 - Build + Tests
 # -------------------------
 jobs:
   build-test:
@@ -77,7 +44,7 @@ jobs:
       - name: Build
         run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
 
-      - name: Test suite
+      - name: Test suite (Domain.Tests)
         run: |
           echo "Running tests..."
           dotnet test testes/Domain.Tests/Domain.Tests.csproj \
@@ -98,12 +65,11 @@ jobs:
           retention-days: 30
 
 
-# -------------------------
-#   JOB 2 — Build & Push Image
-# -------------------------
+  # -------------------------
+  #   JOB 2 - Build & Push Image
+  # -------------------------
   containerize:
     needs: build-test
-    if: ${{ inputs.runTestsOnly != 'true' }}
     runs-on: ubuntu-latest
     outputs:
       image_repo: ${{ steps.image.outputs.image }}
@@ -150,36 +116,38 @@ jobs:
             ${{ steps.image.outputs.image }}:latest
 
 
-# -------------------------
-#   JOB 3 — Deploy to VM
-# -------------------------
+  # -------------------------
+  #   JOB 3 - Deploy to DEI VM (self-hosted runner)
+  # -------------------------
   deploy-to-dei:
     needs: containerize
-    # Executa deploy automaticamente em push para main; em workflow_dispatch só se input deployToDei == true
-    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deployToDei == 'true') }}
+    # corre para qualquer evento na branch main (push, schedule, manual)
+    if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, Linux, X64]
-    steps:
-      - name: Checkout (para build local se necessário)
-        uses: actions/checkout@v4
 
+    steps:
       - name: Prepare variables
         id: prep
         run: |
           echo "image=${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}" >> $GITHUB_OUTPUT
-          echo "cname=${{ inputs.containerName }}" >> $GITHUB_OUTPUT
-          echo "hport=${{ inputs.hostPort }}" >> $GITHUB_OUTPUT
+          echo "cname=todoapi" >> $GITHUB_OUTPUT
+          echo "hport=8080" >> $GITHUB_OUTPUT
+
+      - name: Debug environment
+        run: |
+          set -x
+          pwd
+          docker version || true
+          docker info || true
+          ls -al
 
       - name: Login to GHCR from VM
         run: |
-          if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
-            echo "Secrets detectados. Fazendo login no GHCR..."
-            echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
-          else
-            echo "[INFO] GHCR_USER ou GHCR_PAT não definidos. Skip login, vai tentar pull e se falhar faz build local."
-          fi
+          echo "Logging into GHCR..."
+          echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
         env:
-          GHCR_USER: ${{ secrets.GHCR_USER || '' }}
-          GHCR_PAT: ${{ secrets.GHCR_PAT || '' }}
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
       - name: Pull and deploy container
         run: |
@@ -188,13 +156,9 @@ jobs:
           PORT="${{ steps.prep.outputs.hport }}"
 
           echo "Pulling image: $IMAGE"
-          if ! docker pull "$IMAGE"; then
-            echo "Imagem não encontrada ou pull falhou. Fazendo build local..."
-            # Build local da imagem diretamente na VM usando Dockerfile
-            docker build -t "$IMAGE" -f TodoApi/Dockerfile .
-          fi
+          docker pull "$IMAGE"
 
-          echo "Stopping previous container..."
+          echo "Stopping previous container (if any)..."
           docker rm -f "$NAME" || true
 
           echo "Starting new container on port $PORT"
@@ -210,22 +174,22 @@ jobs:
       - name: Health check
         run: |
           PORT="${{ steps.prep.outputs.hport }}"
-          echo "Aguardando inicialização (até 30s)..."
+          echo "Waiting up to 30s for health check..."
           for i in $(seq 1 30); do
             if curl -fsS "http://localhost:$PORT/WeatherForecast" >/dev/null; then
-              echo "Health check OK em /WeatherForecast"
+              echo "Health check OK at /WeatherForecast"
               exit 0
             fi
             sleep 1
           done
-          echo "Health check falhou" >&2
+          echo "Health check FAILED" >&2
           docker logs "${{ steps.prep.outputs.cname }}" || true
           exit 1
 
 
-# -------------------------
-#   JOB 4 — Summary
-# -------------------------
+  # -------------------------
+  #   JOB 4 - Summary
+  # -------------------------
   summary:
     needs: [build-test, containerize, deploy-to-dei]
     if: always()
@@ -233,7 +197,8 @@ jobs:
     steps:
       - name: Summary
         run: |
-          echo "Pipeline completed with:"
-          echo "- Tests OK"
-          echo "- Image pushed to GHCR"
-          echo "- Deploy executed on DEI VM (if enabled)"
+          echo "Pipeline completed."
+          echo "- Automated build and tests executed."
+          echo "- Docker image published to GHCR."
+          echo "- Deployment attempted on DEI VM (self-hosted runner)."
+          echo "- Test results and logs available as artifacts."
