@@ -204,7 +204,7 @@ jobs:
           PORT="${{ steps.prep.outputs.hport }}"
 
           echo "Pulling image: $IMAGE"
-          docker pull "$IMAGE"
+          docker pull "$IMAGE" 
 
           echo "Stopping previous container..."
           docker rm -f "$NAME" || true

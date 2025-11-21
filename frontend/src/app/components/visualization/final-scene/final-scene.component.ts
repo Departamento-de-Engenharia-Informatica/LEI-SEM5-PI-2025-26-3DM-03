@@ -274,16 +274,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     water.position.y = this.waterLevelY;
     water.receiveShadow = true;
     this.scene.add(water);
-
-    const foam = new THREE.Mesh(
-      this.trackGeometry(new THREE.RingGeometry(720, 900, 80)),
-      this.trackMaterial(
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, side: THREE.DoubleSide })
-      )
-    );
-    foam.rotation.x = -Math.PI / 2;
-    foam.position.set(0, this.waterLevelY + 0.5, 0);
-    this.scene.add(foam);
   }
 
   private addPlatform() {

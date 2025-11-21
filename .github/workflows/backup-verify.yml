@@ -2,8 +2,12 @@ name: Backup Verify Restore
 
 on:
   schedule:
-    - cron: '0 3 * * 0' # weekly Sunday 03:00 UTC
+    # Dia 1 de cada mês às 03:00 UTC
+    - cron: '0 3 1 * *'
   workflow_dispatch: {}
+
+permissions:
+  contents: read
 
 jobs:
   verify-restore:
@@ -11,17 +15,21 @@ jobs:
     env:
       BACKUP_OUT: backup_out
       DB_TYPE: sqlite
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install sqlite3
-        run: sudo apt-get update && sudo apt-get install -y sqlite3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y sqlite3
 
       - name: Seed ephemeral SQLite
         run: |
           set -e
-          sqlite3 demo.db "CREATE TABLE IF NOT EXISTS demo(id INTEGER PRIMARY KEY, note TEXT); INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');"
+          sqlite3 demo.db "CREATE TABLE IF NOT EXISTS demo(id INTEGER PRIMARY KEY, note TEXT);"
+          sqlite3 demo.db "INSERT INTO demo(note) VALUES ('seed row 1'),('seed row 2');"
 
       - name: Create full backup from SQLite
         env:
@@ -33,15 +41,21 @@ jobs:
           chmod +x scripts/backup-db.sh
           ./scripts/backup-db.sh --type full --out "$BACKUP_OUT"
 
-      - name: Verify backup integrity (PRAGMA)
+      - name: Verify backup integrity (PRAGMA + row count)
         run: |
           set -e
-          file=$(ls -1 ${BACKUP_OUT}/*.sqlite.gz | tail -n1)
+          file=$(ls -1 ${BACKUP_OUT}/*.sqlite.gz 2>/dev/null | tail -n1)
+          if [ -z "$file" ]; then
+            echo "No .sqlite.gz backup found to verify." >&2
+            exit 1
+          fi
           gunzip -c "$file" > /tmp/restore.sqlite
+          echo "Integrity check:"
           sqlite3 /tmp/restore.sqlite "PRAGMA integrity_check;"
-          echo "Row count:"; sqlite3 /tmp/restore.sqlite "SELECT COUNT(*) FROM demo;" || true
+          echo "Row count in demo:"
+          sqlite3 /tmp/restore.sqlite "SELECT COUNT(*) FROM demo;"
 
-      - name: Upload verify artifacts
+      - name: Upload verify artifacts (7 days)
         uses: actions/upload-artifact@v4
         with:
           name: backup-verify-${{ github.run_id }}
