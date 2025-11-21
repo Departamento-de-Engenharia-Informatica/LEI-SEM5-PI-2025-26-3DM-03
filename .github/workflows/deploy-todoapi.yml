@@ -20,10 +20,10 @@ on:
       imageTag:
         description: 'Custom image tag'
         required: false
-      deployToDei:
+      deployToDei:     # já não é usado para condicionar, mas podes deixar
         description: 'Deploy to DEI VM (self-hosted runner)'
         type: boolean
-        default: false
+        default: true
       containerName:
         description: 'Container name on DEI VM'
         required: false
@@ -36,11 +36,9 @@ on:
   schedule:
     - cron: '0 2 * * *' # nightly at 02:00 UTC
 
-
 permissions:
   contents: read
   packages: write
-
 
 # -------------------------
 #   JOB 1 — Build + Tests
@@ -86,13 +84,12 @@ jobs:
             **/TestResults/*.xml
           retention-days: 30
 
-
 # -------------------------
 #   JOB 2 — Build & Push Image
 # -------------------------
   containerize:
     needs: build-test
-    if: ${{ inputs.runTestsOnly != 'true' }}
+    if: ${{ inputs.runTestsOnly != true }}
     runs-on: ubuntu-latest
     outputs:
       image_repo: ${{ steps.image.outputs.image }}
@@ -175,21 +172,23 @@ jobs:
           path: smoke.log
           retention-days: 14
 
-
 # -------------------------
-#   JOB 3 — Deploy to VM
+#   JOB 3 — Deploy to DEI VM (SEM CONDIÇÃO → corre sempre)
 # -------------------------
   deploy-to-dei:
     needs: containerize
-    if: ${{ inputs.deployToDei == 'true' }}
     runs-on: [self-hosted, Linux, X64]
+
     steps:
       - name: Prepare variables
         id: prep
         run: |
-          echo "image=${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}" >> $GITHUB_OUTPUT
-          echo "cname=${{ inputs.containerName }}" >> $GITHUB_OUTPUT
-          echo "hport=${{ inputs.hostPort }}" >> $GITHUB_OUTPUT
+          IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
+          CNAME="${{ inputs.containerName || 'todoapi' }}"
+          HPORT="${{ inputs.hostPort || '8080' }}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "cname=$CNAME" >> $GITHUB_OUTPUT
+          echo "hport=$HPORT" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR from VM
         run: |
@@ -220,7 +219,6 @@ jobs:
           echo "Running containers:"
           docker ps
 
-
 # -------------------------
 #   JOB 4 — Summary
 # -------------------------
@@ -235,4 +233,4 @@ jobs:
           echo "- Tests OK"
           echo "- Image pushed to GHCR"
           echo "- Smoke test executed (non-blocking, logs as artifact)"
-          echo "- Deploy executed on DEI VM (if enabled)"
+          echo "- Deploy executed on DEI VM"
