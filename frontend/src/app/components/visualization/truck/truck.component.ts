@@ -8,6 +8,7 @@ import {
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { applyTruckTrailerTexture, applyTruckWindowTexture } from './truck-texture.util';
 
 @Component({
   selector: 'app-truck',
@@ -25,8 +26,13 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
   private controls!: OrbitControls;
   private animationId: number | null = null;
   private readonly gltfLoader = new GLTFLoader();
+  private readonly textureLoader = new THREE.TextureLoader();
   private readonly modelUrl = 'assets/models/Truck_DAF.glb';
+  private readonly trailerTextureUrl = 'assets/textures/azul.jpg';
+  private readonly windowTextureUrl = 'assets/textures/vidro.jpg';
   private truckRoot?: THREE.Group;
+  private trailerTexture?: THREE.Texture;
+  private windowTexture?: THREE.Texture;
 
   private get canvas(): HTMLCanvasElement {
     return this.canvasRef.nativeElement;
@@ -46,6 +52,8 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
     }
     this.controls?.dispose();
     this.renderer?.dispose();
+    this.trailerTexture?.dispose();
+    this.windowTexture?.dispose();
     window.removeEventListener('resize', this.onWindowResize);
   }
 
@@ -130,6 +138,8 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
         this.truckRoot = gltf.scene;
         this.prepareTruckModel(this.truckRoot);
         this.mirrorTrailerParts(this.truckRoot);
+        this.applyTrailerTexture(this.truckRoot);
+        this.applyWindowTexture(this.truckRoot);
         this.scene.add(this.truckRoot);
       },
       undefined,
@@ -167,6 +177,40 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
     model.position.y += Math.max(4, scaledBox.getSize(new THREE.Vector3()).y * 0.02);
   }
 
+  private getTrailerTexture(): THREE.Texture {
+    if (this.trailerTexture) {
+      return this.trailerTexture;
+    }
+    const texture = this.textureLoader.load(this.trailerTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
+    if (maxAnisotropy && maxAnisotropy > 0) {
+      texture.anisotropy = Math.min(8, maxAnisotropy);
+    }
+    this.trailerTexture = texture;
+    return texture;
+  }
+
+  private getWindowTexture(): THREE.Texture {
+    if (this.windowTexture) {
+      return this.windowTexture;
+    }
+    const texture = this.textureLoader.load(this.windowTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(1, 1);
+    texture.center.set(0.5, 0.5);
+    texture.rotation = Math.PI / 2;
+    texture.needsUpdate = true;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
+    if (maxAnisotropy && maxAnisotropy > 0) {
+      texture.anisotropy = Math.min(8, maxAnisotropy);
+    }
+    this.windowTexture = texture;
+    return texture;
+  }
+
   private mirrorTrailerParts(model: THREE.Group): void {
     const namesToMirror = ['Cube', 'truck_daf.003', 'truck_daf.002'];
     for (const name of namesToMirror) {
@@ -185,6 +229,16 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
       mirrored.scale.x *= -1;
       original.parent?.add(mirrored);
     }
+  }
+
+  private applyTrailerTexture(model: THREE.Group): void {
+    const texture = this.getTrailerTexture();
+    applyTruckTrailerTexture(model, texture);
+  }
+
+  private applyWindowTexture(model: THREE.Group): void {
+    const texture = this.getWindowTexture();
+    applyTruckWindowTexture(model, texture);
   }
 
   private startAnimationLoop(): void {
