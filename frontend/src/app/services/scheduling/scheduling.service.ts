@@ -35,6 +35,7 @@ export interface DailyScheduleRequestPayload {
 export interface ScheduledOperationDto {
   vesselId: string;
   dockId?: string | null;
+  storageId?: string | null;
   craneIds: string[];
   staffIds: string[];
   startTime: string;

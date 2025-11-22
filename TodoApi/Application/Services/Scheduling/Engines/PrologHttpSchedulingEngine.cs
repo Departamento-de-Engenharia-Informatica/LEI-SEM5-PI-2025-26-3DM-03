@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
+using System.Text.Json.Serialization;
 using TodoApi.Models.Scheduling;
 
 namespace TodoApi.Application.Services.Scheduling.Engines;
@@ -32,8 +33,17 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
             throw new InvalidOperationException("At least one vessel is required for Prolog scheduling.");
         }
 
-        var payload = new PrologScheduleRequest
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        linkedCts.CancelAfter(TimeSpan.FromSeconds(30)); // fail fast on slow external solver
+
+        var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
+
+        int ToHour(DateTime dt) => (int)Math.Floor((dt - dayStart).TotalHours);
+
+        var payload = new PrologSchedule3Request
         {
+            Date = context.Date.ToString("yyyy-MM-dd"),
+            Strategy = string.IsNullOrWhiteSpace(context.Strategy) ? "clpfd" : context.Strategy,
             Vessels = context.Vessels.Select(v => new PrologVesselDto
             {
                 Id = v.Id,
@@ -41,20 +51,37 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
                 DepartureHour = v.DepartureHour,
                 UnloadDuration = v.UnloadDuration,
                 LoadDuration = v.LoadDuration
-            }).ToList()
+            }).ToList(),
+            Docks = context.Docks.Select(d => new PrologWindowDto { Id = d.Id, StartHour = 0, EndHour = 240 }).ToList(),
+            Cranes = context.Cranes.Select(c => new PrologWindowDto { Id = c.Id, StartHour = ToHour(c.AvailableFrom), EndHour = ToHour(c.AvailableTo) }).ToList(),
+            StorageLocations = context.StorageAreas.Select(s => new PrologWindowDto { Id = s.Id, StartHour = 0, EndHour = 240 }).ToList(),
+            Staff = context.Staff.Select(s => new PrologStaffDto { Id = s.Id, Role = "operator", StartHour = ToHour(s.ShiftStart), EndHour = ToHour(s.ShiftEnd) }).ToList()
         };
 
-        var response = await _httpClient.PostAsJsonAsync("schedule", payload, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        var prologResponse = await response.Content.ReadFromJsonAsync<PrologScheduleResponse>(cancellationToken: cancellationToken);
-        if (prologResponse == null)
+        PrologSchedule3Response prologResponse;
+        try
         {
-            throw new InvalidOperationException("Prolog scheduling service returned an empty response.");
+            var response = await _httpClient.PostAsJsonAsync("schedule3", payload, linkedCts.Token);
+            response.EnsureSuccessStatusCode();
+            prologResponse = await response.Content.ReadFromJsonAsync<PrologSchedule3Response>(cancellationToken: linkedCts.Token)
+                ?? throw new InvalidOperationException("Prolog scheduling service returned an empty response.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Prolog scheduling failed");
+            // Fallback: return empty schedule with warning instead of propagating 500 to caller
+            return new SchedulingComputationResult
+            {
+                Date = context.Date,
+                Algorithm = AlgorithmName,
+                TotalDelayMinutes = 0,
+                CraneHoursUsed = 0,
+                Schedule = Array.Empty<ScheduledOperationDto>(),
+                Warnings = new[] { $"prolog_error: {ex.Message}" }
+            };
         }
 
-        var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
-        var operations = prologResponse.Sequence.Select(step =>
+        var operations = prologResponse.Schedule.Select(step =>
         {
             var startTime = dayStart.AddHours(step.StartHour);
             var endTime = dayStart.AddHours(step.EndHour);
@@ -62,9 +89,10 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
             return new ScheduledOperationDto
             {
                 VesselId = step.Vessel,
-                DockId = null,
-                CraneIds = context.Cranes.Take(1).Select(c => c.Id).ToList(),
-                StaffIds = context.Staff.Take(2).Select(s => s.Id).ToList(),
+                DockId = string.IsNullOrWhiteSpace(step.Dock) ? null : step.Dock,
+                CraneIds = string.IsNullOrWhiteSpace(step.Crane) ? new List<string>() : new List<string> { step.Crane },
+                StaffIds = string.IsNullOrWhiteSpace(step.Staff) ? new List<string>() : new List<string> { step.Staff },
+                StorageId = string.IsNullOrWhiteSpace(step.StorageLocation) ? null : step.StorageLocation,
                 StartTime = startTime,
                 EndTime = endTime,
                 DelayMinutes = step.DelayHours * 60,
@@ -72,8 +100,8 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
             };
         }).ToList();
 
-        var craneHoursUsed = prologResponse.Sequence.Sum(step => Math.Max(0, step.EndHour - step.StartHour + 1));
-        var totalDelayHours = prologResponse.TotalDelayHours ?? prologResponse.Sequence.Sum(step => step.DelayHours);
+        var craneHoursUsed = prologResponse.Schedule.Sum(step => Math.Max(0, step.EndHour - step.StartHour + 1));
+        var totalDelayHours = prologResponse.TotalDelayHours ?? prologResponse.Schedule.Sum(step => step.DelayHours);
 
         return new SchedulingComputationResult
         {
@@ -86,9 +114,15 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         };
     }
 
-    private sealed class PrologScheduleRequest
+    private sealed class PrologSchedule3Request
     {
         public IList<PrologVesselDto> Vessels { get; set; } = new List<PrologVesselDto>();
+        public string? Date { get; set; }
+        public string? Strategy { get; set; }
+        public IList<PrologWindowDto> Docks { get; set; } = new List<PrologWindowDto>();
+        public IList<PrologWindowDto> Cranes { get; set; } = new List<PrologWindowDto>();
+        public IList<PrologWindowDto> StorageLocations { get; set; } = new List<PrologWindowDto>();
+        public IList<PrologStaffDto> Staff { get; set; } = new List<PrologStaffDto>();
     }
 
     private sealed class PrologVesselDto
@@ -100,16 +134,40 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         public int LoadDuration { get; set; }
     }
 
-    private sealed class PrologScheduleResponse
+    private sealed class PrologWindowDto
     {
-        public IList<PrologSequenceStep> Sequence { get; set; } = new List<PrologSequenceStep>();
+        public string Id { get; set; } = string.Empty;
+        public int StartHour { get; set; }
+        public int EndHour { get; set; }
+    }
+
+    private sealed class PrologStaffDto
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Role { get; set; } = "operator";
+        public int StartHour { get; set; }
+        public int EndHour { get; set; }
+    }
+
+    private sealed class PrologSchedule3Response
+    {
+        [JsonPropertyName("schedule")]
+        public IList<PrologSchedule3Op> Schedule { get; set; } = new List<PrologSchedule3Op>();
+
+        [JsonPropertyName("totalDelayHours")]
         public int? TotalDelayHours { get; set; }
+
+        [JsonPropertyName("warnings")]
         public IList<string>? Warnings { get; set; }
     }
 
-    private sealed class PrologSequenceStep
+    private sealed class PrologSchedule3Op
     {
         public string Vessel { get; set; } = string.Empty;
+        public string? Dock { get; set; }
+        public string? Crane { get; set; }
+        public string? StorageLocation { get; set; }
+        public string? Staff { get; set; }
         public int StartHour { get; set; }
         public int EndHour { get; set; }
         public int DelayHours { get; set; }

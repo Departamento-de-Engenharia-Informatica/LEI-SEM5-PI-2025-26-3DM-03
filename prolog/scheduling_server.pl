@@ -43,6 +43,8 @@
 
 schedule3_handler(Request) :-
     http_read_json_dict(Request, Payload),
+    % Debug logging of incoming payload to help diagnose scheduling issues
+    format(user_error, 'schedule3 PAYLOAD=~q~n', [Payload]),
     ( _{vessels: VList} :< Payload -> true ; throw(http_reply(bad_request('Missing vessels')))),
     ( _{docks: DList} :< Payload -> true ; DList = [] ),
     ( _{cranes: CList} :< Payload -> true ; CList = [] ),
@@ -109,6 +111,12 @@ attempt_schedule3(Date, VList, DList, CList, SLocList, StaffList, Response) :-
             prepare_assign_vars(CranesIdx, NOps, CraneAssign),
             prepare_assign_vars(SLocIdx,   NOps, SLocAssign),
             prepare_assign_vars(StaffIdx,  NOps, StaffAssign),
+
+            % Assign domains to resource assignment variables based on available resources
+            domain_from_index_map(DocksIdx,  DockAssign),
+            domain_from_index_map(CranesIdx, CraneAssign),
+            domain_from_index_map(SLocIdx,   SLocAssign),
+            domain_from_index_map(StaffIdx,  StaffAssign),
 
             maplist(constrain_operation(StartVars, EndVars), Ops),
             impose_precedence(StartVars, EndVars, Ops),
