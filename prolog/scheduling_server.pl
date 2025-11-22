@@ -302,10 +302,13 @@ safe_nth1(Index, List, Value, Default) :-
     ).
 
 idx_to_id(Idx, IdxList, Id) :-
-    (   nth1(Idx, IdxList, idx(Id,_,_))
-    ->  true
-    ;   Id = null
-    ).
+    integer(Idx),
+    Idx > 0,
+    length(IdxList, Len),
+    Idx =< Len,
+    nth1(Idx, IdxList, idx(Id,_,_)),
+    !.
+idx_to_id(_, _, null).
 
 build_schedule_output(Date, Ops, StartVars, EndVars,
                       DockAssign, CraneAssign, SLocAssign, StaffAssign,

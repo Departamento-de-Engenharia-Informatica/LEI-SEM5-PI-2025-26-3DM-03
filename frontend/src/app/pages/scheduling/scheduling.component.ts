@@ -78,6 +78,7 @@ interface TimelineSegment {
   offsetPercent: number;
   widthPercent: number;
   resourcesLabel: string;
+  storageLabel: string;
 }
 
 interface TimelineView {
@@ -348,6 +349,9 @@ export class SchedulingComponent {
         const end = new Date(operation.endTime).getTime();
         const offsetPercent = ((start - first) / total) * 100;
         const widthPercent = ((end - start) / total) * 100;
+        const resourcesLabel = [...operation.craneIds, ...operation.staffIds].join(', ');
+        const storageLabel = operation.storageId ? operation.storageId : '';
+
         return {
           vesselId: operation.vesselId,
           startLabel: this.formatTime(operation.startTime),
@@ -356,7 +360,8 @@ export class SchedulingComponent {
           delayed: operation.delayMinutes > 0,
           offsetPercent,
           widthPercent,
-          resourcesLabel: [...operation.craneIds, ...operation.staffIds].join(', ')
+          resourcesLabel,
+          storageLabel
         };
       })
     };

@@ -36,11 +36,11 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
         var warnings = new List<string>();
         if (!cranePoolTemplate.Any())
         {
-            warnings.Add("Inviavel: sem gruas disponiveis para o dia.");
+            warnings.Add("Inviável: não existem gruas disponíveis para satisfazer o plano diário.");
         }
         if (!staffPoolTemplate.Any())
         {
-            warnings.Add("Inviavel: sem equipas disponiveis para o dia.");
+            warnings.Add("Inviável: não existem equipas qualificadas disponíveis para o dia selecionado.");
         }
         if (!cranePoolTemplate.Any() || !staffPoolTemplate.Any())
         {
@@ -57,7 +57,7 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
 
         if (!dockPoolTemplate.Any())
         {
-            warnings.Add("Inviavel: sem cais definido.");
+            warnings.Add("Inviável: não foi definido qualquer cais para operações.");
             return Task.FromResult(new SchedulingComputationResult
             {
                 Date = context.Date,
@@ -69,34 +69,80 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
             });
         }
 
+        // 1ª fase: tentar sempre uma solução single-crane
         SchedulingComputationResult? best = null;
 
         foreach (var ordering in BuildOrderings(context.Vessels, context.Strategy))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var (result, localWarnings) = ComputeForOrder(
+            var (singleResult, singleWarnings) = ComputeForOrder(
                 ordering,
                 ClonePool(cranePoolTemplate),
                 ClonePool(staffPoolTemplate),
                 ClonePool(dockPoolTemplate),
-                dayStart);
+                dayStart,
+                context.StorageAreas,
+                allowMultiCrane: false);
 
-            // juntar avisos globais (inviabilidade de pools) + locais de execução
-            var mergedWarnings = warnings.Concat(localWarnings).Distinct().ToArray();
-            var mergedResult = new SchedulingComputationResult
+            var mergedSingleWarnings = warnings.Concat(singleWarnings).Distinct().ToArray();
+            var singlePlan = new SchedulingComputationResult
             {
-                Date = result.Date,
-                Algorithm = result.Algorithm,
-                TotalDelayMinutes = result.TotalDelayMinutes,
-                CraneHoursUsed = result.CraneHoursUsed,
-                Schedule = result.Schedule,
-                Warnings = mergedWarnings
+                Date = singleResult.Date,
+                Algorithm = singleResult.Algorithm,
+                TotalDelayMinutes = singleResult.TotalDelayMinutes,
+                CraneHoursUsed = singleResult.CraneHoursUsed,
+                Schedule = singleResult.Schedule,
+                Warnings = mergedSingleWarnings
             };
 
-            if (best is null || mergedResult.TotalDelayMinutes < best.TotalDelayMinutes)
+            // Se não há atraso com single-crane, não é necessário tentar multi-crane
+            if (singlePlan.TotalDelayMinutes == 0)
             {
-                best = mergedResult;
+                if (best is null || singlePlan.TotalDelayMinutes < best.TotalDelayMinutes)
+                {
+                    best = singlePlan;
+                }
+
+                continue;
+            }
+
+            // 2ª fase: tentar solução multi-crane para o mesmo ordering
+            var (multiResult, multiWarnings) = ComputeForOrder(
+                ordering,
+                ClonePool(cranePoolTemplate),
+                ClonePool(staffPoolTemplate),
+                ClonePool(dockPoolTemplate),
+                dayStart,
+                context.StorageAreas,
+                allowMultiCrane: true);
+
+            var mergedMultiWarnings = warnings.Concat(multiWarnings).Distinct().ToArray();
+            var multiPlan = new SchedulingComputationResult
+            {
+                Date = multiResult.Date,
+                Algorithm = multiResult.Algorithm,
+                TotalDelayMinutes = multiResult.TotalDelayMinutes,
+                CraneHoursUsed = multiResult.CraneHoursUsed,
+                Schedule = multiResult.Schedule,
+                Warnings = mergedMultiWarnings
+            };
+
+            // Critério de escolha:
+            // 1º menor atraso total; 2º menos crane-hours (proxy de intensidade multi-crane)
+            var candidate = multiPlan;
+            if (singlePlan.TotalDelayMinutes < multiPlan.TotalDelayMinutes ||
+                (singlePlan.TotalDelayMinutes == multiPlan.TotalDelayMinutes &&
+                 singlePlan.CraneHoursUsed <= multiPlan.CraneHoursUsed))
+            {
+                candidate = singlePlan;
+            }
+
+            if (best is null || candidate.TotalDelayMinutes < best.TotalDelayMinutes ||
+                (candidate.TotalDelayMinutes == best.TotalDelayMinutes &&
+                 candidate.CraneHoursUsed < best.CraneHoursUsed))
+            {
+                best = candidate;
             }
         }
 
@@ -187,12 +233,16 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
         List<ResourceWindow> cranePool,
         List<ResourceWindow> staffPool,
         List<ResourceWindow> dockPool,
-        DateTime dayStart)
+        DateTime dayStart,
+        IReadOnlyCollection<StorageContextDto> storageAreas,
+        bool allowMultiCrane)
     {
         var operations = new List<ScheduledOperationDto>();
         var warnings = new List<string>();
         var totalDelay = 0;
         var craneHours = 0;
+
+        var hasStorage = storageAreas.Any();
 
         foreach (var vessel in orderedVessels)
         {
@@ -218,11 +268,15 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
             }
 
             var duration = nominalDuration;
-            var secondaryCrane = SelectSecondaryCrane(cranePool, crane, startHour);
-            if (secondaryCrane != null)
+            ResourceWindow? secondaryCrane = null;
+            if (allowMultiCrane)
             {
-                cranesUsed.Add(secondaryCrane);
-                duration = (int)Math.Ceiling(nominalDuration / (double)cranesUsed.Count);
+                secondaryCrane = SelectSecondaryCrane(cranePool, crane, startHour);
+                if (secondaryCrane != null)
+                {
+                    cranesUsed.Add(secondaryCrane);
+                    duration = (int)Math.Ceiling(nominalDuration / (double)cranesUsed.Count);
+                }
             }
 
             var endHour = startHour + duration;
@@ -275,7 +329,14 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
             totalDelay += delayMinutes;
             craneHours += duration * cranesUsed.Count;
 
-            var storageId = SelectStorage(context: null, startHour: startHour, endHour: endHour);
+            string? storageId = null;
+            if (hasStorage)
+            {
+                // Estratégia simples: atribui sempre o primeiro storage disponível.
+                // Como ainda não modelamos janelas de storage, garantimos apenas
+                // "um storage location por operação" como pedido na US.
+                storageId = storageAreas.First().Id;
+            }
 
             operations.Add(new ScheduledOperationDto
             {
@@ -300,12 +361,6 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
             Schedule = operations,
             Warnings = warnings
         }, warnings);
-    }
-
-    private static string? SelectStorage(object? context, int startHour, int endHour)
-    {
-        // placeholder: storage windows not modelled; always return null to avoid false guarantees
-        return null;
     }
 
     private sealed class ResourceWindow

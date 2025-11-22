@@ -38,7 +38,18 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
 
         var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
 
-        int ToHour(DateTime dt) => (int)Math.Floor((dt - dayStart).TotalHours);
+        int ToHour(DateTime dt, int defaultValue)
+        {
+            // Defensive clamp: if the incoming DateTime is default or outside the day, keep within 0..240.
+            if (dt == default)
+            {
+                return defaultValue;
+            }
+            var hours = (int)Math.Floor((dt - dayStart).TotalHours);
+            if (hours < 0) return 0;
+            if (hours > 240) return 240;
+            return hours;
+        }
 
         var payload = new PrologSchedule3Request
         {
@@ -53,16 +64,21 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
                 LoadDuration = v.LoadDuration
             }).ToList(),
             Docks = context.Docks.Select(d => new PrologWindowDto { Id = d.Id, StartHour = 0, EndHour = 240 }).ToList(),
-            Cranes = context.Cranes.Select(c => new PrologWindowDto { Id = c.Id, StartHour = ToHour(c.AvailableFrom), EndHour = ToHour(c.AvailableTo) }).ToList(),
+            Cranes = context.Cranes.Select(c => new PrologWindowDto { Id = c.Id, StartHour = ToHour(c.AvailableFrom, 0), EndHour = ToHour(c.AvailableTo, 240) }).ToList(),
             StorageLocations = context.StorageAreas.Select(s => new PrologWindowDto { Id = s.Id, StartHour = 0, EndHour = 240 }).ToList(),
-            Staff = context.Staff.Select(s => new PrologStaffDto { Id = s.Id, Role = "operator", StartHour = ToHour(s.ShiftStart), EndHour = ToHour(s.ShiftEnd) }).ToList()
+            Staff = context.Staff.Select(s => new PrologStaffDto { Id = s.Id, Role = "operator", StartHour = ToHour(s.ShiftStart, 0), EndHour = ToHour(s.ShiftEnd, 240) }).ToList()
         };
 
         PrologSchedule3Response prologResponse;
         try
         {
             var response = await _httpClient.PostAsJsonAsync("schedule3", payload, linkedCts.Token);
-            response.EnsureSuccessStatusCode();
+            var rawBody = await response.Content.ReadAsStringAsync(linkedCts.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"Status {(int)response.StatusCode} {response.ReasonPhrase}. Body: {rawBody}");
+            }
             prologResponse = await response.Content.ReadFromJsonAsync<PrologSchedule3Response>(cancellationToken: linkedCts.Token)
                 ?? throw new InvalidOperationException("Prolog scheduling service returned an empty response.");
         }
