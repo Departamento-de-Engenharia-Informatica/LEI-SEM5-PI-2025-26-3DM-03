@@ -60,6 +60,9 @@ export interface ScheduleComparisonDto {
 export interface DailyScheduleResponse {
   date: string;
   algorithm: string;
+  strategy?: string | null;
+  multi_crane_intensity?: number;
+  computationTimeMs?: number;
   computationMilliseconds: number;
   totalDelayMinutes: number;
   craneHoursUsed: number;
@@ -106,9 +109,9 @@ export class SchedulingService {
     const payload = (await response.json()) as DailyScheduleResponse;
     payload.warnings ??= [];
     payload.schedule ??= [];
-    payload.computationMilliseconds ??= 0;
+    payload.computationMilliseconds ??= payload.computationTimeMs ?? 0;
     payload.summary ??= {
-      algorithm: payload.algorithm,
+      algorithm: payload.algorithm || payload.strategy || '',
       totalDelayMinutes: payload.totalDelayMinutes,
       craneHoursUsed: payload.craneHoursUsed,
       computationMilliseconds: payload.computationMilliseconds

@@ -2,9 +2,8 @@
   <div>
     <h1>Planeamento diário de operações</h1>
     <p>
-      Gere a sequência de carga/descarga para o dia pretendido, respeitando a disponibilidade de
-      cais, grua e equipas. O backend consolida os dados e devolve a escala com a soma mínima de
-      atrasos.
+      Gere a sequência de carga/descarga para o dia pretendido, respeitando a disponibilidade de cais, grua e equipas.
+      O backend consolida os dados e devolve a escala com a soma mínima de atrasos.
     </p>
   </div>
   <button type="button" class="ghost" (click)="useSampleData()">Repor dados de amostra</button>
@@ -29,9 +28,9 @@
     <label>
       Estratégia
       <select formControlName="strategy">
-        <option value="default">Equilíbrio carga/descarga</option>
-        <option value="aggressive">Agressivo (min delay)</option>
-        <option value="balanced">Balanceado por recursos</option>
+        <option value="auto">Auto (CLPFD + fallback)</option>
+        <option value="clpfd">CLPFD (otimização)</option>
+        <option value="multi_crane">Heurística multi_crane</option>
       </select>
     </label>
   </div>
@@ -63,7 +62,7 @@
           <td><input type="number" min="0" formControlName="departureHour" /></td>
           <td><input type="number" min="1" formControlName="unloadDuration" /></td>
           <td><input type="number" min="0" formControlName="loadDuration" /></td>
-          <td><button type="button" class="icon" (click)="removeVessel(i)">✕</button></td>
+          <td><button type="button" class="icon" (click)="removeVessel(i)">✖</button></td>
         </tr>
       </tbody>
     </table>
@@ -94,7 +93,7 @@
             <td><input type="time" formControlName="availableFrom" /></td>
             <td><input type="time" formControlName="availableTo" /></td>
             <td><input type="number" min="1" formControlName="capacity" /></td>
-            <td><button type="button" class="icon" (click)="removeCrane(i)">✕</button></td>
+            <td><button type="button" class="icon" (click)="removeCrane(i)">✖</button></td>
           </tr>
         </tbody>
       </table>
@@ -124,7 +123,7 @@
             <td><input formControlName="skills" placeholder="crane,logistics" /></td>
             <td><input type="time" formControlName="shiftStart" /></td>
             <td><input type="time" formControlName="shiftEnd" /></td>
-            <td><button type="button" class="icon" (click)="removeStaff(i)">✕</button></td>
+            <td><button type="button" class="icon" (click)="removeStaff(i)">✖</button></td>
           </tr>
         </tbody>
       </table>
@@ -149,7 +148,9 @@
 <section class="results" *ngIf="result">
   <header>
     <h2>Resultado para {{ result.date }}</h2>
-    <span class="chip">{{ result.algorithm }}</span>
+    <span class="chip">{{ result.algorithm || result.strategy || 'auto' }}</span>
+    <span class="chip subtle" *ngIf="result.strategy">Estratégia: {{ result.strategy }}</span>
+    <span class="chip warn" *ngIf="warnings.includes('fallback_to_multi_crane')">Fallback multi_crane</span>
     <span class="pill" *ngIf="comparisonLabel">{{ comparisonLabel }}</span>
   </header>
 
@@ -168,8 +169,13 @@
     </article>
     <article>
       <h3>Tempo de cálculo (API)</h3>
-      <strong>{{ result.summary.computationMilliseconds }} ms</strong>
+      <strong>{{ result.computationMilliseconds || result.summary.computationMilliseconds }} ms</strong>
       <small *ngIf="computationMs">Browser: {{ computationMs }} ms</small>
+    </article>
+    <article>
+      <h3>Intensidade multi-crane</h3>
+      <strong>{{ result.multi_crane_intensity ?? '-' }}</strong>
+      <small *ngIf="warnings.includes('fallback_to_multi_crane')">Gerado pela heurística</small>
     </article>
   </div>
 
@@ -219,7 +225,7 @@
         [class.delayed]="segment.delayed"
       >
         <span>{{ segment.vesselId }}</span>
-        <small>{{ segment.startLabel }} → {{ segment.endLabel }}</small>
+        <small>{{ segment.startLabel }} - {{ segment.endLabel }}</small>
         <small>{{ segment.delayLabel }}</small>
         <small *ngIf="segment.resourcesLabel">Recursos: {{ segment.resourcesLabel }}</small>
       </div>
@@ -250,8 +256,8 @@
         <td [class.delayed]="operation.delayMinutes > 0">
           {{ operation.delayMinutes > 0 ? operation.delayMinutes + ' min' : 'A tempo' }}
         </td>
-        <td>{{ operation.craneIds.join(', ') || '—' }}</td>
-        <td>{{ operation.staffIds.join(', ') || '—' }}</td>
+        <td>{{ operation.craneIds.join(', ') || '-' }}</td>
+        <td>{{ operation.staffIds.join(', ') || '-' }}</td>
       </tr>
     </tbody>
   </table>
