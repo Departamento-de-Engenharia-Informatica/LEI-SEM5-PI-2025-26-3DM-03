@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createPortalLatticeCraneModel } from '../crane/dockcrane.component';
+import { applyTruckTrailerTexture, applyTruckWindowTexture } from '../truck/truck-texture.util';
 import { firstValueFrom } from 'rxjs';
 import {
   DockLayout,
@@ -84,10 +85,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly dockDeckSlots = [-360, 360];
   private dockDeckOverrides = new Map<number, number>();
   private readonly enablePlaceholderCargoVessels = false;
+  private readonly logisticsRoadTextureUrl = 'assets/textures/textura-da-estrada-do-asfalto-com-marcacoes-109441328.jpg';
+  private readonly containerRoadTextureUrl = 'assets/textures/estrada.jpg';
+  private logisticsRoadTexture?: THREE.Texture;
+  private containerRoadTexture?: THREE.Texture;
   private readonly truckModelUrls = ['assets/models/Truck_DAF.glb', 'assets/Truck_DAF.glb'];
   private readonly truckTargetSpan = 220;
   private truckPrototype?: THREE.Group;
   private truckLoading?: Promise<THREE.Group>;
+  private readonly truckTrailerTextureUrl = 'assets/textures/azul.jpg';
+  private truckTrailerTexture?: THREE.Texture;
+  private readonly truckWindowTextureUrl = 'assets/textures/vidro.jpg';
+  private truckWindowTexture?: THREE.Texture;
   readonly cameraKeyState = {
     forward: false,
     backward: false,
@@ -350,19 +359,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
     this.currentLogisticsRoadCenterZ = centerZ;
 
+    const roadTexture = this.getLogisticsRoadTexture();
+    roadTexture.repeat.set(Math.max(roadWidth / 260, 1), Math.max(depth / 160, 1));
     const roadMaterial = this.trackMaterial(
       new THREE.MeshStandardMaterial({
-        color: 0x4b525d,
-        roughness: 0.95,
-        metalness: 0.02,
+        map: roadTexture,
+        color: 0xffffff,
+        roughness: 0.85,
+        metalness: 0.08,
       })
     );
-    const stripeMaterial = this.trackMaterial(
-      new THREE.MeshStandardMaterial({ color: 0xf5e87a, roughness: 0.6, metalness: 0.05 })
-    );
-    const stripeDepth = 4;
-    const stripeOffset = 28;
-
     const road = new THREE.Mesh(this.trackGeometry(new THREE.PlaneGeometry(roadWidth, depth)), roadMaterial);
     road.rotation.x = -Math.PI / 2;
     road.position.set(roadCenterX, elevation, centerZ);
@@ -371,18 +377,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.currentLogisticsRoadCenterX = roadCenterX;
     this.currentLogisticsRoadWidth = roadWidth;
     this.currentLogisticsRoadDepth = depth;
-
-    const stripeWidth = roadWidth - 120;
-    for (const offset of [-stripeOffset, stripeOffset]) {
-      const stripe = new THREE.Mesh(
-        this.trackGeometry(new THREE.PlaneGeometry(stripeWidth, stripeDepth)),
-        stripeMaterial
-      );
-      stripe.rotation.x = -Math.PI / 2;
-      stripe.position.set(roadCenterX, elevation + 0.2, centerZ + offset);
-      stripe.receiveShadow = false;
-      this.scene.add(stripe);
-    }
   }
 
   private addContainerRoads() {
@@ -394,27 +388,34 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const baseY = this.deckHeight + 1.2;
     const xSpan = laneX[laneX.length - 1] - laneX[0] + 260;
     const zSpan = laneZ[laneZ.length - 1] - laneZ[0] + 260;
-    const horizontalWidth = 30;
     const verticalWidth = 40;
     const zCenter = laneZ[0] + (laneZ[laneZ.length - 1] - laneZ[0]) / 2;
-    const roadMaterial = this.trackMaterial(
-      new THREE.MeshStandardMaterial({
-        color: 0x414750,
-        roughness: 0.9,
-        metalness: 0.05,
-      })
-    );
+    const baseTexture = this.getContainerRoadTexture();
 
     for (let i = 0; i < laneX.length - 1; i++) {
       const midX = (laneX[i] + laneX[i + 1]) / 2;
+      const verticalTexture = baseTexture.clone();
+      this.trackTexture(verticalTexture);
+      verticalTexture.wrapS = THREE.ClampToEdgeWrapping;
+      verticalTexture.wrapT = THREE.ClampToEdgeWrapping;
+      verticalTexture.repeat.set(1, 1);
+      verticalTexture.center.set(0.5, 0.5);
+      verticalTexture.rotation = Math.PI / 2;
       const strip = new THREE.Mesh(
         this.trackGeometry(new THREE.PlaneGeometry(verticalWidth, zSpan)),
-        roadMaterial
+        this.trackMaterial(
+          new THREE.MeshStandardMaterial({
+            map: verticalTexture,
+            color: 0xffffff,
+            roughness: 0.85,
+            metalness: 0.08,
+          })
+        )
       );
       strip.rotation.x = -Math.PI / 2;
       strip.position.set(midX, baseY + 0.05, zCenter);
       strip.receiveShadow = true;
-      this.scene.add(strip);
+        this.scene.add(strip);
     }
   }
 
@@ -423,9 +424,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (laneX.length < 2) {
       return;
     }
-    const connectionMaterial = this.trackMaterial(
-      new THREE.MeshStandardMaterial({ color: 0x4b525d, roughness: 0.92, metalness: 0.03 })
-    );
+    const baseTexture = this.getContainerRoadTexture();
     const startZ = this.currentLogisticsRoadCenterZ + this.currentLogisticsRoadDepth / 2 - 1;
     const targetZ = Math.min(...this.containerLaneZ) - this.containerUnitSize.z / 2 - 2;
     const depth = targetZ - startZ;
@@ -438,9 +437,23 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
     connectors.forEach((x) => {
       const width = 45;
+      const texture = baseTexture.clone();
+      this.trackTexture(texture);
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.repeat.set(1, 1);
+      texture.center.set(0.5, 0.5);
+      texture.rotation = Math.PI / 2;
       const connector = new THREE.Mesh(
         this.trackGeometry(new THREE.PlaneGeometry(width, depth)),
-        connectionMaterial
+        this.trackMaterial(
+          new THREE.MeshStandardMaterial({
+            map: texture,
+            color: 0xffffff,
+            roughness: 0.85,
+            metalness: 0.08,
+          })
+        )
       );
       connector.rotation.x = -Math.PI / 2;
       connector.position.set(x, this.deckHeight + 1.3, startZ + depth / 2);
@@ -460,8 +473,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         const halfWidth = Math.max(20, this.currentLogisticsRoadWidth / 2);
         const laneSpacing = Math.min(Math.max(halfWidth - 30, 40), 220);
         const trucks = [
-          { position: new THREE.Vector3(centerX - laneSpacing, elevation, roadZ - laneOffset), rotation: Math.PI / 2 + 0.05 },
-          { position: new THREE.Vector3(centerX + laneSpacing, elevation, roadZ + laneOffset), rotation: Math.PI / 2 - 0.04 },
+          {
+            position: new THREE.Vector3(
+              centerX,
+              elevation,
+              roadZ + this.currentLogisticsRoadDepth / 2 - 40
+            ),
+            rotation: Math.PI / 2,
+          },
+          {
+            position: new THREE.Vector3(centerX - laneSpacing * 0.8, elevation, roadZ - laneOffset * 0.7),
+            rotation: -Math.PI / 2 - 0.05,
+          },
         ];
         trucks.forEach((config) => {
           const truck = this.instantiateTruck(prototype);
@@ -701,6 +724,34 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private trackTexture<T extends THREE.Texture>(texture: T): T {
     this.disposableTextures.push(texture);
     return texture;
+  }
+
+  private getLogisticsRoadTexture(): THREE.Texture {
+    if (this.logisticsRoadTexture) {
+      return this.logisticsRoadTexture;
+    }
+    const texture = this.textureLoader.load(this.logisticsRoadTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : texture.anisotropy;
+    texture.anisotropy = maxAnisotropy;
+    this.logisticsRoadTexture = this.trackTexture(texture);
+    return this.logisticsRoadTexture;
+  }
+
+  private getContainerRoadTexture(): THREE.Texture {
+    if (this.containerRoadTexture) {
+      return this.containerRoadTexture;
+    }
+    const texture = this.textureLoader.load(this.containerRoadTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : texture.anisotropy;
+    texture.anisotropy = maxAnisotropy;
+    this.containerRoadTexture = this.trackTexture(texture);
+    return this.containerRoadTexture;
   }
 
   private getDeckOffsetZ(): number {
@@ -1187,6 +1238,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     });
 
     this.mirrorTruckParts(source);
+    this.applyTruckTexture(source);
+    this.applyTruckWindowMaterial(source);
 
     const initialBox = new THREE.Box3().setFromObject(source);
     const size = initialBox.getSize(new THREE.Vector3());
@@ -1242,5 +1295,51 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       }
     });
     return truck;
+  }
+
+  private getTruckTrailerTexture(): THREE.Texture {
+    if (this.truckTrailerTexture) {
+      return this.truckTrailerTexture;
+    }
+    const texture = this.textureLoader.load(this.truckTrailerTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
+    if (maxAnisotropy && maxAnisotropy > 0) {
+      texture.anisotropy = Math.min(8, maxAnisotropy);
+    }
+    this.truckTrailerTexture = texture;
+    this.disposableTextures.push(texture);
+    return texture;
+  }
+
+  private applyTruckTexture(model: THREE.Group): void {
+    const texture = this.getTruckTrailerTexture();
+    applyTruckTrailerTexture(model, texture);
+  }
+
+  private getTruckWindowTexture(): THREE.Texture {
+    if (this.truckWindowTexture) {
+      return this.truckWindowTexture;
+    }
+    const texture = this.textureLoader.load(this.truckWindowTextureUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.repeat.set(1, 1);
+    texture.center.set(0.5, 0.5);
+    texture.rotation = Math.PI / 2;
+    texture.needsUpdate = true;
+    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
+    if (maxAnisotropy && maxAnisotropy > 0) {
+      texture.anisotropy = Math.min(8, maxAnisotropy);
+    }
+    this.truckWindowTexture = texture;
+    this.disposableTextures.push(texture);
+    return texture;
+  }
+
+  private applyTruckWindowMaterial(model: THREE.Group): void {
+    const texture = this.getTruckWindowTexture();
+    applyTruckWindowTexture(model, texture);
   }
 }

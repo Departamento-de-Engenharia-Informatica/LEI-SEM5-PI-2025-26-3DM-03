@@ -15,6 +15,16 @@ public class DailyScheduleRequest
     public IList<CraneContextDto>? Cranes { get; set; }
 
     public IList<StaffContextDto>? Staff { get; set; }
+
+    /// <summary>
+    /// Optional list of docks. If not provided, a single dock is assumed.
+    /// </summary>
+    public IList<DockContextDto>? Docks { get; set; }
+
+    /// <summary>
+    /// Optional list of storage areas. If not provided, storage assignment is left empty.
+    /// </summary>
+    public IList<StorageContextDto>? StorageAreas { get; set; }
 }
 
 public class VesselContextDto
@@ -22,12 +32,16 @@ public class VesselContextDto
     [Required]
     public string Id { get; set; } = string.Empty;
 
+    [Range(0, 240)]
     public int ArrivalHour { get; set; }
 
+    [Range(0, 240)]
     public int DepartureHour { get; set; }
 
+    [Range(0, 240)]
     public int UnloadDuration { get; set; }
 
+    [Range(0, 240)]
     public int LoadDuration { get; set; }
 }
 
@@ -41,6 +55,18 @@ public class CraneContextDto
     public DateTime AvailableTo { get; set; }
 
     public int Capacity { get; set; }
+}
+
+public class DockContextDto
+{
+    [Required]
+    public string Id { get; set; } = string.Empty;
+}
+
+public class StorageContextDto
+{
+    [Required]
+    public string Id { get; set; } = string.Empty;
 }
 
 public class StaffContextDto
@@ -85,6 +111,8 @@ public class ScheduledOperationDto
     public IList<string> CraneIds { get; set; } = new List<string>();
 
     public IList<string> StaffIds { get; set; } = new List<string>();
+
+    public string? StorageId { get; set; }
 
     public DateTime StartTime { get; set; }
 

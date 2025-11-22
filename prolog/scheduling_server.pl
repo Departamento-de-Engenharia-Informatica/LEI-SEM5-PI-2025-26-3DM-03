@@ -4,6 +4,7 @@
     attempt_schedule3/7 % exported for testing
 ]).
 
+:- use_module(multi_crane).
 :- use_module(library(http/thread_httpd)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
@@ -11,6 +12,7 @@
 :- use_module(library(lists)).
 :- use_module(library(clpfd)).
 
+:- multifile vessel/5.
 :- dynamic vessel/5.
 :- dynamic server_port/1.
 :- dynamic crane/3.          % crane(Id, StartHour, EndHour)
@@ -38,71 +40,152 @@
 % - Não há prioridades nem volumes.
 % - Se infeasible, retorna warnings e tenta solução parcial greedily fallback.
 
+
 schedule3_handler(Request) :-
     http_read_json_dict(Request, Payload),
+    % Debug logging of incoming payload to help diagnose scheduling issues
+    format(user_error, 'schedule3 PAYLOAD=~q~n', [Payload]),
     ( _{vessels: VList} :< Payload -> true ; throw(http_reply(bad_request('Missing vessels')))),
     ( _{docks: DList} :< Payload -> true ; DList = [] ),
     ( _{cranes: CList} :< Payload -> true ; CList = [] ),
     ( _{storageLocations: SLocList} :< Payload -> true ; SLocList = [] ),
     ( _{staff: StaffList} :< Payload -> true ; StaffList = [] ),
     ( _{date: Date} :< Payload -> DateUsed = Date ; DateUsed = null ),
+    ( _{strategy: StrategyRaw} :< Payload -> normalize_id(StrategyRaw, StrategyUsed) ; StrategyUsed = auto ),
     with_mutex(scheduling_v3, (
-        attempt_schedule3(DateUsed, VList, DList, CList, SLocList, StaffList, Response),
+        attempt_schedule3_strategy(StrategyUsed, DateUsed, VList, DList, CList, SLocList, StaffList, Response),
         reply_json_dict(Response)
     )).
 
+attempt_schedule3_strategy(StrategyIn, Date, VList, DList, CList, SLocList, StaffList, ResponseOut) :-
+    get_time(T0),
+    (   StrategyIn = multi_crane ->
+        validate_vessels(VList, VW, VListValidMC),
+        run_multi_crane(Date, VListValidMC, ['fallback_to_multi_crane'|VW], RespTmp)
+    ;   attempt_schedule3(Date, VList, DList, CList, SLocList, StaffList, RespBase),
+        (   get_dict(strategy, RespBase, _) -> RespTmp = RespBase
+        ;   ( VList = [] -> RespTmp = RespBase.put(strategy, auto)
+          ;   RespTmp = RespBase.put(strategy, clpfd))
+        )
+    ),
+    get_time(T1),
+    TimeMs is round((T1 - T0) * 1000),
+    ResponseOut = RespTmp.put(computationTimeMs, TimeMs).
+
 attempt_schedule3(Date, VList, DList, CList, SLocList, StaffList, Response) :-
-    (VList = [] -> Response = _{date: Date, schedule: [], totalDelayHours: 0, warnings: ['no vessels provided']} ;
-     validate_vessels(VList, VesselWarnings, VListValid),
-     build_index_maps(DList, DocksIdx),
-     build_index_maps(CList, CranesIdx),
-     build_index_maps(SLocList, SLocIdx),
-     include_staff_role(operator, StaffList, StaffOpList),
-     build_index_maps(StaffOpList, StaffIdx),
-     length(VListValid, _NV),
-     % Create operations list: two per vessel (unload, load)
-     create_operations(VListValid, Ops),
-     length(Ops, NOps),
-     % Variables
-     length(StartVars, NOps),
-     length(EndVars, NOps),
-     length(DockAssign, NOps),
-     length(CraneAssign, NOps),
-     length(SLocAssign, NOps),
-     length(StaffAssign, NOps),
-     % Domain for start vars (0..1000 simplistic)
-     StartVars ins 0..1000,
-     EndVars ins 0..1000,
-     % Assignment domains
-     domain_from_index_map(DocksIdx, DockAssign),
-     domain_from_index_map(CranesIdx, CraneAssign),
-     domain_from_index_map(SLocIdx, SLocAssign),
-     domain_from_index_map(StaffIdx, StaffAssign),
-     % Constraints per operation
-     maplist(constrain_operation(StartVars, EndVars), Ops),
-     % Link unload/load precedence per vessel
-     impose_precedence(StartVars, EndVars, Ops),
-     % Resource windows constraints
-     constrain_resource_windows(DockAssign, StartVars, EndVars, DocksIdx),
-     constrain_resource_windows(CraneAssign, StartVars, EndVars, CranesIdx),
-     constrain_resource_windows(SLocAssign, StartVars, EndVars, SLocIdx),
-     constrain_resource_windows(StaffAssign, StartVars, EndVars, StaffIdx),
-     % Non overlap when same resource instance
-     pairwise_non_overlap(DockAssign, StartVars, EndVars),
-     pairwise_non_overlap(CraneAssign, StartVars, EndVars),
-     pairwise_non_overlap(SLocAssign, StartVars, EndVars),
-     pairwise_non_overlap(StaffAssign, StartVars, EndVars),
-     % Delay variables only for load ops
-      findall(Delay, (member(op(Idx,_Type,Vessel,_Arr,_Dep,_Dur,_Phase), Ops), _Phase = load, nth1(Idx, EndVars, EndVar),
-                            vessel_dep(VListValid, Vessel, DepHour), DelayVar in 0..1000, DelayVar #>= EndVar + 1 - DepHour, DelayVar #>= 0, Delay = delay(DelayVar,Vessel,Idx)), DelayStructs),
-     extract_delay_vars(DelayStructs, DelayVars),
-     sum(DelayVars, #=, TotalDelayVar),
-     % Labeling
-     append([StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelayVars], AllVars),
-     labeling([min(TotalDelayVar), down], AllVars) ->
-          delays_to_value(DelayStructs, DelaysList),
-          build_schedule_output(Date, Ops, StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelaysList, TotalDelayVar, VesselWarnings, Response)
-      ;  Response = _{date: Date, schedule: [], totalDelayHours: 0, warnings: ['infeasible or solver failed'|VesselWarnings]} ).
+    ( VList = [] ->
+        Response = _{date: Date, schedule: [], totalDelayHours: 0, warnings: ['no vessels provided']}
+    ;
+        validate_vessels(VList, VesselWarnings, VListValid),
+        build_index_maps(DList, DocksIdx),
+        build_index_maps(CList, CranesIdx),
+        build_index_maps(SLocList, SLocIdx),
+        include_staff_role(operator, StaffList, StaffOpList),
+        build_index_maps(StaffOpList, StaffIdx),
+
+        ( DocksIdx = [], CranesIdx = [], SLocIdx = [], StaffIdx = [] ->
+            % Sem recursos: usa o heurístico multi_crane diretamente
+            cleanup_vessels,
+            maplist(assert_vessel_dict, VListValid),
+            multi_crane_schedule(SeqMC, DelayMC, IntMC),
+            cleanup_vessels,
+            Response = _{
+                date: Date,
+                strategy: "multi_crane",
+                schedule: SeqMC,
+                totalDelayHours: DelayMC,
+                multi_crane_intensity: IntMC,
+                warnings: ['fallback_to_multi_crane'|VesselWarnings]
+            }
+        ;
+            create_operations(VListValid, Ops),
+            length(Ops, NOps),
+
+            length(StartVars, NOps),
+            length(EndVars, NOps),
+
+            StartVars ins 0..1000,
+            EndVars ins 0..1000,
+
+            prepare_assign_vars(DocksIdx,  NOps, DockAssign),
+            prepare_assign_vars(CranesIdx, NOps, CraneAssign),
+            prepare_assign_vars(SLocIdx,   NOps, SLocAssign),
+            prepare_assign_vars(StaffIdx,  NOps, StaffAssign),
+
+            % Assign domains to resource assignment variables based on available resources
+            domain_from_index_map(DocksIdx,  DockAssign),
+            domain_from_index_map(CranesIdx, CraneAssign),
+            domain_from_index_map(SLocIdx,   SLocAssign),
+            domain_from_index_map(StaffIdx,  StaffAssign),
+
+            maplist(constrain_operation(StartVars, EndVars), Ops),
+            impose_precedence(StartVars, EndVars, Ops),
+
+            constrain_resource_windows(DockAssign, StartVars, EndVars, DocksIdx),
+            constrain_resource_windows(CraneAssign, StartVars, EndVars, CranesIdx),
+            constrain_resource_windows(SLocAssign, StartVars, EndVars, SLocIdx),
+            constrain_resource_windows(StaffAssign, StartVars, EndVars, StaffIdx),
+
+            pairwise_non_overlap(DockAssign, StartVars, EndVars),
+            pairwise_non_overlap(CraneAssign, StartVars, EndVars),
+            pairwise_non_overlap(SLocAssign, StartVars, EndVars),
+            pairwise_non_overlap(StaffAssign, StartVars, EndVars),
+
+            findall(Delay, (
+                member(op(Idx,_,Vessel,_,_,_,Phase), Ops),
+                Phase = load,
+                nth1(Idx, EndVars, EndVar),
+                vessel_dep(VListValid, Vessel, DepHour),
+                DelayVar in 0..1000,
+                DelayVar #>= EndVar + 1 - DepHour,
+                DelayVar #>= 0,
+                Delay = delay(DelayVar,Vessel,Idx)
+            ), DelayStructs),
+
+            extract_delay_vars(DelayStructs, DelayVars),
+            sum(DelayVars, #=, TotalDelayVar),
+
+            append([StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelayVars], AllVars),
+
+            ( labeling([min(TotalDelayVar)], AllVars) ->
+                delays_to_value(DelayStructs, DL),
+                build_schedule_output(
+                    Date, Ops, StartVars, EndVars,
+                    DockAssign, CraneAssign, SLocAssign, StaffAssign,
+                    DocksIdx, CranesIdx, SLocIdx, StaffIdx,
+                    DL, TotalDelayVar, VesselWarnings, Response
+                )
+            ;
+                % FALLBACK MULTI-CRANE
+                cleanup_vessels,
+                maplist(assert_vessel_dict, VListValid),
+                multi_crane_schedule(SeqMC, DelayMC, IntMC),
+                cleanup_vessels,
+                Response = _{
+                    date: Date,
+                    strategy: "multi_crane",
+                    schedule: SeqMC,
+                    totalDelayHours: DelayMC,
+                    multi_crane_intensity: IntMC,
+                    warnings: ['fallback_to_multi_crane'|VesselWarnings]
+                }
+            )
+        )
+    ).
+
+run_multi_crane(Date, VListValid, Warnings, Response) :-
+    cleanup_vessels,
+    maplist(assert_vessel_dict, VListValid),
+    multi_crane_schedule(SeqMC, DelayMC, IntMC),
+    cleanup_vessels,
+    Response = _{
+        date: Date,
+        strategy: "multi_crane",
+        schedule: SeqMC,
+        totalDelayHours: DelayMC,
+        multi_crane_intensity: IntMC,
+        warnings: Warnings
+    }.
 
 % Validate vessels: arrivalHour < departureHour and durations > 0, gather warnings, filter invalid.
 validate_vessels(VList, Warnings, ValidList) :-
@@ -131,26 +214,21 @@ domain_from_index_map(Idx, Vars) :- length(Idx, L), L > 0, Max is L, maplist(var
 var_domain(Max, Var) :- Var ins 1..Max.
 
 create_operations(VList, Ops) :-
-    findall(op(Index,OpType, Vessel, Arr, Dep, Dur, Phase), (
-        nth1(VIdx,VList,Dict), _{id: VRaw, arrivalHour: Arr, departureHour: Dep, unloadDuration: Unload, loadDuration: Load} :< Dict,
-        normalize_id(VRaw,Vessel),
-        % Unload op
-        OpTypeU = unload,
-        PhaseU = unload,
-        DurU = Unload,
-        IndexU is (VIdx - 1)*2 + 1,
-        assertz(tmp_vessel_dep(Vessel,Dep)),
-        (DurU > 0 -> true ; true),
-        % Load op
-        OpTypeL = load,
-        PhaseL = load,
-        DurL = Load,
-        IndexL is (VIdx - 1)*2 + 2,
-        member(op(IndexU,OpTypeU,Vessel,Arr,Dep,DurU,PhaseU),[op(IndexU,OpTypeU,Vessel,Arr,Dep,DurU,PhaseU)]),
-        member(op(IndexL,OpTypeL,Vessel,Arr,Dep,DurL,PhaseL),[op(IndexL,OpTypeL,Vessel,Arr,Dep,DurL,PhaseL)])
-    ), OpsTmp),
-    sort(OpsTmp, Ops), % Ensure order by index
-    retractall(tmp_vessel_dep(_, _)).
+    findall(Op,
+        (
+            nth1(VIdx, VList, Dict),
+            _{id: VRaw, arrivalHour: Arr, departureHour: Dep, unloadDuration: Unload, loadDuration: Load} :< Dict,
+            normalize_id(VRaw, Vessel),
+            IndexU is (VIdx - 1) * 2 + 1,
+            IndexL is (VIdx - 1) * 2 + 2,
+            member(Op, [
+                op(IndexU, unload, Vessel, Arr, Dep, Unload, unload),
+                op(IndexL, load,   Vessel, Arr, Dep, Load,   load)
+            ])
+        ),
+        OpsTmp
+    ),
+    sort(OpsTmp, Ops). % Ensure order by index
 
 vessel_dep(VList, Vessel, DepHour) :- member(D, VList), _{id: VRaw, departureHour: DepHour} :< D, normalize_id(VRaw, Vessel).
 
@@ -170,7 +248,7 @@ impose_vessel_precedence(Vessel, StartVars, EndVars, Ops) :-
     member(LoadIndex-load, Pairs),
     nth1(UnloadIndex, EndVars, EndUnload),
     nth1(LoadIndex, StartVars, StartLoad),
-    StartLoad #>= EndUnload + 1.
+    StartLoad #>= EndUnload.
 
 constrain_resource_windows(AssignVars, StartVars, EndVars, IdxList) :-
     length(IdxList, Count),
@@ -188,9 +266,12 @@ resource_window_choice(AVar, S, E, IdxList) :-
         (AVar #= RIdx) #==> ( (S #>= StartW) #/\ (E #=< EndW) )
     ).
 
+pairwise_non_overlap(AssignVars, _StartVars, _EndVars) :-
+    length(AssignVars, N),
+    N =< 1, !. % nada a verificar se não há (ou só há) um recurso
 pairwise_non_overlap(AssignVars, StartVars, EndVars) :-
     length(AssignVars, N),
-    numlist(1,N,Idxs),
+    numlist(1, N, Idxs),
     forall((member(I,Idxs), member(J,Idxs), I < J), no_overlap_if_same(AssignVars, StartVars, EndVars, I, J)).
 
 no_overlap_if_same(AssignVars, StartVars, EndVars, I, J) :-
@@ -207,23 +288,53 @@ delays_to_value([], []).
 delays_to_value([delay(Var,Vessel,Idx)|T], [delay(Vessel,Idx,Val)|Rest]) :-
     Val is Var, delays_to_value(T, Rest).
 
-build_schedule_output(Date, Ops, StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelaysList, TotalDelay, VesselWarnings, Response) :-
-    maplist(op_to_dict(StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelaysList), Ops, Dicts),
+% Se não houver recursos dessa categoria, a lista de atribuições fica vazia.
+prepare_assign_vars([], _NOps, []).
+prepare_assign_vars(IdxList, NOps, Vars) :-
+    IdxList \= [],
+    length(Vars, NOps),
+    domain_from_index_map(IdxList, Vars).
+
+safe_nth1(Index, List, Value, Default) :-
+    (   nth1(Index, List, Value)
+    ->  true
+    ;   Value = Default
+    ).
+
+idx_to_id(Idx, IdxList, Id) :-
+    (   nth1(Idx, IdxList, idx(Id,_,_))
+    ->  true
+    ;   Id = null
+    ).
+
+build_schedule_output(Date, Ops, StartVars, EndVars,
+                      DockAssign, CraneAssign, SLocAssign, StaffAssign,
+                      DocksIdx, CranesIdx, SLocIdx, StaffIdx,
+                      DelaysList, TotalDelay, VesselWarnings, Response) :-
+    maplist(op_to_dict(StartVars, EndVars,
+                       DockAssign, CraneAssign, SLocAssign, StaffAssign,
+                       DocksIdx, CranesIdx, SLocIdx, StaffIdx,
+                       DelaysList), Ops, Dicts),
     Response = _{date: Date, schedule: Dicts, totalDelayHours: TotalDelay, warnings: VesselWarnings}.
 
-op_to_dict(StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign, DelaysList,
+op_to_dict(StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign,
+           DocksIdx, CranesIdx, SLocIdx, StaffIdx,
+           DelaysList,
            op(Index,Type,Vessel,_Arr,_Dep,_Dur,Phase), Dict) :-
     nth1(Index, StartVars, S), nth1(Index, EndVars, E),
-    nth1(Index, DockAssign, DIdx), nth1(Index, CraneAssign, CIdx), nth1(Index, SLocAssign, SLIdx), nth1(Index, StaffAssign, StIdx),
-    idx_to_id(DIdx, DockAssign, dock, DockId),
-    idx_to_id(CIdx, CraneAssign, crane, CraneId),
-    idx_to_id(SLIdx, SLocAssign, storage, StorageId),
-    idx_to_id(StIdx, StaffAssign, staff, StaffId),
+    safe_nth1(Index, DockAssign, DIdx, 0),
+    safe_nth1(Index, CraneAssign, CIdx, 0),
+    safe_nth1(Index, SLocAssign, SLIdx, 0),
+    safe_nth1(Index, StaffAssign, StIdx, 0),
+    idx_to_id(DIdx, DocksIdx, DockId),
+    idx_to_id(CIdx, CranesIdx, CraneId),
+    idx_to_id(SLIdx, SLocIdx, StorageId),
+    idx_to_id(StIdx, StaffIdx, StaffId),
     (member(delay(Vessel,Index,DelayVal), DelaysList) -> Delay = DelayVal ; Delay = 0),
     Dict = _{vessel: Vessel, operation: Type, phase: Phase, dock: DockId, crane: CraneId, storageLocation: StorageId, staff: StaffId, startHour: S, endHour: E, delayHours: Delay}.
 
-idx_to_id(_Idx, _AssignVars, _Kind, null) :- fail.
-idx_to_id(Idx, AssignVars, Kind, Id) :-
+% legacy idx_to_id placeholder removed
+idx_to_id_legacy(Idx, AssignVars, Kind, Id) :-
     % Recover original index mapping by scanning dynamic structures in maps (not stored) – fallback placeholder
     length(AssignVars, L), (Idx < 1 ; Idx > L) -> Id = null ; atom_concat(Kind,'_',Tmp), atom_concat(Tmp,Idx,Id).
 
@@ -286,7 +397,9 @@ respond_with_best_sequence :-
     cleanup_vessels.
 
 cleanup_vessels :-
-    retractall(vessel(_,_,_,_,_)).
+    retractall(vessel(_,_,_,_,_)),
+    retractall(multi_crane:vessel(_,_,_,_,_)),
+    retractall(multi_crane:best_multi(_,_,_)).
 
 cleanup_resources :-
     retractall(crane(_,_,_)),
@@ -298,7 +411,8 @@ assert_vessel_dict(Dict) :-
     _{id: IdRaw, arrivalHour: Arrival, departureHour: Departure,
       unloadDuration: Unload, loadDuration: Load} :< Dict,
     normalize_id(IdRaw, Id),
-    assertz(vessel(Id, Arrival, Departure, Unload, Load)).
+    assertz(vessel(Id, Arrival, Departure, Unload, Load)),
+    assertz(multi_crane:vessel(Id, Arrival, Departure, Unload, Load)).
 
 assert_crane_dict(Dict) :-
     _{id: IdRaw, startHour: Start, endHour: End} :< Dict,

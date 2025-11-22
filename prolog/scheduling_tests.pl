@@ -38,10 +38,11 @@ test(feasible_zero_delay) :-
     extract_warnings(R, W), W == [].
 
 % Infeasible: no cranes -> solver should fail and return infeasible warning
-test(infeasible_no_crane) :-
+test(infeasible_no_crane_fallback_multi) :-
     vessel(v1,6,8,3,2,V1), dock(d1,6,18,D1), storage(s1,6,18,S1), staff(st1,operator,6,18,ST1),
     attempt_schedule3(null, [V1], [D1], [], [S1], [ST1], R),
-    extract_warnings(R, W), member('infeasible or solver failed', W).
+    extract_warnings(R, W), member(fallback_to_multi_crane, W),
+    R.strategy = multi_crane.
 
 % Arrival after departure should produce warning and filter vessel out -> zero delay
 test(arrival_after_departure_warning) :-

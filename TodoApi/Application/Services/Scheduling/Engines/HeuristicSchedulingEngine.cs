@@ -6,8 +6,8 @@ using TodoApi.Models.Scheduling;
 namespace TodoApi.Application.Services.Scheduling.Engines;
 
 /// <summary>
-/// Greedy, resource-aware scheduler that prioritizes earliest departures and
-/// assigns the next available crane/staff slot to keep delays low while being fast.
+/// Greedy, resource-aware scheduler that prioritizes earliest departures,
+/// respects single-dock occupancy and resource windows, and stays fast.
 /// </summary>
 public class HeuristicSchedulingEngine : ISchedulingEngine
 {
@@ -19,95 +19,96 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
         OperationalScheduleContext context,
         CancellationToken cancellationToken)
     {
-        var orderedVessels = context.Vessels
-            .OrderBy(v => v.DepartureHour)
-            .ThenBy(v => v.ArrivalHour)
-            .ToList();
-
         var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
 
         int ToHour(DateTime dt) => (int)Math.Floor((dt - dayStart).TotalHours);
 
-        var cranePool = context.Cranes
+        var cranePoolTemplate = context.Cranes
             .Select(c => new ResourceWindow(c.Id, ToHour(c.AvailableFrom), ToHour(c.AvailableTo)))
             .ToList();
-        var staffPool = context.Staff
+        var staffPoolTemplate = context.Staff
             .Select(s => new ResourceWindow(s.Id, ToHour(s.ShiftStart), ToHour(s.ShiftEnd)))
+            .ToList();
+        var dockPoolTemplate = context.Docks
+            .Select(d => new ResourceWindow(d.Id, 0, 240))
             .ToList();
 
         var warnings = new List<string>();
-        if (!cranePool.Any())
+        if (!cranePoolTemplate.Any())
         {
-            warnings.Add("Sem disponibilidade de gruas definida; operações atribuídas sem reservar equipamento.");
+            warnings.Add("Inviavel: sem gruas disponiveis para o dia.");
         }
-        if (!staffPool.Any())
+        if (!staffPoolTemplate.Any())
         {
-            warnings.Add("Sem equipas definidas; operações atribuídas sem reservar equipa.");
+            warnings.Add("Inviavel: sem equipas disponiveis para o dia.");
         }
-
-        var operations = new List<ScheduledOperationDto>();
-        var totalDelay = 0;
-        var craneHours = 0;
-
-        foreach (var vessel in orderedVessels)
+        if (!cranePoolTemplate.Any() || !staffPoolTemplate.Any())
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var duration = Math.Max(1, vessel.UnloadDuration + vessel.LoadDuration);
-            var arrivalHour = Math.Max(0, vessel.ArrivalHour);
-
-            var crane = SelectResource(cranePool, arrivalHour);
-            var staff = SelectResource(staffPool, arrivalHour);
-
-            var startHour = new[] { arrivalHour, crane?.NextAvailable ?? arrivalHour, staff?.NextAvailable ?? arrivalHour }.Max();
-            var endHour = startHour + duration;
-
-            if (crane != null)
+            return Task.FromResult(new SchedulingComputationResult
             {
-                crane.NextAvailable = endHour;
-                if (endHour > crane.AvailableTo)
-                {
-                    warnings.Add($"Navio {vessel.Id} excede a janela de disponibilidade da grua {crane.Id}.");
-                }
-            }
-
-            if (staff != null)
-            {
-                staff.NextAvailable = endHour;
-                if (endHour > staff.AvailableTo)
-                {
-                    warnings.Add($"Navio {vessel.Id} excede o turno da equipa {staff.Id}.");
-                }
-            }
-
-            var delayMinutes = Math.Max(0, endHour - vessel.DepartureHour) * 60;
-            totalDelay += delayMinutes;
-            craneHours += duration;
-
-            operations.Add(new ScheduledOperationDto
-            {
-                VesselId = vessel.Id,
-                DockId = $"dock-{operations.Count + 1}",
-                CraneIds = crane != null ? new List<string> { crane.Id } : new List<string>(),
-                StaffIds = staff != null ? new List<string> { staff.Id } : new List<string>(),
-                StartTime = dayStart.AddHours(startHour),
-                EndTime = dayStart.AddHours(endHour),
-                DelayMinutes = delayMinutes,
-                MultiCrane = false
+                Date = context.Date,
+                Algorithm = AlgorithmName,
+                TotalDelayMinutes = 0,
+                CraneHoursUsed = 0,
+                Schedule = Array.Empty<ScheduledOperationDto>(),
+                Warnings = warnings
             });
         }
 
-        var result = new SchedulingComputationResult
+        if (!dockPoolTemplate.Any())
+        {
+            warnings.Add("Inviavel: sem cais definido.");
+            return Task.FromResult(new SchedulingComputationResult
+            {
+                Date = context.Date,
+                Algorithm = AlgorithmName,
+                TotalDelayMinutes = 0,
+                CraneHoursUsed = 0,
+                Schedule = Array.Empty<ScheduledOperationDto>(),
+                Warnings = warnings
+            });
+        }
+
+        SchedulingComputationResult? best = null;
+
+        foreach (var ordering in BuildOrderings(context.Vessels, context.Strategy))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var (result, localWarnings) = ComputeForOrder(
+                ordering,
+                ClonePool(cranePoolTemplate),
+                ClonePool(staffPoolTemplate),
+                ClonePool(dockPoolTemplate),
+                dayStart);
+
+            // juntar avisos globais (inviabilidade de pools) + locais de execução
+            var mergedWarnings = warnings.Concat(localWarnings).Distinct().ToArray();
+            var mergedResult = new SchedulingComputationResult
+            {
+                Date = result.Date,
+                Algorithm = result.Algorithm,
+                TotalDelayMinutes = result.TotalDelayMinutes,
+                CraneHoursUsed = result.CraneHoursUsed,
+                Schedule = result.Schedule,
+                Warnings = mergedWarnings
+            };
+
+            if (best is null || mergedResult.TotalDelayMinutes < best.TotalDelayMinutes)
+            {
+                best = mergedResult;
+            }
+        }
+
+        return Task.FromResult(best ?? new SchedulingComputationResult
         {
             Date = context.Date,
             Algorithm = AlgorithmName,
-            TotalDelayMinutes = totalDelay,
-            CraneHoursUsed = craneHours,
-            Schedule = operations,
+            TotalDelayMinutes = 0,
+            CraneHoursUsed = 0,
+            Schedule = Array.Empty<ScheduledOperationDto>(),
             Warnings = warnings
-        };
-
-        return Task.FromResult(result);
+        });
     }
 
     private static ResourceWindow? SelectResource(List<ResourceWindow> pool, int requestedHour)
@@ -121,6 +122,190 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
             .OrderBy(r => r.NextAvailable < requestedHour ? requestedHour : r.NextAvailable)
             .ThenBy(r => r.AvailableFrom)
             .First();
+    }
+
+    private static ResourceWindow? SelectSecondaryCrane(
+        List<ResourceWindow> pool,
+        ResourceWindow? primary,
+        int startHour)
+    {
+        if (primary == null)
+        {
+            return null;
+        }
+
+        return pool
+            .Where(r => !ReferenceEquals(r, primary))
+            .Where(r => r.NextAvailable <= startHour)
+            .OrderBy(r => r.NextAvailable)
+            .FirstOrDefault();
+    }
+
+    private static IEnumerable<VesselContextDto> OrderVessels(
+        IEnumerable<VesselContextDto> vessels,
+        string? strategy)
+    {
+        var key = strategy?.Trim().ToLowerInvariant();
+        return key switch
+        {
+            "eat" => vessels.OrderBy(v => v.ArrivalHour).ThenBy(v => v.DepartureHour),
+            "edt" => vessels.OrderBy(v => v.DepartureHour).ThenBy(v => v.ArrivalHour),
+            "spt" => vessels.OrderBy(v => v.UnloadDuration + v.LoadDuration).ThenBy(v => v.DepartureHour),
+            "mst" => vessels.OrderBy(v => (v.DepartureHour - v.ArrivalHour) - (v.UnloadDuration + v.LoadDuration))
+                           .ThenBy(v => v.DepartureHour),
+            "combo" => vessels
+                .OrderBy(v => 0.6 * v.DepartureHour + 0.4 * (v.UnloadDuration + v.LoadDuration))
+                .ThenBy(v => v.ArrivalHour),
+            _ => vessels.OrderBy(v => v.DepartureHour).ThenBy(v => v.ArrivalHour)
+        };
+    }
+
+    private static IEnumerable<IReadOnlyList<VesselContextDto>> BuildOrderings(
+        IEnumerable<VesselContextDto> vessels,
+        string? strategy)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var strategies = new[] { strategy, "edt", "eat", "spt", "combo" };
+        foreach (var s in strategies)
+        {
+            var key = s ?? string.Empty;
+            if (!seen.Add(key))
+            {
+                continue;
+            }
+            yield return OrderVessels(vessels, s).ToList();
+        }
+    }
+
+    private static List<ResourceWindow> ClonePool(IEnumerable<ResourceWindow> pool)
+    {
+        return pool.Select(p => p.Clone()).ToList();
+    }
+
+    private static (SchedulingComputationResult Result, List<string> Warnings) ComputeForOrder(
+        IReadOnlyList<VesselContextDto> orderedVessels,
+        List<ResourceWindow> cranePool,
+        List<ResourceWindow> staffPool,
+        List<ResourceWindow> dockPool,
+        DateTime dayStart)
+    {
+        var operations = new List<ScheduledOperationDto>();
+        var warnings = new List<string>();
+        var totalDelay = 0;
+        var craneHours = 0;
+
+        foreach (var vessel in orderedVessels)
+        {
+            var nominalDuration = Math.Max(1, vessel.UnloadDuration + vessel.LoadDuration);
+            var arrivalHour = Math.Max(0, vessel.ArrivalHour);
+
+            var dock = SelectResource(dockPool, arrivalHour);
+            var crane = SelectResource(cranePool, arrivalHour);
+            var staff = SelectResource(staffPool, arrivalHour);
+
+            var startHour = new[]
+            {
+                arrivalHour,
+                dock?.NextAvailable ?? arrivalHour,
+                crane?.NextAvailable ?? arrivalHour,
+                staff?.NextAvailable ?? arrivalHour
+            }.Max();
+
+            var cranesUsed = new List<ResourceWindow>();
+            if (crane != null)
+            {
+                cranesUsed.Add(crane);
+            }
+
+            var duration = nominalDuration;
+            var secondaryCrane = SelectSecondaryCrane(cranePool, crane, startHour);
+            if (secondaryCrane != null)
+            {
+                cranesUsed.Add(secondaryCrane);
+                duration = (int)Math.Ceiling(nominalDuration / (double)cranesUsed.Count);
+            }
+
+            var endHour = startHour + duration;
+
+            if (dock != null)
+            {
+                dock.NextAvailable = endHour;
+            }
+
+            if (startHour > arrivalHour)
+            {
+                warnings.Add($"Navio {vessel.Id} aguardou recursos/doca ate a hora {startHour}.");
+            }
+
+            if (crane != null)
+            {
+                crane.NextAvailable = endHour;
+            }
+            if (secondaryCrane != null)
+            {
+                secondaryCrane.NextAvailable = endHour;
+            }
+
+            var craneOverrun = cranesUsed.Max(c => Math.Max(0, endHour - c.AvailableTo));
+            var staffOverrun = 0;
+            if (staff != null)
+            {
+                staff.NextAvailable = endHour;
+                staffOverrun = Math.Max(0, endHour - staff.AvailableTo);
+            }
+
+            if (craneOverrun > 0)
+            {
+                warnings.Add($"Navio {vessel.Id} excede a janela da(s) grua(s): {string.Join(", ", cranesUsed.Select(c => c.Id))}.");
+            }
+            if (staffOverrun > 0 && staff != null)
+            {
+                warnings.Add($"Navio {vessel.Id} excede o turno da equipa {staff.Id}.");
+            }
+            var nextDayOverrun = endHour > 24 ? endHour - 24 : 0;
+            if (nextDayOverrun > 0)
+            {
+                warnings.Add($"Navio {vessel.Id} cruza para o dia seguinte (fim {endHour}h).");
+            }
+
+            var etdDelayHours = Math.Max(0, endHour - vessel.DepartureHour);
+            var effectiveDelayHours = new[] { etdDelayHours, craneOverrun, staffOverrun, nextDayOverrun }.Max();
+            var delayMinutes = effectiveDelayHours * 60;
+
+            totalDelay += delayMinutes;
+            craneHours += duration * cranesUsed.Count;
+
+            var storageId = SelectStorage(context: null, startHour: startHour, endHour: endHour);
+
+            operations.Add(new ScheduledOperationDto
+            {
+                VesselId = vessel.Id,
+                DockId = dock?.Id ?? "dock-1",
+                CraneIds = cranesUsed.Select(c => c.Id).ToList(),
+                StaffIds = staff != null ? new List<string> { staff.Id } : new List<string>(),
+                StorageId = storageId,
+                StartTime = dayStart.AddHours(startHour),
+                EndTime = dayStart.AddHours(endHour),
+                DelayMinutes = delayMinutes,
+                MultiCrane = cranesUsed.Count > 1
+            });
+        }
+
+        return (new SchedulingComputationResult
+        {
+            Date = DateOnly.FromDateTime(dayStart),
+            Algorithm = AlgorithmName,
+            TotalDelayMinutes = totalDelay,
+            CraneHoursUsed = craneHours,
+            Schedule = operations,
+            Warnings = warnings
+        }, warnings);
+    }
+
+    private static string? SelectStorage(object? context, int startHour, int endHour)
+    {
+        // placeholder: storage windows not modelled; always return null to avoid false guarantees
+        return null;
     }
 
     private sealed class ResourceWindow
@@ -140,5 +325,10 @@ public class HeuristicSchedulingEngine : ISchedulingEngine
         public int AvailableTo { get; }
 
         public int NextAvailable { get; set; }
+
+        public ResourceWindow Clone() => new ResourceWindow(Id, AvailableFrom, AvailableTo)
+        {
+            NextAvailable = NextAvailable
+        };
     }
 }
