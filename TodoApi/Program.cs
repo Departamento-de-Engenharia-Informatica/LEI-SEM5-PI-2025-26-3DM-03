@@ -134,7 +134,6 @@ builder.Services.AddScoped<TodoApi.Application.Services.Resources.IResourceServi
 // ---------- Scheduling ----------
 builder.Services.AddScoped<ISchedulingService, SchedulingService>();
 builder.Services.AddScoped<IOperationalDataProvider, PassThroughOperationalDataProvider>();
-builder.Services.AddScoped<ISchedulingEngine, MockSchedulingEngine>();
 builder.Services.AddScoped<ISchedulingEngine, HeuristicPrologSchedulingEngine>();
 builder.Services.AddScoped<ISchedulingEngine>(sp => sp.GetRequiredService<PrologHttpSchedulingEngine>());
 

@@ -31,7 +31,7 @@ public class SchedulingService : ISchedulingService
         }
 
         var resolvedAlgorithm = string.IsNullOrWhiteSpace(algorithmKey)
-            ? MockSchedulingEngine.AlgorithmName
+            ? HeuristicPrologSchedulingEngine.AlgorithmName
             : algorithmKey.Trim();
 
         if (!_engines.TryGetValue(resolvedAlgorithm, out var engine))
@@ -43,9 +43,11 @@ public class SchedulingService : ISchedulingService
         var (result, durationMs) = await ExecuteWithTimingAsync(engine, context, cancellationToken);
 
         ScheduleComparisonDto? comparison = null;
+        var otherKey = string.Equals(resolvedAlgorithm, PrologHttpSchedulingEngine.AlgorithmName, StringComparison.OrdinalIgnoreCase)
+            ? HeuristicPrologSchedulingEngine.AlgorithmName
+            : PrologHttpSchedulingEngine.AlgorithmName;
 
-        if (!string.Equals(resolvedAlgorithm, MockSchedulingEngine.AlgorithmName, StringComparison.OrdinalIgnoreCase)
-            && _engines.TryGetValue(MockSchedulingEngine.AlgorithmName, out var baselineEngine))
+        if (_engines.TryGetValue(otherKey, out var baselineEngine))
         {
             var (baselineResult, baselineDurationMs) = await ExecuteWithTimingAsync(
                 baselineEngine,
