@@ -44,11 +44,11 @@
       <nav>
         <ul>
       <li *ngFor="let item of displayedMenu" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }"
-              class="menu-parent" [class.has-submenu]="item.key === 'vessels'">
+              class="menu-parent" [class.has-submenu]="item.children?.length">
 
             <!-- Item principal -->
         <a class="menu-item"
-          [routerLink]="item.key !== 'vessels' ? item.route : null"
+          [routerLink]="item.children?.length ? null : item.route"
           (click)="onMenuClick(item, $event)"
           [attr.data-key]="item.key"
           role="button">
@@ -71,15 +71,18 @@
 
               <span class="label">{{ label(item) }}</span>
 
-              <i *ngIf="item.key === 'vessels'" class="bi bi-caret-down-fill submenu-caret"
+              <i *ngIf="item.children?.length" class="bi bi-caret-down-fill submenu-caret"
                 [class.rotate]="activeSubmenu === item.key"></i>
             </a>
 
             <!-- Submenu: só aparece ao passar o rato -->
-            <ul *ngIf="item.key === 'vessels' && activeSubmenu === item.key" class="submenu visible">
-              <li><a routerLink="/vessels" class="submenu-item">Vessels</a></li>
-              <li><a routerLink="/vessel-types" class="submenu-item">Vessel Types</a></li>
-              <li><a routerLink="/vessel-visit-notifications" class="submenu-item">Visit Notifications</a></li>
+            <ul *ngIf="item.children?.length && activeSubmenu === item.key" class="submenu visible">
+              <li *ngFor="let child of item.children">
+                <a [routerLink]="child.route" class="submenu-item">
+                  <i *ngIf="child.icon" class="bi" [ngClass]="child.icon"></i>
+                  <span>{{ childLabel(child) }}</span>
+                </a>
+              </li>
             </ul>
           </li>
         </ul>
