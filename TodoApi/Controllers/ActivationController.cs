@@ -11,6 +11,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Services.Activation;
 using TodoApi.Models;
+using Microsoft.Extensions.Localization;
+using TodoApi.Resources;
 
 namespace TodoApi.Controllers
 {
@@ -22,13 +24,20 @@ namespace TodoApi.Controllers
         private readonly ILogger<ActivationController> _logger;
         private readonly ActivationOptions _options;
         private readonly PortContext _db;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public ActivationController(ActivationLinkService activationLinkService, ILogger<ActivationController> logger, IOptions<ActivationOptions> options, PortContext db)
+        public ActivationController(
+            ActivationLinkService activationLinkService, 
+            ILogger<ActivationController> logger, 
+            IOptions<ActivationOptions> options, 
+            PortContext db,
+            IStringLocalizer<SharedResources> localizer)
         {
             _activationLinkService = activationLinkService;
             _logger = logger;
             _options = options.Value ?? new ActivationOptions();
             _db = db;
+            _localizer = localizer;
         }
 
         [HttpGet("start")]
@@ -37,13 +46,13 @@ namespace TodoApi.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou já expirou.</p>");
+                return StyledContent(_localizer["ActivationInvalidTitle"], _localizer["ActivationLinkExpired"]);
             }
 
             var pending = await _activationLinkService.GetPendingTokenAsync(token, cancellationToken);
             if (pending == null)
             {
-                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou já expirou.</p>");
+                return StyledContent(_localizer["ActivationInvalidTitle"], _localizer["ActivationLinkExpired"]);
             }
 
             var redirect = Url.ActionLink(nameof(Confirm), values: new { token }) ?? $"/activation/confirm?token={WebUtility.UrlEncode(token)}";
@@ -62,7 +71,7 @@ namespace TodoApi.Controllers
         {
             if (string.IsNullOrWhiteSpace(token))
             {
-                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido.</p>");
+                return StyledContent(_localizer["ActivationInvalidTitle"], _localizer["ActivationLinkInvalid"]);
             }
 
             var email = User.FindFirst(ClaimTypes.Email)?.Value ?? User.FindFirst("email")?.Value;
@@ -75,7 +84,7 @@ namespace TodoApi.Controllers
             if (activation == null || activation.AppUser == null)
             {
                 _logger.LogWarning("Falha ao ativar conta. Token inválido ou identidade {Email} recusada.", email);
-                return StyledContent("Ativação inválida", "<p>O link de ativação é inválido ou não corresponde à sua conta IAM.</p>");
+                return StyledContent(_localizer["ActivationInvalidTitle"], _localizer["ActivationTokenMismatch"]);
             }
 
             var frontend = string.IsNullOrWhiteSpace(_options.FrontendUrl) ? "https://localhost:4200" : _options.FrontendUrl;
@@ -90,8 +99,8 @@ namespace TodoApi.Controllers
             var safeEmail = WebUtility.HtmlEncode(email ?? "utilizador");
             var safeRoles = WebUtility.HtmlEncode(roles ?? string.Empty);
             var roleText = string.IsNullOrWhiteSpace(safeRoles)
-                ? "As suas permissões foram atualizadas."
-                : $"O administrador atribuiu-lhe o(s) papel(is): <strong>{safeRoles}</strong>.";
+                ? _localizer["PermissionsUpdated"]
+                : _localizer["RolesAssigned", safeRoles];
 
             if (!string.IsNullOrWhiteSpace(email))
             {
@@ -112,15 +121,16 @@ namespace TodoApi.Controllers
             }
 
             var body = $@"<p>{roleText}</p>
-                <p>Conta: <strong>{safeEmail}</strong></p>
-                <p>Pode iniciar sessão normalmente para utilizar as novas funcionalidades.</p>";
-            return StyledContent("Mudança de função confirmada", body);
+                {_localizer["AccountHtml", safeEmail]}
+                {_localizer["CanLoginNormally"]}";
+            return StyledContent(_localizer["RoleChangeConfirmedTitle"], body);
         }
 
         private ContentResult StyledContent(string title, string bodyHtml)
         {
+            var lang = _localizer["HtmlLang"];
             var html = $@"<!DOCTYPE html>
-<html lang=""pt"">
+<html lang=""{lang}"">
 <head>
     <meta charset=""utf-8"">
     <title>{WebUtility.HtmlEncode(title)}</title>

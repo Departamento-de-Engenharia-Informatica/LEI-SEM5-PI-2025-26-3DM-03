@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="HelloWorld" xml:space="preserve">
+    <value>Olá, Mundo!</value>
+  </data>
+  <data name="FileUploadRequired" xml:space="preserve">
+    <value>O ficheiro é obrigatório.</value>
+  </data>
+  <data name="FileExceedsMaxSize" xml:space="preserve">
+    <value>O ficheiro excede o tamanho máximo de {0} MB.</value>
+  </data>
+  <data name="FileUploadFailed" xml:space="preserve">
+    <value>Falha ao guardar o ficheiro enviado.</value>
+  </data>
+  <data name="ResourceNotFound" xml:space="preserve">
+    <value>O recurso solicitado não foi encontrado.</value>
+  </data>
+  <data name="ActivationInvalidTitle" xml:space="preserve">
+    <value>Ativação inválida</value>
+  </data>
+  <data name="ActivationLinkExpired" xml:space="preserve">
+    <value><![CDATA[<p>O link de ativação é inválido ou já expirou.</p>]]></value>
+  </data>
+  <data name="ActivationLinkInvalid" xml:space="preserve">
+    <value><![CDATA[<p>O link de ativação é inválido.</p>]]></value>
+  </data>
+  <data name="ActivationTokenMismatch" xml:space="preserve">
+    <value><![CDATA[<p>O link de ativação é inválido ou não corresponde à sua conta IAM.</p>]]></value>
+  </data>
+  <data name="RoleChangeConfirmedTitle" xml:space="preserve">
+    <value>Mudança de função confirmada</value>
+  </data>
+  <data name="PermissionsUpdated" xml:space="preserve">
+    <value>As suas permissões foram atualizadas.</value>
+  </data>
+  <data name="RolesAssigned" xml:space="preserve">
+    <value><![CDATA[O administrador atribuiu-lhe o(s) papel(is): <strong>{0}</strong>.]]></value>
+  </data>
+  <data name="AccountHtml" xml:space="preserve">
+    <value><![CDATA[<p>Conta: <strong>{0}</strong></p>]]></value>
+  </data>
+  <data name="CanLoginNormally" xml:space="preserve">
+    <value><![CDATA[<p>Pode iniciar sessão normalmente para utilizar as novas funcionalidades.</p>]]></value>
+  </data>
+  <data name="HtmlLang" xml:space="preserve">
+    <value>pt</value>
+  </data>
+  <data name="EmailIsRequired" xml:space="preserve">
+    <value>o email é obrigatório</value>
+  </data>
+  <data name="UserAlreadyExists" xml:space="preserve">
+    <value>o utilizador já existe</value>
+  </data>
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>o papel não foi encontrado</value>
+  </data>
+  <data name="RolesNotFound" xml:space="preserve">
+    <value>um ou mais papéis não foram encontrados</value>
+  </data>
+  <data name="CannotDeactivateLastAdmin" xml:space="preserve">
+    <value>não é possível desativar o último administrador ativo</value>
+  </data>
+  <data name="UserAlreadyActive" xml:space="preserve">
+    <value>Utilizador já ativo. Os links de ativação apenas são necessários no primeiro acesso.</value>
+  </data>
+  <data name="UserNeedsOneActiveRole" xml:space="preserve">
+    <value>o utilizador deve ter pelo menos um papel ativo</value>
+  </data>
+  <data name="ActivationLinkCreationFailed" xml:space="preserve">
+    <value>não foi possível criar o link de ativação para este utilizador</value>
+  </data>
+  <data name="CannotRemoveLastAdmin" xml:space="preserve">
+    <value>não é possível remover o último administrador ativo</value>
+  </data>
+  <data name="OperationWouldRemoveLastAdmin" xml:space="preserve">
+    <value>a operação removeria o último administrador ativo</value>
+  </data>
+  <data name="UserMustBeActiveForRoleChange" xml:space="preserve">
+    <value>o utilizador deve estar ativo para receber notificações de mudança de papel</value>
+  </data>
+</root>

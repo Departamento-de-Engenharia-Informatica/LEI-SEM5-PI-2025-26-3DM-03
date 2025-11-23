@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
+using Microsoft.AspNetCore.Localization;
 using TodoApi.Models;
 using TodoApi.Domain.Repositories;
 using TodoApi.Infrastructure.Repositories;
@@ -87,6 +89,7 @@ Console.WriteLine($"GOOGLE CLIENT ID: {builder.Configuration["Authentication:Goo
 // Service Registration
 // =====================================================
 
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 // Register controllers
 builder.Services.AddControllers();
 
@@ -450,6 +453,14 @@ app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoApi v1");
+});
+
+var supportedCultures = new[] { new CultureInfo("en-US"), new CultureInfo("pt-PT") };
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en-US"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures
 });
 
 app.UseHttpsRedirection();
