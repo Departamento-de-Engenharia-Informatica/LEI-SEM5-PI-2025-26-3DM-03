@@ -10,13 +10,22 @@ import { ToastContainerComponent } from '../toast/toast-container.component';
 
 type Role = 'admin' | 'operator' | 'agent' | 'authority';
 
+interface MenuChild {
+  key: string;
+  label_en: string;
+  label_pt: string;
+  route: string;
+  icon?: string;
+}
+
 interface MenuItem {
   key: string;
   label_en: string;
   label_pt: string;
   icon?: string; // css class or inline svg name
-  route: string;
+  route?: string;
   roles: Role[];
+  children?: MenuChild[];
 }
 
 @Component({
@@ -54,7 +63,11 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'shipping_agents', label_en: 'Shipping Agents', label_pt: 'Agentes de Navegação', icon: 'bi-building', route: '/shipping-agents', roles: ['admin','authority'] },
     // Vessel & dock management per user stories: Port Authority Officer (authority) + admin
     // Use inline SVG for ship to avoid CDN hiccups rendering 'bi-ship'
-    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '', roles: ['admin','authority'] },
+    { key: 'vessels', label_en: 'Vessels', label_pt: 'Navios', icon: 'svg-ship', route: '', roles: ['admin','authority'], children: [
+      { key: 'vessels_list', label_en: 'Vessels', label_pt: 'Navios', route: '/vessels' },
+      { key: 'vessel_types', label_en: 'Vessel Types', label_pt: 'Tipos de Navio', route: '/vessel-types' },
+      { key: 'visit_notifications', label_en: 'Visit Notifications', label_pt: 'Notificações de Visita', route: '/vessel-visit-notifications' }
+    ] },
     { key: 'docks', label_en: 'Docks', label_pt: 'Docas', icon: 'bi-box-seam', route: '/docks', roles: ['admin','authority'] },
     { key: 'storage_areas', label_en: 'Storage Areas', label_pt: 'Áreas de Armazenamento', icon: 'bi-inboxes', route: '/storage-areas', roles: ['admin','authority'] },
     // Resources, staff, qualifications -> Logistics Operator + admin
@@ -66,17 +79,17 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
   // Port 3D
-  { key: 'port3d', label_en: 'Port 3D', label_pt: 'Porto 3D', icon: 'bi-map', route: '/port', roles: ['admin','operator','agent','authority'] },
-  { key: 'house_3d', label_en: 'House 3D', label_pt: 'Casa 3D', icon: 'bi-building', route: '/house-3d', roles: ['admin','operator','agent','authority'] },
-  { key: 'craneDemo', label_en: 'Crane Model', label_pt: 'Grua STS', icon: 'bi-lightning', route: '/crane', roles: ['admin','operator','agent','authority'] },
-  { key: 'truck3d', label_en: 'Truck 3D', label_pt: 'Camião DAF', icon: 'bi-truck', route: '/truck', roles: ['admin','operator','agent','authority'] },
-  { key: 'cargoVessel3d', label_en: 'Cargo Vessel', label_pt: 'Navio Porta-Contentores', icon: 'bi-ship', route: '/cargo-vessel', roles: ['admin','operator','agent','authority'] },
-    // Three.js demo (accessible to all roles)
-    { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', icon: 'bi-box', route: '/cube', roles: ['admin','operator','agent','authority'] },
+    { key: 'experiences_3d', label_en: '3D Experiences', label_pt: 'Experiências 3D', icon: 'bi-cube', roles: ['admin','operator','agent','authority'], children: [
+      { key: 'port3d', label_en: 'Port 3D', label_pt: 'Porto 3D', route: '/port', icon: 'bi-map' },
+      { key: 'house_3d', label_en: 'House 3D', label_pt: 'Casa 3D', route: '/house-3d', icon: 'bi-building' },
+      { key: 'craneDemo', label_en: 'Crane Model', label_pt: 'Grua STS', route: '/crane', icon: 'bi-lightning' },
+      { key: 'truck3d', label_en: 'Truck 3D', label_pt: 'Camião DAF', route: '/truck', icon: 'bi-truck' },
+      { key: 'cargoVessel3d', label_en: 'Cargo Vessel', label_pt: 'Navio Porta-Contentores', route: '/cargo-vessel', icon: 'bi-ship' },
+      { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', route: '/cube', icon: 'bi-box' },
+      { key: 'final_3d', label_en: '3D Final', label_pt: '3D Final', route: '/final-3d', icon: 'bi-bricks' }
+    ] },
     // Admin settings only
     { key: 'settings', label_en: 'Settings', label_pt: 'Configuração', icon: 'bi-gear', route: '/settings', roles: ['admin'] },
-    // Final immersive experience
-    { key: 'final_3d', label_en: '3D Final', label_pt: '3D Final', icon: 'bi-bricks', route: '/final-3d', roles: ['admin','operator','agent','authority'] }
   ];
   // menu currently shown in the template — updated when auth state changes
   displayedMenu: MenuItem[] = [];
@@ -109,9 +122,8 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
   onMenuClick(item: MenuItem, ev?: Event) {
-    // Para itens normais deixamos o routerLink agir.
-    // Só interceptamos o clique para o item com submenu (vessels).
-    if (item.key === 'vessels') {
+    // Para itens com submenu evitamos navegação imediata e alternamos o submenu.
+    if (item.children?.length) {
       ev?.preventDefault();
       ev?.stopPropagation();
       this.toggleSubmenu(item.key);
@@ -175,9 +187,17 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   
 
+  private localizeLabel(entry: { label_en: string; label_pt: string }) {
+    return this.lang === 'pt' ? entry.label_pt : entry.label_en;
+  }
+
   // Localized label helper
   label(m: MenuItem) {
-    return this.lang === 'pt' ? m.label_pt : m.label_en;
+    return this.localizeLabel(m);
+  }
+
+  childLabel(child: MenuChild) {
+    return this.localizeLabel(child);
   }
 
   changeLang(l: 'en'|'pt'){

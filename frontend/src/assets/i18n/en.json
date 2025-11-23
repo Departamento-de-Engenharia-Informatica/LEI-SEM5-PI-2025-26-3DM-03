@@ -13,11 +13,87 @@
     "representatives": "Representatives",
     "shipping_agents": "Shipping Agents",
     "public_resources": "Shared Resources",
+    "experiences_3d": "3D Experiences",
     "port3d": "Port 3D",
     "cube": "3D Demo",
     "house_3d": "House 3D",
     "settings": "Settings",
     "final_3d": "3D Final"
+  },
+  "storageAreas": {
+    "title": "Storage Areas",
+    "subtitle": "Coordinate the port's storage capacity with quick insight on occupancy.",
+    "search": {
+      "placeholder": "Search by location or type...",
+      "clear": "Clear search"
+    },
+    "sort": {
+      "label": "Sort by",
+      "location": "Location",
+      "type": "Type",
+      "capacity": "Capacity",
+      "occupancy": "Occupancy"
+    },
+    "status": {
+      "loading": "Loading areas..."
+    },
+    "summary": {
+      "visibleLabel": "Visible areas",
+      "visibleHintAll": "All areas listed",
+      "visibleHintPartial": "{visible} of {total} listed",
+      "capacityLabel": "Available capacity",
+      "capacityHint": "{available} TEU free",
+      "capacityNone": "No capacity recorded",
+      "usageLabel": "Average occupancy",
+      "usageHint": "{types} different types",
+      "usageNone": "No types defined"
+    },
+    "form": {
+      "title": "Create new area",
+      "subtitle": "Fill the fields to create the area instantly.",
+      "location": "Location",
+      "type": "Type",
+      "capacity": "Capacity",
+      "capacityUnit": "TEU",
+      "occupancy": "Occupancy",
+      "create": "Create"
+    },
+    "list": {
+      "title": "Area list",
+      "countSuffix": "area(s) shown",
+      "empty": "No results. Create a new area on the left."
+    },
+    "table": {
+      "location": "Location",
+      "type": "Type",
+      "capacity": "Capacity",
+      "occupancy": "Occupancy",
+      "actions": "Actions",
+      "statHint": "Cap.",
+      "occupancySuffix": "TEU",
+      "editAria": "Edit area",
+      "deleteAria": "Delete area"
+    },
+    "modal": {
+      "title": "Edit area",
+      "subtitle": "Update the data and save to sync with Backoffice.",
+      "location": "Location",
+      "type": "Type",
+      "capacity": "Capacity",
+      "occupancy": "Occupancy",
+      "cancel": "Cancel",
+      "save": "Save",
+      "close": "Close"
+    },
+    "errors": {
+      "load": "Failed to load storage areas",
+      "create": "Failed to create area",
+      "update": "Failed to update area",
+      "delete": "Failed to delete area"
+    },
+    "confirm": {
+      "delete": "Delete this storage area?"
+    }
   },
   "staff": {
     "title": "Staff",

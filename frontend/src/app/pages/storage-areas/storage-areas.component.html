@@ -1,8 +1,8 @@
 <div class="storage-page">
   <header class="page-header">
     <div class="title-block">
-      <h1>Áreas de Armazenamento</h1>
-      <p>Coordena a capacidade de armazenagem do porto com visibilidade rápida de ocupação.</p>
+      <h1>{{ i18n.t('storageAreas.title') }}</h1>
+      <p>{{ i18n.t('storageAreas.subtitle') }}</p>
     </div>
 
     <div class="header-controls">
@@ -10,7 +10,7 @@
         <span class="search-icon">🔍</span>
         <input
           type="search"
-          placeholder="Pesquisar por localização ou tipo..."
+          [placeholder]="i18n.t('storageAreas.search.placeholder')"
           [(ngModel)]="q"
           (ngModelChange)="applyFilterSort()"
         />
@@ -19,20 +19,20 @@
           class="clear-btn"
           *ngIf="q"
           (click)="q=''; applyFilterSort();"
-          aria-label="Limpar pesquisa"
+          [attr.aria-label]="i18n.t('storageAreas.search.clear')"
         >
           ✕
         </button>
       </div>
 
       <div class="sort-field">
-        <label>Ordenar por</label>
+        <label>{{ i18n.t('storageAreas.sort.label') }}</label>
         <div class="sort-input">
           <select [(ngModel)]="sortKey" (change)="applyFilterSort()">
-            <option value="location">Localização</option>
-            <option value="type">Tipo</option>
-            <option value="maxCapacityTEU">Capacidade</option>
-            <option value="currentOccupancyTEU">Ocupação</option>
+            <option value="location">{{ i18n.t('storageAreas.sort.location') }}</option>
+            <option value="type">{{ i18n.t('storageAreas.sort.type') }}</option>
+            <option value="maxCapacityTEU">{{ i18n.t('storageAreas.sort.capacity') }}</option>
+            <option value="currentOccupancyTEU">{{ i18n.t('storageAreas.sort.occupancy') }}</option>
           </select>
           <button class="icon-toggle" type="button" (click)="changeSort(sortKey)">
             {{ sortDir === 'asc' ? '▲' : '▼' }}
@@ -43,7 +43,7 @@
   </header>
 
   <section class="status-row" *ngIf="loading || error">
-    <div *ngIf="loading" class="status-pill muted">A carregar áreas...</div>
+    <div *ngIf="loading" class="status-pill muted">{{ i18n.t('storageAreas.status.loading') }}</div>
     <div *ngIf="error" class="status-pill error">{{ error }}</div>
   </section>
 
@@ -65,18 +65,18 @@
   <div class="layout" *ngIf="!loading">
     <aside class="card form-card">
       <header class="card-header">
-        <h2>Criar nova área</h2>
-        <p>Preenche os campos e cria a área instantaneamente.</p>
+        <h2>{{ i18n.t('storageAreas.form.title') }}</h2>
+        <p>{{ i18n.t('storageAreas.form.subtitle') }}</p>
       </header>
 
       <form (ngSubmit)="create()" class="form">
         <label>
-          <span>Localização</span>
+          <span>{{ i18n.t('storageAreas.form.location') }}</span>
           <input [(ngModel)]="newArea.location" name="location" required />
         </label>
 
         <label>
-          <span>Tipo</span>
+          <span>{{ i18n.t('storageAreas.form.type') }}</span>
           <select [(ngModel)]="newArea.type" name="type">
             <option value="Yard">Yard</option>
             <option value="Warehouse">Warehouse</option>
@@ -85,41 +85,41 @@
 
         <div class="row metrics-grid">
           <label class="metric-field">
-            <span>Capacidade</span>
+            <span>{{ i18n.t('storageAreas.form.capacity') }}</span>
             <div class="input-with-unit">
               <input type="number" [(ngModel)]="newArea.maxCapacityTEU" name="capacity" min="0" />
-              <span class="unit">TEU</span>
+              <span class="unit">{{ i18n.t('storageAreas.form.capacityUnit') }}</span>
             </div>
           </label>
           <label class="metric-field">
-            <span>Ocupação</span>
+            <span>{{ i18n.t('storageAreas.form.occupancy') }}</span>
             <div class="input-with-unit">
               <input type="number" [(ngModel)]="newArea.currentOccupancyTEU" name="occupancy" min="0" />
-              <span class="unit">TEU</span>
+              <span class="unit">{{ i18n.t('storageAreas.form.capacityUnit') }}</span>
             </div>
           </label>
         </div>
 
-        <button class="btn primary full" type="submit">Criar</button>
+        <button class="btn primary full" type="submit">{{ i18n.t('storageAreas.form.create') }}</button>
       </form>
     </aside>
 
     <main class="card list-card">
       <header class="list-header">
         <div>
-          <h2>Lista de Áreas</h2>
-          <p>{{ filtered.length }} área(s) a mostrar</p>
+          <h2>{{ i18n.t('storageAreas.list.title') }}</h2>
+          <p>{{ filtered.length }} {{ i18n.t('storageAreas.list.countSuffix') }}</p>
         </div>
       </header>
 
       <table class="table" *ngIf="filtered.length; else emptyState">
         <thead>
           <tr>
-            <th (click)="changeSort('location')">Localização</th>
-            <th (click)="changeSort('type')">Tipo</th>
-            <th (click)="changeSort('maxCapacityTEU')">Capacidade</th>
-            <th (click)="changeSort('currentOccupancyTEU')">Ocupação</th>
-            <th class="right">Ações</th>
+            <th (click)="changeSort('location')">{{ i18n.t('storageAreas.table.location') }}</th>
+            <th (click)="changeSort('type')">{{ i18n.t('storageAreas.table.type') }}</th>
+            <th (click)="changeSort('maxCapacityTEU')">{{ i18n.t('storageAreas.table.capacity') }}</th>
+            <th (click)="changeSort('currentOccupancyTEU')">{{ i18n.t('storageAreas.table.occupancy') }}</th>
+            <th class="right">{{ i18n.t('storageAreas.table.actions') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -136,7 +136,7 @@
             <td>
               <div class="stat">
                 <span class="stat-value">{{ area.maxCapacityTEU ?? '—' }}</span>
-                <span class="stat-hint">Cap.</span>
+                <span class="stat-hint">{{ i18n.t('storageAreas.table.statHint') }}</span>
               </div>
             </td>
             <td>
@@ -148,7 +148,7 @@
                   ></div>
                 </div>
                 <div class="progress-meta">
-                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU ?? '—' }} TEU</span>
+                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU ?? '—' }} {{ i18n.t('storageAreas.table.occupancySuffix') }}</span>
                   <span class="percent" *ngIf="getOccupancyPercent(area) !== null">
                     {{ percentFormatter.format(getOccupancyPercent(area)!) }}%
                   </span>
@@ -156,10 +156,10 @@
               </div>
             </td>
             <td class="right actions">
-              <button class="icon-btn" type="button" (click)="openEdit(area)" aria-label="Editar área">
+              <button class="icon-btn" type="button" (click)="openEdit(area)" [attr.aria-label]="i18n.t('storageAreas.table.editAria')">
                 ✎
               </button>
-              <button class="icon-btn danger" type="button" (click)="delete(area.id)" aria-label="Eliminar área">
+              <button class="icon-btn danger" type="button" (click)="delete(area.id)" [attr.aria-label]="i18n.t('storageAreas.table.deleteAria')">
                 🗑
               </button>
             </td>
@@ -170,7 +170,7 @@
       <ng-template #emptyState>
         <div class="empty-state">
           <div class="emoji">📦</div>
-          <p>Sem resultados. Cria uma nova área à esquerda.</p>
+          <p>{{ i18n.t('storageAreas.list.empty') }}</p>
         </div>
       </ng-template>
     </main>
@@ -180,19 +180,19 @@
     <div class="modal">
       <header class="modal-header">
         <div>
-          <h3>Editar área</h3>
-          <p>Atualiza os dados e guarda para sincronizar com o Backoffice.</p>
+          <h3>{{ i18n.t('storageAreas.modal.title') }}</h3>
+          <p>{{ i18n.t('storageAreas.modal.subtitle') }}</p>
         </div>
-        <button class="icon-btn" type="button" (click)="closeEdit()" aria-label="Fechar">✕</button>
+        <button class="icon-btn" type="button" (click)="closeEdit()" [attr.aria-label]="i18n.t('storageAreas.modal.close')">✕</button>
       </header>
 
       <form (ngSubmit)="saveEdit()" class="form">
         <label>
-          <span>Localização</span>
+          <span>{{ i18n.t('storageAreas.modal.location') }}</span>
           <input [(ngModel)]="editing!.location" name="edit_location" required />
         </label>
         <label>
-          <span>Tipo</span>
+          <span>{{ i18n.t('storageAreas.modal.type') }}</span>
           <select [(ngModel)]="editing!.type" name="edit_type">
             <option value="Yard">Yard</option>
             <option value="Warehouse">Warehouse</option>
@@ -200,24 +200,24 @@
         </label>
         <div class="row metrics-grid">
           <label class="metric-field">
-            <span>Capacidade</span>
+            <span>{{ i18n.t('storageAreas.modal.capacity') }}</span>
             <div class="input-with-unit">
               <input type="number" [(ngModel)]="editing!.maxCapacityTEU" name="edit_capacity" min="0" />
-              <span class="unit">TEU</span>
+              <span class="unit">{{ i18n.t('storageAreas.form.capacityUnit') }}</span>
             </div>
           </label>
           <label class="metric-field">
-            <span>Ocupação</span>
+            <span>{{ i18n.t('storageAreas.modal.occupancy') }}</span>
             <div class="input-with-unit">
               <input type="number" [(ngModel)]="editing!.currentOccupancyTEU" name="edit_occupancy" min="0" />
-              <span class="unit">TEU</span>
+              <span class="unit">{{ i18n.t('storageAreas.form.capacityUnit') }}</span>
             </div>
           </label>
         </div>
 
         <div class="modal-actions">
-          <button class="btn" type="button" (click)="closeEdit()">Cancelar</button>
-          <button class="btn primary" type="submit">Guardar</button>
+          <button class="btn" type="button" (click)="closeEdit()">{{ i18n.t('storageAreas.modal.cancel') }}</button>
+          <button class="btn primary" type="submit">{{ i18n.t('storageAreas.modal.save') }}</button>
         </div>
       </form>
     </div>

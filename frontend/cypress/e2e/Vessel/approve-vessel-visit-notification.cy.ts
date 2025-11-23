@@ -1,4 +1,4 @@
-describe('Vessel Visit Notifications - Create', () => {
+describe('Vessel Visit Notifications - Create (Approve Flow)', () => {
   const userStub = {
     name: 'DevLapr5 salvador',
     email: 'salvadordevlapr@gmail.com',
@@ -14,13 +14,13 @@ describe('Vessel Visit Notifications - Create', () => {
     { imo: '9876543', name: 'Atlas Trader', vesselTypeId: 1 },
   ];
 
-  const vesselImo = '1234567';
-  const agentTaxNumber = 500123456;
-  const arrivalInput = '2025-06-01T10:30';
-  const departureInput = '2025-06-05T18:00';
+  const vesselImo = '7654321';
+  const agentTaxNumber = 500987654;
+  const arrivalInput = '2025-06-10T08:00';
+  const departureInput = '2025-06-12T20:00';
   const expectedArrivalIso = new Date(arrivalInput).toISOString();
   const expectedDepartureIso = new Date(departureInput).toISOString();
-  const cargoCodes = ['MSKU1234567', 'TRIU7654321'];
+  const cargoCodes = ['OOLU1234567', 'TGHU7654321'];
 
   let notificationsStub: any[];
   let nextId: number;
@@ -71,8 +71,8 @@ describe('Vessel Visit Notifications - Create', () => {
         departureDate: expectedDepartureIso,
         cargoManifest: cargoCodes.map((code) => ({ containerCode: code, isForUnloading: false })),
         crewMembers: [
-          { name: 'Captain Test', citizenId: 'CPT123', nationality: 'PT' },
-          { name: 'Officer Test', citizenId: 'OFF456', nationality: 'ES' },
+          { name: 'Captain Green', citizenId: 'CAP987', nationality: 'PT' },
+          { name: 'Officer Blue', citizenId: 'OFF654', nationality: 'FR' },
         ],
       });
 
@@ -109,7 +109,7 @@ describe('Vessel Visit Notifications - Create', () => {
       const updated = {
         ...existing,
         status: 'Submitted',
-        submissionTimestamp: new Date('2025-05-10T10:00:00Z').toISOString(),
+        submissionTimestamp: new Date('2025-06-08T10:00:00Z').toISOString(),
       };
 
       notificationsStub = notificationsStub.map((n) => (n.id === id ? updated : n));
@@ -117,27 +117,27 @@ describe('Vessel Visit Notifications - Create', () => {
       req.reply({ statusCode: 200, body: {} });
     }).as('submitNotification');
 
-    cy.intercept('POST', /\/api\/VesselVisitNotifications\/(\d+)\/reject\/(\d+)\/(.+)$/, (req) => {
-      const match = req.url.match(/\/VesselVisitNotifications\/(\d+)\/reject\/(\d+)\/(.+)$/);
+    cy.intercept('POST', /\/api\/VesselVisitNotifications\/(\d+)\/approve\/(\d+)\/(\d+)$/, (req) => {
+      const match = req.url.match(/\/VesselVisitNotifications\/(\d+)\/approve\/(\d+)\/(\d+)$/);
       const id = match ? Number(match[1]) : null;
-      const officerId = match ? Number(match[2]) : null;
-      const reason = match ? decodeURIComponent(match[3]) : '';
+      const dockId = match ? Number(match[2]) : null;
+      const officerId = match ? Number(match[3]) : null;
 
       const existing = notificationsStub.find((n) => n.id === id);
-      expect(existing, 'notification exists before reject').to.exist;
+      expect(existing, 'notification exists before approve').to.exist;
 
       const updated = {
         ...existing,
-        status: 'Rejected',
+        status: 'Approved',
+        approvedDockId: dockId,
         officerId,
-        rejectionReason: reason,
-        decisionTimestamp: new Date('2025-05-11T11:00:00Z').toISOString(),
+        decisionTimestamp: new Date('2025-06-09T12:00:00Z').toISOString(),
       };
 
       notificationsStub = notificationsStub.map((n) => (n.id === id ? updated : n));
 
       req.reply({ statusCode: 200, body: {} });
-    }).as('rejectNotification');
+    }).as('approveNotification');
 
     cy.visit('/vessel-visit-notifications');
 
@@ -147,7 +147,7 @@ describe('Vessel Visit Notifications - Create', () => {
     cy.wait('@loadNotifications');
   });
 
-  it('creates a new vessel visit notification', () => {
+  it('creates and approves a vessel visit notification', () => {
     cy.contains('button', 'Nova Notificação').click();
 
     cy.contains('h3', 'Criar VVN')
@@ -159,12 +159,12 @@ describe('Vessel Visit Notifications - Create', () => {
         cy.get('input[name="arr"]').clear().type(arrivalInput);
         cy.get('input[name="dep"]').clear().type(departureInput);
         cy.get('textarea[name="cargo"]').clear().type(cargoCodes.join(', '));
-        cy.get('input[name="cap_name"]').clear().type('Captain Test');
-        cy.get('input[name="cap_id"]').clear().type('CPT123');
+        cy.get('input[name="cap_name"]').clear().type('Captain Green');
+        cy.get('input[name="cap_id"]').clear().type('CAP987');
         cy.get('input[name="cap_nat"]').clear().type('PT');
-        cy.get('input[name="off1_name"]').clear().type('Officer Test');
-        cy.get('input[name="off1_id"]').clear().type('OFF456');
-        cy.get('input[name="off1_nat"]').clear().type('ES');
+        cy.get('input[name="off1_name"]').clear().type('Officer Blue');
+        cy.get('input[name="off1_id"]').clear().type('OFF654');
+        cy.get('input[name="off1_nat"]').clear().type('FR');
         cy.contains('button', 'Criar').click();
       });
 
@@ -190,26 +190,24 @@ describe('Vessel Visit Notifications - Create', () => {
 
     cy.wait('@getNotificationById');
 
-    const rejectionReason = 'Documentação incompleta';
-
     cy.get('.modal').within(() => {
-      cy.contains('button', 'Rejeitar').scrollIntoView();
-      cy.get('input[placeholder="Obrigatório para rejeitar"]').scrollIntoView().clear({ force: true }).type(rejectionReason, { force: true });
-      cy.contains('button', 'Rejeitar').click({ force: true });
+      cy.get('select').first().scrollIntoView().should('contain', docksStub[0].name).select(docksStub[0].name);
+      cy.get('input[placeholder="ex.: 42"]').scrollIntoView().clear({ force: true }).type('88', { force: true });
+      cy.contains('button', 'Aprovar').scrollIntoView().click({ force: true });
     });
 
-    cy.wait('@rejectNotification');
+    cy.wait('@approveNotification');
     cy.wait('@getNotificationById');
     cy.wait('@loadNotifications');
 
     cy.get('.modal').within(() => {
-      cy.contains('.status', 'Rejected').should('be.visible');
-      cy.contains('.text', rejectionReason).should('be.visible');
+      cy.contains('.status', 'Approved').should('be.visible');
+      cy.contains('.value', String(docksStub[0].id)).should('be.visible');
       cy.contains('button', 'Fechar').scrollIntoView().click({ force: true });
     });
 
     cy.get('table.tbl tbody tr').first().within(() => {
-      cy.contains('span.badge', 'Rejected').scrollIntoView().should('contain.text', 'Rejected');
+      cy.contains('span.badge', 'Approved').scrollIntoView().should('contain.text', 'Approved');
     });
   });
 });

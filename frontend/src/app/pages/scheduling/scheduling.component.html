@@ -228,6 +228,7 @@
         <small>{{ segment.startLabel }} - {{ segment.endLabel }}</small>
         <small>{{ segment.delayLabel }}</small>
         <small *ngIf="segment.resourcesLabel">Recursos: {{ segment.resourcesLabel }}</small>
+        <small *ngIf="segment.storageLabel">Storage: {{ segment.storageLabel }}</small>
       </div>
     </div>
   </div>
@@ -245,6 +246,7 @@
         <th>Atraso</th>
         <th>Gruas</th>
         <th>Equipa</th>
+        <th>Storage</th>
       </tr>
     </thead>
     <tbody>
@@ -258,6 +260,7 @@
         </td>
         <td>{{ operation.craneIds.join(', ') || '-' }}</td>
         <td>{{ operation.staffIds.join(', ') || '-' }}</td>
+        <td>{{ operation.storageId || '-' }}</td>
       </tr>
     </tbody>
   </table>
