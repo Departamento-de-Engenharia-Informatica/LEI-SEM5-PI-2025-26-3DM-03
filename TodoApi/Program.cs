@@ -51,10 +51,18 @@ builder.Services.Configure<SchedulingOptions>(configuration.GetSection("Scheduli
 builder.Services.AddHttpClient<PrologHttpSchedulingEngine>((sp, client) =>
 {
     var schedulingOptions = sp.GetRequiredService<IOptions<SchedulingOptions>>().Value;
-    if (!string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl))
-    {
-        client.BaseAddress = new Uri(schedulingOptions.PrologBaseUrl);
-    }
+    var baseUrl = string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl)
+        ? "http://localhost:3050/"
+        : schedulingOptions.PrologBaseUrl;
+    client.BaseAddress = new Uri(baseUrl);
+});
+builder.Services.AddHttpClient<HeuristicPrologSchedulingEngine>((sp, client) =>
+{
+    var schedulingOptions = sp.GetRequiredService<IOptions<SchedulingOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl)
+        ? "http://localhost:3050/"
+        : schedulingOptions.PrologBaseUrl;
+    client.BaseAddress = new Uri(baseUrl);
 });
 
 // Configure Kestrel only for local development. In containers or non-dev
@@ -127,7 +135,7 @@ builder.Services.AddScoped<TodoApi.Application.Services.Resources.IResourceServi
 builder.Services.AddScoped<ISchedulingService, SchedulingService>();
 builder.Services.AddScoped<IOperationalDataProvider, PassThroughOperationalDataProvider>();
 builder.Services.AddScoped<ISchedulingEngine, MockSchedulingEngine>();
-builder.Services.AddScoped<ISchedulingEngine, HeuristicSchedulingEngine>();
+builder.Services.AddScoped<ISchedulingEngine, HeuristicPrologSchedulingEngine>();
 builder.Services.AddScoped<ISchedulingEngine>(sp => sp.GetRequiredService<PrologHttpSchedulingEngine>());
 
 // ---------- Staff ----------

@@ -651,8 +651,11 @@ include_staff_skill(Skill, StaffIn, StaffOut) :-
 
 can_operate(Skill, Dict) :-
     ( get_dict(skills, Dict, Skills) ->
-        member(Skill, Skills)
-    ; fail ).
+        ( member(Skill, Skills) ; Skills == [] )  % empty skills -> assume qualified
+    ; get_dict(role, Dict, Role) ->
+        Role == operator                          % role field as alternative flag
+    ; true                                       % missing skills -> assume qualified
+    ).
 
 domain_from_index_map([], Vars) :- Vars = [].
 domain_from_index_map(Idx, Vars) :-
