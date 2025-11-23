@@ -60,7 +60,6 @@ type StaffFormValue = {
 };
 
 type AlgorithmOption = 'optimal' | 'prolog' | 'heuristic';
-
 type SchedulingFormShape = {
   date: FormControl<string>;
   algorithm: FormControl<AlgorithmOption>;
@@ -79,6 +78,7 @@ interface TimelineSegment {
   offsetPercent: number;
   widthPercent: number;
   resourcesLabel: string;
+  storageLabel: string;
 }
 
 interface TimelineView {
@@ -322,7 +322,7 @@ export class SchedulingComponent {
     return this.fb.group({
       date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
       algorithm: this.fb.control<AlgorithmOption>('optimal', { validators: [Validators.required] }),
-      strategy: this.fb.control('default'),
+      strategy: this.fb.control('auto'),
       vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
       cranes: this.fb.array<FormGroup<CraneFormShape>>([]),
       staff: this.fb.array<FormGroup<StaffFormShape>>([])
@@ -349,6 +349,9 @@ export class SchedulingComponent {
         const end = new Date(operation.endTime).getTime();
         const offsetPercent = ((start - first) / total) * 100;
         const widthPercent = ((end - start) / total) * 100;
+        const resourcesLabel = [...operation.craneIds, ...operation.staffIds].join(', ');
+        const storageLabel = operation.storageId ? operation.storageId : '';
+
         return {
           vesselId: operation.vesselId,
           startLabel: this.formatTime(operation.startTime),
@@ -357,7 +360,8 @@ export class SchedulingComponent {
           delayed: operation.delayMinutes > 0,
           offsetPercent,
           widthPercent,
-          resourcesLabel: [...operation.craneIds, ...operation.staffIds].join(', ')
+          resourcesLabel,
+          storageLabel
         };
       })
     };
