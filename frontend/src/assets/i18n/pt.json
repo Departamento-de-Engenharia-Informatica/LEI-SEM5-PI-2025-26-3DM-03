@@ -13,11 +13,87 @@
     "representatives": "Representantes",
     "shipping_agents": "Agentes de Navegação",
     "public_resources": "Recursos Partilhados",
+    "experiences_3d": "Experiências 3D",
     "port3d": "Porto 3D",
     "cube": "Demo 3D",
     "house_3d": "Casa 3D",
     "settings": "Configurações",
     "final_3d": "3D Final"
+  },
+  "storageAreas": {
+    "title": "Áreas de Armazenamento",
+    "subtitle": "Coordena a capacidade de armazenagem do porto com visibilidade rápida de ocupação.",
+    "search": {
+      "placeholder": "Pesquisar por localização ou tipo...",
+      "clear": "Limpar pesquisa"
+    },
+    "sort": {
+      "label": "Ordenar por",
+      "location": "Localização",
+      "type": "Tipo",
+      "capacity": "Capacidade",
+      "occupancy": "Ocupação"
+    },
+    "status": {
+      "loading": "A carregar áreas..."
+    },
+    "summary": {
+      "visibleLabel": "Áreas visíveis",
+      "visibleHintAll": "Todas as áreas listadas",
+      "visibleHintPartial": "{visible} de {total} listadas",
+      "capacityLabel": "Capacidade disponível",
+      "capacityHint": "{available} TEU livres",
+      "capacityNone": "Sem capacidade registada",
+      "usageLabel": "Ocupação média",
+      "usageHint": "{types} tipos diferentes",
+      "usageNone": "Sem tipos definidos"
+    },
+    "form": {
+      "title": "Criar nova área",
+      "subtitle": "Preenche os campos e cria a área instantaneamente.",
+      "location": "Localização",
+      "type": "Tipo",
+      "capacity": "Capacidade",
+      "capacityUnit": "TEU",
+      "occupancy": "Ocupação",
+      "create": "Criar"
+    },
+    "list": {
+      "title": "Lista de Áreas",
+      "countSuffix": "área(s) a mostrar",
+      "empty": "Sem resultados. Cria uma nova área à esquerda."
+    },
+    "table": {
+      "location": "Localização",
+      "type": "Tipo",
+      "capacity": "Capacidade",
+      "occupancy": "Ocupação",
+      "actions": "Ações",
+      "statHint": "Cap.",
+      "occupancySuffix": "TEU",
+      "editAria": "Editar área",
+      "deleteAria": "Eliminar área"
+    },
+    "modal": {
+      "title": "Editar área",
+      "subtitle": "Atualiza os dados e guarda para sincronizar com o Backoffice.",
+      "location": "Localização",
+      "type": "Tipo",
+      "capacity": "Capacidade",
+      "occupancy": "Ocupação",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "close": "Fechar"
+    },
+    "errors": {
+      "load": "Erro ao carregar áreas de armazenamento",
+      "create": "Erro ao criar área",
+      "update": "Erro ao atualizar área",
+      "delete": "Erro ao eliminar área"
+    },
+    "confirm": {
+      "delete": "Eliminar esta área de armazenamento?"
+    }
   },
   "staff": {
     "title": "Equipa",

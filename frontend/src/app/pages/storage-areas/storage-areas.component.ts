@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StorageAreasService } from '../../services/storage-areas/storage-areas.service';
 import { StorageAreaDTO, CreateStorageAreaDTO, UpdateStorageAreaDTO } from '../../models/storage-area';
+import { TranslationService } from '../../services/i18n/translation.service';
 
 type SortKey = 'location' | 'type' | 'maxCapacityTEU' | 'currentOccupancyTEU';
 
@@ -35,10 +36,19 @@ export class StorageAreasComponent implements OnInit {
   // edição
   editing: UpdateStorageAreaDTO | null = null;
 
-  readonly integerFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
-  readonly percentFormatter = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 0 });
+  private get locale(): string {
+    return this.i18n.getLang() === 'pt' ? 'pt-PT' : 'en-US';
+  }
 
-  constructor(private svc: StorageAreasService) {}
+  get integerFormatter(): Intl.NumberFormat {
+    return new Intl.NumberFormat(this.locale, { maximumFractionDigits: 0 });
+  }
+
+  get percentFormatter(): Intl.NumberFormat {
+    return new Intl.NumberFormat(this.locale, { maximumFractionDigits: 0 });
+  }
+
+  constructor(private svc: StorageAreasService, public i18n: TranslationService) {}
 
   async ngOnInit() {
     await this.load();
@@ -51,7 +61,7 @@ export class StorageAreasComponent implements OnInit {
       this.areas = await this.svc.getAll();
       this.applyFilterSort();
     } catch (e: any) {
-      this.error = e?.message || 'Erro ao carregar áreas de armazenamento';
+        this.error = e?.message || this.i18n.t('storageAreas.errors.load');
     } finally {
       this.loading = false;
     }
@@ -118,21 +128,35 @@ export class StorageAreasComponent implements OnInit {
     return [
       {
         icon: '📦',
-        label: 'Áreas visíveis',
+        label: this.i18n.t('storageAreas.summary.visibleLabel'),
         value: this.integerFormatter.format(visible),
-        hint: total === visible ? 'Todas as áreas listadas' : `${this.integerFormatter.format(total)} no total`
+        hint:
+          total === visible
+            ? this.i18n.t('storageAreas.summary.visibleHintAll')
+            : this.format('storageAreas.summary.visibleHintPartial', {
+                visible: this.integerFormatter.format(visible),
+                total: this.integerFormatter.format(total)
+              })
       },
       {
         icon: '🏗',
-        label: 'Capacidade disponível',
+        label: this.i18n.t('storageAreas.summary.capacityLabel'),
         value: hasCapacity ? `${this.integerFormatter.format(totalCapacity)} TEU` : '—',
-        hint: hasCapacity ? `${this.integerFormatter.format(available ?? 0)} TEU livres` : 'Sem capacidade registada'
+        hint: hasCapacity
+          ? this.format('storageAreas.summary.capacityHint', {
+              available: this.integerFormatter.format(available ?? 0)
+            })
+          : this.i18n.t('storageAreas.summary.capacityNone')
       },
       {
         icon: '📊',
-        label: 'Ocupação média',
+        label: this.i18n.t('storageAreas.summary.usageLabel'),
         value: usage !== null ? `${this.percentFormatter.format(usage)}%` : '—',
-        hint: typeSet.size ? `${typeSet.size} tipos diferentes` : 'Sem tipos definidos',
+        hint: typeSet.size
+          ? this.format('storageAreas.summary.usageHint', {
+              types: this.integerFormatter.format(typeSet.size)
+            })
+          : this.i18n.t('storageAreas.summary.usageNone'),
         highlight: usage !== null && usage >= 75
       }
     ];
@@ -156,7 +180,7 @@ export class StorageAreasComponent implements OnInit {
       this.applyFilterSort();
       this.newArea = { type: 'Yard', location: '', maxCapacityTEU: 0, currentOccupancyTEU: 0 };
     } catch (e: any) {
-      this.error = e?.message || 'Erro ao criar área';
+        this.error = e?.message || this.i18n.t('storageAreas.errors.create');
     }
   }
 
@@ -182,22 +206,30 @@ export class StorageAreasComponent implements OnInit {
       this.applyFilterSort();
       this.closeEdit();
     } catch (e: any) {
-      this.error = e?.message || 'Erro ao atualizar área';
+        this.error = e?.message || this.i18n.t('storageAreas.errors.update');
     }
   }
 
   async delete(id: number) {
-    if (!confirm('Eliminar esta área de armazenamento?')) return;
+    if (!confirm(this.i18n.t('storageAreas.confirm.delete'))) return;
     try {
       await this.svc.delete(id);
       this.areas = this.areas.filter(a => a.id !== id);
       this.applyFilterSort();
     } catch (e: any) {
-      this.error = e?.message || 'Erro ao eliminar área';
+        this.error = e?.message || this.i18n.t('storageAreas.errors.delete');
     }
   }
 
   private asNumber(value: number | null | undefined): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  private format(key: string, replacements: Record<string, string>): string {
+    let template = this.i18n.t(key);
+    for (const [token, value] of Object.entries(replacements)) {
+      template = template.replace(new RegExp(`{${token}}`, 'g'), value);
+    }
+    return template;
   }
 }
