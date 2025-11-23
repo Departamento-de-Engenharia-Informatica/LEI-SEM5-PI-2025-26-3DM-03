@@ -1,0 +1,26 @@
+@startuml US_3_1_2_C2_Impl
+title US 3.1.2 - Layout unificado (Implementacao)
+
+node "Browser" {
+  component Layout as "LayoutComponent\nheader + sidebar\nbreadcrumbs + router-outlet"
+  component Header as "HeaderComponent\nlogo+title\nlang switch\nuser/logout"
+  component Nav as "NavComponent\nmenu items\nrole-based filter"
+  component Content as "Feature pages\nlazy routes"
+}
+
+node "Shared Services" {
+  component Auth as "AuthService\nuser/roles cache"
+  component I18n as "TranslationService\nEN/PT"
+  component Toast as "ToastService\nfeedback overlay"
+}
+
+Layout --> Header
+Layout --> Nav
+Layout --> Content
+Layout --> Auth
+Layout --> I18n
+Layout --> Toast
+Nav --> Auth : obter roles
+Content --> Auth : guards
+
+@enduml

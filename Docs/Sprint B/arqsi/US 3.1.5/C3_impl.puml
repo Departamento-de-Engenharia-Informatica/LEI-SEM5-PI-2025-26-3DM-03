@@ -6,9 +6,12 @@ component Guard as "AuthGuard"
 component Pages as "Standalone Pages\n(VVN, Storage, Resources, Docks, Vessels,\nShippingAgents, Staff, etc.)"
 component Services as "Service layer\nfetch/HttpClient"
 component Toast as "ToastService"
+component Filters as "Filtros/Pesquisa\ntexto, datas, estado\npaginacao"
 
 Routes --> Guard
 Guard --> Pages : allow/deny
+Pages --> Filters : aplica filtros\n(page/pageSize)
+Filters --> Services : GET listagem filtrada
 Pages --> Services : GET/POST/PUT/DELETE
 Pages --> Toast : success/error
 Services --> Pages : JSON data/errors

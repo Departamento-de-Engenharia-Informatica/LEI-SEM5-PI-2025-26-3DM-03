@@ -1,0 +1,18 @@
+@startuml US_3_1_4_C2_Impl
+title US 3.1.4 - Feedback ao utilizador (Implementacao)
+
+node "Browser" {
+  component Page as "Página/Form\n(submit, loading)"
+  component Toast as "ToastContainer\nsuccess/error"
+}
+
+component FormSvc as "Serviço da feature\nvalidação + REST"
+component Api as "TodoApi\ncontrollers REST"
+
+Page --> FormSvc : submit/validate
+FormSvc --> Api : POST/PUT/DELETE\nwithCredentials
+Api --> FormSvc : 2xx / 4xx (ModelState)
+FormSvc --> Toast : mensagens globais
+FormSvc --> Page : inline errors + loading off
+
+@enduml

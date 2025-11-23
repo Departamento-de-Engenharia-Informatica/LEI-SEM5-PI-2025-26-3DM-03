@@ -1,0 +1,26 @@
+@startuml US_3_2_6_C2_Impl
+title US 3.2.6 - Concluir ativacao via link (Implementacao)
+
+node "Browser" {
+  component SPA as "Activation flow\n/activation/start?token=XYZ"
+}
+
+node "TodoApi" {
+  component ActivationCtrl as "ActivationController\nGET /activation/start"
+}
+
+node "IAM Provider" {
+  component OIDC as "OIDC (Google)\nAuthorization Code + PKCE"
+}
+
+database DB as "PortContext\n(ActivationToken, AppUser)"
+
+SPA --> ActivationCtrl : GET /activation/start?token
+ActivationCtrl --> DB : validar token hash + expiração
+ActivationCtrl --> OIDC : Challenge OIDC
+OIDC --> ActivationCtrl : code + tokens
+ActivationCtrl --> DB : RedeemAsync(token, sub, email)\nActive=true; store ExternalId
+ActivationCtrl --> SPA : redirect sucesso ou erro\nhttps://localhost:4200/?activation=success|error
+SPA --> API : /authtest/me + /api/auth/role\npara obter perfil/roles
+
+@enduml
