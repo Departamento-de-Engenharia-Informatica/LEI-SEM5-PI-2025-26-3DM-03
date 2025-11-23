@@ -1,0 +1,24 @@
+@startuml US_3_1_4_Process
+title US 3.1.4 - Feedback de ações
+
+actor User
+participant Page as "Page/Form (ex.: DocksComponent)"
+participant Service as "DocksService (fetch)"
+participant Toast as "ToastService"
+participant API as "TodoApi"
+
+User -> Page: Submete formulário
+Page -> Service: POST /api/Docks
+Service -> API: HTTP POST (withCredentials)
+API --> Service: 204 ou erro c/ JSON
+Service --> Page: resultado
+Page -> Page: validar campos locais\nmostrar erros junto aos inputs
+alt sucesso
+  Page -> Toast: success("Dock criado")
+  Page --> User: Lista atualizada / loading off
+else erro
+  Page -> Toast: error(message amigável)
+  Page --> User: Mensagens de validação nos campos\nloading off
+end
+
+@enduml

@@ -1,0 +1,16 @@
+@startuml US_3_2_2_C1
+title US 3.2.2 - Cenário de carregamento de role
+
+actor User
+participant SPA as "SPA (AuthService/Layout)"
+participant API as "AuthController"
+database DB as "PortContext"
+
+User -> SPA: autenticado
+SPA -> API: GET /api/auth/role
+API -> DB: procurar AppUser + roles ativos
+DB --> API: roles
+API --> SPA: roles ou 403
+SPA -> User: menus/opções por role
+
+@enduml

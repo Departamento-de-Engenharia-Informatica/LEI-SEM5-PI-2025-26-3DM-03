@@ -1,0 +1,27 @@
+@startuml US_3_2_3_Session
+title US 3.2.3 - Manter sessão autenticada
+
+actor User
+participant SPA as "AuthService"
+participant API as "AuthTestController\n/ authtest/me|logout"
+database Store as "Browser storage\nlocalStorage auth_token\nuserAvatar"
+
+SPA -> Store: carregar snapshot user
+loop app start / rota protegida
+  SPA -> API: GET /authtest/me (withCredentials, timeout 5s)
+  alt cookie válido
+    API --> SPA: profile + roles + access_token
+    SPA -> Store: atualizar auth_token + avatar
+  else expirado
+    API --> SPA: 401
+    SPA -> Store: limpar auth_token/avatar
+    SPA -> User: redireciona /login
+  end
+end
+
+User -> SPA: clique logout
+SPA -> Store: limpar auth_token/avatar
+SPA -> API: GET /authtest/logout
+API --> User: redireciona frontend
+
+@enduml

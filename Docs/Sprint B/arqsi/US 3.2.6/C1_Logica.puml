@@ -1,0 +1,19 @@
+@startuml US_3_2_6_C1_Logica
+title US 3.2.6 - Lógica de ativação por link
+
+rectangle "ActivationController" {
+  [Start endpoint]
+  [Confirm endpoint]
+}
+rectangle "ActivationLinkService" {
+  [Validate token hash]
+  [Redeem token + ativar AppUser]
+}
+rectangle "IAM Provider\n(OIDC)" as IAM
+database DB as "PortContext\nActivationToken/AppUser"
+
+[Start endpoint] --> IAM : Challenge OIDC
+[Confirm endpoint] --> [ActivationLinkService]
+[ActivationLinkService] --> DB
+
+@enduml

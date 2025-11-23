@@ -1,0 +1,24 @@
+@startuml US_3_2_6_C4_Processos
+title US 3.2.6 - Processo detalhado de ativação
+
+actor User
+participant Start as "/activation/start"
+participant IAM as "IAM Provider (OIDC)"
+participant Confirm as "/activation/confirm"
+participant Service as "ActivationLinkService"
+database DB as "PortContext"
+
+User -> Start: GET with token
+Start -> Start: valida token hash/expiração
+Start -> IAM: Challenge (PKCE)
+IAM --> Confirm: redirect with code/tokens
+Confirm -> Service: RedeemAsync(token, sub/email)
+Service -> DB: marcar token redeemed\nset AppUser.Active=true\nsalvar ExternalId/Name
+DB --> Service: ok/fail
+alt ok
+  Confirm --> User: redirect frontend ?activation=success
+else mismatch/expirado
+  Confirm --> User: página de erro
+end
+
+@enduml

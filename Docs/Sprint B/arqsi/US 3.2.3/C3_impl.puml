@@ -1,0 +1,15 @@
+@startuml US_3_2_3_C3_Impl
+title US 3.2.3 - Implementação de sessão
+
+component AuthSvc as "AuthService\ncheckAuth()\nlogout()"
+component Behavior as "BehaviorSubject loggedIn$"
+component Storage as "localStorage auth_token/avatar"
+component API as "/authtest/me|logout"
+
+AuthSvc --> API : GET /authtest/me
+API --> AuthSvc : profile or 401
+AuthSvc --> Storage : save/clear
+AuthSvc --> Behavior : next(true/false)
+AuthSvc --> API : GET /authtest/logout (on logout)
+
+@enduml

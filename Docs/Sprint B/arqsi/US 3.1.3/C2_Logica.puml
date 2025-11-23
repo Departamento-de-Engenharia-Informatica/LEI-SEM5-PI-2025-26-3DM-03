@@ -1,0 +1,14 @@
+@startuml US_3_1_3_C2_Logica
+title US 3.1.3 - Lógica de menu dinâmico
+
+component Layout as "LayoutComponent"
+component MenuData as "menuItems (TS)"
+component Auth as "AuthService"
+component Guard as "AuthGuard"
+
+Layout --> Auth : obter user/roles
+Layout --> MenuData : filter por roles
+Guard --> Auth : check role
+Guard --> Layout : permitir/bloquear rota
+
+@enduml

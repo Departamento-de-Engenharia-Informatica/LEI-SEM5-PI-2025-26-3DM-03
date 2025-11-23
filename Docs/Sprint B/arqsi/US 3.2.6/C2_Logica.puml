@@ -1,0 +1,19 @@
+@startuml US_3_2_6_C2_Logica
+title US 3.2.6 - Lógica de fluxo de ativação
+
+component Admin as "Admin envia link (US 3.2.5)"
+component User as "Utilizador"
+component ActCtrl as "ActivationController"
+component ActSvc as "ActivationLinkService"
+component IAM as "IAM Provider (OIDC)"
+database DB as "PortContext"
+
+Admin --> ActSvc : criar token (prévio)
+User --> ActCtrl : /activation/start?token=...
+ActCtrl --> IAM : redirect OIDC
+IAM --> ActCtrl : callback
+ActCtrl --> ActSvc : RedeemAsync(token, email/sub)
+ActSvc --> DB : ativar AppUser, carimbar token
+ActCtrl --> User : redirect frontend success/erro
+
+@enduml

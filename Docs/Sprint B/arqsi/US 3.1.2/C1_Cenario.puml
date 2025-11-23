@@ -1,0 +1,14 @@
+@startuml US_3_1_2_C1
+title US 3.1.2 - Cenário layout unificado
+
+actor User
+participant SPA as "LayoutComponent"
+participant API as "TodoApi"
+
+User -> SPA: Abre aplicação
+SPA -> User: Header (logo+nome) sempre visível
+SPA -> User: Nav principal (sidebar/top) sempre visível
+SPA -> API: Carrega dados da página
+SPA -> User: Conteúdo com layout consistente e responsivo
+
+@enduml

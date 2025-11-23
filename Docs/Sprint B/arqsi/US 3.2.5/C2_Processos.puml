@@ -1,0 +1,26 @@
+@startuml US_3_2_5_Roles
+title US 3.2.5 - Atribuir/atualizar roles internos
+
+actor Admin
+participant SPA as "Admin UI (Settings/Users)"
+participant API as "AdminController"
+participant ActSvc as "ActivationLinkService"
+database DB as "PortContext\n(AppUsers, Roles, UserRoles, ActivationTokens)"
+
+Admin -> SPA: selecionar utilizador
+SPA -> API: PUT /admin/users/{id}/role {roleId}\nOU PUT /admin/users/{id}/roles {roleIds}
+API -> DB: valida user + roles
+alt troca roles ok
+  DB --> API: updated
+  API -> ActSvc: se user inativo e ganhou role\nCreateAndSendAsync(user)
+  ActSvc -> DB: guardar ActivationToken
+  ActSvc --> Admin: link + expiry
+  API --> SPA: 204 No Content
+else erro (sem admin suficiente, role inexistente)
+  API --> SPA: 400/403/409 com mensagem
+end
+
+Admin -> SPA: POST /admin/users/{id}/role-change-links (opcional)
+SPA -> Admin: confirma envio de email de role change
+
+@enduml

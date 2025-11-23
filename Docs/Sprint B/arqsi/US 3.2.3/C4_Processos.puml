@@ -1,0 +1,21 @@
+@startuml US_3_2_3_C4_Processos
+title US 3.2.3 - Processo de refresh de sessão
+
+actor SPA
+participant API as "/authtest/me"
+
+loop on app start / route
+  SPA -> API: GET /authtest/me (cookie)
+  alt válido
+    API --> SPA: profile
+    SPA -> SPA: loggedIn$=true
+  else expirado
+    API --> SPA: 401
+    SPA -> SPA: limpar cache; redirect /login
+  end
+end
+
+SPA -> API: /authtest/logout on user action
+API --> SPA: redirect to frontend root
+
+@enduml

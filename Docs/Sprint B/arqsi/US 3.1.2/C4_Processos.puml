@@ -1,0 +1,15 @@
+@startuml US_3_1_2_C4_Processos
+title US 3.1.2 - Processo de renderização do layout
+
+actor User
+participant Layout as "LayoutComponent"
+participant Auth as "AuthService"
+
+User -> Layout: request page
+Layout -> Auth: obter user + role
+Layout -> Layout: render Header (logo, lang, user)
+Layout -> Layout: render Nav (menu filtrado)
+Layout -> Layout: render breadcrumbs + conteúdo
+Layout -> User: layout consistente em todas as páginas
+
+@enduml

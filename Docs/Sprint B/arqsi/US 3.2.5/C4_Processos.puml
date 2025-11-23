@@ -1,0 +1,22 @@
+@startuml US_3_2_5_C4_Processos
+title US 3.2.5 - Processo de atribuição de roles
+
+actor Admin
+participant SPA as "Admin UI"
+participant API as "AdminController"
+participant ActSvc as "ActivationLinkService"
+database DB as "PortContext"
+
+Admin -> SPA: escolher utilizador + roles
+SPA -> API: PUT /admin/users/{id}/roles
+API -> DB: validar roles, garantir não remove último Admin
+DB --> API: ok/erro
+alt ok
+  API -> ActSvc: se user inativo e ganhou role -> enviar activation
+  ActSvc -> DB: guardar token
+  API --> SPA: 204
+else erro
+  API --> SPA: 400/403/409 msg
+end
+
+@enduml

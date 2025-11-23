@@ -1,0 +1,27 @@
+@startuml US_3_1_4_C4_Processos
+title US 3.1.4 - Processo de feedback detalhado
+
+actor User
+participant Form as "Form Component"
+participant Service as "Service"
+participant API as "TodoApi"
+participant Toast as "ToastService"
+
+User -> Form: submit
+Form -> Form: show loading
+Form -> Service: call API
+Service -> API: HTTP request
+alt sucesso
+  API --> Service: 2xx
+  Service --> Form: ok
+  Form -> Toast: success(...)
+  Form -> Form: reset loading; refresh list
+else erro
+  API --> Service: 4xx/5xx + mensagens
+  Service --> Form: error detail
+  Form -> Form: map errors to inputs
+  Form -> Toast: error(friendly message)
+  Form -> Form: reset loading
+end
+
+@enduml

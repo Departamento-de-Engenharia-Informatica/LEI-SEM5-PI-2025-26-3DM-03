@@ -1,0 +1,14 @@
+@startuml US_3_1_1_C1
+title US 3.1.1 - Cenário: Setup SPA
+
+actor PM as "Project Manager"
+participant Team as "Frontend Team"
+participant SPA as "SPA (Angular)"
+participant API as "TodoApi REST"
+
+PM -> Team: Definir stack SPA (Angular + estrutura modular)
+Team -> SPA: Criar shell, routing, modules
+SPA -> API: Consumir REST (Fetch/HttpClient)
+SPA -> Team: Base pronta para futuras features
+
+@enduml

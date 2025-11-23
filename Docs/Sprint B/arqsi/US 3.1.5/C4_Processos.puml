@@ -1,0 +1,27 @@
+@startuml US_3_1_5_C4_Processos
+title US 3.1.5 - Processo de CRUD autorizado
+
+actor User
+participant Guard as "AuthGuard"
+participant Page as "Feature Page"
+participant Service as "Service"
+participant API as "TodoApi"
+
+User -> Guard: access /vessel-visit-notifications
+Guard -> Guard: role check
+alt allowed
+  Guard --> Page: render
+  Page -> Service: GET list
+  Service -> API: GET /api/...
+  API --> Service: data
+  Service --> Page: populate
+  User -> Page: Submit form
+  Page -> Service: POST/PUT
+  Service -> API: write
+  API --> Service: 2xx or validation
+  Page -> User: show success/errors
+else denied
+  Guard --> User: redirect + toast
+end
+
+@enduml

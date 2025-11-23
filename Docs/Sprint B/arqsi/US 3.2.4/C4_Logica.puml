@@ -1,0 +1,27 @@
+@startuml US_3_2_4_C4_Logica
+title US 3.2.4 - Classe/Componentes RBAC
+
+class AuthService {
+  +checkAuth()
+  +normalizeUserRoles()
+  +hasAny(roles)
+}
+class AuthGuard {
+  +canActivate(route): boolean
+}
+class NetworkRestrictionMiddleware {
+  +Invoke(HttpContext)
+}
+class Controller <<API>> {
+  +[Authorize(Roles=...)]
+}
+class AppUser { Active; UserRoles }
+class Role { Name; Active }
+class PortContext
+
+AuthGuard --> AuthService
+NetworkRestrictionMiddleware --> PortContext
+Controller --> PortContext
+AppUser "1" -- "*" Role : via UserRoles
+
+@enduml

@@ -1,0 +1,19 @@
+@startuml US_3_2_1_C4_Processos
+title US 3.2.1 - Processo de login OIDC
+
+actor User
+participant SPA as "AuthService/Login"
+participant API as "AuthTestController"
+participant IAM as "IAM Provider"
+
+User -> SPA: clicou "Login"
+SPA -> API: GET /authtest/login
+API -> IAM: redirect authorize (PKCE)
+IAM --> API: code
+API -> IAM: troca code por tokens
+API -> User: set cookie + redirect SPA
+SPA -> API: GET /authtest/me (withCredentials)
+API --> SPA: profile + access_token
+SPA -> User: UI autenticada
+
+@enduml

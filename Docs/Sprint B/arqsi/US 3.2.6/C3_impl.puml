@@ -1,0 +1,18 @@
+@startuml US_3_2_6_C3_Impl
+title US 3.2.6 - Implementação de ativação
+
+component ActController as "ActivationController\n/start\n/confirm\n/role-change"
+component ActSvc as "ActivationLinkService\nhash token\nredeem\nsend emails"
+component Auth as "OpenIdConnect middleware\nSaveTokens"
+database DB as "PortContext\nActivationToken, AppUser"
+component Mail as "SMTP/Pickup log"
+component Frontend as "SPA redirect\nhttps://localhost:4200/?activation=success"
+
+ActController --> Auth : Challenge OIDC (start)
+Auth --> ActController : callback to /confirm
+ActController --> ActSvc : RedeemAsync(token, sub/email)
+ActSvc --> DB : update token + AppUser.Active
+ActSvc --> Mail : send activation/role-change
+ActController --> Frontend : Redirect success/erro
+
+@enduml

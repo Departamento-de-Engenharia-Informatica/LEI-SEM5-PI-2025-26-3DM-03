@@ -1,0 +1,30 @@
+@startuml US_3_2_6_Activation
+title US 3.2.6 - Concluir ativação via link
+
+actor User
+participant Mail as "Email (activation link)"
+participant SPA as "Browser"
+participant Act as "ActivationController"
+participant IAM as "IAM Provider (OIDC)"
+database DB as "PortContext\n(ActivationToken, AppUser)"
+
+Mail --> User: Activation link /activation/start?token=XYZ
+User -> SPA: abre link
+SPA -> Act: GET /activation/start?token=XYZ
+Act -> Act: valida token hash + expiração
+Act -> IAM: Challenge OIDC (PKCE)
+IAM --> Act: code + tokens
+Act -> DB: RedeemAsync(token, sub, email)\nset Active=true, store ExternalId
+DB --> Act: ok ou null
+alt sucesso
+  Act --> User: Redirect https://localhost:4200/?activation=success
+else mismatch/expirado
+  Act --> User: página de erro (link inválido/expirado)
+end
+
+SPA -> API: GET /authtest/me
+API --> SPA: user com roles
+SPA -> API: GET /api/auth/role
+API --> SPA: roles ativos ou 403
+
+@enduml

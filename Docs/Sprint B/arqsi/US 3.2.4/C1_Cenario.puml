@@ -1,0 +1,17 @@
+@startuml US_3_2_4_C1
+title US 3.2.4 - Cenário RBAC end-to-end
+
+actor User
+participant SPA as "SPA (AuthGuard)"
+participant API as "TodoApi + Middleware"
+database DB as "PortContext"
+
+User -> SPA: acede /admin/users
+SPA -> API: GET /admin/users (cookie)
+API -> DB: validar AppUser ativo + roles
+DB --> API: roles
+API -> API: [Authorize] verifica role
+API --> SPA: 200 se autorizado, 403 se não
+SPA -> User: render ou Access Denied
+
+@enduml

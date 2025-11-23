@@ -1,0 +1,22 @@
+@startuml US_3_2_2_Process
+title US 3.2.2 - Carregar role interno após login
+
+actor User
+participant SPA as "SPA (AuthService/Layout)"
+participant API as "AuthController"
+database DB as "PortContext\n(AppUsers, Roles)"
+
+User -> SPA: sessão autenticada
+SPA -> API: GET /api/auth/role (with auth cookie)
+API -> DB: lookup AppUser by email/sub\ninclude active UserRoles
+DB --> API: roles list (e.g., Admin, LogisticsOperator)
+alt sem roles ou inativo
+  API --> SPA: 403 {message}
+  SPA -> User: toast + acesso negado
+else roles ativos
+  API --> SPA: {roles:["Admin", ...]}
+  SPA -> SPA: normalize to admin/operator/agent/authority\nsalvar em localStorage auth_token
+  SPA -> User: render menus/autorização
+end
+
+@enduml

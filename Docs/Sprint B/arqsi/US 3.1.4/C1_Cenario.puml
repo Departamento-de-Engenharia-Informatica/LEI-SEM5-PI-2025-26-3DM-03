@@ -1,0 +1,15 @@
+@startuml US_3_1_4_C1
+title US 3.1.4 - Cenário de feedback
+
+actor User
+participant SPA as "Página/form"
+participant Toast as "ToastService"
+participant API as "TodoApi"
+
+User -> SPA: Executa ação (guardar, apagar)
+SPA -> API: chamada REST
+API --> SPA: sucesso ou erro
+SPA -> Toast: success/error
+SPA -> User: mensagens junto aos campos + loading indicators
+
+@enduml

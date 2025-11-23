@@ -1,0 +1,33 @@
+@startuml US_3_1_1_C2_Logica
+title US 3.1.1 - Lógica de módulos SPA
+left to right direction
+
+package "Shell" {
+  [app.routes.ts]
+  [LayoutComponent]
+}
+package "Cross-cutting" {
+  [AuthService]
+  [AuthGuard]
+  [TranslationService]
+  [ToastService]
+}
+package "Features (extensível)" {
+  [Dashboard]
+  [Vessels]
+  [VVN]
+  [Docks]
+  [Storage]
+  [Resources]
+  [Scheduling]
+}
+
+[LayoutComponent] --> [AuthGuard]
+[LayoutComponent] --> [TranslationService]
+[LayoutComponent] --> [ToastService]
+[LayoutComponent] --> [Features (extensível)]
+[AuthGuard] --> [AuthService]
+[Features (extensível)] --> [AuthService]
+[Features (extensível)] --> [ToastService]
+
+@enduml

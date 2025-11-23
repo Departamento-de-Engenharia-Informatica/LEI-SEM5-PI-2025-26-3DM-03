@@ -1,0 +1,17 @@
+@startuml US_3_1_1_C4_Processos
+title US 3.1.1 - Processo de arranque SPA
+
+actor Dev as "Developer"
+participant Browser
+participant SPA as "Angular app"
+participant API as "TodoApi"
+
+Dev -> SPA: npm start / build
+Browser -> SPA: Load assets
+SPA -> API: GET /authtest/me (startup check)
+API --> SPA: 401 (se não logado) ou perfil
+SPA -> Browser: render Layout + menu base
+Browser -> SPA: navegar para feature
+SPA -> API: REST call com credentials
+
+@enduml
