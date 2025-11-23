@@ -1,24 +1,28 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using TodoApi.Models.Scheduling;
 
 namespace TodoApi.Application.Services.Scheduling.Engines;
 
-public class PrologHttpSchedulingEngine : ISchedulingEngine
+/// <summary>
+/// Heuristic scheduling that delegates to the Prolog HTTP service
+/// (schedule4 endpoint) instead of running locally.
+/// </summary>
+public sealed class HeuristicPrologSchedulingEngine : ISchedulingEngine
 {
-    public const string AlgorithmName = "prolog";
+    public const string AlgorithmName = "heuristic";
 
     private readonly HttpClient _httpClient;
-    private readonly ILogger<PrologHttpSchedulingEngine> _logger;
+    private readonly ILogger<HeuristicPrologSchedulingEngine> _logger;
 
     public string AlgorithmKey => AlgorithmName;
 
-    public PrologHttpSchedulingEngine(
+    public HeuristicPrologSchedulingEngine(
         HttpClient httpClient,
-        ILogger<PrologHttpSchedulingEngine> logger)
+        ILogger<HeuristicPrologSchedulingEngine> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
@@ -40,13 +44,12 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         }
 
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linkedCts.CancelAfter(TimeSpan.FromSeconds(30)); // fail fast on slow external solver
+        linkedCts.CancelAfter(TimeSpan.FromSeconds(30));
 
         var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
 
         int ToHour(DateTime dt, int defaultValue)
         {
-            // Defensive clamp: if the incoming DateTime is default or outside the day, keep within 0..240.
             if (dt == default)
             {
                 return defaultValue;
@@ -57,10 +60,10 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
             return hours;
         }
 
-        var payload = new PrologSchedule3Request
+        var payload = new PrologSchedule4Request
         {
             Date = context.Date.ToString("yyyy-MM-dd"),
-            Strategy = string.IsNullOrWhiteSpace(context.Strategy) ? "clpfd" : context.Strategy,
+            Strategy = "heuristic",
             Vessels = context.Vessels.Select(v => new PrologVesselDto
             {
                 Id = v.Id,
@@ -75,23 +78,21 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
             Staff = context.Staff.Select(s => new PrologStaffDto { Id = s.Id, Role = "operator", StartHour = ToHour(s.ShiftStart, 0), EndHour = ToHour(s.ShiftEnd, 240) }).ToList()
         };
 
-        PrologSchedule3Response prologResponse;
+        PrologSchedule4Response prologResponse;
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("schedule3", payload, linkedCts.Token);
+            var response = await _httpClient.PostAsJsonAsync("schedule4", payload, linkedCts.Token);
             var rawBody = await response.Content.ReadAsStringAsync(linkedCts.Token);
             if (!response.IsSuccessStatusCode)
             {
-                throw new HttpRequestException(
-                    $"Status {(int)response.StatusCode} {response.ReasonPhrase}. Body: {rawBody}");
+                throw new HttpRequestException($"Status {(int)response.StatusCode} {response.ReasonPhrase}. Body: {rawBody}");
             }
-            prologResponse = await response.Content.ReadFromJsonAsync<PrologSchedule3Response>(cancellationToken: linkedCts.Token)
+            prologResponse = await response.Content.ReadFromJsonAsync<PrologSchedule4Response>(cancellationToken: linkedCts.Token)
                 ?? throw new InvalidOperationException("Prolog scheduling service returned an empty response.");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Prolog scheduling failed");
-            // Fallback: return empty schedule with warning instead of propagating 500 to caller
+            _logger.LogError(ex, "Prolog heuristic scheduling failed");
             return new SchedulingComputationResult
             {
                 Date = context.Date,
@@ -107,23 +108,34 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         {
             var startTime = dayStart.AddHours(step.StartHour);
             var endTime = dayStart.AddHours(step.EndHour);
-            var durationHours = Math.Max(0, step.EndHour - step.StartHour + 1);
+            var durationHours = Math.Max(0, step.EndHour - step.StartHour);
+            var craneIds = step.CraneIds?.Where(id => !string.IsNullOrWhiteSpace(id)).ToList()
+                           ?? (string.IsNullOrWhiteSpace(step.Crane) ? new List<string>() : new List<string> { step.Crane });
+            var multi = step.MultiCrane || craneIds.Count > 1;
+
             return new ScheduledOperationDto
             {
                 VesselId = step.Vessel,
                 DockId = string.IsNullOrWhiteSpace(step.Dock) ? null : step.Dock,
-                CraneIds = string.IsNullOrWhiteSpace(step.Crane) ? new List<string>() : new List<string> { step.Crane },
+                CraneIds = craneIds,
                 StaffIds = string.IsNullOrWhiteSpace(step.Staff) ? new List<string>() : new List<string> { step.Staff },
-                StorageId = string.IsNullOrWhiteSpace(step.StorageLocation) ? null : step.StorageLocation,
+                StorageId = string.IsNullOrWhiteSpace(step.StorageLocation) ? step.StorageArea : step.StorageLocation,
                 StartTime = startTime,
                 EndTime = endTime,
                 DelayMinutes = step.DelayHours * 60,
-                MultiCrane = false
+                MultiCrane = multi
             };
         }).ToList();
 
-        var craneHoursUsed = prologResponse.Schedule.Sum(step => Math.Max(0, step.EndHour - step.StartHour + 1));
-        var totalDelayHours = prologResponse.TotalDelayHours ?? prologResponse.Schedule.Sum(step => step.DelayHours);
+        var craneHoursUsed = prologResponse.Schedule.Sum(step =>
+        {
+            var duration = Math.Max(0, step.EndHour - step.StartHour);
+            var count = (step.CraneIds?.Count ?? 0) > 0 ? step.CraneIds!.Count : 1;
+            return duration * count;
+        });
+
+        var totalDelayHours = prologResponse.TotalDelayHours
+                              ?? prologResponse.Schedule.Sum(step => step.DelayHours);
 
         return new SchedulingComputationResult
         {
@@ -136,7 +148,7 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         };
     }
 
-    private sealed class PrologSchedule3Request
+    private sealed class PrologSchedule4Request
     {
         public IList<PrologVesselDto> Vessels { get; set; } = new List<PrologVesselDto>();
         public string? Date { get; set; }
@@ -171,10 +183,10 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         public int EndHour { get; set; }
     }
 
-    private sealed class PrologSchedule3Response
+    private sealed class PrologSchedule4Response
     {
         [JsonPropertyName("schedule")]
-        public IList<PrologSchedule3Op> Schedule { get; set; } = new List<PrologSchedule3Op>();
+        public IList<PrologSchedule4Op> Schedule { get; set; } = new List<PrologSchedule4Op>();
 
         [JsonPropertyName("totalDelayHours")]
         public int? TotalDelayHours { get; set; }
@@ -183,15 +195,18 @@ public class PrologHttpSchedulingEngine : ISchedulingEngine
         public IList<string>? Warnings { get; set; }
     }
 
-    private sealed class PrologSchedule3Op
+    private sealed class PrologSchedule4Op
     {
         public string Vessel { get; set; } = string.Empty;
         public string? Dock { get; set; }
         public string? Crane { get; set; }
+        public List<string>? CraneIds { get; set; }
         public string? StorageLocation { get; set; }
+        public string? StorageArea { get; set; }
         public string? Staff { get; set; }
         public int StartHour { get; set; }
         public int EndHour { get; set; }
         public int DelayHours { get; set; }
+        public bool MultiCrane { get; set; }
     }
 }
