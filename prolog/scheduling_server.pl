@@ -10,6 +10,7 @@
 :- use_module(library(http/http_json)).
 :- use_module(library(http/json_convert)).
 :- use_module(library(lists)).
+:- use_module(library(pairs)).
 :- use_module(library(clpfd)).
 
 :- multifile vessel/5.
@@ -26,6 +27,7 @@
 :- http_handler(root(schedule),  health_handler,    []).  % legacy alias
 :- http_handler(root(schedule2), schedule2_handler, []).
 :- http_handler(root(schedule3), schedule3_handler, []).
+:- http_handler(root(schedule4), schedule4_handler, []).
 
 /* ----------------------------------------------------------------------------
    Helpers: ID normalization and time parsing
@@ -140,6 +142,9 @@ attempt_schedule3_strategy(StrategyIn, Date, VList, DList, CList, SLocList, Staf
     (   StrategyIn = multi_crane ->
         validate_vessels(VList, VW, VListValidMC),
         run_multi_crane(Date, VListValidMC, ['fallback_to_multi_crane'|VW], RespTmp)
+    ;   member(StrategyIn, [heuristic, greedy]) ->
+        heuristic_schedule(Date, VList, DList, CList, SLocList, StaffList, StrategyIn, RespTmp0),
+        RespTmp = RespTmp0.put(strategy, heuristic)
     ;   attempt_schedule3(Date, VList, DList, CList, SLocList, StaffList, RespBase),
         (   get_dict(strategy, RespBase, _) -> RespTmp = RespBase
         ;   ( VList = [] -> RespTmp = RespBase.put(strategy, auto)
@@ -247,6 +252,342 @@ run_multi_crane(Date, VListValid, Warnings, Response) :-
         totalDelayHours: DelayMC,
         multi_crane_intensity: IntMC,
         warnings: Warnings
+    }.
+
+/* ----------------------------------------------------------------------------
+   schedule4: Heuristic (fast / greedy) scheduler in Prolog
+   Compatible with DailyScheduleRequest (same payload as schedule3).
+---------------------------------------------------------------------------- */
+
+schedule4_handler(Request) :-
+    http_read_json_dict(Request, Payload),
+    format(user_error, 'schedule4 PAYLOAD=~q~n', [Payload]),
+
+    ( _{vessels: VList} :< Payload -> true
+    ; throw(http_reply(bad_request('Missing vessels')))
+    ),
+    ( _{docks: DList} :< Payload -> true ; DList = [] ),
+    ( _{cranes: CList} :< Payload -> true ; CList = [] ),
+    ( _{storageAreas: SLocList} :< Payload -> true
+    ; _{storageLocations: SLocList} :< Payload -> true
+    ; SLocList = [] ),
+    ( _{staff: StaffList} :< Payload -> true ; StaffList = [] ),
+    ( _{date: Date} :< Payload -> DateUsed = Date ; DateUsed = null ),
+    ( _{strategy: StrategyRaw} :< Payload -> normalize_id(StrategyRaw, StrategyUsed) ; StrategyUsed = heuristic ),
+
+    with_mutex(scheduling_v4, (
+        heuristic_schedule(DateUsed, VList, DList, CList, SLocList, StaffList, StrategyUsed, Response),
+        reply_json_dict(Response)
+    )).
+
+heuristic_schedule(Date, VList, DList, CList, SLocList, StaffList, Strategy, Response) :-
+    ( VList = [] ->
+        Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0, warnings: ['no vessels provided']}
+    ;
+        validate_vessels(VList, VesselWarnings, VListValid),
+        ( VListValid = [] ->
+            Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0, warnings: VesselWarnings}
+        ;
+            include_staff_skill(crane, StaffList, StaffFiltered),
+            build_windows(DList, DockPool),
+            build_windows(CList, CranePool),
+            build_windows(StaffFiltered, StaffPool),
+            ( DockPool = [] ->
+                Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0,
+                             warnings: ['no dock available'|VesselWarnings]}
+            ; CranePool = [] ->
+                Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0,
+                             warnings: ['no cranes available'|VesselWarnings]}
+            ; StaffPool = [] ->
+                Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0,
+                             warnings: ['no qualified staff available'|VesselWarnings]}
+            ;
+                maplist(dict_to_vessel_struct, VListValid, VesselStructs),
+                build_orderings_heuristic(Strategy, VesselStructs, Orderings),
+                find_best_heuristic(Orderings, DockPool, CranePool, StaffPool, SLocList, BestRes),
+                BestRes = result(Schedule, Delay, CraneHours, WarnsAlgo),
+                append(VesselWarnings, WarnsAlgo, WarnsAll),
+                sort(WarnsAll, WarningsUnique),
+                Response = _{
+                    date: Date,
+                    strategy: heuristic,
+                    schedule: Schedule,
+                    totalDelayHours: Delay,
+                    craneHoursUsed: CraneHours,
+                    warnings: WarningsUnique
+                }
+            )
+        )
+    ).
+
+dict_to_vessel_struct(Dict, vh(Id,Arr,Dep,Un,Load)) :-
+    _{id: IdRaw, arrivalHour: Arr, departureHour: Dep, unloadDuration: Un, loadDuration: Load} :< Dict,
+    normalize_id(IdRaw, Id).
+
+build_windows(List, Windows) :-
+    findall(rw(Id,Start,End,Start),
+        ( member(D, List),
+          _{id: IdRaw} :< D,
+          normalize_id(IdRaw, Id),
+          resource_start_end(D, Start, End)
+        ),
+        Windows).
+
+clone_windows([], []).
+clone_windows([rw(Id,S,E,N)|T], [rw(Id,S,E,N)|Rest]) :-
+    clone_windows(T, Rest).
+
+res_id(rw(Id,_,_,_), Id).
+res_next(rw(_,_,_,Next), Next).
+res_window(rw(_,Start,End,_), Start, End).
+res_ready_time(Res, Requested, Ready) :-
+    res_next(Res, Next),
+    Ready is max(Requested, Next).
+
+select_best_resource([Only], _Req, Only, []) :- !.
+select_best_resource(Pool, Requested, Selected, Remaining) :-
+    findall(Key-Res, (
+        member(Res, Pool),
+        res_ready_time(Res, Requested, Ready),
+        res_window(Res, Start, _),
+        Key = Ready-Start-Res
+    ), Candidates),
+    sort(Candidates, [_-Selected|_]),
+    select(Selected, Pool, Remaining).
+
+select_secondary_crane(Pool, Primary, StartHour, Secondary, Remaining) :-
+    exclude(same_res(Primary), Pool, Others),
+    include(res_ready_before(StartHour), Others, ReadyList),
+    ReadyList \= [],
+    findall(Key-Res, (
+        member(Res, ReadyList),
+        res_next(Res, Next),
+        res_window(Res, Start, _),
+        Key = Next-Start-Res
+    ), Candidates),
+    sort(Candidates, [_-Secondary|_]),
+    select(Secondary, Pool, Remaining),
+    !.
+select_secondary_crane(Pool, _Primary, _StartHour, _Secondary, Pool).
+
+same_res(rw(Id,_,_,_), rw(Id,_,_,_)).
+res_ready_before(Start, rw(_,_,_,Next)) :- Next =< Start.
+
+update_next_res(rw(Id,S,E,_), NewNext, rw(Id,S,E,NewNext)).
+
+build_orderings_heuristic(Strategy, Vessels, Orderings) :-
+    Strategies = [Strategy, edt, eat, spt, combo],
+    findall(Order, (
+        member(S, Strategies),
+        order_vessels_by(S, Vessels, Order)
+    ), RawOrders),
+    sort(RawOrders, Orderings).  % remove duplicates
+
+order_vessels_by(edt, Vessels, Ordered) :-
+    maplist(vessel_key_edt, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_vessels_by(eat, Vessels, Ordered) :-
+    maplist(vessel_key_eat, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_vessels_by(spt, Vessels, Ordered) :-
+    maplist(vessel_key_spt, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_vessels_by(mst, Vessels, Ordered) :-
+    maplist(vessel_key_mst, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_vessels_by(combo, Vessels, Ordered) :-
+    maplist(vessel_key_combo, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_vessels_by(_, Vessels, Ordered) :-  % default -> edt
+    order_vessels_by(edt, Vessels, Ordered).
+
+vessel_key_edt(vh(Id,Arr,Dep,Un,Load), Key-vh(Id,Arr,Dep,Un,Load)) :-
+    Key = (Dep, Arr).
+vessel_key_eat(vh(Id,Arr,Dep,Un,Load), Key-vh(Id,Arr,Dep,Un,Load)) :-
+    Key = (Arr, Dep).
+vessel_key_spt(vh(Id,Arr,Dep,Un,Load), Key-vh(Id,Arr,Dep,Un,Load)) :-
+    Dur is Un + Load,
+    Key = (Dur, Dep).
+vessel_key_mst(vh(Id,Arr,Dep,Un,Load), Key-vh(Id,Arr,Dep,Un,Load)) :-
+    Slack is (Dep - Arr) - (Un + Load),
+    Key = (Slack, Dep).
+vessel_key_combo(vh(Id,Arr,Dep,Un,Load), Key-vh(Id,Arr,Dep,Un,Load)) :-
+    Dur is Un + Load,
+    Score is 0.6 * Dep + 0.4 * Dur,
+    Key = (Score, Arr).
+
+find_best_heuristic([], _, _, _, _, result([],0,0,[])) :- !.
+find_best_heuristic([Order|Rest], DockPool, CranePool, StaffPool, SLocList, Best) :-
+    compute_order_candidate(Order, DockPool, CranePool, StaffPool, SLocList, Candidate1),
+    find_best_heuristic(Rest, DockPool, CranePool, StaffPool, SLocList, CandidateRest),
+    pick_best(Candidate1, CandidateRest, Best).
+
+compute_order_candidate(Ordering, DockPool, CranePool, StaffPool, SLocList, Candidate) :-
+    compute_for_order(Ordering, DockPool, CranePool, StaffPool, SLocList, false, ResSingle),
+    ResSingle = result(_, DelaySingle, _, _),
+    ( DelaySingle =:= 0 ->
+        Candidate = ResSingle
+    ;
+        compute_for_order(Ordering, DockPool, CranePool, StaffPool, SLocList, true, ResMulti),
+        pick_best(ResSingle, ResMulti, Candidate)
+    ).
+
+pick_best(result(S1,D1,C1,W1), result(_S2,D2,C2,_W2), result(S1,D1,C1,W1)) :-
+    D1 < D2, !.
+pick_best(result(S1,D1,C1,W1), result(S2,D2,C2,W2), result(S1,D1,C1,W1)) :-
+    D1 =:= D2,
+    C1 =< C2, !.
+pick_best(_, R2, R2).
+
+compute_for_order(Ordering, DockPool0, CranePool0, StaffPool0, SLocList, AllowMulti, Result) :-
+    clone_windows(DockPool0, DockPool),
+    clone_windows(CranePool0, CranePool),
+    clone_windows(StaffPool0, StaffPool),
+    foldl(schedule_vessel(AllowMulti, SLocList),
+          Ordering,
+          state(DockPool, CranePool, StaffPool, [], [], 0, 0),
+          state(DockOut, CraneOut, StaffOut, OpsAcc, WarnAcc, DelayAcc, CraneHoursAcc)),
+    DockOut = DockOut, CraneOut = CraneOut, StaffOut = StaffOut, % silence warnings about unused
+    reverse(OpsAcc, OpsOrdered),
+    Result = result(OpsOrdered, DelayAcc, CraneHoursAcc, WarnAcc).
+
+schedule_vessel(AllowMulti, SLocList,
+                vh(Id,ArrRaw,Dep,Un,Load),
+                state(DockPoolIn, CranePoolIn, StaffPoolIn, OpsIn, WarnIn, DelayIn, CraneHoursIn),
+                state(DockPoolOut, CranePoolOut, StaffPoolOut, OpsOut, WarnOut, DelayOut, CraneHoursOut)) :-
+
+    Arrival is max(0, ArrRaw),
+    NominalDur is max(1, Un + Load),
+
+    select_best_resource(DockPoolIn, Arrival, DockSel, DockRest),
+    select_best_resource(CranePoolIn, Arrival, CraneSel, CraneRest0),
+    select_best_resource(StaffPoolIn, Arrival, StaffSel, StaffRest),
+
+    res_ready_time(DockSel, Arrival, ReadyDock),
+    res_ready_time(CraneSel, Arrival, ReadyCrane),
+    res_ready_time(StaffSel, Arrival, ReadyStaff),
+    StartHour is max(Arrival, max(ReadyDock, max(ReadyCrane, ReadyStaff))),
+
+    ( AllowMulti ->
+        select_secondary_crane(CraneRest0, CraneSel, StartHour, SecondaryCrane, CraneRest)
+    ;   SecondaryCrane = none,
+        CraneRest = CraneRest0
+    ),
+
+    cranes_used(CraneSel, SecondaryCrane, CranesUsed, CraneCount),
+    Duration is ceiling(NominalDur / CraneCount),
+    EndHour is StartHour + Duration,
+
+    update_next_res(DockSel, EndHour, DockUpdated),
+    update_next_res(CraneSel, EndHour, CraneUpdated),
+    DockPoolOut = [DockUpdated|DockRest],
+    update_crane_pool(SecondaryCrane, EndHour, CraneRest, CraneUpdated, CranePoolOut),
+    update_next_res(StaffSel, EndHour, StaffUpdated),
+    StaffPoolOut = [StaffUpdated|StaffRest],
+
+    crane_overrun(CranesUsed, EndHour, CraneOverrun),
+    staff_overrun(StaffSel, EndHour, StaffOverrun),
+    next_day_overrun(EndHour, NextDayOverrun),
+    etd_delay(EndHour, Dep, ETDDelay),
+    max_list([ETDDelay, CraneOverrun, StaffOverrun, NextDayOverrun], EffectiveDelay),
+
+    warn_waiting(Arrival, StartHour, Id, W0),
+    warn_overrun(CraneOverrun, crane, CranesUsed, Id, W1),
+    warn_overrun(StaffOverrun, staff, [StaffSel], Id, W2),
+    warn_next_day(NextDayOverrun, Id, W3),
+    append(W0, W1, W01),
+    append(W01, W2, W02),
+    append(W02, W3, WAll),
+    append(WAll, WarnIn, WarnTmp),
+
+    crane_hours(Duration, CraneCount, CraneHoursAdd),
+    CraneHoursOut is CraneHoursIn + CraneHoursAdd,
+    DelayOut is DelayIn + EffectiveDelay,
+
+    storage_choice(SLocList, StorageId),
+    op_dict(Id, DockSel, CranesUsed, StaffSel, StorageId, StartHour, EndHour, EffectiveDelay, OpDict),
+    OpsOut = [OpDict|OpsIn],
+    WarnOut = WarnTmp.
+
+cranes_used(CraneSel, none, [CraneSel], 1).
+cranes_used(CraneSel, Secondary, [CraneSel,Secondary], 2) :- Secondary \= none.
+
+update_crane_pool(none, _EndHour, CraneRest, CraneUpdated, [CraneUpdated|CraneRest]).
+update_crane_pool(Secondary, EndHour, CraneRest, CraneUpdated, [CraneUpdated|CraneRestOut]) :-
+    Secondary \= none,
+    update_next_res(Secondary, EndHour, SecondaryUpdated),
+    CraneRestOut = [SecondaryUpdated|CraneRest].
+
+crane_overrun(Cranes, EndHour, Overrun) :-
+    findall(O, (
+        member(Res, Cranes),
+        res_window(Res, _, EndW),
+        O is max(0, EndHour - EndW)
+    ), Overs),
+    max_list([0|Overs], Overrun).
+
+staff_overrun(StaffRes, EndHour, Overrun) :-
+    res_window(StaffRes, _, EndW),
+    Overrun is max(0, EndHour - EndW).
+
+next_day_overrun(EndHour, Overrun) :-
+    Overrun is max(0, EndHour - 24).
+
+etd_delay(EndHour, Dep, Delay) :-
+    Delay is max(0, EndHour - Dep).
+
+warn_waiting(Arrival, Start, Id, Warn) :-
+    ( Start > Arrival ->
+        format(atom(W), 'vessel ~w waited for resources until hour ~w', [Id, Start]),
+        Warn = [W]
+    ; Warn = []
+    ).
+
+warn_overrun(0, _Type, _ResList, _Id, []) :- !.
+warn_overrun(Overrun, Type, Resources, Id, Warn) :-
+    findall(RId, (member(R, Resources), res_id(R, RId)), Ids),
+    atomic_list_concat(Ids, ',', IdJoined),
+    format(atom(WarnAtom), 'vessel ~w exceeds ~w window(s) for: ~w by ~w hour(s)', [Id, Type, IdJoined, Overrun]),
+    Warn = [WarnAtom].
+
+warn_next_day(0, _Id, []) :- !.
+warn_next_day(Overrun, Id, [Warn]) :-
+    format(atom(Warn), 'vessel ~w crosses into next day by ~w hour(s)', [Id, Overrun]).
+
+crane_hours(Duration, Count, Hours) :-
+    Hours is Duration * Count.
+
+storage_choice([], null).
+storage_choice([H|_], StorageId) :-
+    _{id: IdRaw} :< H,
+    normalize_id(IdRaw, StorageId).
+
+op_dict(Vessel, DockRes, Cranes, StaffRes, StorageId, Start, End, Delay, Dict) :-
+    res_id(DockRes, DockId),
+    Cranes = [Primary|_],
+    res_id(Primary, CraneId),
+    res_id(StaffRes, StaffId),
+    findall(CId, (member(R, Cranes), res_id(R, CId)), CraneIds),
+    length(Cranes, CraneCount),
+    ( CraneCount > 1 -> Multi = true ; Multi = false ),
+    Dict = _{
+        vessel: Vessel,
+        operation: combined,
+        phase: combined,
+        dock: DockId,
+        crane: CraneId,
+        craneIds: CraneIds,
+        staff: StaffId,
+        storageArea: StorageId,
+        startHour: Start,
+        endHour: End,
+        delayHours: Delay,
+        multiCrane: Multi
     }.
 
 /* ----------------------------------------------------------------------------
