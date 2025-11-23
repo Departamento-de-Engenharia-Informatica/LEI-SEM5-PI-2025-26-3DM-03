@@ -59,7 +59,7 @@ type StaffFormValue = {
   shiftEnd: string;
 };
 
-type AlgorithmOption = 'optimal' | 'prolog' | 'heuristic';
+type AlgorithmOption = 'prolog' | 'heuristic';
 type SchedulingFormShape = {
   date: FormControl<string>;
   algorithm: FormControl<AlgorithmOption>;
@@ -321,7 +321,7 @@ export class SchedulingComponent {
   private createForm(): FormGroup<SchedulingFormShape> {
     return this.fb.group({
       date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
-      algorithm: this.fb.control<AlgorithmOption>('optimal', { validators: [Validators.required] }),
+      algorithm: this.fb.control<AlgorithmOption>('heuristic', { validators: [Validators.required] }),
       strategy: this.fb.control('auto'),
       vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
       cranes: this.fb.array<FormGroup<CraneFormShape>>([]),
