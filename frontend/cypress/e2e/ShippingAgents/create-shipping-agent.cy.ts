@@ -115,15 +115,17 @@ describe('Shipping Agents - Create', () => {
 
     cy.wait('@createAgent');
 
-    cy.contains('section.card', legalName).within(() => {
-      cy.contains('h3', legalName).should('be.visible');
+    cy.contains('section.card', legalName)
+      .scrollIntoView({ easing: 'linear', offset: { top: -100, left: 0 } })
+      .within(() => {
+        cy.contains('h3', legalName).should('be.visible');
       cy.contains('p.muted', `#${taxNumber}`).should('be.visible');
       cy.contains('.badge', 'Owner').should('be.visible');
       cy.contains('.details dd', `${address.street}, ${address.postalCode} ${address.city}, ${address.country}`).should('be.visible');
       cy.contains('li', representative.name)
         .should('contain', representative.email)
         .and('contain', representative.phoneNumber);
-    });
+      });
 
     cy.contains('section.card', 'Novo Agente de Navegação').within(() => {
       cy.get('input[name="legalName"]').should('have.value', '');

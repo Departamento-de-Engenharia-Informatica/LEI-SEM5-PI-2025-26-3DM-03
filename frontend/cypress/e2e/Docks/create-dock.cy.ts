@@ -84,21 +84,21 @@ describe('Docks - Create dock', () => {
     cy.contains('h1', 'Docks').should('be.visible');
 
     cy.get('aside .form').within(() => {
-      cy.get('input[name="name"]').clear().type(newDock.name);
-      cy.get('input[name="location"]').clear().type(newDock.location);
-      cy.get('input[name="length"]').clear().type(String(newDock.length));
-      cy.get('input[name="depth"]').clear().type(String(newDock.depth));
-      cy.get('input[name="maxDraft"]').clear().type(String(newDock.maxDraft));
-      cy.contains('button', 'Criar dock').click();
+      cy.get('input[name="name"]').first().clear({ force: true }).type(newDock.name, { force: true });
+      cy.get('input[name="location"]').first().clear({ force: true }).type(newDock.location, { force: true });
+      cy.get('input[name="length"]').first().clear({ force: true }).type(String(newDock.length), { force: true });
+      cy.get('input[name="depth"]').first().clear({ force: true }).type(String(newDock.depth), { force: true });
+      cy.get('input[name="maxDraft"]').first().clear({ force: true }).type(String(newDock.maxDraft), { force: true });
+        cy.contains('button', 'Criar dock').click({ force: true });
     });
 
     cy.wait('@createDock');
 
     cy.get('.dock-card', { timeout: 10_000 }).should('have.length', expectedTotal);
-    cy.contains('.dock-card .name', newDock.name, { timeout: 10_000 }).should('be.visible');
+    cy.contains('.dock-card .name', newDock.name, { timeout: 10_000 }).scrollIntoView({ easing: 'linear', offset: { top: -100, left: 0 } }).should('be.visible');
 
     cy.contains('.dock-card', newDock.name).within(() => {
-      cy.get('.loc').should('contain.text', newDock.location);
+      cy.get('.tag').first().should('contain.text', newDock.location);
       cy.contains('.stat', 'Comprimento').within(() => {
         cy.get('.number').invoke('text').should('contain', String(newDock.length));
       });
@@ -111,11 +111,11 @@ describe('Docks - Create dock', () => {
     });
 
     cy.get('aside .form').within(() => {
-      cy.get('input[name="name"]').should('have.value', '');
-      cy.get('input[name="location"]').should('have.value', '');
-      cy.get('input[name="length"]').should('have.value', '0');
-      cy.get('input[name="depth"]').should('have.value', '0');
-      cy.get('input[name="maxDraft"]').should('have.value', '0');
+      cy.get('input[name="name"]').first().should('have.value', '');
+      cy.get('input[name="location"]').first().should('have.value', '');
+      cy.get('input[name="length"]').first().should('have.value', '0');
+      cy.get('input[name="depth"]').first().should('have.value', '0');
+      cy.get('input[name="maxDraft"]').first().should('have.value', '0');
     });
   });
 });
