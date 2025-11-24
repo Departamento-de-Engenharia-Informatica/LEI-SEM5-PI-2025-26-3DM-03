@@ -1,0 +1,17 @@
+@startuml US_3_2_3_C2_Impl
+title US 3.2.3 - Sessao persistente (Implementacao)
+
+node "Browser" {
+  component Auth as "AuthService\nlê cookie\nmantém sessão"
+}
+
+node "TodoApi" {
+  component AuthTest as "AuthTestController\n/authtest/me|logout"
+}
+
+Auth --> AuthTest : GET /authtest/me\ncookie OIDC
+AuthTest --> Auth : perfil ou 401 expirado
+Auth --> AuthTest : POST /authtest/logout
+AuthTest --> Auth : limpa cookie + redirect frontend
+
+@enduml

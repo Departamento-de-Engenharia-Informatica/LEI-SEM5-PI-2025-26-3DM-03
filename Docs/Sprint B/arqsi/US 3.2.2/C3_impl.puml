@@ -1,0 +1,14 @@
+@startuml US_3_2_2_C3_Impl
+title US 3.2.2 - Implementação de role loading
+
+component AuthSvc as "AuthService\ncheckAuth() + /api/auth/role"
+component Layout as "LayoutComponent\nupdateDisplayedMenu()"
+component Storage as "localStorage auth_token"
+component Guard as "AuthGuard"
+
+AuthSvc --> Storage : persist user + roles
+AuthSvc --> Layout : loggedIn$ emit
+Layout --> AuthSvc : fetch roles, normalize(admin/operator/agent/authority)
+Guard --> AuthSvc : read role for canActivate
+
+@enduml

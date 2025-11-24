@@ -1,0 +1,15 @@
+@startuml US_3_2_1_C3_Impl
+title US 3.2.1 - Implementação login IAM
+
+component Login as "LoginComponent\nbutton -> auth.login()"
+component AuthSvc as "AuthService\nwindow.location /authtest/login\ncheckAuth() -> /authtest/me"
+component Storage as "localStorage auth_token\navatar"
+component Routes as "app.routes.ts\npublic /login"
+
+Login --> AuthSvc : login()
+AuthSvc --> AuthTest : redirect /authtest/login
+AuthSvc --> AuthSvc : checkAuth() after redirect
+AuthSvc --> Storage : save user snapshot
+Routes --> Login : when !auth
+
+@enduml

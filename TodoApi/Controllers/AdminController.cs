@@ -7,6 +7,8 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TodoApi.Services.Activation;
+using Microsoft.Extensions.Localization;
+using TodoApi.Resources;
 
 namespace TodoApi.Controllers
 {
@@ -17,11 +19,13 @@ namespace TodoApi.Controllers
     {
         private readonly PortContext _db;
         private readonly ActivationLinkService _activationLinks;
+        private readonly IStringLocalizer<SharedResources> _localizer;
 
-        public AdminController(PortContext db, ActivationLinkService activationLinks)
+        public AdminController(PortContext db, ActivationLinkService activationLinks, IStringLocalizer<SharedResources> localizer)
         {
             _db = db;
             _activationLinks = activationLinks;
+            _localizer = localizer;
         }
 
         // Helper: verify caller has Admin role
@@ -93,7 +97,7 @@ namespace TodoApi.Controllers
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
         {
             if (!CallerIsAdmin()) return Forbid();
-            if (string.IsNullOrWhiteSpace(dto.Email)) return BadRequest(new { message = "email required" });
+            if (string.IsNullOrWhiteSpace(dto.Email)) return BadRequest(new { message = _localizer["EmailIsRequired"] });
 
             var normalizedEmail = dto.Email.Trim();
             var existing = await _db.AppUsers.FirstOrDefaultAsync(u => u.Email == normalizedEmail);
@@ -101,7 +105,7 @@ namespace TodoApi.Controllers
             {
                 if (existing.Active)
                 {
-                    return Conflict(new { message = "user already exists" });
+                    return Conflict(new { message = _localizer["UserAlreadyExists"] });
                 }
 
                 _db.UserRoles.RemoveRange(existing.UserRoles ?? Enumerable.Empty<UserRole>());
@@ -154,7 +158,7 @@ namespace TodoApi.Controllers
             if (user == null) return NotFound();
 
             var role = await _db.Roles.FindAsync(dto.RoleId);
-            if (role == null) return BadRequest(new { message = "role not found" });
+            if (role == null) return BadRequest(new { message = _localizer["RoleNotFound"] });
 
             var error = await TryReplaceRoles(user, new List<Role> { role });
             if (error != null) return error;
@@ -171,7 +175,7 @@ namespace TodoApi.Controllers
 
             var roleIds = dto?.RoleIds?.Distinct().ToList() ?? new List<int>();
             var roles = roleIds.Count == 0 ? new List<Role>() : await _db.Roles.Where(r => roleIds.Contains(r.Id)).ToListAsync();
-            if (roles.Count != roleIds.Count) return BadRequest(new { message = "one or more roles not found" });
+            if (roles.Count != roleIds.Count) return BadRequest(new { message = _localizer["RolesNotFound"] });
 
             var error = await TryReplaceRoles(user, roles);
             if (error != null) return error;
@@ -197,7 +201,7 @@ namespace TodoApi.Controllers
                     var otherAdmins = await _db.UserRoles.Include(ur => ur.AppUser).Include(ur => ur.Role)
                         .Where(ur => ur.Role.Name == "Admin" && ur.Role.Active && ur.AppUser.Active && ur.AppUser.Id != id)
                         .ToListAsync();
-                    if (!otherAdmins.Any()) return BadRequest(new { message = "cannot deactivate the last active admin" });
+                    if (!otherAdmins.Any()) return BadRequest(new { message = _localizer["CannotDeactivateLastAdmin"] });
                 }
             }
 
@@ -219,14 +223,14 @@ namespace TodoApi.Controllers
 
             if (user.Active)
             {
-                return BadRequest(new { message = "Utilizador já ativo. Os links de ativação apenas são necessários no primeiro acesso." });
+                return BadRequest(new { message = _localizer["UserAlreadyActive"] });
             }
 
             var hasAnyRole = user.UserRoles.Any(ur => ur.Role != null && ur.Role.Active);
-            if (!hasAnyRole) return BadRequest(new { message = "user must have at least one active role" });
+            if (!hasAnyRole) return BadRequest(new { message = _localizer["UserNeedsOneActiveRole"] });
 
             var result = await _activationLinks.CreateAndSendAsync(user);
-            if (result == null) return BadRequest(new { message = "unable to create activation link for this user" });
+            if (result == null) return BadRequest(new { message = _localizer["ActivationLinkCreationFailed"] });
             return Ok(new { expiresAtUtc = result.ExpiresAtUtc, link = result.Link });
         }
 

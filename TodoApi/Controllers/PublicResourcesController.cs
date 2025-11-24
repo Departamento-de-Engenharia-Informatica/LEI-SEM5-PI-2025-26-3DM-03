@@ -7,6 +7,8 @@ using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using TodoApi.Models;
 using TodoApi.Models.PublicResources;
+using Microsoft.Extensions.Localization;
+using TodoApi.Resources;
 
 namespace TodoApi.Controllers;
 
@@ -17,16 +19,26 @@ public class PublicResourcesController : ControllerBase
     private readonly PortContext _db;
     private readonly ILogger<PublicResourcesController> _logger;
     private readonly SharedResourcesOptions _options;
+    private readonly IStringLocalizer<SharedResources> _localizer;
     private const long MaxUploadBytes = 25 * 1024 * 1024; // 25 MB
 
     public PublicResourcesController(
         PortContext db,
         IOptions<SharedResourcesOptions> options,
-        ILogger<PublicResourcesController> logger)
+        ILogger<PublicResourcesController> logger,
+        IStringLocalizer<SharedResources> localizer)
     {
         _db = db;
         _logger = logger;
         _options = options.Value ?? throw new ArgumentNullException(nameof(options));
+        _localizer = localizer;
+    }
+
+    [HttpGet("hello")]
+    public IActionResult GetHelloWorld()
+    {
+        var message = _localizer["HelloWorld"];
+        return Ok(new { message = message.Value });
     }
 
     private static SharedResourceDto ToDto(SharedResource entity) =>
@@ -52,13 +64,13 @@ public class PublicResourcesController : ControllerBase
         var resource = await _db.SharedResources.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
         if (resource == null)
         {
-            return NotFound();
+            return NotFound(_localizer["ResourceNotFound"]);
         }
 
         if (!System.IO.File.Exists(resource.DiskPath))
         {
             _logger.LogWarning("Shared resource file missing on disk: {Path}", resource.DiskPath);
-            return NotFound();
+            return NotFound(_localizer["ResourceNotFound"]);
         }
 
         await _db.AuditAsync(HttpContext, "DOWNLOAD", resource.Id, cancellationToken);
@@ -74,11 +86,11 @@ public class PublicResourcesController : ControllerBase
     {
         if (request.File == null || request.File.Length == 0)
         {
-            return BadRequest("File is required.");
+            return BadRequest(_localizer["FileUploadRequired"]);
         }
         if (request.File.Length > MaxUploadBytes)
         {
-            return BadRequest($"File exceeds the maximum size of {MaxUploadBytes / (1024 * 1024)} MB.");
+            return BadRequest(_localizer["FileExceedsMaxSize", MaxUploadBytes / (1024 * 1024)]);
         }
 
         var safeFileName = Path.GetFileName(request.File.FileName);
@@ -100,7 +112,7 @@ public class PublicResourcesController : ControllerBase
                 System.IO.File.Delete(diskPath);
             }
 
-            return StatusCode(StatusCodes.Status500InternalServerError, "Failed to store uploaded file.");
+            return StatusCode(StatusCodes.Status500InternalServerError, _localizer["FileUploadFailed"]);
         }
 
         var entity = new SharedResource
