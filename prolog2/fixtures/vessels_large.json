@@ -1,0 +1,6 @@
+[
+  { "id": "V-101", "arrivalHour": 8,  "departureHour": 10, "unloadDuration": 3, "loadDuration": 2, "approvedDockId": "DOCK-A" },
+  { "id": "V-102", "arrivalHour": 8,  "departureHour": 11, "unloadDuration": 4, "loadDuration": 3, "approvedDockId": "DOCK-A" },
+  { "id": "V-201", "arrivalHour": 8,  "departureHour": 10, "unloadDuration": 3, "loadDuration": 2, "approvedDockId": "DOCK-B" },
+  { "id": "V-202", "arrivalHour": 8,  "departureHour": 11, "unloadDuration": 4, "loadDuration": 3, "approvedDockId": "DOCK-B" }
+]

@@ -12,7 +12,7 @@
 sum_delays([], 0).
 sum_delays([(V,_,TEndLoad,_)|Rest], S) :-
     vessel(V, _, TDep, _, _),
-    % Atraso contado apenas pelo excedente do fim de carga face � partida
+    % Atraso contado apenas pelo excedente do fim de carga face a partida
     (TEndLoad > TDep -> Delay is TEndLoad - TDep ; Delay = 0),
     sum_delays(Rest, SR),
     S is Delay + SR.

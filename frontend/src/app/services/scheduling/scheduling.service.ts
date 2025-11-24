@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
-const API_ROOT = 'https://localhost:7167/api';
+// Use Angular proxy to reach Prolog2 (proxy.conf.json maps /api/scheduling -> http://localhost:5003).
+const PROLOG2_API = '/api/scheduling';
 
 export interface VesselContextPayload {
   id: string;
@@ -27,9 +28,9 @@ export interface StaffContextPayload {
 export interface DailyScheduleRequestPayload {
   date: string;
   strategy?: string;
-  vessels: VesselContextPayload[];
-  cranes: CraneContextPayload[];
-  staff: StaffContextPayload[];
+  vessels?: VesselContextPayload[];
+  cranes?: CraneContextPayload[];
+  staff?: StaffContextPayload[];
 }
 
 export interface ScheduledOperationDto {
@@ -75,7 +76,7 @@ export interface DailyScheduleResponse {
 
 @Injectable({ providedIn: 'root' })
 export class SchedulingService {
-  private readonly endpoint = `${API_ROOT}/Scheduling/daily`;
+  private readonly endpoint = `${PROLOG2_API}/daily`;
 
   private async handleError(response: Response): Promise<never> {
     const body = await response.text();
@@ -95,28 +96,85 @@ export class SchedulingService {
     request: DailyScheduleRequestPayload,
     algorithm?: string
   ): Promise<DailyScheduleResponse> {
-    const query = algorithm ? `?algorithm=${encodeURIComponent(algorithm)}` : '';
-    const response = await fetch(`${this.endpoint}${query}`, {
+    // Prolog2 expects only date + algorithm; extra fields are ignored gracefully.
+    const body = {
+      date: request.date,
+      algorithm: algorithm || request.strategy || 'optimal'
+    };
+    const response = await fetch(`${this.endpoint}`, {
       method: 'POST',
-      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request)
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
       await this.handleError(response);
     }
 
-    const payload = (await response.json()) as DailyScheduleResponse;
-    payload.warnings ??= [];
-    payload.schedule ??= [];
-    payload.computationMilliseconds ??= payload.computationTimeMs ?? 0;
-    payload.summary ??= {
-      algorithm: payload.algorithm || payload.strategy || '',
-      totalDelayMinutes: payload.totalDelayMinutes,
-      craneHoursUsed: payload.craneHoursUsed,
-      computationMilliseconds: payload.computationMilliseconds
+    const raw = (await response.json()) as any;
+
+    const normalizeSchedule = (ops: any[]): ScheduledOperationDto[] =>
+      (ops || []).map((op: any) => {
+        const craneIds = Array.isArray(op.assigned_cranes)
+          ? op.assigned_cranes
+          : op.assigned_crane
+          ? [op.assigned_crane]
+          : Array.isArray(op.craneIds)
+          ? op.craneIds
+          : op.crane
+          ? [op.crane]
+          : [];
+
+        const staffIds = op.assigned_staff
+          ? [op.assigned_staff]
+          : Array.isArray(op.staffIds)
+          ? op.staffIds
+          : op.staff
+          ? [op.staff]
+          : [];
+
+        return {
+          vesselId: op.vessel_id ?? op.vessel ?? op.id ?? '',
+          dockId: op.assigned_dock ?? op.dock ?? null,
+          storageId: op.assigned_storage ?? op.storageLocation ?? op.storageArea ?? null,
+          craneIds,
+          staffIds,
+          startTime: op.start_time ?? op.startHour ?? '',
+          endTime: op.end_time ?? op.endHour ?? '',
+          delayMinutes: (op.delay_hours ?? op.delayHours ?? 0) * 60,
+          multiCrane: (Array.isArray(craneIds) && craneIds.length > 1) || op.multi_crane === true
+        };
+      });
+
+    const totalDelayMinutes = (() => {
+      if (typeof raw.total_delay === 'number') return raw.total_delay * 60;
+      if (typeof raw.totalDelayMinutes === 'number') return raw.totalDelayMinutes;
+      if (typeof raw.totalDelayHours === 'number') return raw.totalDelayHours * 60;
+      return 0;
+    })();
+
+    const normalizedSchedule = normalizeSchedule(raw.schedule ?? []);
+
+    const payload: DailyScheduleResponse = {
+      date: raw.date,
+      algorithm: raw.algorithm ?? raw.strategy ?? 'prolog2',
+      strategy: raw.strategy ?? null,
+      computationTimeMs: raw.computation_time_ms ?? raw.computationTimeMs ?? raw.computationMilliseconds ?? 0,
+      computationMilliseconds: raw.computation_time_ms ?? raw.computationTimeMs ?? raw.computationMilliseconds ?? 0,
+      totalDelayMinutes,
+      craneHoursUsed: raw.crane_hours_multi ?? raw.crane_hours_single ?? raw.craneHoursUsed ?? 0,
+      schedule: normalizedSchedule,
+      warnings: raw.warnings ?? [],
+      summary: {
+        algorithm: raw.algorithm ?? raw.strategy ?? '',
+        totalDelayMinutes,
+        craneHoursUsed: raw.crane_hours_multi ?? raw.crane_hours_single ?? raw.craneHoursUsed ?? 0,
+        computationMilliseconds: raw.computation_time_ms ?? raw.computationTimeMs ?? raw.computationMilliseconds ?? 0
+      },
+      comparison: null,
+      multi_crane_intensity: raw.crane_hours_multi
     };
+
     return payload;
   }
 }

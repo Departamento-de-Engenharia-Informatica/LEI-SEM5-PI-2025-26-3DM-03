@@ -31,7 +31,7 @@ public class SchedulingService : ISchedulingService
         }
 
         var resolvedAlgorithm = string.IsNullOrWhiteSpace(algorithmKey)
-            ? HeuristicPrologSchedulingEngine.AlgorithmName
+            ? PrologHttpSchedulingEngine.AlgorithmName
             : algorithmKey.Trim();
 
         if (!_engines.TryGetValue(resolvedAlgorithm, out var engine))

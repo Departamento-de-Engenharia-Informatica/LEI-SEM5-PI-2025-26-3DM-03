@@ -1,0 +1,36 @@
+<section class="page-heading">
+  <div>
+    <h1>Teste Prolog2 - Scheduling Dev</h1>
+    <p>Página simples para testar diretamente o endpoint /api/scheduling/daily do módulo Prolog2.</p>
+  </div>
+</section>
+
+<div class="dev-form">
+  <label>
+    Data alvo
+    <input type="date" [(ngModel)]="date" />
+  </label>
+
+  <label>
+    Algoritmo
+    <select [(ngModel)]="algorithm">
+      <option value="heuristic">Heurístico (rápido)</option>
+      <option value="prolog">Ótimo (CLPFD)</option>
+      <option value="multi_crane">Multi-crane (via Prolog)</option>
+    </select>
+  </label>
+
+  <button type="button" (click)="run()" [disabled]="status === 'computing'">
+    {{ status === 'computing' ? 'A testar...' : 'Testar Prolog2' }}
+  </button>
+</div>
+
+<section class="status" [class.error]="status === 'error'" [class.success]="status === 'success'">
+  <p>{{ statusMessage }}</p>
+  <p *ngIf="errorMessage" class="error-text">{{ errorMessage }}</p>
+</section>
+
+<section *ngIf="response" class="result">
+  <h2>Resposta bruta</h2>
+  <pre>{{ response | json }}</pre>
+</section>

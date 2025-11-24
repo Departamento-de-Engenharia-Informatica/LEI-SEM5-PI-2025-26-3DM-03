@@ -1,0 +1,19 @@
+{
+  "docks": [
+    { "code": "D-A" },
+    { "code": "D-B" }
+  ],
+  "cranes": [
+    { "code": "CR-1", "assignedArea": "D-A", "status": "Active", "setupTimeMinutes": 2, "qualificationRequirementIds": ["crane"] },
+    { "code": "CR-2", "assignedArea": "D-A", "status": "Active", "setupTimeMinutes": 4, "qualificationRequirementIds": ["crane"] },
+    { "code": "CR-3", "assignedArea": "D-B", "status": "Active", "setupTimeMinutes": 3, "qualificationRequirementIds": ["crane"] }
+  ],
+  "staff": [
+    { "mecanographicNumber": "ST-1", "status": "Available", "operationalWindow": "Mon-Sun 00:00-24:00", "qualifications": ["crane"] },
+    { "mecanographicNumber": "ST-2", "status": "Available", "operationalWindow": "Mon-Sun 06:00-22:00", "qualifications": ["crane"] }
+  ],
+  "storage": [
+    { "identifier": "ST-1", "servedDocks": [ { "dockCode": "D-A", "distanceMeters": 15 } ] },
+    { "identifier": "ST-2", "servedDocks": [ { "dockCode": "D-B", "distanceMeters": 20 } ] }
+  ]
+}

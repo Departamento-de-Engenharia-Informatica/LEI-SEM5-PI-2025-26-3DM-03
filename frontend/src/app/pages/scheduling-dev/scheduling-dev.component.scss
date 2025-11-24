@@ -1,0 +1,30 @@
+.page-heading {
+  margin-bottom: 1.5rem;
+}
+
+.dev-form {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.status {
+  margin-bottom: 1rem;
+}
+
+.status.error {
+  color: #b00020;
+}
+
+.status.success {
+  color: #00695c;
+}
+
+.result pre {
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  max-height: 400px;
+  overflow: auto;
+}
