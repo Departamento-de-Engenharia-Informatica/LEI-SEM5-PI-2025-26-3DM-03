@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\TodoApi\TodoApi.csproj" />
+    <ProjectReference Include="..\..\OemApi\OemApi.csproj" />
   </ItemGroup>
 
 </Project>
