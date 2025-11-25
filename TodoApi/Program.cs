@@ -54,7 +54,7 @@ builder.Services.AddHttpClient<PrologHttpSchedulingEngine>((sp, client) =>
 {
     var schedulingOptions = sp.GetRequiredService<IOptions<SchedulingOptions>>().Value;
     var baseUrl = string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl)
-        ? "http://localhost:3050/"
+        ? "http://localhost:5000/"
         : schedulingOptions.PrologBaseUrl;
     client.BaseAddress = new Uri(baseUrl);
 });
@@ -62,7 +62,7 @@ builder.Services.AddHttpClient<HeuristicPrologSchedulingEngine>((sp, client) =>
 {
     var schedulingOptions = sp.GetRequiredService<IOptions<SchedulingOptions>>().Value;
     var baseUrl = string.IsNullOrWhiteSpace(schedulingOptions.PrologBaseUrl)
-        ? "http://localhost:3050/"
+        ? "http://localhost:5000/"
         : schedulingOptions.PrologBaseUrl;
     client.BaseAddress = new Uri(baseUrl);
 });

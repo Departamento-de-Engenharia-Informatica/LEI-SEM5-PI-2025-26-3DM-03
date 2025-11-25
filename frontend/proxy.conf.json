@@ -1,20 +1,16 @@
-{
-  "/api": {
-    "target": "https://localhost:7167",
+[
+  {
+    "context": ["/api/scheduling", "/api/Scheduling"],
+    "target": "http://localhost:5003",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   },
-  "/authtest": {
-    "target": "https://localhost:7167",
-    "secure": false,
-    "changeOrigin": true,
-    "logLevel": "debug"
-  },
-  "/admin": {
+  {
+    "context": ["/api", "/authtest", "/admin"],
     "target": "https://localhost:7167",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
   }
-}
+]

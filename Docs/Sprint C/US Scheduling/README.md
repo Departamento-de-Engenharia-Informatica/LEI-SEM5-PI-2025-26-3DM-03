@@ -1,23 +1,24 @@
-# US 3.4.1 – Planning & Scheduling Service
+# US 3.4.x Planning & Scheduling Module (adapted)
 
-## 1. Objetivo
-Como System Administrator / Planner quero um módulo que receba pedidos REST (JSON), execute algoritmos de scheduling (idealmente em Prolog) e responda com um plano diário sem gravar nada em base de dados. O módulo tem de estar documentado em OpenAPI e consumir dados dos restantes serviços (navios, gruas, staff), mesmo que numa 1.ª versão os receba no próprio body.
+## 1. Goal
+Provide a dedicated Planning & Scheduling back-end that exposes REST endpoints, calls scheduling algorithms in Prolog, and returns daily plans without persisting operational data. Inputs/outputs are JSON and stay aligned with the remaining modules (IDs, resource structures).
 
-## 2. Requisitos cumpridos
-- Endpoint `POST /api/scheduling/daily` (ver OpenAPI) aceita `date`, `strategy`, `vessels`, `cranes` e `staff`.
-- Sem persistência: tudo vive em memória no request.
-- Algoritmos configuráveis via query `algorithm`. Neste momento:
-  - `optimal` – mock sequencial em .NET (fallback).
-  - `prolog` – chama o servidor SWI‑Prolog via HTTP.
-- Swagger disponível em `/swagger`.
-- Integração preparada para motores externos (Prolog) usando `ISchedulingEngine`.
+## 2. What is implemented
+- REST entrypoint `POST /api/scheduling/daily?algorithm=heuristic|prolog` (see OpenAPI in `Docs/Sprint C/US Scheduling/scheduling-openapi.yaml` and Swagger at `/swagger`).
+- No persistence: everything is computed in-memory per request.
+- Engines (C# `ISchedulingEngine`):
+  - `heuristic` -> calls Prolog `schedule4` (fast greedy, supports optional multi-crane).
+  - `prolog` -> calls Prolog `schedule3` (CLPFD/optimal with automatic multi-crane fallback).
+- Two Prolog endpoints exposed by `prolog/scheduling_server.pl`: `POST /schedule3`, `POST /schedule4`, plus `GET /health`.
+- Comparison block: the .NET service runs the non-selected engine as baseline when available and returns summary deltas (delay, computation time).
+- SPA can trigger the process through the same REST API; nothing is written to DB.
 
-## 3. API
+## 3. API contract (daily scheduling)
 ```
-POST /api/scheduling/daily?algorithm=prolog
+POST /api/scheduling/daily?algorithm=heuristic   # default if omitted
 Content-Type: application/json
 ```
-Request (exemplo):
+Example request:
 ```json
 {
   "date": "2025-11-20",
@@ -31,15 +32,17 @@ Request (exemplo):
   ],
   "staff": [
     { "id": "staff-10", "skills": ["crane"], "shiftStart": "2025-11-20T05:00:00Z", "shiftEnd": "2025-11-20T15:00:00Z" }
-  ]
+  ],
+  "docks": [{ "id": "dock-1" }],
+  "storageAreas": []
 }
 ```
-Response (`200 OK`):
+Response (200):
 ```json
 {
   "date": "2025-11-20",
-  "algorithm": "prolog",
-  "totalDelayMinutes": 2220,
+  "algorithm": "heuristic",
+  "totalDelayMinutes": 0,
   "craneHoursUsed": 42,
   "schedule": [
     {
@@ -49,68 +52,61 @@ Response (`200 OK`):
       "staffIds": ["staff-10"],
       "startTime": "2025-11-20T06:00:00",
       "endTime": "2025-11-20T32:00:00",
-      "delayMinutes": 300,
+      "delayMinutes": 0,
       "multiCrane": false
     }
   ],
-  "warnings": []
+  "warnings": [],
+  "comparison": {
+    "selected": { "algorithm": "heuristic", "totalDelayMinutes": 0, "computationMilliseconds": 120 },
+    "baseline": { "algorithm": "prolog", "totalDelayMinutes": 0, "computationMilliseconds": 480 },
+    "delayDeltaMinutes": 0,
+    "computationDeltaMilliseconds": -360
+  }
 }
 ```
-Especificação completa em `Docs/Sprint C/US Scheduling/scheduling-openapi.yaml`.
+Full schema: `Docs/Sprint C/US Scheduling/scheduling-openapi.yaml`.
 
-## 4. Arquitetura (backend)
+## 4. Architecture and flow
 ```
-SchedulingController
-    ↓
-ISchedulingService (SchedulingService)
-    • IOperationalDataProvider (PassThroughOperationalDataProvider)
-    • IEnumerable<ISchedulingEngine>
-         ├─ MockSchedulingEngine (“optimal”)
-         └─ PrologHttpSchedulingEngine (“prolog”) -> HttpClient -> SWI-Prolog
+SPA -> .NET API (SchedulingController)
+     -> ISchedulingService
+        -> IOperationalDataProvider (PassThroughOperationalDataProvider)
+        -> ISchedulingEngine (heuristic | prolog) via HttpClient
+           -> SWI-Prolog server (schedule3/schedule4)
 ```
-- O provider atual apenas passa os dados recebidos; trocar facilmente por clients HTTP que vão buscar info a Vessels/Staff/Resources.
-- Novos motores bastam implementar `ISchedulingEngine` e registá-los no DI.
+- Data provider currently trusts the payload; it can be swapped for HTTP clients that fetch vessels/resources/staff from other services (friend code already shows how to aggregate via data_service:fetch_*).
+- Algorithms can be added by implementing `ISchedulingEngine` and registering in DI.
 
-## 5. Servidor SWI-Prolog
-Código em `prolog/scheduling_server.pl`:
-- Bibliotecas: `thread_httpd`, `http_dispatch`, `http_json`.
+## 5. Prolog side (adapted from shared code)
+- File: `prolog/scheduling_server.pl`.
 - Endpoints:
-  - `GET /health` → `{status:"ok"}`.
-  - `POST /schedule` → recebe `{ "vessels": [...] }`, executa o algoritmo (permutação + cálculo de atraso) e responde com `{ sequence: [...], totalDelayHours: N, warnings: [] }`.
-- Os dados de cada navio têm campos `id`, `arrivalHour`, `departureHour`, `unloadDuration`, `loadDuration`.
-- `sequence` devolve tripletos com `vessel`, `startHour`, `endHour`, `delayHours`.
+  - `GET /health` -> `{status:"ok"}`.
+  - `POST /schedule3` -> CLPFD/optimal; auto-fallback to multi-crane if single-crane is infeasible.
+  - `POST /schedule4` -> heuristic/greedy; supports secondary crane allocation when allowed.
+- Supports docks, cranes, storage, and staff windows; respects unload->load precedence and minimizes total delay.
 
-### Executar o servidor
+### Running locally
 ```bash
 cd prolog
 swipl -s scheduling_server.pl
-?- scheduling_server:start_server(5000).
+?- scheduling_server:start_server(3050).
 ```
-Teste rápido:
+Quick test:
 ```bash
-curl -X POST http://localhost:5000/schedule \
-     -H "Content-Type: application/json" \
-     -d '{"vessels":[{"id":"va","arrivalHour":6,"departureHour":63,"unloadDuration":10,"loadDuration":16}]}'
+curl -X POST http://localhost:3050/schedule4 \
+  -H "Content-Type: application/json" \
+  -d "{\"vessels\":[{\"id\":\"v1\",\"arrivalHour\":6,\"departureHour\":30,\"unloadDuration\":4,\"loadDuration\":5}],\"docks\":[{\"id\":\"dock-1\"}],\"cranes\":[{\"id\":\"c1\",\"startHour\":0,\"endHour\":24}],\"staff\":[{\"id\":\"s1\",\"skills\":[\"crane\"],\"startHour\":0,\"endHour\":24}]}"
 ```
-Para parar: `?- scheduling_server:stop_server.` ou Ctrl+C no terminal.
 
-## 6. Integração .NET ↔ Prolog
-- Configurações em `appsettings*.json` → `Scheduling.PrologBaseUrl`. Por omissão `http://localhost:5000/`.
-- `PrologHttpSchedulingEngine` é um typed client (`HttpClient`) que faz POST `schedule`, valida `200 OK` e converte o JSON para `SchedulingComputationResult`.
-- Query parameter `algorithm=prolog` ativa o motor Prolog; se omitido fica `optimal` (mock).
-- `TotalDelayMinutes` = `totalDelayHours` * 60.
+## 6. Mapping to acceptance criteria
+- **3.4.1 REST API & data consumption**: `/api/scheduling/daily` documented in OpenAPI; Prolog endpoints consume JSON only; no persistence; C# layer ready to swap pass-through provider for real HTTP clients to staff/resources/vessels APIs.
+- **3.4.2 Daily schedule minimises delay**: CLPFD model minimizes total delay with constraints (one vessel per dock at a time, one crane per operation, storage/staff windows). SPA triggers computation and receives warnings for infeasibility.
+- **3.4.3 Complexity analysis**: CLPFD model is exponential in vessel count (constraint search). Greedy heuristic provides faster alternative; timings are returned to support measurements.
+- **3.4.4 Alternative heuristic**: `schedule4` exposed as `algorithm=heuristic`, focused on speed; returns comparable metrics (delay, crane-hours, warnings).
+- **3.4.5 Multi-crane support**: `schedule3` falls back to multi-crane when single-crane cannot remove delay; `schedule4` can allocate a secondary crane when beneficial and reports `multiCrane=true` plus crane-hours.
 
-## 7. Fluxo de testes
-1. **Arrancar Prolog** (`swipl … start_server(5000).`).
-2. **Arrancar API .NET** (`DISABLE_OIDC=true dotnet run`).
-3. Abrir Swagger → `POST /api/scheduling/daily` → `algorithm=prolog` → body com navios.
-4. Confirmar `200 OK` com dados provenientes do motor Prolog. Se o motor estiver em baixo, o .NET devolve erro 5xx.
-5. Testes negativos:
-   - `algorithm=foo` → 400.
-   - Sem `vessels` → 400 (provider recusa).
-
-## 8. Próximos passos
-1. Trocar `PassThroughOperationalDataProvider` por clientes que vão buscar navios/gruas/staff aos restantes serviços.
-2. Evoluir o servidor Prolog para suportar múltiplas estratégias (heurísticas, multi-crane).
-3. Adicionar autenticação/mTLS entre .NET e Prolog se for exposto fora da LAN.
-4. Criar página na SPA para consumir o endpoint e visualizar o plano.
+## 7. Next steps to finish the integration
+- Replace `PassThroughOperationalDataProvider` with HTTP clients that call the existing Vessels/Resources/Staff APIs (reuse the friend code pattern).
+- Add OpenAPI documentation for Prolog endpoints or mirror them in the .NET spec.
+- Add SPA screen to launch the scheduling run, show progress, table, and optional timeline with warnings.

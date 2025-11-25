@@ -1,5 +1,6 @@
 :- module(scheduling_server, [
     start_server/1,
+    start_scheduling_server/0,
     stop_server/0,
     attempt_schedule3/7 % exported for testing
 ]).
@@ -8,6 +9,7 @@
 :- use_module(library(http/thread_httpd)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_json)).
+:- use_module(library(http/http_cors)).
 :- use_module(library(http/json_convert)).
 :- use_module(library(lists)).
 :- use_module(library(pairs)).
@@ -25,9 +27,14 @@
 
 :- http_handler(root(health),    health_handler,    []).
 :- http_handler(root(schedule),  health_handler,    []).  % legacy alias
-:- http_handler(root(schedule2), schedule2_handler, []).
 :- http_handler(root(schedule3), schedule3_handler, []).
 :- http_handler(root(schedule4), schedule4_handler, []).
+:- http_handler('/api/scheduling/health', api_health_handler, []).
+:- http_handler('/api/scheduling/daily',  api_daily_handler,  []).
+:- http_handler('/api/scheduling/daily/', api_daily_handler,  []).
+:- http_handler('/api/scheduling/generate', api_generate_handler, []).
+
+:- set_setting(http:cors, [*]).
 
 /* ----------------------------------------------------------------------------
    Helpers: ID normalization and time parsing
@@ -156,10 +163,13 @@ attempt_schedule3_strategy(StrategyIn, Date, VList, DList, CList, SLocList, Staf
     ResponseOut = RespTmp.put(computationTimeMs, TimeMs).
 
 attempt_schedule3(Date, VList, DList, CList, SLocList, StaffList, Response) :-
-    ( VList = [] ->
-        Response = _{date: Date, schedule: [], totalDelayHours: 0, warnings: ['no vessels provided']}
+    sanitize_vessels(VList, VListClean, SanitizeWarns),
+    ( VListClean = [] ->
+        append(['no vessels provided'], SanitizeWarns, WarnsAll),
+        sort(WarnsAll, WarnsSorted),
+        Response = _{date: Date, schedule: [], totalDelayHours: 0, warnings: WarnsSorted}
     ;
-        validate_vessels(VList, VesselWarnings, VListValid),
+        validate_vessels(VListClean, VesselWarnings, VListValid),
 
         build_index_maps(DList, DocksIdx),
         build_index_maps(CList, CranesIdx),
@@ -281,10 +291,13 @@ schedule4_handler(Request) :-
     )).
 
 heuristic_schedule(Date, VList, DList, CList, SLocList, StaffList, Strategy, Response) :-
-    ( VList = [] ->
-        Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0, warnings: ['no vessels provided']}
+    sanitize_vessels(VList, VListClean, SanitizeWarns),
+    ( VListClean = [] ->
+        append(['no vessels provided'], SanitizeWarns, WarnsAll),
+        sort(WarnsAll, WarnsSorted),
+        Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0, warnings: WarnsSorted}
     ;
-        validate_vessels(VList, VesselWarnings, VListValid),
+        validate_vessels(VListClean, VesselWarnings, VListValid),
         ( VListValid = [] ->
             Response = _{date: Date, strategy: heuristic, schedule: [], totalDelayHours: 0, craneHoursUsed: 0, warnings: VesselWarnings}
         ;
@@ -353,7 +366,8 @@ select_best_resource(Pool, Requested, Selected, Remaining) :-
         Key = Ready-Start-Res
     ), Candidates),
     sort(Candidates, [_-Selected|_]),
-    select(Selected, Pool, Remaining).
+    select(Selected, Pool, Remaining),
+    !.
 
 select_secondary_crane(Pool, Primary, StartHour, Secondary, Remaining) :-
     exclude(same_res(Primary), Pool, Others),
@@ -376,7 +390,7 @@ res_ready_before(Start, rw(_,_,_,Next)) :- Next =< Start.
 update_next_res(rw(Id,S,E,_), NewNext, rw(Id,S,E,NewNext)).
 
 build_orderings_heuristic(Strategy, Vessels, Orderings) :-
-    Strategies = [Strategy, edt, eat, spt, combo],
+    Strategies = [Strategy, edt], % keep search small to avoid stack overflow
     findall(Order, (
         member(S, Strategies),
         order_vessels_by(S, Vessels, Order)
@@ -612,6 +626,21 @@ valid_vessel(D) :-
     _{arrivalHour: Arr, departureHour: Dep, unloadDuration: Un, loadDuration: L} :< D,
     Arr < Dep, Un > 0, L > 0.
 
+sanitize_vessels([], [], []).
+sanitize_vessels([H|T], ValidOut, WarnsOut) :-
+    ( is_dict(H),
+      get_dict(id, H, _),
+      get_dict(arrivalHour, H, _),
+      get_dict(departureHour, H, _),
+      get_dict(unloadDuration, H, _),
+      get_dict(loadDuration, H, _) ->
+        ValidOut = [H|RestValid],
+        WarnsOut = RestWarns
+    ;   ValidOut = RestValid,
+        WarnsOut = [invalid_vessel_format|RestWarns]
+    ),
+    sanitize_vessels(T, RestValid, RestWarns).
+
 /* ----------------------------------------------------------------------------
    Build resource index maps
 ---------------------------------------------------------------------------- */
@@ -820,6 +849,143 @@ op_to_dict(StartVars, EndVars, DockAssign, CraneAssign, SLocAssign, StaffAssign,
         delayHours: Delay
     }.
 
+
+/* ----------------------------------------------------------------------------
+   API response normalization (US 3.4.x)
+   Converts internal schedule response into the JSON shape expected by SPA
+---------------------------------------------------------------------------- */
+
+build_api_daily_response(VesselCount, RespMid, ApiResp) :-
+    get_dict(schedule, RespMid, RawSchedule),
+    normalize_schedule_ops(RawSchedule, NormSchedule, CranesAlloc),
+    length(NormSchedule, ScheduledCount),
+    warnings_from_resp(RespMid, Warnings),
+    get_dict(date, RespMid, Date, null),
+    get_dict(strategy, RespMid, Strategy, clpfd),
+    get_dict(totalDelayHours, RespMid, TotalDelay, 0),
+    get_dict(computationTimeMs, RespMid, CompMs, 0),
+    ApiBase = _{
+        success: true,
+        date: Date,
+        algorithm: Strategy,
+        vessel_count: VesselCount,
+        scheduled_count: ScheduledCount,
+        unscheduled_count: 0,
+        total_delay: TotalDelay,
+        computation_time_ms: CompMs,
+        schedule: NormSchedule,
+        unscheduled_vessels: [],
+        warnings: Warnings,
+        cranes_allocation: CranesAlloc
+    },
+    ( Strategy == multi_crane ->
+        get_dict(baseline_delay, RespMid, BaselineDelay, 0),
+        get_dict(crane_hours_single, RespMid, CraneHSingle, 0),
+        get_dict(crane_hours_multi, RespMid, CraneHMulti, 0),
+        ApiResp = ApiBase.put(_{
+            baseline_delay: BaselineDelay,
+            crane_hours_single: CraneHSingle,
+            crane_hours_multi: CraneHMulti,
+            strategy: multi_crane
+        })
+    ;   ApiResp = ApiBase
+    ).
+
+warnings_from_resp(Resp, Warnings) :-
+    ( get_dict(warnings, Resp, W) -> Warnings = W ; Warnings = [] ).
+
+normalize_schedule_ops([], [], []).
+normalize_schedule_ops([H|T], [Norm|Rest], [Cranes|AllocRest]) :-
+    ( is_dict(H) ->
+        normalize_op_dict(H, Norm, Cranes)
+    ; H = (V,Start,End,NCranes) ->
+        normalize_op_tuple(V, Start, End, NCranes, Norm, Cranes)
+    ;   Norm = _{vessel_id: unknown, start_time: 0, end_time: 0, assigned_dock: unknown,
+                 assigned_crane: unknown, assigned_cranes: [], assigned_staff: unknown,
+                 assigned_storage: unknown, delay_hours: 0},
+        Cranes = 1
+    ),
+    normalize_schedule_ops(T, Rest, AllocRest).
+
+normalize_op_tuple(V, Start, End, NCranes, Norm, Cranes) :-
+    ensure_string(V, VS),
+    Duration is max(0, End - Start),
+    Norm = _{
+        vessel_id: VS,
+        start_time: Start,
+        end_time: End,
+        start_time_decimal: Start,
+        end_time_decimal: End,
+        duration: Duration,
+        assigned_dock: null,
+        assigned_crane: null,
+        assigned_cranes: [],
+        assigned_staff: null,
+        assigned_storage: null,
+        delay_hours: max(0, End - Start),
+        multi_crane: (NCranes > 1)
+    },
+    Cranes = NCranes.
+
+normalize_op_dict(Op, Norm, Cranes) :-
+    ( get_dict(vessel, Op, Vessel0) ; get_dict(vessel_id, Op, Vessel0) ),
+    ensure_string(Vessel0, VesselId),
+    get_dict(startHour, Op, Start1, -1),
+    get_dict(start_time, Op, Start2, Start1),
+    ( Start2 >= 0 -> Start = Start2 ; Start = 0 ),
+    get_dict(endHour, Op, End1, -1),
+    get_dict(end_time, Op, End2, End1),
+    ( End2 >= 0 -> End = End2 ; End = Start ),
+    get_dict(delayHours, Op, Delay1, 0),
+    get_dict(delay_hours, Op, Delay2, Delay1),
+    Delay is Delay2,
+    ( get_dict(craneIds, Op, CraneIds0) ->
+        maplist(ensure_string, CraneIds0, CraneIds)
+    ; CraneIds = []
+    ),
+    ( CraneIds \= [] ->
+        CranePrimary = CraneIds
+    ; get_dict(crane, Op, Crane0) ->
+        ensure_string(Crane0, CraneStr),
+        CranePrimary = [CraneStr]
+    ; CranePrimary = []
+    ),
+    ( get_dict(dock, Op, Dock0) -> ensure_string(Dock0, DockId) ; DockId = 'NO_DOCK_AVAILABLE' ),
+    ( get_dict(staff, Op, Staff0) -> ensure_string(Staff0, StaffId) ; StaffId = 'NO_STAFF_AVAILABLE' ),
+    ( get_dict(storageArea, Op, Storage0) -> ensure_string(Storage0, StorageId) ; StorageId = 'NO_STORAGE_AVAILABLE' ),
+    ( get_dict(multiCrane, Op, MCFlag, false) -> Multi = MCFlag ; length(CranePrimary, L), (L>1 -> Multi=true ; Multi=false) ),
+    norm_duration(Start, End, DurationFmt),
+    Norm = _{
+        vessel_id: VesselId,
+        start_time: Start,
+        end_time: End,
+        start_time_decimal: Start,
+        end_time_decimal: End,
+        duration: DurationFmt,
+        assigned_dock: DockId,
+        assigned_crane: (CranePrimary = [C1|_] -> C1 ; 'NO_CRANE_AVAILABLE'),
+        assigned_cranes: CranePrimary,
+        assigned_staff: StaffId,
+        assigned_storage: StorageId,
+        delay_hours: Delay,
+        multi_crane: Multi,
+        warnings: []
+    },
+    (CranePrimary = [] -> Cranes = 1 ; length(CranePrimary, Cranes)).
+
+norm_duration(Start, End, Fmt) :-
+    Dur is max(0, End - Start),
+    Hours is floor(Dur),
+    Minutes is round((Dur - Hours) * 60),
+    format(string(Fmt), '~`0t~d~2|:~`0t~d~2|', [Hours, Minutes]).
+
+ensure_string(Atom, Str) :-
+    ( atom(Atom) -> atom_string(Atom, Str)
+    ; string(Atom) -> Str = Atom
+    ; number(Atom) -> number_string(Atom, Str)
+    ; Str = 'unknown'
+    ).
+
 /* ----------------------------------------------------------------------------
    Public server API
 ---------------------------------------------------------------------------- */
@@ -828,6 +994,18 @@ start_server(Port) :-
     http_server(http_dispatch, [port(Port)]),
     retractall(server_port(_)),
     asserta(server_port(Port)).
+
+start_scheduling_server :-
+    (   server_port(Existing),
+        catch(http_current_server(Existing, _), _, fail)
+    ->  format('Scheduling server already running on port ~w~n', [Existing])
+    ;   DefaultPort = 3050,
+        http_server(http_dispatch, [port(DefaultPort)]),
+        retractall(server_port(_)),
+        asserta(server_port(DefaultPort)),
+        format('Scheduling server started on port ~w~n', [DefaultPort]),
+        format('Available endpoints: /health, /schedule3, /schedule4, /api/scheduling/daily~n')
+    ).
 
 stop_server :-
     server_port(Port),
@@ -842,40 +1020,94 @@ stop_server.
 health_handler(_Request) :-
     reply_json_dict(_{status: ok, service: scheduling}).
 
-/* ----------------------------------------------------------------------------
-   schedule2: Greedy with skills + ISO datetimes, horizon 240h
----------------------------------------------------------------------------- */
-
-schedule2_handler(Request) :-
-    http_read_json_dict(Request, Payload),
-    ( _{vessels: VesselList} :< Payload
-    -> true
-    ; throw(http_reply(bad_request('Missing "vessels" array')))
-    ),
-
-    ( _{cranes: CranesList} :< Payload -> true ; CranesList = [] ),
-    ( _{staff: StaffList}  :< Payload -> true ; StaffList = [] ),
-    ( _{date: Date}        :< Payload -> DateUsed = Date ; DateUsed = null ),
-
-    process_request_v2(DateUsed, VesselList, CranesList, StaffList).
-
-process_request_v2(Date, VesselList, CranesList, StaffList) :-
-    with_mutex(scheduling_v2, (
-        cleanup_vessels,
-        cleanup_resources,
-        maplist(assert_vessel_dict, VesselList),
-        maplist(assert_crane_dict, CranesList),
-        maplist(assert_staff_dict, StaffList),
-        greedy_resource_schedule(Date, ScheduleEntries, TotalDelay, Warnings),
+api_health_handler(Request) :-
+    memberchk(method(Method), Request),
+    ( Method == options ->
+        cors_enable(Request, [methods([get])]),
+        format('~n')
+    ;   cors_enable,
         reply_json_dict(_{
-            date: Date,
-            schedule: ScheduleEntries,
-            totalDelayHours: TotalDelay,
-            warnings: Warnings
-        }),
-        cleanup_vessels,
-        cleanup_resources
-    )).
+            status: ok,
+            service: scheduling,
+            version: "1.0"
+        })
+    ).
+
+api_daily_handler(Request) :-
+    memberchk(method(Method), Request),
+    ( Method == options ->
+        cors_enable(Request, [methods([post])]),
+        format('~n')
+    ;   cors_enable,
+        catch(
+            (
+                http_read_json_dict(Request, Body),
+                ( get_dict(vessels, Body, VList) -> true ; throw(error(missing_vessels, Body)) ),
+                length(VList, VesselCount),
+                ( get_dict(docks, Body, DList) -> true ; DList = [] ),
+                ( get_dict(cranes, Body, CList) -> true ; CList = [] ),
+                ( get_dict(storageAreas, Body, SList) -> true
+                ; get_dict(storageLocations, Body, SList) -> true
+                ; SList = [] ),
+                ( get_dict(staff, Body, StaffList) -> true ; StaffList = [] ),
+                ( get_dict(date, Body, Date) -> DateUsed = Date ; DateUsed = null ),
+                ( get_dict(algorithm, Body, AlgRaw) -> normalize_id(AlgRaw, Alg) ; Alg = auto ),
+
+                attempt_schedule3_strategy(Alg, DateUsed, VList, DList, CList, SList, StaffList, RespTmp),
+                ( get_dict(strategy, RespTmp, _) -> RespMid = RespTmp
+                ; RespMid = RespTmp.put(strategy, Alg)
+                ),
+                build_api_daily_response(VesselCount, RespMid, RespOut),
+                reply_json_dict(RespOut)
+            ),
+            Error,
+            (
+                term_string(Error, ErrStr),
+                reply_json_dict(_{
+                    success: false,
+                    date: DateUsed,
+                    vessel_count: 0,
+                    scheduled_count: 0,
+                    unscheduled_count: 0,
+                    total_delay: 0,
+                    computation_time_ms: 0,
+                    schedule: [],
+                    unscheduled_vessels: [],
+                    warnings: [],
+                    error: ErrStr
+                }, [status(500)])
+            )
+        )
+    ).
+
+api_generate_handler(Request) :-
+    memberchk(method(Method), Request),
+    ( Method == options ->
+        cors_enable(Request, [methods([post])]),
+        format('~n')
+    ;   cors_enable,
+        % Stub aggregation endpoint
+        catch(
+            (
+                reply_json_dict(_{
+                    success: true,
+                    message: "Aggregation stub; connect to backend services.",
+                    data: _{
+                        vessel_visits: [],
+                        resources: [],
+                        staff: [],
+                        docks: [],
+                        storage_areas: []
+                    }
+                })
+            ),
+            Error,
+            (
+                term_string(Error, ErrStr),
+                reply_json_dict(_{success:false,error:ErrStr}, [status(500)])
+            )
+        )
+    ).
 
 cleanup_vessels :-
     retractall(vessel(_,_,_,_,_)),
@@ -906,92 +1138,3 @@ assert_staff_dict(Dict) :-
     normalize_id(IdRaw, Id),
     resource_start_end(Dict, Start, End),
     assertz(staff_member(Id, SkillsList, Start, End)).
-
-greedy_resource_schedule(_Date, ScheduleEntries, TotalDelay, Warnings) :-
-    findall((Id,Arr,Dep,U,L), vessel(Id,Arr,Dep,U,L), RawVessels),
-    ( RawVessels = [] ->
-        ScheduleEntries = [], TotalDelay = 0, Warnings = ['no vessels provided']
-    ;
-        sort_vessels_for_edd(RawVessels, Sorted),
-        schedule_vessels_list(Sorted, [], ScheduleEntriesTmp, [], WarningsTmp),
-        finalize_delay(ScheduleEntriesTmp, TotalDelay),
-        ScheduleEntries = ScheduleEntriesTmp,
-        Warnings = WarningsTmp
-    ).
-
-sort_vessels_for_edd(Vessels, Sorted) :-
-    maplist(add_key, Vessels, Keyed),
-    sort(1, @=<, Keyed, SortedKeyed),
-    findall(V, member(_Key-V, SortedKeyed), Sorted).
-
-add_key((Id,Arr,Dep,U,L), Key-(Id,Arr,Dep,U,L)) :-
-    Key = (Dep, Arr, Id, U, L).
-
-schedule_vessels_list([], Acc, Acc, WarnAcc, WarnAcc).
-schedule_vessels_list([(Id,Arr,Dep,U,L)|Rest], Acc, Final, WarnAcc, WarnFinal) :-
-    ( Arr > Dep ->
-        NewWarn = ['arrival after departure for vessel'(Id)|WarnAcc],
-        schedule_vessels_list(Rest, Acc, Final, NewWarn, WarnFinal)
-    ; schedule_single_vessel(Id, Arr, Dep, U, L, Acc, Acc1, WarnAcc, WarnAcc1),
-      schedule_vessels_list(Rest, Acc1, Final, WarnAcc1, WarnFinal)
-    ).
-
-schedule_single_vessel(Id, Arr, Dep, U, L, AccIn, AccOut, WarnIn, WarnOut) :-
-    allocate_operation(unload, Id, Arr, U, CraneU, StaffU, StartU, EndU, WarnIn, WarnMid),
-    StartLoadEarliest is EndU + 1,
-    allocate_operation(load, Id, StartLoadEarliest, L, CraneL, StaffL, StartL, EndL, WarnMid, WarnOut1),
-    PossibleDep is EndL + 1,
-    ( PossibleDep > Dep -> Delay is PossibleDep - Dep ; Delay = 0 ),
-    WarnOut = WarnOut1,
-    AccOut = [
-        _{vessel: Id, operation: unload, crane: CraneU, staff: StaffU, startHour: StartU, endHour: EndU, delayHours: 0},
-        _{vessel: Id, operation: load,   crane: CraneL, staff: StaffL, startHour: StartL, endHour: EndL, delayHours: Delay}
-        | AccIn
-    ].
-
-allocate_operation(OpType, VesselId, Earliest, Dur, CraneId, StaffId, Start, End, WarnIn, WarnOut) :-
-    ( Dur =< 0 ->
-        WarnOut = ['non-positive duration'(VesselId, OpType)|WarnIn],
-        CraneId = null, StaffId = null, Start = Earliest, End = Earliest
-    ; allocate_crane(Earliest, Dur, CraneId, StartC, EndC) ->
-        ( allocate_staff(StartC, Dur, StaffId) ->
-            Start = StartC, End = EndC, WarnOut = WarnIn
-        ; WarnOut = ['no qualified staff'(VesselId, OpType, Earliest)|WarnIn],
-          CraneId = null, StaffId = null, Start = Earliest, End = Earliest
-        )
-    ; WarnOut = ['no crane available'(VesselId, OpType, Earliest)|WarnIn],
-      CraneId = null, StaffId = null, Start = Earliest, End = Earliest
-    ).
-
-allocate_crane(Earliest, Dur, CraneId, Start, End) :-
-    findall(Id-StartW-EndW, crane(Id, StartW, EndW), Cranes),
-    member(CraneId-StartW-EndW, Cranes),
-    StartCandidate is max(Earliest, StartW),
-    EndCandidate is StartCandidate + Dur - 1,
-    EndCandidate =< EndW,
-    \+ overlaps_crane(CraneId, StartCandidate, EndCandidate),
-    assertz(assigned_crane(CraneId, StartCandidate, EndCandidate)),
-    Start = StartCandidate,
-    End = EndCandidate.
-
-overlaps_crane(CraneId, S, E) :-
-    assigned_crane(CraneId, S0, E0),
-    E0 >= S, E >= S0.
-
-allocate_staff(Start, Dur, StaffId) :-
-    End is Start + Dur - 1,
-    findall(Id-Skills-SW-EW, staff_member(Id, Skills, SW, EW), StaffList),
-    member(StaffId-Skills-SW-EW, StaffList),
-    member(crane, Skills),
-    Start >= SW,
-    End =< EW,
-    \+ overlaps_staff(StaffId, Start, End),
-    assertz(assigned_staff(StaffId, Start, End)).
-
-overlaps_staff(StaffId, S, E) :-
-    assigned_staff(StaffId, S0, E0),
-    E0 >= S, E >= S0.
-
-finalize_delay(ScheduleEntries, TotalDelay) :-
-    findall(D, (member(E, ScheduleEntries), D = E.delayHours), Delays),
-    sum_list(Delays, TotalDelay).

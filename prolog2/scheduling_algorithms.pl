@@ -1,0 +1,593 @@
+% ============================================================================
+% Port Logistics - Scheduling Algorithms (Prolog)
+% US 3.4.2 - Daily Vessel Scheduling with Resource Constraints (Optimal)
+% US 3.4.4 - Alternative Heuristic Scheduling Algorithm (Fast)
+% US 3.4.5 - Multi-Crane Optimization
+% ============================================================================
+% Standalone scheduling logic used by prolog2/scheduling_server.pl
+% ============================================================================
+
+:- module(scheduling_algorithms, [
+    compute_optimal_schedule/2,
+    compute_heuristic_schedule/2,
+    sequence_temporization/2,
+    sum_delays/2,
+    assign_resources_to_schedule/3,
+    calculate_valid_delay/2,
+    compute_multi_crane_schedule/3
+]).
+
+:- use_module(library(lists)).
+:- use_module(library(clpfd)).
+
+:- dynamic shortest_delay/2.
+:- dynamic shortest_delay_multi/3.
+:- dynamic user:vessel/6.
+
+% ============================================================================
+% OPTIMAL SCHEDULING ALGORITHM (US 3.4.2 - AC: Minimize Delays)
+% ============================================================================
+
+compute_optimal_schedule(Vessels, Result) :-
+    (   is_list(Vessels), Vessels \= []
+    ->  true
+    ;   Result = _{algorithm: "optimal", error: "Invalid or empty vessel list", total_delay: 0, schedule: []},
+        !
+    ),
+    retractall(shortest_delay(_, _)),
+    retractall(shortest_delay_multi(_, _, _)),
+    retractall(user:vessel(_, _, _, _, _, _)),
+    load_vessels_as_facts(Vessels),
+    get_time(StartTime),
+    (compute_optimal_schedule_internal ; true),
+    (   retract(shortest_delay(OptimalSequence, TotalDelay))
+    ->  true
+    ;   OptimalSequence = [], TotalDelay = 0
+    ),
+    get_time(EndTime),
+    ComputationTime is (EndTime - StartTime) * 1000,
+    RoundedDelay is round(TotalDelay * 100) / 100,
+    Result = _{
+        algorithm: "optimal",
+        total_delay: RoundedDelay,
+        computation_time_ms: ComputationTime,
+        schedule: OptimalSequence
+    }.
+
+compute_optimal_schedule_internal :-
+    asserta(shortest_delay(_, 1000000)),
+    findall(V, user:vessel(V, _, _, _, _, _), VesselList),
+    !,
+    permutation(VesselList, Sequence),
+    sequence_temporization(Sequence, ScheduleTriples),
+    sum_delays(ScheduleTriples, Delay),
+    update_shortest_delay(ScheduleTriples, Delay),
+    fail.
+
+update_shortest_delay(Schedule, Delay) :-
+    shortest_delay(_, CurrentMin),
+    (   Delay < CurrentMin
+    ->  retract(shortest_delay(_, _)),
+        asserta(shortest_delay(Schedule, Delay))
+    ;   true
+    ).
+
+% ============================================================================
+% HEURISTIC SCHEDULING ALGORITHM (US 3.4.4)
+% ============================================================================
+
+compute_heuristic_schedule(Vessels, Result) :-
+    (   is_list(Vessels), Vessels \= []
+    ->  true
+    ;   Result = _{algorithm: "heuristic_greedy_urgency", error: "Invalid or empty vessel list", total_delay: 0, schedule: []},
+        !
+    ),
+    retractall(shortest_delay(_, _)),
+    retractall(shortest_delay_multi(_, _, _)),
+    retractall(user:vessel(_, _, _, _, _, _)),
+    load_vessels_as_facts(Vessels),
+    get_time(StartTime),
+    compute_heuristic_schedule_internal(HeuristicSequence, TotalDelay),
+    get_time(EndTime),
+    ComputationTime is (EndTime - StartTime) * 1000,
+    Result = _{
+        algorithm: "heuristic_greedy_urgency",
+        total_delay: TotalDelay,
+        computation_time_ms: ComputationTime,
+        schedule: HeuristicSequence
+    }.
+
+compute_heuristic_schedule_internal(Schedule, TotalDelay) :-
+    findall(
+        Urgency-VesselId,
+        (
+            user:vessel(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, _),
+            OperationTime is UnloadTime + LoadTime,
+            Urgency is DepartureTime - (ArrivalTime + OperationTime)
+        ),
+        UrgencyPairs
+    ),
+    keysort(UrgencyPairs, SortedPairs),
+    pairs_values(SortedPairs, SortedVessels),
+    sequence_temporization(SortedVessels, Schedule),
+    sum_delays(Schedule, TotalDelay).
+
+% ============================================================================
+% TEMPORAL SEQUENCING
+% ============================================================================
+
+sequence_temporization(VesselList, ScheduleTriples) :-
+    findall(
+        Dock,
+        (member(V, VesselList), user:vessel(V, _, _, _, _, Dock)),
+        AllDocks
+    ),
+    sort(AllDocks, UniqueDocks),
+    schedule_all_docks(UniqueDocks, VesselList, ScheduleTriples).
+
+schedule_all_docks([], _, []).
+schedule_all_docks([Dock | RestDocks], AllVessels, AllSchedule) :-
+    findall(V, (member(V, AllVessels), user:vessel(V, _, _, _, _, Dock)), DockVessels),
+    sequence_temporization_internal(0, DockVessels, DockSchedule),
+    schedule_all_docks(RestDocks, AllVessels, RestSchedule),
+    append(DockSchedule, RestSchedule, AllSchedule).
+
+sequence_temporization_internal(_, [], []).
+sequence_temporization_internal(EndPreviousOperation, [VesselId | RestVessels],
+                                [ScheduleEntry | RestSchedule]) :-
+    user:vessel(VesselId, ArrivalTime, _, UnloadTime, LoadTime, AssignedDock),
+    StartUnload is max(ArrivalTime, EndPreviousOperation),
+    TotalOperationTime is UnloadTime + LoadTime,
+    EndLoad is StartUnload + TotalOperationTime,
+    hours_to_time_string(StartUnload, StartTimeStr),
+    hours_to_time_string(EndLoad, EndTimeStr),
+    hours_to_time_string(TotalOperationTime, DurationStr),
+    ScheduleEntry = (VesselId, StartUnload, EndLoad, StartTimeStr, EndTimeStr, DurationStr, AssignedDock),
+    sequence_temporization_internal(EndLoad, RestVessels, RestSchedule).
+
+% ============================================================================
+% DELAY CALCULATION
+% ============================================================================
+
+sum_delays([], 0).
+sum_delays([(VesselId, _, EndLoad, _, _, _, _) | RestSchedule], TotalDelay) :-
+    user:vessel(VesselId, _, DesiredDeparture, _, _, _),
+    VesselDelay is max(0, EndLoad - DesiredDeparture),
+    sum_delays(RestSchedule, RestDelay),
+    TotalDelay is round((VesselDelay + RestDelay) * 100) / 100.
+
+% ============================================================================
+% RESOURCE ASSIGNMENT
+% ============================================================================
+
+assign_resources_to_schedule(ScheduleTriples, AvailableResources, EnrichedSchedule) :-
+    sort_by_start_time(ScheduleTriples, SortedSchedule),
+    assign_resources_internal(SortedSchedule, AvailableResources, [], EnrichedSchedule).
+
+sort_by_start_time(Schedule, SortedSchedule) :-
+    map_list_to_pairs(get_start_time, Schedule, Pairs),
+    keysort(Pairs, SortedPairs),
+    pairs_values(SortedPairs, SortedSchedule).
+
+get_start_time((_, StartTime, _, _, _, _, _), StartTime).
+
+assign_resources_internal([], _, _, []).
+assign_resources_internal([(VesselId, StartTime, EndTime, StartTimeStr, EndTimeStr, DurationStr, DockCode) | RestSchedule],
+                         AvailableResources,
+                         AssignedStaff,
+                         [Operation | RestOperations]) :-
+    AvailableResources = json([cranes=Cranes, staff=Staff, storage=Storage, docks=_]),
+    atom_string(DockCode, DockCodeStr),
+    findall(
+        SetupTime-Crane,
+        (
+            member(Crane, Cranes),
+            get_dict(assignedArea, Crane, CraneAssignedArea),
+            atom_string(CraneAssignedArea, CraneAreaStr),
+            CraneAreaStr = DockCodeStr,
+            get_dict(status, Crane, Status),
+            atom_string(Status, "Active"),
+            SetupTime = Crane.get(setupTimeMinutes, 9999)
+        ),
+        AvailableCranes
+    ),
+    (   AvailableCranes \= []
+    ->  sort(AvailableCranes, SortedCranes),
+        SortedCranes = [_MinSetup-BestCrane | _],
+        CraneCode = BestCrane.code,
+        CranesList = [BestCrane.code],
+        RequiredQualifications = BestCrane.get(qualificationRequirementIds, [])
+    ;   CraneCode = "NO_CRANE_AVAILABLE",
+        CranesList = [],
+        RequiredQualifications = []
+    ),
+    (   RequiredQualifications \= [],
+        member(RequiredQual, RequiredQualifications),
+        member(StaffMember, Staff),
+        StaffMemberId = StaffMember.mecanographicNumber,
+        get_dict(status, StaffMember, "Available"),
+        staff_available(StaffMember, StartTime, EndTime),
+        staff_has_qualification(StaffMember, RequiredQual),
+        \+ staff_is_busy(StaffMemberId, StartTime, EndTime, AssignedStaff)
+    ->  StaffId = StaffMemberId,
+        NewAssignedStaff = [staff(StaffId, StartTime, EndTime) | AssignedStaff]
+    ;   StaffId = "NO_STAFF_AVAILABLE",
+        NewAssignedStaff = AssignedStaff
+    ),
+    find_closest_storage(Storage, DockCode, StorageId),
+    Operation = _{
+        vessel_id: VesselId,
+        start_time: StartTimeStr,
+        end_time: EndTimeStr,
+        duration: DurationStr,
+        start_time_decimal: StartTime,
+        end_time_decimal: EndTime,
+        assigned_dock: DockCode,
+        assigned_crane: CraneCode,
+        assigned_cranes: CranesList,
+        assigned_staff: StaffId,
+        assigned_storage: StorageId
+    },
+    assign_resources_internal(RestSchedule, AvailableResources, NewAssignedStaff, RestOperations).
+
+staff_available(StaffMember, OperationStart, OperationEnd) :-
+    get_dict(operationalWindow, StaffMember, WindowStr),
+    sub_string(WindowStr, SpacePos, _, _, " "),
+    AfterSpace is SpacePos + 1,
+    sub_string(WindowStr, AfterSpace, _, 0, TimeRange),
+    split_string(TimeRange, "-", " ", [StartTimeStr, EndTimeStr]),
+    split_string(StartTimeStr, ":", " ", [StartHourStr, StartMinStr]),
+    split_string(EndTimeStr, ":", " ", [EndHourStr, EndMinStr]),
+    number_string(AvailStartHour, StartHourStr),
+    number_string(AvailStartMin, StartMinStr),
+    number_string(AvailEndHour, EndHourStr),
+    number_string(AvailEndMin, EndMinStr),
+    AvailStart is AvailStartHour + (AvailStartMin / 60),
+    AvailEnd is AvailEndHour + (AvailEndMin / 60),
+    OperationStartTimeOfDay is OperationStart - (floor(OperationStart / 24) * 24),
+    OperationEndTimeOfDay is OperationEnd - (floor(OperationEnd / 24) * 24),
+    OperationStartTimeOfDay >= AvailStart,
+    OperationEndTimeOfDay =< AvailEnd.
+
+staff_has_qualification(StaffMember, RequiredQualification) :-
+    get_dict(qualifications, StaffMember, Qualifications),
+    (   atom(RequiredQualification)
+    ->  atom_string(RequiredQualification, ReqStr)
+    ;   ReqStr = RequiredQualification
+    ),
+    (   is_list(Qualifications)
+    ->  member(Qual, Qualifications),
+        (   atom(Qual)
+        ->  atom_string(Qual, QualStr)
+        ;   QualStr = Qual
+        ),
+        sub_string(QualStr, _, _, _, ReqStr)
+    ;   (   atom(Qualifications)
+        ->  atom_string(Qualifications, QualStr)
+        ;   QualStr = Qualifications
+        ),
+        sub_string(QualStr, _, _, _, ReqStr)
+    ).
+
+staff_is_busy(StaffId, StartTime, EndTime, AssignedStaff) :-
+    member(staff(StaffId, AssignedStart, AssignedEnd), AssignedStaff),
+    StartTime < AssignedEnd,
+    EndTime > AssignedStart.
+
+calculate_valid_delay(EnrichedSchedule, ValidDelay) :-
+    calculate_valid_delay_internal(EnrichedSchedule, ValidDelay).
+
+calculate_valid_delay_internal([], 0).
+calculate_valid_delay_internal([Op | Rest], TotalDelay) :-
+    get_dict(assigned_crane, Op, Crane),
+    get_dict(assigned_staff, Op, Staff),
+    get_dict(assigned_storage, Op, Storage),
+    Crane \= "NO_CRANE_AVAILABLE",
+    Staff \= "NO_STAFF_AVAILABLE",
+    Storage \= "NO_STORAGE_AVAILABLE",
+    !,
+    get_dict(end_time_decimal, Op, EndTime),
+    get_dict(vessel_id, Op, VesselId),
+    (   user:vessel(VesselId, _, DesiredDeparture, _, _, _)
+    ->  Delay is max(0, EndTime - DesiredDeparture)
+    ;   Delay = 0
+    ),
+    calculate_valid_delay_internal(Rest, RestDelay),
+    TotalDelay is Delay + RestDelay.
+calculate_valid_delay_internal([_Op | Rest], TotalDelay) :-
+    calculate_valid_delay_internal(Rest, TotalDelay).
+
+find_closest_storage(Storage, DockCode, StorageId) :-
+    findall(
+        Distance-StorageArea,
+        (
+            member(StorageArea, Storage),
+            get_dict(servedDocks, StorageArea, ServedDocks),
+            member(ServedDock, ServedDocks),
+            get_dict(dockCode, ServedDock, ServedDockCode),
+            atom_string(ServedDockCode, ServedDockCodeStr),
+            atom_string(DockCode, DockCodeStr),
+            ServedDockCodeStr = DockCodeStr,
+            Distance = ServedDock.get(distanceMeters, 9999)
+        ),
+        StorageOptions
+    ),
+    (   StorageOptions \= []
+    ->  sort(StorageOptions, [_MinDistance-ClosestStorage | _]),
+        StorageId = ClosestStorage.identifier
+    ;   (   Storage = [StorageArea | _]
+        ->  StorageId = StorageArea.identifier
+        ;   StorageId = "NO_STORAGE_AVAILABLE"
+        )
+    ).
+
+% ============================================================================
+% UTILITY FUNCTIONS
+% ============================================================================
+
+load_vessels_as_facts([]).
+load_vessels_as_facts([Vessel | RestVessels]) :-
+    VesselId = Vessel.id,
+    ArrivalTime = Vessel.arrival_time,
+    DepartureTime = Vessel.departure_time,
+    UnloadTime = Vessel.unload_time,
+    LoadTime = Vessel.load_time,
+    AssignedDock = Vessel.get(assigned_dock, "DOCK-A"),
+    assertz(user:vessel(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, AssignedDock)),
+    load_vessels_as_facts(RestVessels).
+
+% ============================================================================
+% MULTI-CRANE SCHEDULING (US 3.4.5)
+% ============================================================================
+
+compute_multi_crane_schedule(Vessels, BaselineResult, MultiResult) :-
+    get_time(StartTime),
+    BaselineDelay = BaselineResult.total_delay,
+    BaselineSchedule = BaselineResult.schedule,
+    build_dock_sequences(BaselineSchedule, DockTripletSeqs),
+    convert_all_triplets_to_quads(DockTripletSeqs, DockQuadSeqsSingle),
+    crane_hours_multi_from_docks(DockQuadSeqsSingle, CraneHoursSingle),
+    length(Vessels, NVessels),
+    retractall(user:vessel(_,_,_,_,_,_)),
+    retractall(shortest_delay_multi(_,_,_)),
+    load_vessels_as_facts(Vessels),
+    (   (BaselineDelay =:= 0 ; NVessels =< 2)
+    ->  Strategy         = single_crane,
+        MultiDelay       = BaselineDelay,
+        CraneHoursMulti  = CraneHoursSingle,
+        OptimizedDockQuads = DockQuadSeqsSingle,
+        extract_all_cranes_alloc(OptimizedDockQuads, LCranesAlloc),
+        build_multi_crane_schedule_triples(OptimizedDockQuads, MultiScheduleTriples)
+    ;   optimize_all_docks(DockTripletSeqs, OptimizedDockQuads, MultiDelay, CraneHoursMulti),
+        extract_all_cranes_alloc(OptimizedDockQuads, LCranesAlloc),
+        build_multi_crane_schedule_triples(OptimizedDockQuads, MultiScheduleTriples),
+        Strategy = multi_crane
+    ),
+    retractall(user:vessel(_,_,_,_,_,_)),
+    retractall(shortest_delay_multi(_,_,_)),
+    get_time(EndTime),
+    ComputationTime is (EndTime - StartTime) * 1000,
+    MultiResult = _{
+        algorithm:          "multi_crane",
+        strategy:           Strategy,
+        total_delay:        MultiDelay,
+        computation_time_ms:ComputationTime,
+        schedule:           MultiScheduleTriples,
+        cranes_allocation:  LCranesAlloc,
+        crane_hours_single: CraneHoursSingle,
+        crane_hours_multi:  CraneHoursMulti
+    }.
+
+build_dock_sequences(ScheduleTriples, DockTripletSeqs) :-
+    findall(Dock,
+        member((_, _, _, _, _, _, Dock), ScheduleTriples),
+        AllDocks),
+    sort(AllDocks, UniqueDocks),
+    build_dock_sequences_for_list(UniqueDocks, ScheduleTriples, DockTripletSeqs).
+
+build_dock_sequences_for_list([], _, []).
+build_dock_sequences_for_list([Dock | Rest], ScheduleTriples,
+                              [dock(Dock, Triplets) | RestDockSeqs]) :-
+    findall([V, Start, End],
+        member((V, Start, End, _, _, _, Dock), ScheduleTriples),
+        Triplets),
+    build_dock_sequences_for_list(Rest, ScheduleTriples, RestDockSeqs).
+
+convert_all_triplets_to_quads([], []).
+convert_all_triplets_to_quads([dock(Dock, Triplets) | Rest],
+                              [dock(Dock, Quads) | RestQuads]) :-
+    convert_triplets_to_quadruplets(Triplets, 1, Quads),
+    convert_all_triplets_to_quads(Rest, RestQuads).
+
+extract_all_cranes_alloc([], []).
+extract_all_cranes_alloc([dock(_, Quads) | Rest], AllCr) :-
+    extract_cranes_list(Quads, CrDock),
+    extract_all_cranes_alloc(Rest, CrRest),
+    append(CrDock, CrRest, AllCr).
+
+optimize_all_docks([], [], 0, 0).
+optimize_all_docks([dock(Dock, Triplets) | Rest],
+                   [dock(Dock, BestQuads) | RestBest],
+                   TotalDelay, TotalCraneHours) :-
+    sum_delays_multi_triplets(Triplets, SingleDelayDock),
+    (   SingleDelayDock =:= 0
+    ->  convert_triplets_to_quadruplets(Triplets, 1, BestQuads),
+        BestDelayDock is SingleDelayDock
+    ;   multi_crane_optimize(Triplets, SingleDelayDock,
+                             BestQuads, BestDelayDock, _LCranesAllocDock)
+    ),
+    crane_hours_multi(BestQuads, CraneHoursDock),
+    optimize_all_docks(Rest, RestBest, DelayRest, CraneHoursRest),
+    TotalDelay      is BestDelayDock  + DelayRest,
+    TotalCraneHours is CraneHoursDock + CraneHoursRest.
+
+sum_delays_multi_triplets([], 0).
+sum_delays_multi_triplets([[V, _, TEndLoad] | Rest], TotalDelay) :-
+    user_vessel_data_safe(V, _, DesiredDeparture, _, _),
+    VesselDelay is max(0, TEndLoad - DesiredDeparture),
+    sum_delays_multi_triplets(Rest, RestDelay),
+    TotalDelay is VesselDelay + RestDelay.
+
+multi_crane_optimize(SeqTriplets, SDelay1Crane,
+                     SeqBetterQuadruplets, SShortestDelay, LCranesAlloc) :-
+    SInitial is SDelay1Crane,
+    convert_triplets_to_quadruplets(SeqTriplets, 1, QuadInitial),
+    extract_cranes_list(QuadInitial, LCranesInitial),
+    retractall(shortest_delay_multi(_,_,_)),
+    asserta(shortest_delay_multi(QuadInitial, SInitial, LCranesInitial)),
+    reverse(SeqTriplets, RevSeq),
+    find_last_delayed_vessel(RevSeq, VLastDelayed),
+    extract_vessels_list(SeqTriplets, SeqV),
+    split_sequence_at_vessel(SeqV, VLastDelayed, SeqToOptimize, SeqFixed),
+    length(SeqToOptimize, NToOptimize),
+    (   generate_crane_permutations(NToOptimize, LCrOptimizable),
+        length(SeqFixed, NFixed),
+        generate_ones(NFixed, FixedCranes),
+        append(LCrOptimizable, FixedCranes, LCrFull),
+        append(SeqToOptimize, SeqFixed, SeqVFull),
+        sequence_temporization_multi(SeqVFull, LCrFull, SeqQuadruplets),
+        sum_delays_multi(SeqQuadruplets, S),
+        compare_shortest_delay_multi(SeqQuadruplets, S, LCrFull),
+        fail
+    ;   true
+    ),
+    retract(shortest_delay_multi(SeqBetterQuadruplets, SShortestDelay, LCranesAlloc)).
+
+sequence_temporization_multi(LV, LCranes, SeqQuadruplets) :-
+    sequence_temporization_multi1(0, LV, LCranes, SeqQuadruplets).
+
+sequence_temporization_multi1(_, [], [], []).
+sequence_temporization_multi1(EndPrevOp,
+                              [V | LV],
+                              [NCranes | LCranes],
+                              [[V, TInUnload, TEndLoad, NCranes] | SeqQuadruplets]) :-
+    user_vessel_data_safe(V, ArrivalTime, _, UnloadTime, LoadTime),
+    StartUnload is max(ArrivalTime, EndPrevOp),
+    TotalOperation is (UnloadTime + LoadTime) / NCranes,
+    TInUnload is StartUnload,
+    TEndLoad is StartUnload + TotalOperation,
+    sequence_temporization_multi1(TEndLoad, LV, LCranes, SeqQuadruplets).
+
+sum_delays_multi([], 0).
+sum_delays_multi([[V, _, TEndLoad, _] | LV], S) :-
+    user_vessel_data_safe(V, _, TDep, _, _),
+    VesselDelay is max(0, TEndLoad - TDep),
+    sum_delays_multi(LV, SLV),
+    S is VesselDelay + SLV.
+
+user_vessel_data_safe(V, Arrival, Departure, Unload, Load) :-
+    user:vessel(V, ArrivalRaw, DepartureRaw, UnloadRaw, LoadRaw, _Dock),
+    ensure_number(ArrivalRaw,   Arrival),
+    ensure_number(DepartureRaw, Departure),
+    ensure_number(UnloadRaw,    Unload),
+    ensure_number(LoadRaw,      Load).
+
+ensure_number(X, N) :- number(X), !, N is X.
+ensure_number(X, N) :- atom(X),   !, atom_number(X, N).
+ensure_number(X, N) :- string(X), !, number_string(N, X).
+
+convert_triplets_to_quadruplets([], _, []).
+convert_triplets_to_quadruplets([[V, TIU, TEL] | T], N,
+                                [[V, TIU, TEL, N] | Q]) :-
+    convert_triplets_to_quadruplets(T, N, Q).
+
+extract_cranes_list([], []).
+extract_cranes_list([[_V, _TIU, _TEL, NCranes] | T], [NCranes | L]) :-
+    extract_cranes_list(T, L).
+
+extract_vessels_list([], []).
+extract_vessels_list([[V, _, _] | T], [V | L]) :-
+    extract_vessels_list(T, L).
+
+find_last_delayed_vessel([[V, _, TEndLoad] | T], VLastDelayed) :-
+    user_vessel_data_safe(V, _, TDep, _, _),
+    VesselDelay is max(0, TEndLoad - TDep),
+    (   VesselDelay > 0
+    ->  VLastDelayed = V
+    ;   find_last_delayed_vessel(T, VLastDelayed)
+    ).
+find_last_delayed_vessel([], none) :- !.
+
+split_sequence_at_vessel([V | T], V, [V], T) :- !.
+split_sequence_at_vessel([H | T], V, [H | L1], L2) :-
+    H \= V,
+    split_sequence_at_vessel(T, V, L1, L2).
+split_sequence_at_vessel([], _, [], []) :- !.
+
+generate_crane_permutations(0, []) :- !.
+generate_crane_permutations(N, [C | T]) :-
+    N > 0,
+    member(C, [1, 2]),
+    N1 is N - 1,
+    generate_crane_permutations(N1, T).
+
+generate_ones(0, []) :- !.
+generate_ones(N, [1 | T]) :-
+    N > 0,
+    N1 is N - 1,
+    generate_ones(N1, T).
+
+compare_shortest_delay_multi(SeqQuadruplets, S, LCrFull) :-
+    shortest_delay_multi(_, SCurrent, LCrCurrent),
+    count_cranes(LCrFull,    2, C2New),
+    count_cranes(LCrCurrent, 2, C2Current),
+    (   S < SCurrent
+    ->  retract(shortest_delay_multi(_,_,_)),
+        asserta(shortest_delay_multi(SeqQuadruplets, S, LCrFull))
+    ;   S =:= SCurrent,
+        C2New < C2Current
+    ->  retract(shortest_delay_multi(_,_,_)),
+        asserta(shortest_delay_multi(SeqQuadruplets, S, LCrFull))
+    ;   true
+    ).
+
+count_cranes([], _, 0).
+count_cranes([H | T], N, C) :-
+    count_cranes(T, N, CT),
+    (   H =:= N
+    ->  C is CT + 1
+    ;   C is CT
+    ).
+
+crane_hours_multi([], 0).
+crane_hours_multi([[_, Start, End, NCranes] | T], Total) :-
+    Duration is End - Start,
+    crane_hours_multi(T, Rest),
+    Total is Rest + Duration * NCranes.
+
+crane_hours_multi_from_docks([], 0).
+crane_hours_multi_from_docks([dock(_, Quads) | Rest], Total) :-
+    crane_hours_multi(Quads, CHDock),
+    crane_hours_multi_from_docks(Rest, CHRest),
+    Total is CHDock + CHRest.
+
+build_multi_crane_schedule_triples([], []).
+build_multi_crane_schedule_triples([dock(DockCode, Quads) | RestDocks],
+                                   AllTriples) :-
+    build_triples_for_dock(DockCode, Quads, TriplesDock),
+    build_multi_crane_schedule_triples(RestDocks, RestTriples),
+    append(TriplesDock, RestTriples, AllTriples).
+
+build_triples_for_dock(_, [], []).
+build_triples_for_dock(DockCode,
+                       [[V, Start, End, _NCranes] | RestQuads],
+                       [(V, Start, End, StartStr, EndStr, DurationStr, DockCode)
+                        | RestTriples]) :-
+    hours_to_time_string(Start, StartStr),
+    hours_to_time_string(End,   EndStr),
+    Duration is End - Start,
+    hours_to_time_string(Duration, DurationStr),
+    build_triples_for_dock(DockCode, RestQuads, RestTriples).
+
+% ============================================================================
+% TIME FORMATTING
+% ============================================================================
+
+hours_to_time_string(DecimalHours, TimeStr) :-
+    TotalHours is floor(DecimalHours),
+    Days is TotalHours // 24,
+    TimeOfDayHours is TotalHours - (Days * 24),
+    DecimalPart is DecimalHours - floor(DecimalHours),
+    Minutes is round(DecimalPart * 60),
+    format(atom(TimeStr), '~|~`0t~d~2+:~|~`0t~d~2+', [TimeOfDayHours, Minutes]).
+
