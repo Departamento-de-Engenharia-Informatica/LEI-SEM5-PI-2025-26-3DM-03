@@ -462,8 +462,6 @@ app.UseRequestLocalization(new RequestLocalizationOptions
     SupportedUICultures = supportedCultures
 });
 
-app.UseHttpsRedirection();
-
 // Enable endpoint routing before authentication
 app.UseRouting();
 
