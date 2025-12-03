@@ -20,7 +20,7 @@ on:
       imageTag:
         description: 'Custom image tag'
         required: false
-      deployToDei:     # já não é usado para condicionar, mas podes deixar
+      deployToDei:     
         description: 'Deploy to DEI VM (self-hosted runner)'
         type: boolean
         default: true
@@ -58,11 +58,17 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      # Só restaurar os projetos que interessam (TodoApi + testes), não a solution com OemApi
       - name: Restore
-        run: dotnet restore LEI-SEM5-PI-2025-26-3DM-03.sln
+        run: |
+          dotnet restore TodoApi/TodoApi.csproj
+          dotnet restore testes/Domain.Tests/Domain.Tests.csproj
 
+      # Build apenas de TodoApi + Domain.Tests
       - name: Build
-        run: dotnet build LEI-SEM5-PI-2025-26-3DM-03.sln --configuration Release --no-restore
+        run: |
+          dotnet build TodoApi/TodoApi.csproj --configuration Release --no-restore
+          dotnet build testes/Domain.Tests/Domain.Tests.csproj --configuration Release --no-restore
 
       - name: Test suite
         run: |
@@ -173,7 +179,7 @@ jobs:
           retention-days: 14
 
 # -------------------------
-#   JOB 3 — Deploy to DEI VM (SEM CONDIÇÃO → corre sempre)
+#   JOB 3 — Deploy to DEI VM
 # -------------------------
   deploy-to-dei:
     needs: containerize
