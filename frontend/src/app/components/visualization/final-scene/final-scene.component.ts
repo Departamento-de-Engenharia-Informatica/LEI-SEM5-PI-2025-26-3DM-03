@@ -20,19 +20,39 @@ import { DockDTO } from '../../../models/dock';
 import { StorageAreaDTO } from '../../../models/storage-area';
 import { AuthService } from '../../../services/auth/auth.service';
 
-type FacilityType = 'dock' | 'yard' | 'warehouse' | 'generic';
+type FacilityType = 'dock' | 'yard' | 'warehouse' | 'crane' | 'vessel' | 'generic';
+type VesselVisualState = 'waiting' | 'loading' | 'unloading';
+type VesselDisplayState = VesselVisualState | 'upcoming' | 'departed';
 
 interface FacilityHotspot {
   id: string;
   name: string;
   type: FacilityType;
-  hitObject: THREE.Object3D;
-  highlightObject: THREE.Object3D;
-  focusPoint: THREE.Vector3;
-  overlayMaterial?: FacilityOverlayMaterial;
-  layoutDock?: DockLayout;
-  layoutArea?: LandAreaLayout;
-  layoutWarehouse?: WarehouseLayout;
+  object: THREE.Object3D;
+  focus?: THREE.Vector3;
+  dockLayout?: DockLayout;
+  yardLayout?: LandAreaLayout;
+  warehouseLayout?: WarehouseLayout;
+  vesselPlacement?: DockedVesselPlacement;
+  vesselState?: VesselVisualState;
+  dockName?: string;
+  craneSpecs?: {
+    designation?: string;
+    height?: number;
+    gauge?: number;
+    clearance?: number;
+  };
+}
+
+interface FacilityInfoCard {
+  title: string;
+  type: FacilityType;
+  description?: string;
+  generalStats: { label: string; value: string }[];
+  restrictedStats?: { label: string; value: string }[];
+  operations?: string[];
+  updatedAt: Date;
+  note?: string;
 }
 
 interface CameraTween {
@@ -43,38 +63,6 @@ interface CameraTween {
   startTime: number;
   duration: number;
 }
-
-interface FacilityOverlayMaterial extends THREE.MeshBasicMaterial {
-  userData: FacilityOverlayMetadata;
-}
-
-interface FacilityOverlayMetadata {
-  baseOpacity?: number;
-  hoverOpacity?: number;
-  activeOpacity?: number;
-}
-
-interface FacilityInfoCard {
-  title: string;
-  type: FacilityType;
-  description?: string;
-  generalStats: InfoStat[];
-  restrictedStats?: InfoStat[];
-  operations?: string[];
-  updatedAt: Date;
-  restrictedNote?: string;
-  warning?: string;
-}
-
-interface InfoStat {
-  label: string;
-  value: string;
-}
-
-type VesselRenderInfo = {
-  data: DockedVesselPlacement;
-  waiting: boolean;
-};
 
 @Component({
   selector: 'app-final-scene',
@@ -106,10 +94,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly cargoVesselFreeboard = 6;
   private readonly cargoVesselTargetLength = 480;
   private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
-  private readonly rendererPixelRatioCap = 1.35;
-  private readonly enableShadows = false;
-  private readonly waterNormalFrameSkip = 2;
-  private waterNormalCounter = 0;
   private readonly deckWidth = 1500;
   private readonly deckDepth = 1350;
   private readonly deckHeight = 60;
@@ -134,8 +118,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly containerTargetSpan = 55;
   private readonly containerColors = [0xff8c5f, 0x00c2ff, 0xff4f81, 0x7dd87d, 0xffbf69, 0x9b5de5];
   private containerUnitSize = new THREE.Vector3(40, 16, 80);
-  private readonly containerCols = 4;
-  private readonly containerRows = 3;
+  private readonly containerCols = 3;
+  private readonly containerRows = 2;
   private readonly warehouseModelUrls = ['assets/models/warehouse.glb', 'assets/warehouse.glb'];
   private warehousePrototype?: THREE.Group;
   private warehouseLoading?: Promise<THREE.Group>;
@@ -144,13 +128,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private cargoVesselLoading?: Promise<THREE.Group>;
   private cargoVesselHalfBeam = 0;
   private readonly maxBerthLanes = 1;
-  private readonly vesselWaitingLeadMs = 60 * 60 * 1000;
-  private readonly vesselWaitingExtraOffset = 280;
+  private readonly vesselWaitingLeadMs = 10 * 60 * 1000;
+  private readonly layoutRefreshMs = 30_000;
   private layoutData?: PortLayoutDTO;
   private dynamicVesselGroups: THREE.Object3D[] = [];
   private dockNameSprites: THREE.Sprite[] = [];
   private vesselLabelSprites: THREE.Sprite[] = [];
-  private warehouseInstances: THREE.Group[] = [];
   private dockSpanInfo?: { minEdge: number; maxEdge: number; span: number };
   private readonly dockDeckSlots = [-360, 360];
   private dockDeckOverrides = new Map<number, number>();
@@ -169,14 +152,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private truckWindowTexture?: THREE.Texture;
   private readonly pointer = new THREE.Vector2();
   private readonly raycaster = new THREE.Raycaster();
-  private facilityOverlayMeshes: THREE.Mesh<THREE.BufferGeometry, FacilityOverlayMaterial>[] = [];
-  private facilityLookup = new Map<THREE.Object3D, FacilityHotspot>();
-  private facilityHitTargets: THREE.Object3D[] = [];
+  private pointerEventsAttached = false;
+  private readonly pointerMoveHandler = (event: PointerEvent) => this.onScenePointerMove(event);
+  private readonly pointerClickHandler = (event: MouseEvent) => this.onScenePointerClick(event);
   private facilityHotspots: FacilityHotspot[] = [];
+  private readonly persistentFacilityHotspots: FacilityHotspot[] = [];
+  private facilityLookup = new Map<THREE.Object3D, FacilityHotspot>();
   private hoveredFacility?: FacilityHotspot;
+  selectedFacility?: FacilityHotspot;
   private facilitySelectionOutline?: THREE.BoxHelper;
   private cameraTween?: CameraTween;
-  private pointerEventsAttached = false;
   infoOverlayVisible = false;
   facilityInfoCard?: FacilityInfoCard;
   private facilityInfoRequestId = 0;
@@ -192,32 +177,67 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     dock: 'Cais / Terminal',
     yard: 'Zona de Armazenamento',
     warehouse: 'Armazém',
+    crane: 'Grua STS',
+    vessel: 'Navio',
     generic: 'Elemento 3D',
   };
+  private readonly vesselStatusColors: Record<VesselVisualState, number> = {
+    waiting: 0x2ecc71,
+    loading: 0x1f78ff,
+    unloading: 0xff5c5c,
+  };
+  private readonly vesselStatusText: Record<VesselVisualState, string> = {
+    waiting: 'Em espera',
+    loading: 'Carga',
+    unloading: 'Descarga',
+  };
+  readonly vesselStatusLegend: { key: VesselVisualState; label: string; description: string; color: string }[] = [
+    {
+      key: 'waiting',
+      label: 'Em espera',
+      description: 'Navio autorizado e a aguardar janela de cais (10 min antes).',
+      color: '#2ecc71',
+    },
+    {
+      key: 'unloading',
+      label: 'Descarga',
+      description: 'Primeira metade da janela de atracação dedicada a descarregar carga.',
+      color: '#ff5c5c',
+    },
+    {
+      key: 'loading',
+      label: 'Carga',
+      description: 'Segunda metade da janela de atracação dedicada a carregar carga.',
+      color: '#1f78ff',
+    },
+  ];
   fullscreenActive = false;
-  selectedFacility?: FacilityHotspot;
-  private readonly handleScenePointerMove = (event: PointerEvent) => this.onScenePointerMove(event);
-  private readonly handleScenePointerClick = (event: MouseEvent) => this.onScenePointerClick(event);
+  panelInfoVisible = false;
+  private layoutRefreshHandle?: number;
 
   constructor(
     private zone: NgZone,
     private layoutApi: PortLayoutService,
     private docksService: DocksService,
-    private storageAreasService: StorageAreasService,
+    private storageAreas: StorageAreasService,
     private auth: AuthService,
     private cdr: ChangeDetectorRef
   ) {
-    this.updateRestrictedAccessFlag();
-    this.authSubscription = this.auth.loggedIn$.subscribe(() => this.updateRestrictedAccessFlag());
+    this.canViewRestrictedInfo = this.auth.hasAny(['authority', 'operator']);
+    this.authSubscription = this.auth.loggedIn$.subscribe(() => {
+      this.canViewRestrictedInfo = this.auth.hasAny(['authority', 'operator']);
+      this.cdr.markForCheck();
+    });
   }
 
   ngAfterViewInit(): void {
     this.initRenderer();
     this.buildScene();
-    this.attachScenePointerEvents();
-    this.rebuildFacilityHotspots();
+    this.attachInputListeners();
+    this.attachPointerEvents();
     this.loadPortAssignments();
     document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+    this.layoutRefreshHandle = window.setInterval(() => this.loadPortAssignments(), this.layoutRefreshMs);
 
     this.zone.runOutsideAngular(() => {
       this.animate();
@@ -232,54 +252,57 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
     window.removeEventListener('resize', this.handleResize);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
-    this.detachScenePointerEvents();
+    this.detachInputListeners();
+    this.detachPointerEvents();
     this.controls?.dispose();
     this.renderer?.dispose();
-    this.clearFacilityHotspots();
     this.clearDynamicVessels();
     this.clearDockLabels();
-    if (this.facilitySelectionOutline) {
-      this.scene.remove(this.facilitySelectionOutline);
-      this.facilitySelectionOutline.geometry.dispose();
-      (this.facilitySelectionOutline.material as THREE.Material).dispose();
-      this.facilitySelectionOutline = undefined;
-    }
-    this.authSubscription?.unsubscribe();
     this.disposableGeometries.forEach((geom) => geom.dispose());
     this.disposableMaterials.forEach((mat) => mat.dispose());
     this.disposableTextures.forEach((tex) => tex.dispose());
+    this.authSubscription?.unsubscribe();
+    this.facilitySelectionOutline?.geometry.dispose?.();
+    if (this.facilitySelectionOutline) {
+      (this.facilitySelectionOutline.material as THREE.Material).dispose?.();
+    }
+    if (this.layoutRefreshHandle) {
+      window.clearInterval(this.layoutRefreshHandle);
+      this.layoutRefreshHandle = undefined;
+    }
   }
 
-  private attachScenePointerEvents() {
-    if (this.pointerEventsAttached) {
-      return;
-    }
+  private attachInputListeners() {
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+  }
+
+  private detachInputListeners() {
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+  }
+
+  private attachPointerEvents() {
+    if (this.pointerEventsAttached) return;
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) {
-      return;
-    }
+    if (!canvas) return;
     this.pointerEventsAttached = true;
     this.zone.runOutsideAngular(() => {
-      canvas.addEventListener('pointermove', this.handleScenePointerMove);
-      canvas.addEventListener('click', this.handleScenePointerClick);
+      canvas.addEventListener('pointermove', this.pointerMoveHandler);
+      canvas.addEventListener('click', this.pointerClickHandler);
     });
   }
 
-  private detachScenePointerEvents() {
-    if (!this.pointerEventsAttached) {
-      return;
-    }
-    this.pointerEventsAttached = false;
+  private detachPointerEvents() {
+    if (!this.pointerEventsAttached) return;
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) {
-      return;
-    }
-    canvas.removeEventListener('pointermove', this.handleScenePointerMove);
-    canvas.removeEventListener('click', this.handleScenePointerClick);
+    if (!canvas) return;
+    this.pointerEventsAttached = false;
+    canvas.removeEventListener('pointermove', this.pointerMoveHandler);
+    canvas.removeEventListener('click', this.pointerClickHandler);
   }
 
-  @HostListener('window:keydown', ['$event'])
-  onWindowKeyDown(event: KeyboardEvent) {
+  private handleKeyDown = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     let handled = false;
     if (key === 'w') {
@@ -295,18 +318,15 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.cameraKeyState.right = true;
       handled = true;
     } else if (key === 'i') {
-      if (!event.repeat) {
-        this.zone.run(() => this.toggleInfoOverlay());
-      }
+      this.toggleInfoOverlay(event);
       handled = true;
     }
     if (handled) {
       event.preventDefault();
     }
-  }
+  };
 
-  @HostListener('window:keyup', ['$event'])
-  onWindowKeyUp(event: KeyboardEvent) {
+  private handleKeyUp = (event: KeyboardEvent) => {
     const key = event.key.toLowerCase();
     if (key === 'w') {
       this.cameraKeyState.forward = false;
@@ -317,7 +337,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     } else if (key === 'd') {
       this.cameraKeyState.right = false;
     }
-  }
+  };
 
   toggleFullscreen() {
     const wrapper = this.wrapperRef?.nativeElement;
@@ -335,831 +355,115 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.fullscreenActive = !!document.fullscreenElement;
   };
 
+  private toggleInfoOverlay(event?: KeyboardEvent) {
+    if (event?.repeat) return;
+    this.infoOverlayVisible = !this.infoOverlayVisible;
+    if (this.infoOverlayVisible) {
+      if (!this.selectedFacility) {
+        this.selectedFacility = this.hoveredFacility ?? this.facilityHotspots[0];
+      }
+      if (this.selectedFacility) {
+        this.refreshFacilityInfo(this.selectedFacility);
+      }
+    } else {
+      this.facilityInfoCard = undefined;
+      this.cdr.detectChanges();
+    }
+  }
+
   closeInfoOverlay() {
+    if (!this.infoOverlayVisible) return;
     this.infoOverlayVisible = false;
     this.facilityInfoCard = undefined;
     this.cdr.detectChanges();
   }
 
-  private openInfoOverlay() {
-    this.infoOverlayVisible = true;
-    if (!this.selectedFacility) {
-      if (this.hoveredFacility) {
-        this.setSelectedFacility(this.hoveredFacility, false);
-      } else {
-        const fallback = this.findGenericIntersection();
-        if (fallback) {
-          this.setSelectedFacility(this.buildGenericFacility(fallback), false);
-        }
+  private onScenePointerMove(event: PointerEvent) {
+    this.updatePointer(event);
+    const hovered = this.pickFacility();
+    if (hovered?.id !== this.hoveredFacility?.id) {
+      this.hoveredFacility = hovered;
+      const canvas = this.canvasRef?.nativeElement;
+      if (canvas) {
+        canvas.style.cursor = hovered ? 'pointer' : 'grab';
+      }
+      if (!this.selectedFacility || hovered?.id !== this.selectedFacility.id) {
+        this.highlightFacility(hovered);
       }
     }
-    if (this.selectedFacility) {
-      this.refreshFacilityInfo(this.selectedFacility);
-    }
-    this.cdr.detectChanges();
-  }
-
-  private toggleInfoOverlay() {
-    if (this.infoOverlayVisible) {
-      this.closeInfoOverlay();
-      return;
-    }
-    this.openInfoOverlay();
-  }
-
-  private onScenePointerMove(event: PointerEvent) {
-    this.updatePointerFromEvent(event);
-    const hovered = this.findFacilityIntersection();
-    this.setHoveredFacility(hovered);
   }
 
   private onScenePointerClick(event: MouseEvent) {
-    this.updatePointerFromEvent(event);
-    const picked = this.findFacilityIntersection();
+    this.updatePointer(event);
+    const picked = this.pickFacility();
     if (picked) {
-      this.zone.run(() => this.setSelectedFacility(picked));
-      return;
-    }
-    const fallbackObject = this.findGenericIntersection();
-    if (fallbackObject) {
-      const generic = this.buildGenericFacility(fallbackObject);
-      this.zone.run(() => this.setSelectedFacility(generic));
+      this.setSelectedFacility(picked);
     }
   }
 
-  private updatePointerFromEvent(event: PointerEvent | MouseEvent) {
+  private updatePointer(event: PointerEvent | MouseEvent) {
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) {
-      return;
-    }
+    if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     this.pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   }
 
-  private findFacilityIntersection(): FacilityHotspot | undefined {
-    if (!this.camera || !this.facilityHitTargets.length) {
-      return undefined;
-    }
+  private pickFacility(): FacilityHotspot | undefined {
+    if (!this.camera || !this.facilityHotspots.length) return undefined;
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const intersections = this.raycaster.intersectObjects(this.facilityHitTargets, true);
-    for (const hit of intersections) {
-      let node: THREE.Object3D | null = hit.object;
-      while (node) {
-        const facility = this.facilityLookup.get(node);
-        if (facility) {
-          return facility;
-        }
-        node = node.parent;
+    const objects = this.facilityHotspots.map((f) => f.object);
+    const hit = this.raycaster.intersectObjects(objects, true)[0];
+    if (!hit) return undefined;
+    let target: THREE.Object3D | null = hit.object;
+    while (target) {
+      const facility = this.facilityLookup.get(target);
+      if (facility) {
+        return facility;
       }
+      target = target.parent;
     }
     return undefined;
   }
 
-  private findGenericIntersection(): THREE.Object3D | undefined {
-    if (!this.camera) {
-      return undefined;
-    }
-    this.raycaster.setFromCamera(this.pointer, this.camera);
-    const intersections = this.raycaster.intersectObjects(this.scene.children, true);
-    const hit = intersections.find((i) => i.object && i.object.visible);
-    return hit?.object;
-  }
-
-  private setHoveredFacility(facility?: FacilityHotspot) {
-    if (facility === this.hoveredFacility) {
-      return;
-    }
-    if (this.hoveredFacility && this.hoveredFacility !== this.selectedFacility) {
-      this.applyFacilityOverlayState(this.hoveredFacility, 'idle');
-    }
-    this.hoveredFacility = facility;
-    if (this.hoveredFacility && this.hoveredFacility !== this.selectedFacility) {
-      this.applyFacilityOverlayState(this.hoveredFacility, 'hover');
-    }
-    const canvas = this.canvasRef?.nativeElement;
-    if (canvas) {
-      canvas.style.cursor = facility ? 'pointer' : 'grab';
-    }
-  }
-
-  private setSelectedFacility(facility?: FacilityHotspot, animate = true) {
-    if (this.selectedFacility === facility) {
-      if (facility && animate) {
-        this.startCameraFocusTransition(facility.focusPoint);
-      }
-      if (facility) {
-        this.refreshFacilityInfo(facility);
-      }
-      return;
-    }
-    if (this.selectedFacility) {
-      this.applyFacilityOverlayState(this.selectedFacility, 'idle');
-    }
+  private setSelectedFacility(facility: FacilityHotspot) {
     this.selectedFacility = facility;
-    if (this.selectedFacility) {
-      this.applyFacilityOverlayState(this.selectedFacility, 'active');
-      this.updateFacilitySelectionOutline(this.selectedFacility.highlightObject);
-      if (animate) {
-        this.startCameraFocusTransition(this.selectedFacility.focusPoint);
-      }
-    } else {
-      this.updateFacilitySelectionOutline(undefined);
-    }
-    if (this.hoveredFacility && this.hoveredFacility !== this.selectedFacility) {
-      this.applyFacilityOverlayState(this.hoveredFacility, 'hover');
-    }
-    if (this.infoOverlayVisible && this.selectedFacility) {
-      this.refreshFacilityInfo(this.selectedFacility);
+    this.focusCameraOn(facility);
+    this.highlightFacility(facility);
+    if (this.infoOverlayVisible) {
+      this.refreshFacilityInfo(facility);
     }
   }
 
-  private applyFacilityOverlayState(facility: FacilityHotspot, state: 'idle' | 'hover' | 'active') {
-    if (!facility.overlayMaterial) {
-      return;
-    }
-    const meta = facility.overlayMaterial.userData as FacilityOverlayMetadata | undefined;
-    const base = meta?.baseOpacity ?? 0.08;
-    const hover = meta?.hoverOpacity ?? 0.2;
-    const active = meta?.activeOpacity ?? 0.32;
-    const next =
-      state === 'active' ? active : state === 'hover' ? hover : base;
-    facility.overlayMaterial.opacity = next;
-  }
-
-  private refreshFacilityInfo(facility?: FacilityHotspot) {
-    const requestId = ++this.facilityInfoRequestId;
-    if (!facility) {
-      this.facilityInfoCard = undefined;
-      this.cdr.detectChanges();
-      return;
-    }
-    const immediateCard = this.createBaseInfoCard(facility);
-    this.facilityInfoCard = immediateCard;
-    this.cdr.detectChanges();
-    this.buildFacilityInfoCard(facility)
-      .then((card) => {
-        if (this.facilityInfoRequestId !== requestId) {
-          return;
-        }
-        this.facilityInfoCard = card;
-        this.cdr.detectChanges();
-      })
-      .catch((error) => {
-        console.warn('[FinalScene] Falha ao obter dados de instalação', error);
-        if (this.facilityInfoRequestId !== requestId) {
-          return;
-        }
-        this.facilityInfoCard = {
-          title: facility.name,
-          type: facility.type,
-          description: 'Sem dados atualizados para esta instalação.',
-          generalStats: [{ label: 'Estado', value: 'Não foi possível sincronizar com o backend.' }],
-          updatedAt: new Date(),
-          warning: 'Volte a tentar mais tarde para atualizar a informação.',
-          restrictedNote: !this.canViewRestrictedInfo
-            ? 'Informação operacional restrita a Autoridades Portuárias e Operadores Logísticos.'
-            : undefined,
-        };
-        this.cdr.detectChanges();
-      });
-  }
-
-  private createBaseInfoCard(facility: FacilityHotspot): FacilityInfoCard {
-    const center = this.getObjectCenter(facility.highlightObject);
-    return {
-      title: facility.name,
-      type: facility.type,
-      description: 'A obter dados atualizados...',
-      generalStats: [
-        {
-          label: 'Coordenadas',
-          value: `${this.formatNumber(center.x)} / ${this.formatNumber(center.y)} / ${this.formatNumber(center.z)}`,
-        },
-      ],
-      updatedAt: new Date(),
-    };
-  }
-
-  private buildFacilityInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
-    switch (facility.type) {
-      case 'dock':
-        return this.buildDockInfoCard(facility);
-      case 'yard':
-        return this.buildYardInfoCard(facility);
-      case 'warehouse':
-        return this.buildWarehouseInfoCard(facility);
-      case 'generic':
-        return this.buildGenericInfoCard(facility);
-      default:
-        return this.buildGenericInfoCard(facility);
-    }
-  }
-
-  private async buildDockInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
-    const layoutDock = facility.layoutDock;
-    let dockDetails: DockDTO | null = null;
-    if (layoutDock?.dockId) {
-      try {
-        dockDetails = await this.docksService.getById(layoutDock.dockId);
-      } catch (err) {
-        console.warn('[FinalScene] Falha ao carregar detalhes do cais', err);
-      }
-    }
-    const generalStats: InfoStat[] = [];
-    if (dockDetails) {
-      generalStats.push({ label: 'Comprimento útil', value: `${this.formatNumber(dockDetails.length)} m` });
-      generalStats.push({ label: 'Largura', value: `${this.formatNumber(dockDetails.depth)} m` });
-      generalStats.push({ label: 'Calado máx.', value: `${this.formatNumber(dockDetails.maxDraft)} m` });
-      if (dockDetails.location) {
-        generalStats.push({ label: 'Localização', value: dockDetails.location });
-      }
-    } else if (layoutDock) {
-      generalStats.push({ label: 'Extensão', value: `${this.formatNumber(layoutDock.size.length)} m` });
-      generalStats.push({ label: 'Faixa operacional', value: `${this.formatNumber(layoutDock.size.width)} m` });
-    } else {
-      generalStats.push({ label: 'Configuração', value: 'Terminal demonstrativo' });
-    }
-    const assignment = this.findDockAssignment(layoutDock?.dockId);
-    const restrictedStats: InfoStat[] = [];
-    if (this.canViewRestrictedInfo && assignment) {
-      restrictedStats.push({
-        label: 'Navio',
-        value: assignment.vesselName ?? assignment.vesselId,
-      });
-      if (assignment.status) {
-        restrictedStats.push({ label: 'Estado', value: assignment.status });
-      }
-      restrictedStats.push({ label: 'ETA', value: this.formatDate(assignment.arrivalDate) });
-      if (assignment.departureDate) {
-        restrictedStats.push({ label: 'ETD', value: this.formatDate(assignment.departureDate) });
-      }
-      restrictedStats.push({
-        label: 'Sequência',
-        value: `#${(assignment.sequenceOnDock ?? 0) + 1}`,
-      });
-    }
-    return {
-      title: dockDetails?.name ?? layoutDock?.name ?? facility.name,
-      type: 'dock',
-      description:
-        dockDetails?.location ??
-        (layoutDock ? `Terminal operativo com ${this.formatNumber(layoutDock.size.length)} m` : 'Terminal operativo'),
-      generalStats,
-      restrictedStats: restrictedStats.length ? restrictedStats : undefined,
-      operations: this.canViewRestrictedInfo && assignment ? this.describeDockOperations(assignment) : undefined,
-      updatedAt: new Date(),
-      restrictedNote: !this.canViewRestrictedInfo
-        ? 'Dados operacionais visíveis apenas para Autoridades Portuárias e Operadores Logísticos.'
-        : undefined,
-    };
-  }
-
-  private async buildYardInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
-    const area = facility.layoutArea;
-    const storage = area?.storageAreaId ? await this.tryGetStorageArea(area.storageAreaId) : null;
-    const generalStats: InfoStat[] = [];
-    if (area) {
-      generalStats.push({ label: 'Designação', value: area.name ?? 'Zona de armazenamento' });
-      generalStats.push({ label: 'Dimensão', value: `${this.formatNumber(area.width)} x ${this.formatNumber(area.depth)} m` });
-    }
-    if (storage?.location) {
-      generalStats.push({ label: 'Localização', value: storage.location });
-    }
-    if (storage?.type) {
-      generalStats.push({ label: 'Tipo', value: storage.type });
-    }
-    const restrictedStats: InfoStat[] = [];
-    if (this.canViewRestrictedInfo && storage) {
-      restrictedStats.push({
-        label: 'Capacidade utilizada',
-        value: `${this.formatNumber(storage.currentOccupancyTEU)} / ${this.formatNumber(storage.maxCapacityTEU)} TEU (${this.formatPercentage(storage.currentOccupancyTEU, storage.maxCapacityTEU)})`,
-      });
-      if (storage.servedDockIds?.length) {
-        restrictedStats.push({
-          label: 'Docas servidas',
-          value: storage.servedDockIds.map((id) => `#${id}`).join(', '),
-        });
-      }
-    }
-    return {
-      title: facility.name,
-      type: 'yard',
-      description:
-        storage?.location ??
-        (area ? `Área de contentores com ${this.formatNumber(area.width)}x${this.formatNumber(area.depth)} m` : 'Zona logística'),
-      generalStats,
-      restrictedStats: restrictedStats.length ? restrictedStats : undefined,
-      operations: this.canViewRestrictedInfo && storage ? this.describeYardOperations(storage) : undefined,
-      updatedAt: new Date(),
-      restrictedNote: !this.canViewRestrictedInfo
-        ? 'Dados de capacidade apenas para Autoridades Portuárias e Operadores Logísticos.'
-        : undefined,
-    };
-  }
-
-  private async buildWarehouseInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
-    const warehouse = facility.layoutWarehouse;
-    const storage = warehouse?.storageAreaId ? await this.tryGetStorageArea(warehouse.storageAreaId) : null;
-    const generalStats: InfoStat[] = [];
-    if (warehouse) {
-      generalStats.push({
-        label: 'Dimensão',
-        value: `${this.formatNumber(warehouse.size.width)} x ${this.formatNumber(warehouse.size.depth)} x ${this.formatNumber(
-          warehouse.size.height
-        )} m`,
-      });
-      generalStats.push({
-        label: 'Posição',
-        value: `(${this.formatNumber(warehouse.position.x)}, ${this.formatNumber(warehouse.position.z)})`,
-      });
-    }
-    if (storage?.location) {
-      generalStats.push({ label: 'Localização', value: storage.location });
-    }
-    const restrictedStats: InfoStat[] = [];
-    if (this.canViewRestrictedInfo && storage) {
-      restrictedStats.push({
-        label: 'Capacidade (TEU)',
-        value: `${this.formatNumber(storage.currentOccupancyTEU)} / ${this.formatNumber(storage.maxCapacityTEU)}`,
-      });
-      if (storage.type) {
-        restrictedStats.push({ label: 'Tipologia', value: storage.type });
-      }
-    }
-    return {
-      title: facility.name,
-      type: 'warehouse',
-      description:
-        storage?.location ??
-        (warehouse ? `Armazém modular com pé-direito de ${this.formatNumber(warehouse.size.height)} m` : 'Armazém logístico'),
-      generalStats,
-      restrictedStats: restrictedStats.length ? restrictedStats : undefined,
-      operations: this.canViewRestrictedInfo && storage ? this.describeWarehouseOperations(storage) : undefined,
-      updatedAt: new Date(),
-      restrictedNote: !this.canViewRestrictedInfo
-        ? 'Dados de operação interna apenas para Autoridades Portuárias e Operadores Logísticos.'
-        : undefined,
-    };
-  }
-
-  private async buildGenericInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
-    const center = this.getObjectCenter(facility.highlightObject);
-    const generalStats: InfoStat[] = [
-      { label: 'Coordenadas', value: `${this.formatNumber(center.x)} / ${this.formatNumber(center.y)} / ${this.formatNumber(center.z)}` },
-    ];
-    const sizeBox = new THREE.Box3().setFromObject(facility.highlightObject);
-    if (!sizeBox.isEmpty()) {
-      const size = sizeBox.getSize(new THREE.Vector3());
-      generalStats.push({
-        label: 'Dimensão aprox.',
-        value: `${this.formatNumber(size.x)} x ${this.formatNumber(size.y)} x ${this.formatNumber(size.z)} m`,
-      });
-    }
-    return {
-      title: facility.name,
-      type: 'generic',
-      description: 'Elemento visual do cenário. Sem dados adicionais disponíveis.',
-      generalStats,
-      updatedAt: new Date(),
-    };
-  }
-
-  private async tryGetStorageArea(id: number): Promise<StorageAreaDTO | null> {
-    try {
-      return await this.storageAreasService.getById(id);
-    } catch (err) {
-      console.warn('[FinalScene] Falha ao obter StorageArea', id, err);
-      return null;
-    }
-  }
-
-  private findDockAssignment(dockId?: number): DockedVesselPlacement | undefined {
-    if (!dockId || !this.layoutData?.activeVessels?.length) {
-      return undefined;
-    }
-    const matches = this.layoutData.activeVessels.filter((v) => v.dockId === dockId);
-    if (!matches.length) {
-      return undefined;
-    }
-    return matches.sort((a, b) => (a.sequenceOnDock ?? 0) - (b.sequenceOnDock ?? 0))[0];
-  }
-
-  private describeDockOperations(assignment: DockedVesselPlacement): string[] {
-    const operations: string[] = [];
-    const vessel = assignment.vesselName ?? assignment.vesselId;
-    operations.push(`Operação com ${vessel}`);
-    if (assignment.status) {
-      operations.push(`Estado reportado: ${assignment.status}`);
-    }
-    if (assignment.departureDate) {
-      operations.push(`Preparar ETD ${this.formatDate(assignment.departureDate)}`);
-    }
-    return operations;
-  }
-
-  private describeYardOperations(area: StorageAreaDTO): string[] {
-    const operations: string[] = [];
-    const ratio = area.maxCapacityTEU > 0 ? area.currentOccupancyTEU / area.maxCapacityTEU : 0;
-    if (ratio >= 0.9) {
-      operations.push('Prioridade máxima à expedição e rotação de contentores.');
-    } else if (ratio >= 0.6) {
-      operations.push('Balancear receção e expedição para manter o nível saudável.');
-    } else {
-      operations.push('Capacidade disponível para novas receções.');
-    }
-    if (area.servedDockIds?.length) {
-      operations.push(`Coordenar fluxos com docas ${area.servedDockIds.map((id) => `#${id}`).join(', ')}.`);
-    }
-    return operations;
-  }
-
-  private describeWarehouseOperations(area: StorageAreaDTO): string[] {
-    const operations: string[] = this.describeYardOperations(area);
-    operations.push('Monitorizar climatização e inventário interno.');
-    return operations;
-  }
-
-  private formatNumber(value: number | undefined, fractionDigits = 0): string {
-    if (value === undefined || value === null || Number.isNaN(value)) {
-      return '—';
-    }
-    return value.toLocaleString('pt-PT', {
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    });
-  }
-
-  private formatPercentage(value: number, total: number): string {
-    if (!Number.isFinite(value) || !Number.isFinite(total) || total === 0) {
-      return '0%';
-    }
-    return `${((value / total) * 100).toFixed(0)}%`;
-  }
-
-  private formatDate(value?: string | null): string {
-    if (!value) {
-      return '—';
-    }
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-    return new Intl.DateTimeFormat('pt-PT', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
-  }
-
-  private updateRestrictedAccessFlag() {
-    this.canViewRestrictedInfo = this.auth.hasAny(['authority', 'operator']);
-  }
-
-  private deriveObjectLabel(object: THREE.Object3D): string {
-    const tryName = (node?: THREE.Object3D | null) =>
-      node?.name && node.name.trim() ? node.name.trim() : undefined;
-    return (
-      tryName(object) ||
-      tryName(object.parent) ||
-      (object.type ? `Elemento ${object.type}` : 'Elemento 3D')
-    );
-  }
-
-  private updateFacilitySelectionOutline(target?: THREE.Object3D) {
-    if (!target) {
-      if (this.facilitySelectionOutline) {
-        this.facilitySelectionOutline.visible = false;
-      }
-      return;
-    }
-    if (!this.facilitySelectionOutline) {
-      this.facilitySelectionOutline = new THREE.BoxHelper(target, 0x7df4c0);
-      this.scene.add(this.facilitySelectionOutline);
-    } else {
-      this.facilitySelectionOutline.setFromObject(target);
-      this.facilitySelectionOutline.visible = true;
-    }
-  }
-
-  private startCameraFocusTransition(focus: THREE.Vector3) {
-    if (!this.camera || !this.controls) {
-      return;
-    }
-    const startTarget = this.controls.target.clone();
+  private focusCameraOn(facility: FacilityHotspot) {
+    if (!this.camera || !this.controls) return;
+    const focus = facility.focus ?? this.getObjectCenter(facility.object);
+    const offset = this.camera.position.clone().sub(this.controls.target);
     const startPos = this.camera.position.clone();
-    const horizontalOffset = new THREE.Vector3(
-      startPos.x - startTarget.x,
-      0,
-      startPos.z - startTarget.z
-    );
-    if (horizontalOffset.lengthSq() < 25) {
-      horizontalOffset.set(0, 0, 400);
-    }
-    const verticalDelta = startPos.y - startTarget.y;
+    const startTarget = this.controls.target.clone();
     const endTarget = focus.clone();
-    const endPos = new THREE.Vector3(
-      endTarget.x + horizontalOffset.x,
-      endTarget.y + verticalDelta,
-      endTarget.z + horizontalOffset.z
-    );
+    const endPos = focus.clone().add(offset);
     this.cameraTween = {
       startPos,
       endPos,
       startTarget,
       endTarget,
       startTime: performance.now(),
-      duration: 750,
+      duration: 650,
     };
   }
 
-  private updateCameraTween() {
-    if (!this.cameraTween || !this.camera || !this.controls) {
+  private highlightFacility(target?: FacilityHotspot) {
+    if (!target) {
+      if (this.facilitySelectionOutline) this.facilitySelectionOutline.visible = false;
       return;
     }
-    const now = performance.now();
-    const elapsed = now - this.cameraTween.startTime;
-    const t = Math.min(1, elapsed / this.cameraTween.duration);
-    const eased = 1 - Math.pow(1 - t, 3);
-    this.camera.position.lerpVectors(this.cameraTween.startPos, this.cameraTween.endPos, eased);
-    this.controls.target.lerpVectors(this.cameraTween.startTarget, this.cameraTween.endTarget, eased);
-    if (t >= 1) {
-      this.cameraTween = undefined;
+    if (!this.facilitySelectionOutline) {
+      this.facilitySelectionOutline = new THREE.BoxHelper(target.object, 0x06d6a0);
+      this.scene.add(this.facilitySelectionOutline);
     }
-  }
-
-  private rebuildFacilityHotspots(layout?: PortLayoutDTO) {
-    const previousSelectionId = this.selectedFacility?.id;
-    this.clearFacilityHotspots(false);
-    const docks = layout?.docks ?? [];
-    this.createDockFacilityHotspots(docks);
-    const landAreas = layout?.landAreas ?? [];
-    this.createYardFacilityHotspots(landAreas);
-    this.registerWarehouseHotspots(layout?.warehouses ?? []);
-    if (previousSelectionId) {
-      const restored = this.facilityHotspots.find((f) => f.id === previousSelectionId);
-      if (restored) {
-        this.setSelectedFacility(restored, false);
-      } else {
-        this.setSelectedFacility(undefined, false);
-      }
-    } else {
-      this.setSelectedFacility(undefined, false);
-    }
-  }
-
-  private clearFacilityHotspots(resetSelection = true) {
-    for (const overlay of this.facilityOverlayMeshes) {
-      this.scene.remove(overlay);
-      overlay.geometry.dispose();
-      overlay.material.dispose();
-    }
-    this.facilityOverlayMeshes = [];
-    this.facilityLookup.clear();
-    this.facilityHitTargets = [];
-    this.facilityHotspots = [];
-    this.hoveredFacility = undefined;
-    this.selectedFacility = undefined;
-    this.updateFacilitySelectionOutline(undefined);
-    if (resetSelection) {
-      this.refreshFacilityInfo(undefined);
-    }
-    if (resetSelection) {
-      const canvas = this.canvasRef?.nativeElement;
-      if (canvas) {
-        canvas.style.cursor = 'grab';
-      }
-    }
-  }
-
-  private createDockFacilityHotspots(docks: DockLayout[]) {
-    const deckSpan = this.deckWidth - this.deckMarginToEdge * 2;
-    const depth = Math.max(120, this.apronDepth * 0.9);
-    if (!docks.length) {
-      const overlay = this.createFacilityOverlay(
-        deckSpan,
-        depth,
-        new THREE.Vector3(0, this.deckHeight + 2, this.quayEdgeZ - depth / 2),
-        0x25b4ff,
-        { baseOpacity: 0.08, hoverOpacity: 0.2, activeOpacity: 0.35 }
-      );
-      this.registerFacilityHotspot({
-        id: 'dock-default',
-        name: 'Terminal Principal',
-        type: 'dock',
-        hitObject: overlay.mesh,
-        highlightObject: overlay.mesh,
-        overlayMaterial: overlay.material,
-      });
-      return;
-    }
-    const span = this.dockSpanInfo ?? this.computeDockSpan(docks);
-    docks.forEach((dock, index) => {
-      const widthRatio = span.span > 0 ? dock.size.length / span.span : 1 / docks.length;
-      const width = THREE.MathUtils.clamp(widthRatio * deckSpan, 140, deckSpan);
-      const centerX = this.mapDockToDeckX(dock);
-      const overlay = this.createFacilityOverlay(
-        width,
-        depth,
-        new THREE.Vector3(centerX, this.deckHeight + 2, this.quayEdgeZ - depth / 2),
-        0x25b4ff,
-        { baseOpacity: 0.08, hoverOpacity: 0.2, activeOpacity: 0.35 }
-      );
-      this.registerFacilityHotspot({
-        id: `dock-${dock.dockId ?? index}`,
-        name: dock.name ?? `Cais ${dock.dockId ?? index + 1}`,
-        type: 'dock',
-        hitObject: overlay.mesh,
-        highlightObject: overlay.mesh,
-        overlayMaterial: overlay.material,
-        layoutDock: dock,
-      });
-    });
-  }
-
-  private createYardFacilityHotspots(areas: LandAreaLayout[]) {
-    const bounds = this.computeYardBounds();
-    if (!bounds) {
-      return;
-    }
-    if (areas.length) {
-      areas.forEach((area, index) => {
-        const overlay = this.createFacilityOverlay(
-          Math.max(40, area.width),
-          Math.max(40, area.depth),
-          new THREE.Vector3(area.x, bounds.center.y, area.z),
-          0xffb703,
-          { baseOpacity: 0.06, hoverOpacity: 0.18, activeOpacity: 0.3 }
-        );
-        this.registerFacilityHotspot({
-          id: `yard-${area.storageAreaId ?? index}`,
-          name: area.name ?? `Zona ${index + 1}`,
-          type: 'yard',
-          hitObject: overlay.mesh,
-          highlightObject: overlay.mesh,
-          overlayMaterial: overlay.material,
-          layoutArea: area,
-        });
-      });
-      return;
-    }
-
-    const slots = 3;
-    const gap = 18;
-    const totalDepth = bounds.depth - gap * (slots - 1);
-    const slotDepth = Math.max(80, totalDepth / slots);
-    const startZ = bounds.center.z - (slotDepth * slots + gap * (slots - 1)) / 2 + slotDepth / 2;
-    for (let index = 0; index < slots; index++) {
-      const center = new THREE.Vector3(bounds.center.x, bounds.center.y, startZ + index * (slotDepth + gap));
-      const overlay = this.createFacilityOverlay(bounds.width, slotDepth, center, 0xffb703, {
-        baseOpacity: 0.06,
-        hoverOpacity: 0.18,
-        activeOpacity: 0.3,
-      });
-      this.registerFacilityHotspot({
-        id: `yard-${index}`,
-        name: `Zona de Contentores ${index + 1}`,
-        type: 'yard',
-        hitObject: overlay.mesh,
-        highlightObject: overlay.mesh,
-        overlayMaterial: overlay.material,
-      });
-    }
-  }
-
-  private registerWarehouseHotspots(warehouses: WarehouseLayout[]) {
-    if (!this.warehouseInstances.length) {
-      return;
-    }
-    this.warehouseInstances.forEach((warehouse, index) => {
-      const layoutWarehouse = warehouses[index];
-      const label = layoutWarehouse?.name ?? `Armazém ${String.fromCharCode(65 + index)}`;
-      const id = layoutWarehouse?.storageAreaId
-        ? `warehouse-${layoutWarehouse.storageAreaId}`
-        : `warehouse-${index}`;
-      this.registerFacilityHotspot({
-        id,
-        name: label,
-        type: 'warehouse',
-        hitObject: warehouse,
-        highlightObject: warehouse,
-        layoutWarehouse,
-      });
-    });
-  }
-
-  private createFacilityOverlay(
-    width: number,
-    depth: number,
-    center: THREE.Vector3,
-    color: number,
-    metadata?: FacilityOverlayMetadata
-  ) {
-    const geometry = new THREE.PlaneGeometry(width, depth);
-    const material = new THREE.MeshBasicMaterial({
-      color,
-      transparent: true,
-      opacity: 0.08,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }) as FacilityOverlayMaterial;
-    material.userData = metadata ?? { baseOpacity: 0.08 };
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.x = -Math.PI / 2;
-    mesh.position.copy(center);
-    mesh.renderOrder = 2;
-    this.scene.add(mesh);
-    this.facilityOverlayMeshes.push(mesh);
-    return { mesh, material };
-  }
-
-  private registerFacilityHotspot(config: {
-    id: string;
-    name: string;
-    type: FacilityType;
-    hitObject: THREE.Object3D;
-    highlightObject?: THREE.Object3D;
-    focusPoint?: THREE.Vector3;
-    overlayMaterial?: FacilityOverlayMaterial;
-    layoutDock?: DockLayout;
-    layoutArea?: LandAreaLayout;
-    layoutWarehouse?: WarehouseLayout;
-  }) {
-    const highlightObject = config.highlightObject ?? config.hitObject;
-    const focusPoint = config.focusPoint ?? this.computeObjectCenter(highlightObject);
-    const facility: FacilityHotspot = {
-      id: config.id,
-      name: config.name,
-      type: config.type,
-      hitObject: config.hitObject,
-      highlightObject,
-      focusPoint,
-      overlayMaterial: config.overlayMaterial,
-      layoutDock: config.layoutDock,
-      layoutArea: config.layoutArea,
-      layoutWarehouse: config.layoutWarehouse,
-    };
-    this.facilityHotspots.push(facility);
-    this.facilityHitTargets.push(config.hitObject);
-    config.hitObject.traverse((obj) => this.facilityLookup.set(obj, facility));
-  }
-
-  private buildGenericFacility(object: THREE.Object3D): FacilityHotspot {
-    const focusPoint = this.getObjectCenter(object);
-    const readableName = this.deriveObjectLabel(object);
-    return {
-      id: `generic-${object.uuid}`,
-      name: readableName,
-      type: 'generic',
-      hitObject: object,
-      highlightObject: object,
-      focusPoint,
-    };
-  }
-
-  private computeObjectCenter(object: THREE.Object3D): THREE.Vector3 {
-    const box = new THREE.Box3().setFromObject(object);
-    if (box.isEmpty()) {
-      const position = new THREE.Vector3();
-      object.getWorldPosition(position);
-      return position;
-    }
-    return box.getCenter(new THREE.Vector3());
-  }
-
-  private getObjectCenter(object: THREE.Object3D, fallback?: THREE.Vector3): THREE.Vector3 {
-    const box = new THREE.Box3().setFromObject(object);
-    if (!box.isEmpty()) {
-      return box.getCenter(new THREE.Vector3());
-    }
-    if (fallback) {
-      return fallback.clone();
-    }
-    const position = new THREE.Vector3();
-    object.getWorldPosition(position);
-    return position;
-  }
-
-  private computeYardBounds(): { width: number; depth: number; center: THREE.Vector3 } | undefined {
-    if (!this.containerLaneX.length || !this.containerLaneZ.length) {
-      return undefined;
-    }
-    const paddingX = this.containerUnitSize.x * 1.4;
-    const paddingZ = this.containerUnitSize.z * 0.8;
-    const minX = Math.min(...this.containerLaneX) - paddingX;
-    const maxX = Math.max(...this.containerLaneX) + paddingX;
-    const minZ = Math.min(...this.containerLaneZ) - paddingZ;
-    const maxZ = Math.max(...this.containerLaneZ) + paddingZ;
-    return {
-      width: maxX - minX,
-      depth: maxZ - minZ,
-      center: new THREE.Vector3(
-        (minX + maxX) / 2,
-        this.deckHeight + 2,
-        (minZ + maxZ) / 2
-      ),
-    };
+    this.facilitySelectionOutline.setFromObject(target.object);
+    this.facilitySelectionOutline.visible = true;
   }
 
   private initRenderer() {
@@ -1168,15 +472,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const width = Math.max(bounds?.width || canvas.clientWidth || window.innerWidth, 640);
     const height = Math.max(bounds?.height || 600, 480);
 
-    this.renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
-      precision: 'mediump',
-    });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.rendererPixelRatioCap));
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(width, height);
-    this.renderer.shadowMap.enabled = this.enableShadows;
+    this.renderer.shadowMap.enabled = true;
 
     this.camera = new THREE.PerspectiveCamera(48, width / height, 1, 6000);
     this.camera.position.set(-900, 520, 720);
@@ -1189,7 +488,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.controls.maxDistance = 2200;
     this.controls.target.set(0, 80, 0);
     this.controls.update();
-    canvas.style.cursor = 'grab';
   }
 
   private buildScene() {
@@ -1218,21 +516,19 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     const sun = new THREE.DirectionalLight(0xfff4da, 2.1);
     sun.position.set(-420, 960, 180);
-    if (this.enableShadows) {
-      sun.castShadow = true;
-      sun.shadow.mapSize.set(2048, 2048);
-      sun.shadow.camera.near = 100;
-      sun.shadow.camera.far = 2500;
-      sun.shadow.camera.left = -1400;
-      sun.shadow.camera.right = 1400;
-      sun.shadow.camera.top = 1200;
-      sun.shadow.camera.bottom = -800;
-    }
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    sun.shadow.camera.near = 100;
+    sun.shadow.camera.far = 2500;
+    sun.shadow.camera.left = -1400;
+    sun.shadow.camera.right = 1400;
+    sun.shadow.camera.top = 1200;
+    sun.shadow.camera.bottom = -800;
     this.scene.add(sun);
   }
 
   private addWater() {
-    this.waterGeom = this.trackGeometry(new THREE.PlaneGeometry(4200, 4200, 140, 140));
+    this.waterGeom = this.trackGeometry(new THREE.PlaneGeometry(4200, 4200, 220, 220));
     const positionAttr = this.waterGeom.getAttribute('position') as THREE.BufferAttribute;
     this.waterBase = new Float32Array(positionAttr.array as Float32Array);
     const waterMaterial = this.trackMaterial(
@@ -1254,9 +550,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const water = new THREE.Mesh(this.waterGeom, waterMaterial);
     water.rotation.x = -Math.PI / 2;
     water.position.y = this.waterLevelY;
-    if (this.enableShadows) {
-      water.receiveShadow = true;
-    }
+    water.receiveShadow = true;
     this.scene.add(water);
   }
 
@@ -1309,6 +603,24 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       bollard.castShadow = true;
       this.scene.add(bollard);
     }
+
+    const dockPlane = new THREE.Mesh(new THREE.PlaneGeometry(this.deckWidth - 180, 220), new THREE.MeshBasicMaterial({ visible: false }));
+    dockPlane.rotation.x = -Math.PI / 2;
+    dockPlane.position.set(0, this.deckHeight + 1, this.quayEdgeZ - 40);
+    this.scene.add(dockPlane);
+    this.registerFacilityHotspot({
+      id: 'dock-primary',
+      name: 'North Pier 1',
+      type: 'dock',
+      object: dockPlane,
+      dockLayout: {
+        dockId: 1,
+        name: 'North Pier 1',
+        position: { x: 0, y: this.deckHeight, z: this.quayEdgeZ },
+        rotationY: 0,
+        size: { length: this.deckWidth, width: 180, height: this.deckHeight },
+      },
+    });
 
   }
 
@@ -1408,7 +720,11 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
     const connectors: number[] = [];
     for (let i = 0; i < laneX.length - 1; i++) {
-      connectors.push((laneX[i] + laneX[i + 1]) / 2);
+      const midpoint = (laneX[i] + laneX[i + 1]) / 2;
+      if (midpoint < 0) {
+        continue;
+      }
+      connectors.push(midpoint);
     }
     connectors.forEach((x) => {
       const width = 45;
@@ -1483,9 +799,20 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         placements.forEach((placement) => {
           const warehouse = this.instantiateWarehouse(prototype, placement);
           this.scene.add(warehouse);
-          this.warehouseInstances.push(warehouse);
+          this.registerFacilityHotspot({
+            id: `warehouse-${placement.position.x}-${placement.position.z}`,
+            name: 'Armazém',
+            type: 'warehouse',
+            object: warehouse,
+            warehouseLayout: {
+              storageAreaId: 0,
+              name: 'Armazém',
+              position: { x: placement.position.x, y: placement.position.y, z: placement.position.z },
+              rotationY: placement.rotation ?? 0,
+              size: { width: placement.size.x, depth: placement.size.z, height: placement.size.y },
+            },
+          });
         });
-        this.rebuildFacilityHotspots(this.layoutData);
       })
       .catch((error) => console.warn('[FinalScene] Falha ao carregar warehouse GLB', error));
   }
@@ -1636,11 +963,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         arr[i + 2] = baseZ + wave * 1.4;
       }
       attr.needsUpdate = true;
-      this.waterNormalCounter++;
-      if (this.waterNormalCounter >= this.waterNormalFrameSkip) {
-        this.waterGeom.computeVertexNormals();
-        this.waterNormalCounter = 0;
-      }
+      this.waterGeom.computeVertexNormals();
     }
 
     this.updateCameraKeyboardMovement(delta);
@@ -1691,6 +1014,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     move.normalize().multiplyScalar(this.cameraMoveSpeed * delta);
     this.camera.position.add(move);
     this.controls.target.add(move);
+  }
+
+  private updateCameraTween() {
+    if (!this.cameraTween || !this.camera || !this.controls) return;
+    const elapsed = performance.now() - this.cameraTween.startTime;
+    const t = Math.min(1, elapsed / this.cameraTween.duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    this.camera.position.lerpVectors(this.cameraTween.startPos, this.cameraTween.endPos, eased);
+    this.controls.target.lerpVectors(this.cameraTween.startTarget, this.cameraTween.endTarget, eased);
+    if (t >= 1) {
+      this.cameraTween = undefined;
+    }
   }
 
   private trackMaterial<T extends THREE.Material>(material: T): T {
@@ -1752,12 +1087,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addContainerFields() {
+    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] = [];
     const laneZ = this.containerLaneZ;
     const laneX = this.containerLaneX;
     const laneHeights = this.containerLaneHeights;
-    const placements: { transforms: THREE.Matrix4[]; color: number }[] = [];
-    const perColor = new Map<number, THREE.Matrix4[]>();
-
     laneZ.forEach((z, idxZ) => {
       laneX.forEach((x, idxX) => {
         const cols = this.containerCols;
@@ -1767,31 +1100,56 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         if (idxZ === 0) {
           maxLevels = Math.max(1, baseMax - idxX - (idxX === 2 ? 2 : idxX));
         }
-        const rotation = placementRotation(idxX, idxZ);
-        this.buildContainerTransforms(cols, rows, maxLevels, idxZ * 19 + idxX * 7).forEach((transform, idx) => {
-          const color = this.pickContainerColor(idxX + idx, idxZ, maxLevels);
-          if (!perColor.has(color)) perColor.set(color, []);
-          const matrix = new THREE.Matrix4()
-            .makeRotationFromEuler(new THREE.Euler(0, rotation, 0))
-            .premultiply(transform);
-          const pos = new THREE.Vector3().setFromMatrixPosition(transform);
-          matrix.setPosition(pos.add(new THREE.Vector3(x, 60, z)));
-          perColor.get(color)!.push(matrix);
-        });
+        maxLevels = Math.min(maxLevels, 3);
+        placements.push({ position: new THREE.Vector3(x, 60, z), cols, rows, maxLevels });
       });
     });
 
-    this.buildInstancedContainers(perColor);
+    this.getContainerStackPrototype()
+      .then((prototype) => {
+        placements.forEach((placement, index) => {
+          const stack = this.buildContainerStack(prototype, placement.cols, placement.rows, placement.maxLevels, index * 13);
+          stack.position.copy(placement.position);
+          stack.rotation.y = placement.rotation ?? 0;
+          stack.updateMatrixWorld(true);
+          this.scene.add(stack);
+        });
+      })
+      .catch((err) => console.error('[FinalScene] Falha ao carregar contentores GLB', err));
 
-    function placementRotation(ix: number, iz: number): number {
-      return (ix % 2 === 0 ? 1 : -1) * 0.05 + (iz % 2 === 0 ? 0.02 : -0.08);
-    }
+    const minX = Math.min(...laneX);
+    const maxX = Math.max(...laneX);
+    const minZ = Math.min(...laneZ);
+    const maxZ = Math.max(...laneZ);
+    const yardWidth = (maxX - minX) + this.containerUnitSize.x * 2.5;
+    const yardDepth = (maxZ - minZ) + this.containerUnitSize.z * 2.5;
+    const yardCenterX = (maxX + minX) / 2;
+    const yardCenterZ = (maxZ + minZ) / 2;
+    const yardPlane = new THREE.Mesh(new THREE.PlaneGeometry(yardWidth, yardDepth), new THREE.MeshBasicMaterial({ visible: false }));
+    yardPlane.rotation.x = -Math.PI / 2;
+    yardPlane.position.set(yardCenterX, 60, yardCenterZ);
+    this.scene.add(yardPlane);
+    this.registerFacilityHotspot({
+      id: 'yard-main',
+      name: 'Zona de Contentores',
+      type: 'yard',
+      object: yardPlane,
+      yardLayout: {
+        storageAreaId: 101,
+        name: 'Yard Principal',
+        width: this.deckWidth - 200,
+        depth: 600,
+        x: 0,
+        z: yardPlane.position.z,
+        y: 0,
+      },
+    });
   }
 
   private addCranes() {
     const offsets = [-360, 360];
     const craneZ = 250;
-    offsets.forEach((x) => {
+    offsets.forEach((x, index) => {
       const crane = createPortalLatticeCraneModel({
         height: 90,
         seawardBoomLength: 150,
@@ -1803,6 +1161,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       crane.scale.setScalar(1.4);
       crane.rotation.y = Math.PI;
       this.scene.add(crane);
+      this.registerFacilityHotspot({
+        id: `crane-${index}`,
+        name: index === 0 ? 'Grua STS Oeste' : 'Grua STS Este',
+        type: 'crane',
+        object: crane,
+        craneSpecs: {
+          designation: 'Portal Lattice Crane',
+          height: 90,
+          gauge: 74,
+          clearance: 70,
+        },
+      });
     });
     if (this.enablePlaceholderCargoVessels) {
       this.placeCargoVessels(offsets);
@@ -1817,22 +1187,34 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private applyLayoutAssignments(layout: PortLayoutDTO) {
     this.layoutData = layout;
+    this.resetFacilityHotspots();
     const docks = layout.docks ?? [];
     this.dockSpanInfo = this.computeDockSpan(docks);
     this.computeDockDeckOverrides(docks);
     this.updateDockLabels(docks);
-    this.rebuildFacilityHotspots(layout);
     this.clearDynamicVessels();
 
-    const vesselsToRender = (layout.activeVessels ?? [])
-      .map((info) => this.buildVesselRenderInfo(info))
-      .filter((entry): entry is VesselRenderInfo => !!entry);
-    if (!vesselsToRender.length || !docks.length) {
+    const classified = (layout.activeVessels ?? [])
+      .filter((v): v is DockedVesselPlacement => !!v && typeof v.dockId === 'number')
+      .map((v) => ({ vessel: v, state: this.getVesselDisplayState(v) }))
+      .filter(
+        (entry): entry is { vessel: DockedVesselPlacement; state: VesselVisualState } =>
+          entry.state !== 'upcoming' && entry.state !== 'departed'
+      );
+
+    if (!classified.length || !docks.length) {
       return;
     }
 
     const dockMap = new Map<number, DockLayout>(docks.map((d) => [d.dockId, d]));
-    this.placeAssignedCargoVesselsFromLayout(vesselsToRender, dockMap);
+    const berthed = classified.filter((entry) => entry.state === 'loading' || entry.state === 'unloading');
+    const waiting = classified.filter((entry) => entry.state === 'waiting');
+    if (berthed.length) {
+      this.placeAssignedCargoVesselsFromLayout(berthed, dockMap);
+    }
+    if (waiting.length) {
+      this.placeWaitingCargoVesselsFromLayout(waiting, dockMap);
+    }
   }
 
   private clearDynamicVessels() {
@@ -1851,6 +1233,22 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.remove(sprite);
     }
     this.dockNameSprites = [];
+  }
+
+  private resetFacilityHotspots() {
+    this.facilityLookup.clear();
+    if (this.persistentFacilityHotspots.length) {
+      this.facilityHotspots = [...this.persistentFacilityHotspots];
+      this.persistentFacilityHotspots.forEach((hotspot) => this.facilityLookup.set(hotspot.object, hotspot));
+    } else {
+      this.facilityHotspots = [];
+    }
+    this.selectedFacility = undefined;
+    this.hoveredFacility = undefined;
+    if (this.facilitySelectionOutline) {
+      this.scene.remove(this.facilitySelectionOutline);
+      this.facilitySelectionOutline = undefined;
+    }
   }
 
   private updateDockLabels(docks: DockLayout[]) {
@@ -1910,49 +1308,133 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private placeAssignedCargoVesselsFromLayout(
-    assignments: VesselRenderInfo[],
+    assignments: { vessel: DockedVesselPlacement; state: VesselVisualState }[],
     dockMap: Map<number, DockLayout>
   ) {
     const ordered = [...assignments].sort((a, b) => {
-      if (a.data.dockId === b.data.dockId) {
-        return (a.data.sequenceOnDock ?? 0) - (b.data.sequenceOnDock ?? 0);
+      const vesselA = a.vessel;
+      const vesselB = b.vessel;
+      if (vesselA.dockId === vesselB.dockId) {
+        return (vesselA.sequenceOnDock ?? 0) - (vesselB.sequenceOnDock ?? 0);
       }
-      return a.data.dockId - b.data.dockId;
+      return vesselA.dockId - vesselB.dockId;
     });
 
     this.getCargoVesselPrototype()
       .then((prototype) => {
         const berthZBase = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance;
         const laneSpacing = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 18;
-        ordered.forEach((info) => {
-          const dock = dockMap.get(info.data.dockId);
+        ordered.forEach((entry) => {
+          const info = entry.vessel;
+          const dock = dockMap.get(info.dockId);
           if (!dock) return;
           const baseX = this.mapDockToDeckX(dock);
-          const seq = typeof info.data.sequenceOnDock === 'number' ? info.data.sequenceOnDock : 0;
+          const seq = typeof info.sequenceOnDock === 'number' ? info.sequenceOnDock : 0;
           const laneIndex = Math.max(0, Math.min(this.maxBerthLanes - 1, seq));
-          const waitingOffset = info.waiting ? this.vesselWaitingExtraOffset : 0;
-          const z = berthZBase + laneIndex * laneSpacing + waitingOffset;
+          const z = berthZBase + laneIndex * laneSpacing;
           const vessel = this.instantiateCargoVessel(prototype);
+          this.applyVesselStatusColor(vessel, entry.state);
           vessel.position.set(baseX, this.waterLevelY + this.cargoVesselFreeboard, z);
           vessel.rotation.y = Math.PI / 2;
           this.scene.add(vessel);
           this.dynamicVesselGroups.push(vessel);
-          this.addVesselLabel(info.data, dock, baseX, z, info.waiting);
+          this.addVesselLabel(info, dock, baseX, z, { status: entry.state });
+          this.registerFacilityHotspot(
+            {
+              id: `vessel-${info.notificationId ?? info.vesselId}-berth-${entry.state}-${Math.random().toString(36).slice(2)}`,
+              name: info.vesselName ?? `Navio ${info.vesselId}`,
+              type: 'vessel',
+              object: vessel,
+              focus: vessel.position.clone(),
+              vesselPlacement: info,
+              vesselState: entry.state,
+              dockName: dock.name ?? `Dock ${dock.dockId}`,
+            },
+            { persistent: false }
+          );
         });
       })
       .catch((err) => console.warn('[FinalScene] Falha ao preparar navios aprovados', err));
   }
 
-  private addVesselLabel(info: DockedVesselPlacement, dock: DockLayout, x: number, z: number, waiting = false) {
-    const statusPrefix = waiting ? 'Aguardando · ' : '';
-    const label = this.createLabelSprite(`${statusPrefix}${info.vesselName ?? info.vesselId} — ${dock.name ?? `Dock ${dock.dockId}`}`, {
-      background: 'rgba(9,25,53,0.92)',
-      color: '#f4f7fb',
+  private placeWaitingCargoVesselsFromLayout(
+    assignments: { vessel: DockedVesselPlacement; state: VesselVisualState }[],
+    dockMap: Map<number, DockLayout>
+  ) {
+    if (!assignments.length) {
+      return;
+    }
+    const waitingOriginX = -1100;
+    const waitingOriginZ = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance + 60;
+    const laneSpacingX = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 120;
+    const laneSpacingZ = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 110;
+    const vesselsSorted = [...assignments].sort(
+      (a, b) => this.getArrivalTime(a.vessel) - this.getArrivalTime(b.vessel)
+    );
+
+    this.getCargoVesselPrototype()
+      .then((prototype) => {
+        vesselsSorted.forEach((entry, idx) => {
+          const info = entry.vessel;
+          const column = idx % 2;
+          const row = Math.floor(idx / 2);
+          const x = waitingOriginX - column * laneSpacingX;
+          const z = waitingOriginZ + row * laneSpacingZ;
+          const vessel = this.instantiateCargoVessel(prototype);
+          this.applyVesselStatusColor(vessel, 'waiting');
+          vessel.position.set(x, this.waterLevelY + this.cargoVesselFreeboard, z);
+          vessel.rotation.y = Math.PI / 2;
+          this.scene.add(vessel);
+          this.dynamicVesselGroups.push(vessel);
+          const dock = dockMap.get(info.dockId);
+          if (dock) {
+            this.addVesselLabel(info, dock, x, z, { status: 'waiting' });
+            this.registerFacilityHotspot(
+              {
+                id: `vessel-${info.notificationId ?? info.vesselId}-waiting-${Math.random().toString(36).slice(2)}`,
+                name: info.vesselName ?? `Navio ${info.vesselId}`,
+                type: 'vessel',
+                object: vessel,
+                focus: vessel.position.clone(),
+                vesselPlacement: info,
+                vesselState: 'waiting',
+                dockName: dock.name ?? `Dock ${dock.dockId}`,
+              },
+              { persistent: false }
+            );
+          }
+        });
+      })
+      .catch((err) => console.warn('[FinalScene] Falha ao preparar navios em espera', err));
+  }
+
+  private addVesselLabel(
+    info: DockedVesselPlacement,
+    dock: DockLayout,
+    x: number,
+    z: number,
+    opts?: { status?: VesselVisualState }
+  ) {
+    const dockName = dock.name ?? `Dock ${dock.dockId}`;
+    let text = `${info.vesselName ?? info.vesselId} — ${dockName}`;
+    if (opts?.status) {
+      text += ` — ${this.vesselStatusText[opts.status]}`;
+    }
+    const background = opts?.status ? this.getStatusCssColor(opts.status) : 'rgba(9,25,53,0.92)';
+    const textColor = opts?.status === 'waiting' ? '#0f1f32' : '#f4f7fb';
+    const label = this.createLabelSprite(text, {
+      background,
+      color: textColor,
       scale: 160,
     });
     label.position.set(x, this.waterLevelY + this.cargoVesselFreeboard + 90, z - this.cargoVesselHalfBeam * 0.4);
     this.scene.add(label);
     this.vesselLabelSprites.push(label);
+  }
+
+  private getStatusCssColor(status: VesselVisualState): string {
+    const hex = this.vesselStatusColors[status];
+    return `#${hex.toString(16).padStart(6, '0')}`;
   }
 
   private createLabelSprite(
@@ -2022,6 +1504,38 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     ctx.restore();
   }
 
+  private getVesselDisplayState(vessel: DockedVesselPlacement): VesselDisplayState {
+    const now = Date.now();
+    const arrival = vessel.arrivalDate ? Date.parse(vessel.arrivalDate) : NaN;
+    const departure = vessel.departureDate ? Date.parse(vessel.departureDate) : NaN;
+    if (!Number.isNaN(departure) && now > departure) {
+      return 'departed';
+    }
+    if (Number.isNaN(arrival)) {
+      return 'loading';
+    }
+    if (now < arrival - this.vesselWaitingLeadMs) {
+      return 'upcoming';
+    }
+    if (now < arrival) {
+      return 'waiting';
+    }
+    if (Number.isNaN(departure) || departure <= arrival) {
+      return 'loading';
+    }
+    const window = departure - arrival;
+    const midpoint = arrival + window / 2;
+    if (now <= midpoint) {
+      return 'unloading';
+    }
+    return 'loading';
+  }
+
+  private getArrivalTime(vessel: DockedVesselPlacement): number {
+    const ts = vessel.arrivalDate ? Date.parse(vessel.arrivalDate) : NaN;
+    return Number.isNaN(ts) ? Infinity : ts;
+  }
+
   private placeCargoVessels(offsets: number[]) {
     this.getCargoVesselPrototype()
       .then((prototype) => {
@@ -2047,6 +1561,28 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return vessel;
   }
 
+  private applyVesselStatusColor(vessel: THREE.Group, status: VesselVisualState) {
+    const tint = new THREE.Color(this.vesselStatusColors[status]);
+    vessel.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        if (Array.isArray(obj.material)) {
+          obj.material = obj.material.map((mat) => this.cloneAndTintMaterial(mat, tint));
+        } else if (obj.material) {
+          obj.material = this.cloneAndTintMaterial(obj.material as THREE.Material, tint);
+        }
+      }
+    });
+  }
+
+  private cloneAndTintMaterial(material: THREE.Material, tint: THREE.Color): THREE.Material {
+    const cloned = material.clone() as THREE.MeshStandardMaterial;
+    if ((cloned as THREE.MeshStandardMaterial).color) {
+      (cloned as THREE.MeshStandardMaterial).color.copy(tint);
+    }
+    cloned.needsUpdate = true;
+    return cloned;
+  }
+
   private buildContainerStack(
     prototype: THREE.Group,
     columns: number,
@@ -2063,7 +1599,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < columns; col++) {
-        const maxAllowed = Math.max(1, maxLevels);
+        const maxAllowed = Math.min(3, Math.max(1, maxLevels));
         const stackHeight = Math.max(2, 1 + ((row + col * 2 + seed) % maxAllowed));
         for (let level = 0; level < stackHeight; level++) {
           const color = this.containerColors[(row + col + level + seed) % this.containerColors.length];
@@ -2081,24 +1617,201 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return group;
   }
 
-  private buildVesselRenderInfo(info: DockedVesselPlacement): VesselRenderInfo | undefined {
-    if (!info || typeof info.dockId !== 'number') {
-      return undefined;
+  private refreshFacilityInfo(facility: FacilityHotspot) {
+    const requestId = ++this.facilityInfoRequestId;
+    this.facilityInfoCard = this.createBaseInfoCard(facility);
+    this.cdr.detectChanges();
+    this.buildFacilityInfoCard(facility)
+      .then((card) => {
+        if (requestId !== this.facilityInfoRequestId) return;
+        this.facilityInfoCard = card;
+        this.cdr.detectChanges();
+      })
+      .catch(() => {
+        if (requestId !== this.facilityInfoRequestId) return;
+        this.facilityInfoCard = this.createBaseInfoCard(facility);
+        this.facilityInfoCard.note = 'Não foi possível sincronizar com o backend.';
+        this.cdr.detectChanges();
+      });
+  }
+
+  private createBaseInfoCard(facility: FacilityHotspot): FacilityInfoCard {
+    const center = this.getObjectCenter(facility.object);
+    return {
+      title: facility.name,
+      type: facility.type,
+      description: 'A obter dados atualizados...',
+      generalStats: [
+        { label: 'Coordenadas', value: `${center.x.toFixed(0)} / ${center.y.toFixed(0)} / ${center.z.toFixed(0)}` },
+      ],
+      updatedAt: new Date(),
+    };
+  }
+
+  private async buildFacilityInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    switch (facility.type) {
+      case 'dock':
+        return this.buildDockInfoCard(facility);
+      case 'yard':
+        return this.buildYardInfoCard(facility);
+      case 'warehouse':
+        return this.buildWarehouseInfoCard(facility);
+      case 'crane':
+        return this.buildCraneInfoCard(facility);
+      case 'vessel':
+        return this.buildVesselInfoCard(facility);
+      default:
+        return this.createBaseInfoCard(facility);
     }
-    const now = Date.now();
-    const arrival = info.arrivalDate ? Date.parse(info.arrivalDate) : NaN;
-    const departure = info.departureDate ? Date.parse(info.departureDate) : NaN;
-    if (!Number.isNaN(departure) && now > departure) {
-      return undefined;
-    }
-    if (!Number.isNaN(arrival)) {
-      if (now < arrival - this.vesselWaitingLeadMs) {
-        return undefined;
+  }
+
+  private async buildDockInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    const info = facility.dockLayout;
+    let details: DockDTO | null = null;
+    if (info?.dockId) {
+      try {
+        details = await this.docksService.getById(info.dockId);
+      } catch (err) {
+        console.warn('[FinalScene] Falha ao obter dock', err);
       }
-      const waiting = now < arrival;
-      return { data: info, waiting };
     }
-    return { data: info, waiting: false };
+    const stats: { label: string; value: string }[] = [];
+    if (info) {
+      stats.push({ label: 'Comprimento', value: `${this.formatNumber(info.size.length)} m` });
+      stats.push({ label: 'Largura', value: `${this.formatNumber(info.size.width)} m` });
+    }
+    if (details?.location) {
+      stats.push({ label: 'Localização', value: details.location });
+    }
+    const restricted: { label: string; value: string }[] = [];
+    if (this.canViewRestrictedInfo && details?.maxDraft) {
+      restricted.push({ label: 'Calado max.', value: `${details.maxDraft} m` });
+    }
+    return {
+      title: facility.name,
+      type: 'dock',
+      description: details?.location ?? (info ? this.describeDock(info) : 'Terminal de cais'),
+      generalStats: stats,
+      restrictedStats: restricted.length ? restricted : undefined,
+      updatedAt: new Date(),
+    };
+  }
+
+  private async buildVesselInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    const placement = facility.vesselPlacement;
+    const status = facility.vesselState ?? 'waiting';
+    const stats: { label: string; value: string }[] = [
+      { label: 'Estado', value: this.vesselStatusText[status] },
+    ];
+    if (facility.dockName) {
+      stats.push({ label: 'Cais', value: facility.dockName });
+    }
+    if (placement?.arrivalDate) {
+      stats.push({ label: 'Chegada', value: this.formatDateTime(placement.arrivalDate) });
+    }
+    if (placement?.departureDate) {
+      stats.push({ label: 'Saída', value: this.formatDateTime(placement.departureDate) });
+    }
+    stats.push({
+      label: 'Coordenadas',
+      value: this.formatVector(this.getObjectCenter(facility.object)),
+    });
+
+    const operations: string[] = [];
+    switch (status) {
+      case 'waiting':
+        operations.push('Em fundeadouro controlado, a aguardar janela de cais.');
+        break;
+      case 'unloading':
+        operations.push('Operações de descarga em progresso (primeira metade do slot).');
+        break;
+      case 'loading':
+        operations.push('Operações de carga em progresso (segunda metade do slot).');
+        break;
+    }
+
+    return {
+      title: facility.name,
+      type: 'vessel',
+      description:
+        placement?.status ??
+        `Navio atribuído ao ${facility.dockName ?? 'cais'} desde ${placement?.arrivalDate ?? '—'}`,
+      generalStats: stats,
+      operations,
+      updatedAt: new Date(),
+    };
+  }
+
+  private async buildYardInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    const info = facility.yardLayout;
+    let storage: StorageAreaDTO | null = null;
+    if (info?.storageAreaId) {
+      try {
+        storage = await this.storageAreas.getById(info.storageAreaId);
+      } catch (err) {
+        console.warn('[FinalScene] Falha ao obter storage area', err);
+      }
+    }
+    const stats: { label: string; value: string }[] = [];
+    if (info) {
+      stats.push({ label: 'Área', value: `${this.formatNumber(info.width)} x ${this.formatNumber(info.depth)} m` });
+    }
+    if (storage?.location) {
+      stats.push({ label: 'Localização', value: storage.location });
+    }
+    const restricted: { label: string; value: string }[] = [];
+    if (this.canViewRestrictedInfo && storage) {
+      restricted.push({
+        label: 'Capacidade',
+        value: `${storage.currentOccupancyTEU} / ${storage.maxCapacityTEU} TEU`,
+      });
+    }
+    return {
+      title: facility.name,
+      type: 'yard',
+      description: storage?.type ?? 'Zona de contentores',
+      generalStats: stats,
+      restrictedStats: restricted.length ? restricted : undefined,
+      updatedAt: new Date(),
+    };
+  }
+
+  private async buildWarehouseInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    const info = facility.warehouseLayout;
+    return {
+      title: facility.name,
+      type: 'warehouse',
+      description: info ? `${info.size.width} x ${info.size.depth} m` : 'Armazém',
+      generalStats: info
+        ? [{ label: 'Posição', value: `${info.position.x} / ${info.position.z}` }]
+        : [],
+      updatedAt: new Date(),
+    };
+  }
+
+  private async buildCraneInfoCard(facility: FacilityHotspot): Promise<FacilityInfoCard> {
+    const specs = facility.craneSpecs;
+    const stats: { label: string; value: string }[] = [];
+    const center = this.getObjectCenter(facility.object);
+    if (specs?.height !== undefined) {
+      stats.push({ label: 'Altura', value: `${this.formatNumber(specs.height)} m` });
+    }
+    if (specs?.gauge !== undefined) {
+      stats.push({ label: 'Gauge', value: `${this.formatNumber(specs.gauge)} m` });
+    }
+    if (specs?.clearance !== undefined) {
+      stats.push({ label: 'Clearance', value: `${this.formatNumber(specs.clearance)} m` });
+    }
+    return {
+      title: facility.name,
+      type: 'crane',
+      description: specs?.designation ?? 'Grua de cais',
+      generalStats:
+        stats.length > 0
+          ? [...stats, { label: 'Coordenadas', value: `${center.x.toFixed(0)} / ${center.y.toFixed(0)} / ${center.z.toFixed(0)}` }]
+          : [{ label: 'Coordenadas', value: `${center.x.toFixed(0)} / ${center.y.toFixed(0)} / ${center.z.toFixed(0)}` }],
+      updatedAt: new Date(),
+    };
   }
 
   private cloneContainerPrototype(prototype: THREE.Group, color: number): THREE.Group {
@@ -2117,6 +1830,56 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       }
     });
     return clone;
+  }
+
+  private formatNumber(value: number | undefined, digits = 0): string {
+    if (value === undefined || Number.isNaN(value)) {
+      return '—';
+    }
+    return value.toLocaleString('pt-PT', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
+
+  private formatDateTime(value?: string | number | null): string {
+    if (!value) {
+      return '—';
+    }
+    const date = typeof value === 'number' ? new Date(value) : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '—';
+    }
+    return date.toLocaleString('pt-PT', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  }
+
+  private formatVector(vec: THREE.Vector3): string {
+    return `${vec.x.toFixed(0)} / ${vec.y.toFixed(0)} / ${vec.z.toFixed(0)}`;
+  }
+
+  private registerFacilityHotspot(hotspot: FacilityHotspot, options?: { persistent?: boolean }) {
+    this.facilityHotspots.push(hotspot);
+    this.facilityLookup.set(hotspot.object, hotspot);
+    if (options?.persistent !== false) {
+      this.persistentFacilityHotspots.push(hotspot);
+    }
+  }
+
+  private getObjectCenter(object: THREE.Object3D): THREE.Vector3 {
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) {
+      const v = new THREE.Vector3();
+      object.getWorldPosition(v);
+      return v;
+    }
+    return box.getCenter(new THREE.Vector3());
+  }
+
+  private describeDock(dock: DockLayout): string {
+    return `${this.formatNumber(dock.size.length)} x ${this.formatNumber(dock.size.width)} m`;
   }
 
   private getContainerStackPrototype(): Promise<THREE.Group> {
@@ -2340,59 +2103,3 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     applyTruckWindowTexture(model, texture);
   }
 }
-  private buildContainerTransforms(
-    cols: number,
-    rows: number,
-    maxLevels: number,
-    seed: number
-  ): THREE.Matrix4[] {
-    const transforms: THREE.Matrix4[] = [];
-    const spacingX = this.containerUnitSize.x + 6;
-    const spacingZ = this.containerUnitSize.z + 10;
-    const spacingY = this.containerUnitSize.y + 4;
-    const offsetX = ((cols - 1) * spacingX) / 2;
-    const offsetZ = ((rows - 1) * spacingZ) / 2;
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const stackHeight = 1 + ((row + col + seed) % Math.max(1, maxLevels));
-        for (let level = 0; level < stackHeight; level++) {
-          const matrix = new THREE.Matrix4();
-          const position = new THREE.Vector3(
-            col * spacingX - offsetX,
-            level * spacingY,
-            row * spacingZ - offsetZ
-          );
-          matrix.compose(position, new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
-          transforms.push(matrix);
-        }
-      }
-    }
-
-    return transforms;
-  }
-  private buildInstancedContainers(perColor: Map<number, THREE.Matrix4[]>) {
-    perColor.forEach((matrices, color) => {
-      if (!matrices.length) {
-        return;
-      }
-      const geometry = new THREE.BoxGeometry(
-        this.containerUnitSize.x,
-        this.containerUnitSize.y,
-        this.containerUnitSize.z
-      );
-      const material = new THREE.MeshStandardMaterial({
-        color,
-        roughness: 0.45,
-        metalness: 0.25,
-      });
-      const mesh = new THREE.InstancedMesh(geometry, material, matrices.length);
-      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      matrices.forEach((matrix, idx) => mesh.setMatrixAt(idx, matrix));
-      mesh.instanceMatrix.needsUpdate = true;
-      if (this.enableShadows) {
-        mesh.castShadow = mesh.receiveShadow = true;
-      }
-      this.scene.add(mesh);
-    });
-  }

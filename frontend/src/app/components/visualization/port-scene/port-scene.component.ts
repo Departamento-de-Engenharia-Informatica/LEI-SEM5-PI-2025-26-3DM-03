@@ -1027,7 +1027,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private addGlbContainerStacksForDock(dock: DockLayout) {
     const bands = this.computeDockBands(dock);
     const groundY = dock.size.height + 0.2;
-    const stacksCount = Math.max(3, Math.floor(dock.size.length / 180)); // ~um stack por 180 de comprimento
+    const stacksCount = Math.max(3, Math.floor(dock.size.length / 260)); // ajustar densidade
     const usableLength = dock.size.length * 0.8; // evita extremos
     const startX = -usableLength / 2;
     const stepX = usableLength / Math.max(1, stacksCount - 1);
@@ -1041,9 +1041,9 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           const jitterZ = (i % 2 === 0 ? -1 : 1) * Math.min(4, bands.bufferWidth * 0.2);
           const localZ = bands.bufferZ + jitterZ;
 
-          const columns = 2 + ((i + 1) % 2);
-          const rows = 1 + (i % 2);
-          const maxLevels = 2 + ((i + 2) % 2);
+          const columns = 2; // um pouco mais largos
+          const rows = 1 + (i % 2); // alternar entre 1 e 2 filas
+          const maxLevels = 2; // até dois níveis
           const { group, nodes } = this.buildContainerStackFromPrototype(proto, columns, rows, maxLevels, i * 17);
           const position = this.relativeToDock(dock, new THREE.Vector3(localX, groundY, localZ));
           group.position.copy(position);
