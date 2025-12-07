@@ -1,36 +1,60 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { IamAuthGuard, Roles, RolesGuard } from '../auth';
+import { CreateIncidentDto, UpdateIncidentDto } from '../dto';
+import { Incident } from '../domain';
+import { IncidentService } from '../services';
 
 @ApiTags('Incidents')
+@ApiBearerAuth()
+@UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/incidents')
 export class IncidentController {
+  constructor(private readonly service: IncidentService) {}
+
   @Get()
-  @ApiOperation({ summary: 'List incidents (placeholder)' })
-  findAll() {
-    return { data: [], message: 'Incidents list placeholder' };
+  @Roles('oem:incidents:read')
+  @ApiOperation({ summary: 'List incidents' })
+  @ApiOkResponse({ type: Incident, isArray: true })
+  findAll(): Incident[] {
+    return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get incident by id (placeholder)' })
-  findOne(@Param('id') id: string) {
-    return { id, message: 'Incident detail placeholder' };
+  @Roles('oem:incidents:read')
+  @ApiOperation({ summary: 'Get incident by id' })
+  @ApiOkResponse({ type: Incident })
+  findOne(@Param('id') id: string): Incident {
+    return this.service.findOne(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create incident (placeholder)' })
-  create(@Body() payload: unknown) {
-    return { payload, message: 'Incident creation placeholder' };
+  @Roles('oem:incidents:write')
+  @ApiOperation({ summary: 'Create incident' })
+  @ApiCreatedResponse({ type: Incident })
+  create(@Body() payload: CreateIncidentDto): Incident {
+    return this.service.createIncident(payload);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update incident (placeholder)' })
-  update(@Param('id') id: string, @Body() payload: unknown) {
-    return { id, payload, message: 'Incident update placeholder' };
+  @Roles('oem:incidents:write')
+  @ApiOperation({ summary: 'Update incident' })
+  @ApiOkResponse({ type: Incident })
+  update(@Param('id') id: string, @Body() payload: UpdateIncidentDto): Incident {
+    return this.service.updateIncident(id, payload);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete incident (placeholder)' })
-  remove(@Param('id') id: string) {
-    return { id, message: 'Incident deletion placeholder' };
+  @Roles('oem:incidents:write')
+  @ApiOperation({ summary: 'Delete incident' })
+  @ApiOkResponse({ type: Incident })
+  remove(@Param('id') id: string): Incident {
+    return this.service.remove(id);
   }
 }

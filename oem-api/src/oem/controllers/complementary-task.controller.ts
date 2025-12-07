@@ -1,36 +1,60 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { IamAuthGuard, Roles, RolesGuard } from '../auth';
+import { CreateComplementaryTaskDto, UpdateComplementaryTaskDto } from '../dto';
+import { ComplementaryTask } from '../domain';
+import { ComplementaryTaskService } from '../services';
 
 @ApiTags('Complementary Tasks')
+@ApiBearerAuth()
+@UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/complementary-tasks')
 export class ComplementaryTaskController {
+  constructor(private readonly service: ComplementaryTaskService) {}
+
   @Get()
-  @ApiOperation({ summary: 'List complementary tasks (placeholder)' })
-  findAll() {
-    return { data: [], message: 'Complementary tasks list placeholder' };
+  @Roles('oem:tasks:read')
+  @ApiOperation({ summary: 'List complementary tasks' })
+  @ApiOkResponse({ type: ComplementaryTask, isArray: true })
+  findAll(): ComplementaryTask[] {
+    return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get complementary task by id (placeholder)' })
-  findOne(@Param('id') id: string) {
-    return { id, message: 'Complementary task detail placeholder' };
+  @Roles('oem:tasks:read')
+  @ApiOperation({ summary: 'Get complementary task by id' })
+  @ApiOkResponse({ type: ComplementaryTask })
+  findOne(@Param('id') id: string): ComplementaryTask {
+    return this.service.findOne(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create complementary task (placeholder)' })
-  create(@Body() payload: unknown) {
-    return { payload, message: 'Complementary task creation placeholder' };
+  @Roles('oem:tasks:write')
+  @ApiOperation({ summary: 'Create complementary task' })
+  @ApiCreatedResponse({ type: ComplementaryTask })
+  create(@Body() payload: CreateComplementaryTaskDto): ComplementaryTask {
+    return this.service.createTask(payload);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update complementary task (placeholder)' })
-  update(@Param('id') id: string, @Body() payload: unknown) {
-    return { id, payload, message: 'Complementary task update placeholder' };
+  @Roles('oem:tasks:write')
+  @ApiOperation({ summary: 'Update complementary task' })
+  @ApiOkResponse({ type: ComplementaryTask })
+  update(@Param('id') id: string, @Body() payload: UpdateComplementaryTaskDto): ComplementaryTask {
+    return this.service.updateTask(id, payload);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete complementary task (placeholder)' })
-  remove(@Param('id') id: string) {
-    return { id, message: 'Complementary task deletion placeholder' };
+  @Roles('oem:tasks:write')
+  @ApiOperation({ summary: 'Delete complementary task' })
+  @ApiOkResponse({ type: ComplementaryTask })
+  remove(@Param('id') id: string): ComplementaryTask {
+    return this.service.remove(id);
   }
 }

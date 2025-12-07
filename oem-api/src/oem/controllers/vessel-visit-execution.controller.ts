@@ -1,36 +1,63 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { IamAuthGuard, Roles, RolesGuard } from '../auth';
+import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '../dto';
+import { VesselVisitExecution } from '../domain';
+import { VesselVisitExecutionService } from '../services';
 
 @ApiTags('Vessel Visit Executions')
+@ApiBearerAuth()
+@UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/vessel-visit-executions')
 export class VesselVisitExecutionController {
+  constructor(private readonly service: VesselVisitExecutionService) {}
+
   @Get()
-  @ApiOperation({ summary: 'List vessel visit executions (placeholder)' })
-  findAll() {
-    return { data: [], message: 'Vessel visit executions list placeholder' };
+  @Roles('oem:vessel:read')
+  @ApiOperation({ summary: 'List vessel visit executions' })
+  @ApiOkResponse({ type: VesselVisitExecution, isArray: true })
+  findAll(): VesselVisitExecution[] {
+    return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get vessel visit execution by id (placeholder)' })
-  findOne(@Param('id') id: string) {
-    return { id, message: 'Vessel visit execution detail placeholder' };
+  @Roles('oem:vessel:read')
+  @ApiOperation({ summary: 'Get vessel visit execution by id' })
+  @ApiOkResponse({ type: VesselVisitExecution })
+  findOne(@Param('id') id: string): VesselVisitExecution {
+    return this.service.findOne(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create vessel visit execution (placeholder)' })
-  create(@Body() payload: unknown) {
-    return { payload, message: 'Vessel visit execution creation placeholder' };
+  @Roles('oem:vessel:write')
+  @ApiOperation({ summary: 'Create vessel visit execution' })
+  @ApiCreatedResponse({ type: VesselVisitExecution })
+  create(@Body() payload: CreateVesselVisitExecutionDto): VesselVisitExecution {
+    return this.service.createExecution(payload);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update vessel visit execution (placeholder)' })
-  update(@Param('id') id: string, @Body() payload: unknown) {
-    return { id, payload, message: 'Vessel visit execution update placeholder' };
+  @Roles('oem:vessel:write')
+  @ApiOperation({ summary: 'Update vessel visit execution' })
+  @ApiOkResponse({ type: VesselVisitExecution })
+  update(
+    @Param('id') id: string,
+    @Body() payload: UpdateVesselVisitExecutionDto,
+  ): VesselVisitExecution {
+    return this.service.updateExecution(id, payload);
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete vessel visit execution (placeholder)' })
-  remove(@Param('id') id: string) {
-    return { id, message: 'Vessel visit execution deletion placeholder' };
+  @Roles('oem:vessel:write')
+  @ApiOperation({ summary: 'Delete vessel visit execution' })
+  @ApiOkResponse({ type: VesselVisitExecution })
+  remove(@Param('id') id: string): VesselVisitExecution {
+    return this.service.remove(id);
   }
 }
