@@ -162,7 +162,7 @@ sum_delays([(VesselId, _, EndLoad, _, _, _, _) | RestSchedule], TotalDelay) :-
 
 assign_resources_to_schedule(ScheduleTriples, AvailableResources, EnrichedSchedule) :-
     sort_by_start_time(ScheduleTriples, SortedSchedule),
-    assign_resources_internal(SortedSchedule, AvailableResources, [], EnrichedSchedule).
+    assign_resources_internal(SortedSchedule, AvailableResources, [], [], EnrichedSchedule).
 
 sort_by_start_time(Schedule, SortedSchedule) :-
     map_list_to_pairs(get_start_time, Schedule, Pairs),
@@ -171,12 +171,106 @@ sort_by_start_time(Schedule, SortedSchedule) :-
 
 get_start_time((_, StartTime, _, _, _, _, _), StartTime).
 
-assign_resources_internal([], _, _, []).
-assign_resources_internal([(VesselId, StartTime, EndTime, StartTimeStr, EndTimeStr, DurationStr, DockCode) | RestSchedule],
+assign_resources_internal([], _, _, _, []).
+assign_resources_internal([(VesselId, StartTime, EndTime, _StartTimeStr, _EndTimeStr, _DurationStr, DockCode) | RestSchedule],
                          AvailableResources,
                          AssignedStaff,
+                         AssignedCranes,
                          [Operation | RestOperations]) :-
     AvailableResources = json([cranes=Cranes, staff=Staff, storage=Storage, docks=_]),
+    DurationHours is EndTime - StartTime,
+    select_crane_with_timing(Cranes, DockCode, StartTime, DurationHours, AssignedCranes,
+                             CraneCode, CraneStart, _CraneEnd, CranesList, NewAssignedCranes0),
+    select_staff_with_timing(Staff, CraneCode, CranesList, StartTime, DurationHours, AssignedStaff,
+                             StaffId, StaffStart, _StaffEnd, NewAssignedStaff0),
+    ActualStart is max(CraneStart, StaffStart),
+    ActualEnd is ActualStart + DurationHours,
+    update_crane_booking(CraneCode, ActualStart, ActualEnd, NewAssignedCranes0, NewAssignedCranes),
+    update_staff_booking(StaffId, ActualStart, ActualEnd, NewAssignedStaff0, NewAssignedStaff),
+    hours_to_time_string(ActualStart, AdjStartStr),
+    hours_to_time_string(ActualEnd,   AdjEndStr),
+    hours_to_time_string(DurationHours, DurationStr),
+    find_closest_storage(Storage, DockCode, StorageId),
+    Operation = _{
+        vessel_id: VesselId,
+        start_time: AdjStartStr,
+        end_time: AdjEndStr,
+        duration: DurationStr,
+        start_time_decimal: ActualStart,
+        end_time_decimal: ActualEnd,
+        assigned_dock: DockCode,
+        assigned_crane: CraneCode,
+        assigned_cranes: CranesList,
+        assigned_staff: StaffId,
+        assigned_storage: StorageId
+    },
+    assign_resources_internal(RestSchedule, AvailableResources, NewAssignedStaff, NewAssignedCranes, RestOperations).
+
+select_staff_with_timing(_StaffList, _CraneCode, [], StartTime, Duration, AssignedStaff, "NO_STAFF_AVAILABLE",
+                         StartTime, EndTime, AssignedStaff) :-
+    EndTime is StartTime + Duration.
+select_staff_with_timing(StaffList, _CraneCode, RequiredQualifications, StartTime, Duration, AssignedStaff,
+                         StaffId, ActualStart, ActualEnd, AssignedStaffOut) :-
+    member(StaffMember, StaffList),
+    StaffMemberId = StaffMember.mecanographicNumber,
+    get_dict(status, StaffMember, "Available"),
+    member(RequiredQual, RequiredQualifications),
+    staff_has_qualification(StaffMember, RequiredQual),
+    staff_operational_window(StaffMember, WindowStart, WindowEnd),
+    staff_next_available_slot(StaffMemberId, WindowStart, WindowEnd, StartTime, Duration, AssignedStaff,
+                              ActualStart, ActualEnd),
+    StaffId = StaffMemberId,
+    AssignedStaffOut = AssignedStaff,
+    !.
+select_staff_with_timing(_StaffList, _CraneCode, _Req, StartTime, Duration, AssignedStaff,
+                         "NO_STAFF_AVAILABLE", StartTime, EndTime, AssignedStaff) :-
+    EndTime is StartTime + Duration.
+
+staff_operational_window(StaffMember, AvailStart, AvailEnd) :-
+    get_dict(operationalWindow, StaffMember, WindowStr),
+    sub_string(WindowStr, SpacePos, _, _, " "),
+    AfterSpace is SpacePos + 1,
+    sub_string(WindowStr, AfterSpace, _, 0, TimeRange),
+    split_string(TimeRange, "-", " ", [StartTimeStr, EndTimeStr]),
+    split_string(StartTimeStr, ":", " ", [StartHourStr, StartMinStr]),
+    split_string(EndTimeStr, ":", " ", [EndHourStr, EndMinStr]),
+    number_string(AvailStartHour, StartHourStr),
+    number_string(AvailStartMin, StartMinStr),
+    number_string(AvailEndHour, EndHourStr),
+    number_string(AvailEndMin, EndMinStr),
+    AvailStart is AvailStartHour + (AvailStartMin / 60),
+    AvailEnd is AvailEndHour + (AvailEndMin / 60).
+
+staff_next_available_slot(StaffId, WindowStart, WindowEnd, DesiredStart, Duration, AssignedStaff,
+                          ActualStart, ActualEnd) :-
+    % ensure within daily window and avoid overlaps
+    DesiredStartTimeOfDay is DesiredStart - (floor(DesiredStart / 24) * 24),
+    ClampStart is max(WindowStart, DesiredStartTimeOfDay),
+    staff_busy_intervals(StaffId, AssignedStaff, BusyIntervals),
+    next_free_after(ClampStart, Duration, BusyIntervals, WindowEnd, ActualStart),
+    ActualEnd is ActualStart + Duration.
+
+staff_busy_intervals(_StaffId, [], []).
+staff_busy_intervals(StaffId, [staff(StaffId, S, E) | Rest], [S-E | BusyRest]) :-
+    staff_busy_intervals(StaffId, Rest, BusyRest).
+staff_busy_intervals(StaffId, [staff(Other, _, _) | Rest], BusyRest) :-
+    StaffId \= Other,
+    staff_busy_intervals(StaffId, Rest, BusyRest).
+
+next_free_after(Start, Duration, BusyIntervals, WindowEnd, ActualStart) :-
+    (   member(S-E, BusyIntervals),
+        Start < E,
+        Start + Duration > S
+    ->  NewStart is E,
+        NewStart =< WindowEnd,
+        next_free_after(NewStart, Duration, BusyIntervals, WindowEnd, ActualStart)
+    ;   Start + Duration =< WindowEnd,
+        ActualStart = Start
+    ).
+
+% Crane helpers (single-crane mode with contention awareness)
+select_crane_with_timing(Cranes, DockCode, StartTime, Duration, AssignedCranes,
+                         CraneCode, ActualStart, ActualEnd, CranesList, AssignedOut) :-
     atom_string(DockCode, DockCodeStr),
     findall(
         SetupTime-Crane,
@@ -193,61 +287,35 @@ assign_resources_internal([(VesselId, StartTime, EndTime, StartTimeStr, EndTimeS
     ),
     (   AvailableCranes \= []
     ->  sort(AvailableCranes, SortedCranes),
-        SortedCranes = [_MinSetup-BestCrane | _],
+        SortedCranes = [_-BestCrane | _],
         CraneCode = BestCrane.code,
         CranesList = [BestCrane.code],
-        RequiredQualifications = BestCrane.get(qualificationRequirementIds, [])
+        crane_next_available_slot(CraneCode, StartTime, Duration, AssignedCranes, ActualStart, ActualEnd),
+        AssignedOut = AssignedCranes
     ;   CraneCode = "NO_CRANE_AVAILABLE",
         CranesList = [],
-        RequiredQualifications = []
-    ),
-    (   RequiredQualifications \= [],
-        member(RequiredQual, RequiredQualifications),
-        member(StaffMember, Staff),
-        StaffMemberId = StaffMember.mecanographicNumber,
-        get_dict(status, StaffMember, "Available"),
-        staff_available(StaffMember, StartTime, EndTime),
-        staff_has_qualification(StaffMember, RequiredQual),
-        \+ staff_is_busy(StaffMemberId, StartTime, EndTime, AssignedStaff)
-    ->  StaffId = StaffMemberId,
-        NewAssignedStaff = [staff(StaffId, StartTime, EndTime) | AssignedStaff]
-    ;   StaffId = "NO_STAFF_AVAILABLE",
-        NewAssignedStaff = AssignedStaff
-    ),
-    find_closest_storage(Storage, DockCode, StorageId),
-    Operation = _{
-        vessel_id: VesselId,
-        start_time: StartTimeStr,
-        end_time: EndTimeStr,
-        duration: DurationStr,
-        start_time_decimal: StartTime,
-        end_time_decimal: EndTime,
-        assigned_dock: DockCode,
-        assigned_crane: CraneCode,
-        assigned_cranes: CranesList,
-        assigned_staff: StaffId,
-        assigned_storage: StorageId
-    },
-    assign_resources_internal(RestSchedule, AvailableResources, NewAssignedStaff, RestOperations).
+        ActualStart = StartTime,
+        ActualEnd is StartTime + Duration,
+        AssignedOut = AssignedCranes
+    ).
 
-staff_available(StaffMember, OperationStart, OperationEnd) :-
-    get_dict(operationalWindow, StaffMember, WindowStr),
-    sub_string(WindowStr, SpacePos, _, _, " "),
-    AfterSpace is SpacePos + 1,
-    sub_string(WindowStr, AfterSpace, _, 0, TimeRange),
-    split_string(TimeRange, "-", " ", [StartTimeStr, EndTimeStr]),
-    split_string(StartTimeStr, ":", " ", [StartHourStr, StartMinStr]),
-    split_string(EndTimeStr, ":", " ", [EndHourStr, EndMinStr]),
-    number_string(AvailStartHour, StartHourStr),
-    number_string(AvailStartMin, StartMinStr),
-    number_string(AvailEndHour, EndHourStr),
-    number_string(AvailEndMin, EndMinStr),
-    AvailStart is AvailStartHour + (AvailStartMin / 60),
-    AvailEnd is AvailEndHour + (AvailEndMin / 60),
-    OperationStartTimeOfDay is OperationStart - (floor(OperationStart / 24) * 24),
-    OperationEndTimeOfDay is OperationEnd - (floor(OperationEnd / 24) * 24),
-    OperationStartTimeOfDay >= AvailStart,
-    OperationEndTimeOfDay =< AvailEnd.
+crane_next_available_slot(CraneCode, DesiredStart, Duration, AssignedCranes, ActualStart, ActualEnd) :-
+    crane_busy_intervals(CraneCode, AssignedCranes, BusyIntervals),
+    next_free_after(DesiredStart, Duration, BusyIntervals, 100000, ActualStart),
+    ActualEnd is ActualStart + Duration.
+
+crane_busy_intervals(_CraneCode, [], []).
+crane_busy_intervals(CraneCode, [crane(CraneCode, S, E) | Rest], [S-E | BusyRest]) :-
+    crane_busy_intervals(CraneCode, Rest, BusyRest).
+crane_busy_intervals(CraneCode, [crane(Other, _, _) | Rest], BusyRest) :-
+    CraneCode \= Other,
+    crane_busy_intervals(CraneCode, Rest, BusyRest).
+
+update_crane_booking("NO_CRANE_AVAILABLE", _S, _E, Assigned, Assigned).
+update_crane_booking(CraneCode, Start, End, Assigned, [crane(CraneCode, Start, End) | Assigned]).
+
+update_staff_booking("NO_STAFF_AVAILABLE", _S, _E, Assigned, Assigned).
+update_staff_booking(StaffId, Start, End, Assigned, [staff(StaffId, Start, End) | Assigned]).
 
 staff_has_qualification(StaffMember, RequiredQualification) :-
     get_dict(qualifications, StaffMember, Qualifications),

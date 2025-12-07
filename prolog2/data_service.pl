@@ -7,6 +7,7 @@
 :- use_module(library(http/json)).
 :- use_module(library(option)).
 :- use_module(library(lists)).
+:- use_module(library(pairs)).
 
 :- use_module(config).
 :- use_module(ssl_config).
@@ -109,9 +110,19 @@ backend_vessels(DateStr, Vessels) :-
     ).
 
 backend_resources(Resources) :-
-    % For now, rely on sample resources; could be extended to call backend
-    % endpoints for docks, cranes, staff, and storage.
-    sample_resources(Resources).
+    config:backend_api_url(Base),
+    http_backend_options(Options),
+    catch(
+        (
+            backend_docks(Base, Options, Docks),
+            backend_cranes(Base, Options, Cranes),
+            backend_staff(Base, Options, Staff),
+            backend_storage(Base, Options, Docks, Storage),
+            Resources = json([cranes=Cranes, staff=Staff, storage=Storage, docks=Docks])
+        ),
+        _,
+        fail
+    ).
 
 http_backend_options([
     timeout(10),
@@ -124,6 +135,45 @@ matches_date(DateStr, Dict) :-
         sub_atom(ArrivalAtom, 0, 10, _, DateStr)
     ;   false
     ).
+
+backend_cranes(Base, Options, Cranes) :-
+    atomic_list_concat([Base, '/Resources'], '', Url),
+    http_open(Url, Stream, Options),
+    json_read_dict(Stream, RawList),
+    close(Stream),
+    include(is_crane_resource, RawList, OnlyCranes),
+    maplist(normalize_crane_dict, OnlyCranes, Cranes),
+    Cranes \= [].
+
+backend_staff(Base, Options, Staff) :-
+    atomic_list_concat([Base, '/Staff'], '', Url),
+    http_open(Url, Stream, Options),
+    json_read_dict(Stream, RawList),
+    close(Stream),
+    maplist(normalize_staff_dict, RawList, Staff),
+    Staff \= [].
+
+backend_docks(Base, Options, Docks) :-
+    atomic_list_concat([Base, '/Docks'], '', Url),
+    http_open(Url, Stream, Options),
+    json_read_dict(Stream, RawList),
+    close(Stream),
+    maplist(normalize_dock_dict, RawList, Docks),
+    Docks \= [].
+
+backend_storage(Base, Options, Docks, Storage) :-
+    atomic_list_concat([Base, '/StorageAreas'], '', Url),
+    http_open(Url, Stream, Options),
+    json_read_dict(Stream, RawList),
+    close(Stream),
+    maplist(normalize_storage_dict(Docks), RawList, Storage),
+    Storage \= [].
+
+is_crane_resource(Dict) :-
+    get_dict(type, Dict, Type),
+    ( atom(Type) -> atom_string(Type, TypeStr) ; TypeStr = Type ),
+    string_lower(TypeStr, Lower),
+    sub_string(Lower, _, _, _, "crane").
 
 /* -------------------------------------------------------------------------
    Normalization helpers
@@ -201,6 +251,109 @@ build_resources_from_dict(Dict, json([cranes=Cranes, staff=Staff, storage=Storag
     ; get_dict(storageAreas, Dict, Storage1) -> Storage = Storage1
     ; Storage = [] ),
     ( get_dict(docks, Dict, Docks) -> true ; Docks = [] ).
+
+normalize_crane_dict(Dict, CraneOut) :-
+    ensure_string(Dict.code, Code),
+    ( get_dict(assignedArea, Dict, Area0, _)
+    ; get_dict('AssignedArea', Dict, Area0, "")
+    ),
+    ensure_string(Area0, AssignedArea),
+    ( get_dict(status, Dict, Status0, _)
+    ; get_dict('Status', Dict, Status0, "Active")
+    ),
+    ensure_string(Status0, Status),
+    ( get_dict(setupTimeMinutes, Dict, Setup0, _)
+    ; get_dict('SetupTimeMinutes', Dict, Setup0, 0)
+    ),
+    ( get_dict(requiredQualifications, Dict, Q0, _)
+    ; get_dict('RequiredQualifications', Dict, Q0, [])
+    ; get_dict(qualificationRequirementIds, Dict, Q0, [])
+    ; get_dict('QualificationRequirementIds', Dict, Q0, [])
+    ),
+    CraneOut = _{
+        code: Code,
+        assignedArea: AssignedArea,
+        status: Status,
+        setupTimeMinutes: Setup0,
+        qualificationRequirementIds: Quals
+    }.
+
+normalize_staff_dict(Dict, StaffOut) :-
+    ( get_dict(mecanographicNumber, Dict, Id0, _)
+    ; get_dict('MecanographicNumber', Dict, Id0, "")
+    ),
+    ensure_string(Id0, Id),
+    ( get_dict(status, Dict, Status0, _)
+    ; get_dict('Status', Dict, Status0, "Available")
+    ),
+    ensure_string(Status0, Status),
+    ( get_dict(startTime, Dict, Start0, _)
+    ; get_dict('StartTime', Dict, Start0, "00:00")
+    ),
+    ( get_dict(endTime, Dict, End0, _)
+    ; get_dict('EndTime', Dict, End0, "24:00")
+    ),
+    timespan_to_string(Start0, StartStr),
+    timespan_to_string(End0, EndStr),
+    format(string(Window), "Mon-Sun ~w-~w", [StartStr, EndStr]),
+    ( get_dict(qualifications, Dict, Quals0, _)
+    ; get_dict('Qualifications', Dict, Quals0, [])
+    ),
+    StaffOut = _{
+        mecanographicNumber: Id,
+        status: Status,
+        operationalWindow: Window,
+        qualifications: Quals0
+    }.
+
+normalize_dock_dict(Dict, DockOut) :-
+    get_dict(id, Dict, Id, "dock-unknown"),
+    ( get_dict(name, Dict, Name) -> ensure_string(Name, Code)
+    ; format(atom(CodeAtom), 'DOCK-~w', [Id]), atom_string(CodeAtom, Code)
+    ),
+    DockOut = _{code: Code, id: Id}.
+
+normalize_storage_dict(Docks, Dict, StorageOut) :-
+    get_dict(id, Dict, Id, "storage-unknown"),
+    format(atom(IdAtom), 'ST-~w', [Id]),
+    atom_string(IdAtom, Identifier),
+    ( get_dict(dockDistances, Dict, Distances, _{})
+    ; get_dict('DockDistances', Dict, Distances, _{})
+    ),
+    dict_pairs(Distances, _, DistancePairs),
+    maplist(storage_served_dock(Docks), DistancePairs, ServedDocks),
+    StorageOut = _{
+        identifier: Identifier,
+        servedDocks: ServedDocks
+    }.
+
+storage_served_dock(Docks, DockIdRaw-Distance, _{dockCode: DockCode, distanceMeters: Distance}) :-
+    normalize_dock_id(DockIdRaw, DockId),
+    (   member(Dock, Docks),
+        get_dict(id, Dock, ExistingId),
+        normalize_dock_id(ExistingId, DockId)
+    ->  get_dict(code, Dock, DockCode)
+    ;   format(atom(DockCodeAtom), 'DOCK-~w', [DockId]),
+        atom_string(DockCodeAtom, DockCode)
+    ).
+
+timespan_to_string(Value, Str) :-
+    (   atom(Value) -> atom_string(Value, Tmp)
+    ;   string(Value) -> Tmp = Value
+    ;   number(Value) -> number_string(Value, Tmp)
+    ;   Tmp = "00:00"
+    ),
+    (   split_string(Tmp, ":", "", [HH, MM | _])
+    ->  format(string(Str), "~|~`0t~w~2+:~|~`0t~w~2+", [HH, MM])
+    ;   Str = "00:00"
+    ).
+
+normalize_dock_id(Value, Normalized) :-
+    ( number(Value) -> number_string(Value, Normalized)
+    ; atom(Value)   -> atom_string(Value, Normalized)
+    ; string(Value) -> Normalized = Value
+    ; Normalized = Value
+    ).
 
 /* -------------------------------------------------------------------------
    Samples (safe fallback)
