@@ -5,7 +5,7 @@ export class CreateComplementaryTaskCategoryDto {
   @ApiProperty({ description: 'Name of the category' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Category description' })
   @IsString()

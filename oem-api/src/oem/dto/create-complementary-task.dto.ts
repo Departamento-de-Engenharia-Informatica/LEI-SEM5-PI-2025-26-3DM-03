@@ -6,7 +6,7 @@ export class CreateComplementaryTaskDto {
   @ApiProperty({ description: 'Task title' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ description: 'Task details' })
   @IsString()
@@ -16,7 +16,7 @@ export class CreateComplementaryTaskDto {
   @ApiProperty({ description: 'Category identifier' })
   @IsString()
   @IsNotEmpty()
-  categoryId: string;
+  categoryId!: string;
 
   @ApiPropertyOptional({ description: 'Related operation plan id' })
   @IsString()

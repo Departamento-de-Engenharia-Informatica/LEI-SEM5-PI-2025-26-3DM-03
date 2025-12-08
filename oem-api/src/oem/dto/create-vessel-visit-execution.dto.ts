@@ -6,7 +6,7 @@ export class CreateVesselVisitExecutionDto {
   @ApiProperty({ description: 'Vessel name' })
   @IsString()
   @IsNotEmpty()
-  vesselName: string;
+  vesselName!: string;
 
   @ApiPropertyOptional({ description: 'Voyage number or reference' })
   @IsString()

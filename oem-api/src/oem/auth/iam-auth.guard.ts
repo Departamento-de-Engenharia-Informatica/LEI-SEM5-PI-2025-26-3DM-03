@@ -15,11 +15,13 @@ export class IamAuthGuard implements CanActivate {
     const permissionsHeader = req.headers['x-permissions'];
     const tenantId = req.headers['x-tenant-id'];
     const attributesHeader = req.headers['x-attributes'];
+    const userIdHeader = req.headers['x-user-id'];
 
     const user: AuthenticatedUser = {
       token: authHeader.substring(7),
       roles: typeof rolesHeader === 'string' ? rolesHeader.split(',') : [],
       permissions: typeof permissionsHeader === 'string' ? permissionsHeader.split(',') : [],
+      userId: typeof userIdHeader === 'string' ? userIdHeader : undefined,
       tenantId: typeof tenantId === 'string' ? tenantId : undefined,
       attributes: typeof attributesHeader === 'string' ? attributesHeader : undefined,
     };

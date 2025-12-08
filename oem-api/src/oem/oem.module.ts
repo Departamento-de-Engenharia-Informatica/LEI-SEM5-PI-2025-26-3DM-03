@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { Reflector } from '@nestjs/core';
 import { OemController } from './oem.controller';
 import { OemService } from './oem.service';
@@ -21,9 +22,10 @@ import {
   ExternalClientsService,
   VesselVisitExecutionService,
 } from './services';
+import { OperationPlanEntity } from './persistence/operation-plan.entity';
 
 @Module({
-  imports: [HttpModule],
+  imports: [HttpModule, TypeOrmModule.forFeature([OperationPlanEntity])],
   controllers: [
     OemController,
     OperationPlanController,

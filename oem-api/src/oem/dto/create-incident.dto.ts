@@ -7,12 +7,12 @@ export class CreateIncidentDto {
   @ApiProperty({ description: 'Type identifier', example: 'incident-type-1' })
   @IsString()
   @IsNotEmpty()
-  typeId: string;
+  typeId!: string;
 
   @ApiProperty({ description: 'Short title of the incident' })
   @IsString()
   @IsNotEmpty()
-  title: string;
+  title!: string;
 
   @ApiPropertyOptional({ description: 'Detailed description' })
   @IsString()
@@ -43,7 +43,7 @@ export class CreateIncidentDto {
     example: '2025-12-07T10:00:00Z',
   })
   @IsISO8601()
-  occurredAt: string;
+  occurredAt!: string;
 
   @ApiPropertyOptional({
     description: 'Resolution timestamp (ISO-8601)',

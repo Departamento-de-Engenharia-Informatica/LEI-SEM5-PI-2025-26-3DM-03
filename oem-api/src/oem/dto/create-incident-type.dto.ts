@@ -6,7 +6,7 @@ export class CreateIncidentTypeDto {
   @ApiProperty({ description: 'Name of the incident type' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name!: string;
 
   @ApiPropertyOptional({ description: 'Description of this incident type' })
   @IsString()
