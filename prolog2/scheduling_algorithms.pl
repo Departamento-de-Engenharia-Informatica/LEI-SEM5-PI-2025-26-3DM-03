@@ -10,15 +10,20 @@
 :- module(scheduling_algorithms, [
     compute_optimal_schedule/2,
     compute_heuristic_schedule/2,
+    compute_heuristic_schedule/3,
+    evaluate_heuristics/3,
+    generate_synthetic_vessels/2,
     sequence_temporization/2,
     sum_delays/2,
     assign_resources_to_schedule/3,
     calculate_valid_delay/2,
-    compute_multi_crane_schedule/3
+    compute_multi_crane_schedule/3,
+    compute_multi_crane_segmented/3
 ]).
 
 :- use_module(library(lists)).
 :- use_module(library(clpfd)).
+:- use_module(library(pairs)).
 
 :- dynamic shortest_delay/2.
 :- dynamic shortest_delay_multi/3.
@@ -74,42 +79,47 @@ update_shortest_delay(Schedule, Delay) :-
 
 % ============================================================================
 % HEURISTIC SCHEDULING ALGORITHM (US 3.4.4)
+% Supports: eat, edt, spt, mst, combo (weighted), urgency (legacy)
+% Greedy pick among available vessels at current end time; if none, jump to next arrival.
 % ============================================================================
 
 compute_heuristic_schedule(Vessels, Result) :-
+    compute_heuristic_schedule(Vessels, combo, Result).
+
+compute_heuristic_schedule(Vessels, HeuristicRaw, Result) :-
     (   is_list(Vessels), Vessels \= []
     ->  true
-    ;   Result = _{algorithm: "heuristic_greedy_urgency", error: "Invalid or empty vessel list", total_delay: 0, schedule: []},
+    ;   Result = _{algorithm: "heuristic", error: "Invalid or empty vessel list", total_delay: 0, schedule: []},
         !
     ),
+    normalize_heuristic(HeuristicRaw, Heuristic),
     retractall(shortest_delay(_, _)),
     retractall(shortest_delay_multi(_, _, _)),
     retractall(user:vessel(_, _, _, _, _, _)),
     load_vessels_as_facts(Vessels),
     get_time(StartTime),
-    compute_heuristic_schedule_internal(HeuristicSequence, TotalDelay),
+    compute_heuristic_schedule_internal(Heuristic, HeuristicSequence, TotalDelay),
     get_time(EndTime),
     ComputationTime is (EndTime - StartTime) * 1000,
+    atom_string(Heuristic, HStr),
+    format(string(AlgName), "heuristic_~w", [HStr]),
     Result = _{
-        algorithm: "heuristic_greedy_urgency",
+        algorithm: AlgName,
+        heuristic: Heuristic,
         total_delay: TotalDelay,
         computation_time_ms: ComputationTime,
         schedule: HeuristicSequence
     }.
 
-compute_heuristic_schedule_internal(Schedule, TotalDelay) :-
+compute_heuristic_schedule_internal(Heuristic, Schedule, TotalDelay) :-
     findall(
-        Urgency-VesselId,
-        (
-            user:vessel(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, _),
-            OperationTime is UnloadTime + LoadTime,
-            Urgency is DepartureTime - (ArrivalTime + OperationTime)
-        ),
-        UrgencyPairs
+        vh(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, Dock),
+        user:vessel(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, Dock),
+        Vessels
     ),
-    keysort(UrgencyPairs, SortedPairs),
-    pairs_values(SortedPairs, SortedVessels),
-    sequence_temporization(SortedVessels, Schedule),
+    greedy_ordering(Heuristic, Vessels, OrderedStructs),
+    maplist(vh_id, OrderedStructs, OrderedIds),
+    sequence_temporization(OrderedIds, Schedule),
     sum_delays(Schedule, TotalDelay).
 
 % ============================================================================
@@ -155,6 +165,150 @@ sum_delays([(VesselId, _, EndLoad, _, _, _, _) | RestSchedule], TotalDelay) :-
     VesselDelay is max(0, EndLoad - DesiredDeparture),
     sum_delays(RestSchedule, RestDelay),
     TotalDelay is round((VesselDelay + RestDelay) * 100) / 100.
+
+% ============================================================================
+% HEURISTIC HELPERS
+% ============================================================================
+
+vh_id(vh(Id, _, _, _, _, _), Id).
+
+normalize_heuristic(Raw, Normalized) :-
+    (   var(Raw) -> Normalized = combo
+    ;   atom(Raw) -> normalize_heuristic_atom(Raw, Normalized)
+    ;   string(Raw) -> atom_string(Atom, Raw), normalize_heuristic_atom(Atom, Normalized)
+    ;   Normalized = combo
+    ).
+
+normalize_heuristic_atom(urgency, urgency) :- !.
+normalize_heuristic_atom(eat, eat) :- !.
+normalize_heuristic_atom(edt, edt) :- !.
+normalize_heuristic_atom(spt, spt) :- !.
+normalize_heuristic_atom(mst, mst) :- !.
+normalize_heuristic_atom(combo, combo) :- !.
+normalize_heuristic_atom(_, combo).
+
+greedy_ordering(Heuristic, Vessels, Ordered) :-
+    greedy_ordering_loop(Heuristic, 0, Vessels, [], RevOrdered),
+    reverse(RevOrdered, Ordered).
+
+greedy_ordering_loop(_, _, [], Acc, Acc).
+greedy_ordering_loop(Heuristic, CurrentTime, Pending, Acc, Ordered) :-
+    partition(can_start(CurrentTime), Pending, Available, NotYet),
+    (   Available = []
+    ->  % jump to next arrival and pick best among earliest arrivals
+        earliest_arrival(NotYet, NextArrival),
+        partition(arrives_at(NextArrival), NotYet, EarliestArrivals, Later),
+        pick_best(Heuristic, NextArrival, EarliestArrivals, Picked, Remaining0),
+        NewTime is max(CurrentTime, NextArrival),
+        append(Remaining0, Later, Remaining),
+        greedy_ordering_loop(Heuristic, NewTime, Remaining, [Picked|Acc], Ordered)
+    ;   pick_best(Heuristic, CurrentTime, Available, Picked, RemainingAvailable),
+        append(RemainingAvailable, NotYet, Remaining),
+        pick_start_time(CurrentTime, Picked, StartTime),
+        greedy_ordering_loop(Heuristic, StartTime, Remaining, [Picked|Acc], Ordered)
+    ).
+
+can_start(Time, vh(_, Arr, _, _, _, _)) :- Arr =< Time.
+arrives_at(Time, vh(_, Arr, _, _, _, _)) :- Arr =:= Time.
+
+pick_start_time(CurrentTime, vh(_, Arr, _, _, _, _), Start) :-
+    Start is max(CurrentTime, Arr).
+
+earliest_arrival([vh(_, Arr, _, _, _, _)|Rest], Earliest) :-
+    earliest_arrival_acc(Rest, Arr, Earliest).
+earliest_arrival_acc([], Acc, Acc).
+earliest_arrival_acc([vh(_, Arr, _, _, _, _)|Rest], Acc, Earliest) :-
+    Min is min(Arr, Acc),
+    earliest_arrival_acc(Rest, Min, Earliest).
+
+pick_best(Heuristic, CurrentTime, Candidates, Picked, Remaining) :-
+    map_list_to_pairs(heuristic_key(Heuristic, CurrentTime), Candidates, Keyed),
+    keysort(Keyed, [_-Picked|RestPairs]),
+    pairs_values(RestPairs, Remaining).
+
+heuristic_key(urgency, _Now, vh(_, Arr, Dep, Un, Load, _), Key) :-
+    Dur is Un + Load,
+    Urgency is Dep - (Arr + Dur),
+    Key = (Urgency, Dep, Arr).
+heuristic_key(eat, _Now, vh(_, Arr, Dep, _, _, _), (Arr, Dep)).
+heuristic_key(edt, _Now, vh(_, Arr, Dep, _, _, _), (Dep, Arr)).
+heuristic_key(spt, _Now, vh(_, Arr, Dep, Un, Load, _), (Dur, Dep, Arr)) :-
+    Dur is Un + Load.
+heuristic_key(mst, _Now, vh(_, Arr, Dep, Un, Load, _), (Slack, Dep, Arr)) :-
+    Dur is Un + Load,
+    Slack is (Dep - Arr) - Dur.
+heuristic_key(combo, Now, VH, Key) :-
+    VH = vh(_, Arr, Dep, Un, Load, _),
+    Dur is Un + Load,
+    Slack is (Dep - max(Now, Arr)) - Dur,
+    Score is 0.5 * Dep + 0.3 * Dur + 0.2 * Slack,
+    Key = (Score, Dep, Arr).
+heuristic_key(_, Now, VH, Key) :- heuristic_key(combo, Now, VH, Key).
+
+% ============================================================================
+% HEURISTIC EVALUATION HELPERS (quality study)
+% ============================================================================
+
+default_heuristics([eat, edt, spt, mst, combo, urgency]).
+
+normalize_heuristic_list(all, L) :- default_heuristics(L).
+normalize_heuristic_list([], L) :- default_heuristics(L).
+normalize_heuristic_list(H, [Norm]) :- atom(H), normalize_heuristic_atom(H, Norm).
+normalize_heuristic_list(List, NormList) :-
+    is_list(List),
+    maplist(normalize_heuristic_atom, List, NormList).
+normalize_heuristic_list(_, L) :- default_heuristics(L).
+
+evaluate_heuristics(Vessels, HeuristicsRaw, Result) :-
+    normalize_heuristic_list(HeuristicsRaw, Heuristics),
+    compute_optimal_schedule(Vessels, OptRes),
+    OptDelay = OptRes.total_delay,
+    findall(HRes, (
+        member(H, Heuristics),
+        compute_heuristic_schedule(Vessels, H, HR),
+        Gap is HR.total_delay - OptDelay,
+        HRes = HR.put(_{delay_gap: Gap})
+    ), HeuristicResults),
+    Result = _{
+        optimal: OptRes,
+        heuristics: HeuristicResults
+    }.
+
+% ============================================================================
+% DATA GENERATION (for quick experiments)
+% ============================================================================
+
+generate_synthetic_vessels(N, Vessels) :-
+    N > 0,
+    findall(V, (
+        between(1, N, I),
+        arrival_time(I, Arr),
+        depart_time(I, Arr, Dep),
+        unload_time(I, Un),
+        load_time(I, Load),
+        dock_id(I, Dock),
+        atom_concat(v, I, Id),
+        V = _{
+            id: Id,
+            arrival_time: Arr,
+            departure_time: Dep,
+            unload_time: Un,
+            load_time: Load,
+            assigned_dock: Dock
+        }
+    ), Vessels).
+
+arrival_time(I, Arr) :-
+    Arr is 4 + (I - 1) * 3.
+depart_time(I, Arr, Dep) :-
+    Margin is 6 + (I mod 4),
+    Dep is Arr + Margin.
+unload_time(I, Un) :-
+    Un is 2 + (I mod 3).
+load_time(I, Load) :-
+    Load is 2 + ((I + 1) mod 4).
+dock_id(I, Dock) :-
+    ( 0 is I mod 2 -> Dock = 'DOCK-A' ; Dock = 'DOCK-B' ).
 
 % ============================================================================
 % RESOURCE ASSIGNMENT
@@ -239,7 +393,9 @@ staff_operational_window(StaffMember, AvailStart, AvailEnd) :-
     number_string(AvailEndHour, EndHourStr),
     number_string(AvailEndMin, EndMinStr),
     AvailStart is AvailStartHour + (AvailStartMin / 60),
-    AvailEnd is AvailEndHour + (AvailEndMin / 60).
+    AvailEnd0 is AvailEndHour + (AvailEndMin / 60),
+    % Se a janela termina em 24:00 ou ultrapassa as 24h, permite atravessar meia-noite
+    ( AvailEndHour >= 24 -> AvailEnd is AvailEnd0 + 24 ; AvailEnd = AvailEnd0 ).
 
 staff_next_available_slot(StaffId, WindowStart, WindowEnd, DesiredStart, Duration, AssignedStaff,
                           ActualStart, ActualEnd) :-
@@ -401,9 +557,14 @@ load_vessels_as_facts([Vessel | RestVessels]) :-
 
 % ============================================================================
 % MULTI-CRANE SCHEDULING (US 3.4.5)
+% Segmenta a otimização: só avalia 2 gruas no segmento até ao último navio atrasado.
+% Mantém compatibilidade com compute_multi_crane_schedule/3.
 % ============================================================================
 
 compute_multi_crane_schedule(Vessels, BaselineResult, MultiResult) :-
+    compute_multi_crane_segmented(Vessels, BaselineResult, MultiResult).
+
+compute_multi_crane_segmented(Vessels, BaselineResult, MultiResult) :-
     get_time(StartTime),
     BaselineDelay = BaselineResult.total_delay,
     BaselineSchedule = BaselineResult.schedule,
@@ -421,10 +582,10 @@ compute_multi_crane_schedule(Vessels, BaselineResult, MultiResult) :-
         OptimizedDockQuads = DockQuadSeqsSingle,
         extract_all_cranes_alloc(OptimizedDockQuads, LCranesAlloc),
         build_multi_crane_schedule_triples(OptimizedDockQuads, MultiScheduleTriples)
-    ;   optimize_all_docks(DockTripletSeqs, OptimizedDockQuads, MultiDelay, CraneHoursMulti),
+    ;   optimize_all_docks_segmented(DockTripletSeqs, OptimizedDockQuads, MultiDelay, CraneHoursMulti),
         extract_all_cranes_alloc(OptimizedDockQuads, LCranesAlloc),
         build_multi_crane_schedule_triples(OptimizedDockQuads, MultiScheduleTriples),
-        Strategy = multi_crane
+        Strategy = multi_crane_segmented
     ),
     retractall(user:vessel(_,_,_,_,_,_)),
     retractall(shortest_delay_multi(_,_,_)),
@@ -468,19 +629,19 @@ extract_all_cranes_alloc([dock(_, Quads) | Rest], AllCr) :-
     extract_all_cranes_alloc(Rest, CrRest),
     append(CrDock, CrRest, AllCr).
 
-optimize_all_docks([], [], 0, 0).
-optimize_all_docks([dock(Dock, Triplets) | Rest],
+optimize_all_docks_segmented([], [], 0, 0).
+optimize_all_docks_segmented([dock(Dock, Triplets) | Rest],
                    [dock(Dock, BestQuads) | RestBest],
                    TotalDelay, TotalCraneHours) :-
     sum_delays_multi_triplets(Triplets, SingleDelayDock),
     (   SingleDelayDock =:= 0
     ->  convert_triplets_to_quadruplets(Triplets, 1, BestQuads),
         BestDelayDock is SingleDelayDock
-    ;   multi_crane_optimize(Triplets, SingleDelayDock,
+    ;   multi_crane_optimize_segmented(Triplets, SingleDelayDock,
                              BestQuads, BestDelayDock, _LCranesAllocDock)
     ),
     crane_hours_multi(BestQuads, CraneHoursDock),
-    optimize_all_docks(Rest, RestBest, DelayRest, CraneHoursRest),
+    optimize_all_docks_segmented(Rest, RestBest, DelayRest, CraneHoursRest),
     TotalDelay      is BestDelayDock  + DelayRest,
     TotalCraneHours is CraneHoursDock + CraneHoursRest.
 
@@ -491,7 +652,7 @@ sum_delays_multi_triplets([[V, _, TEndLoad] | Rest], TotalDelay) :-
     sum_delays_multi_triplets(Rest, RestDelay),
     TotalDelay is VesselDelay + RestDelay.
 
-multi_crane_optimize(SeqTriplets, SDelay1Crane,
+multi_crane_optimize_segmented(SeqTriplets, SDelay1Crane,
                      SeqBetterQuadruplets, SShortestDelay, LCranesAlloc) :-
     SInitial is SDelay1Crane,
     convert_triplets_to_quadruplets(SeqTriplets, 1, QuadInitial),
@@ -500,21 +661,26 @@ multi_crane_optimize(SeqTriplets, SDelay1Crane,
     asserta(shortest_delay_multi(QuadInitial, SInitial, LCranesInitial)),
     reverse(SeqTriplets, RevSeq),
     find_last_delayed_vessel(RevSeq, VLastDelayed),
-    extract_vessels_list(SeqTriplets, SeqV),
-    split_sequence_at_vessel(SeqV, VLastDelayed, SeqToOptimize, SeqFixed),
-    length(SeqToOptimize, NToOptimize),
-    (   generate_crane_permutations(NToOptimize, LCrOptimizable),
-        length(SeqFixed, NFixed),
-        generate_ones(NFixed, FixedCranes),
-        append(LCrOptimizable, FixedCranes, LCrFull),
-        append(SeqToOptimize, SeqFixed, SeqVFull),
-        sequence_temporization_multi(SeqVFull, LCrFull, SeqQuadruplets),
-        sum_delays_multi(SeqQuadruplets, S),
-        compare_shortest_delay_multi(SeqQuadruplets, S, LCrFull),
-        fail
-    ;   true
-    ),
-    retract(shortest_delay_multi(SeqBetterQuadruplets, SShortestDelay, LCranesAlloc)).
+    (   VLastDelayed = none
+    ->  SeqBetterQuadruplets = QuadInitial,
+        SShortestDelay = SInitial,
+        LCranesAlloc = LCranesInitial
+    ;   extract_vessels_list(SeqTriplets, SeqV),
+        split_sequence_at_vessel(SeqV, VLastDelayed, SeqToOptimize, SeqFixed),
+        length(SeqToOptimize, NToOptimize),
+        (   generate_crane_permutations(NToOptimize, LCrOptimizable),
+            length(SeqFixed, NFixed),
+            generate_ones(NFixed, FixedCranes),
+            append(LCrOptimizable, FixedCranes, LCrFull),
+            append(SeqToOptimize, SeqFixed, SeqVFull),
+            sequence_temporization_multi(SeqVFull, LCrFull, SeqQuadruplets),
+            sum_delays_multi(SeqQuadruplets, S),
+            compare_shortest_delay_multi(SeqQuadruplets, S, LCrFull),
+            fail
+        ;   true
+        ),
+        retract(shortest_delay_multi(SeqBetterQuadruplets, SShortestDelay, LCranesAlloc))
+    ).
 
 sequence_temporization_multi(LV, LCranes, SeqQuadruplets) :-
     sequence_temporization_multi1(0, LV, LCranes, SeqQuadruplets).
@@ -526,7 +692,9 @@ sequence_temporization_multi1(EndPrevOp,
                               [[V, TInUnload, TEndLoad, NCranes] | SeqQuadruplets]) :-
     user_vessel_data_safe(V, ArrivalTime, _, UnloadTime, LoadTime),
     StartUnload is max(ArrivalTime, EndPrevOp),
-    TotalOperation is (UnloadTime + LoadTime) / NCranes,
+    RawOperation is UnloadTime + LoadTime,
+    Effective is ceiling(RawOperation / NCranes),
+    TotalOperation is max(1, Effective),
     TInUnload is StartUnload,
     TEndLoad is StartUnload + TotalOperation,
     sequence_temporization_multi1(TEndLoad, LV, LCranes, SeqQuadruplets).

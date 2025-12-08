@@ -25,22 +25,30 @@
 %  keys consumed by scheduling_algorithms.pl:
 %    id, arrival_time, departure_time, unload_time, load_time, assigned_dock.
 fetch_vessels_for_date(DateStr, Vessels) :-
-    (   load_vessels_from_env(Vessels)
-    ->  true
-    ;   backend_vessels(DateStr, Vessels)
-    ->  true
-    ;   sample_vessels(DateStr, Vessels)
+    (   config:prefer_backend_api(true)
+    ->  ( backend_vessels(DateStr, Vessels) -> log_source(vessels, backend)
+        ; load_vessels_from_env(Vessels)    -> log_source(vessels, env)
+        ; sample_vessels(DateStr, Vessels),   log_source(vessels, sample)
+        )
+    ;   ( load_vessels_from_env(Vessels)    -> log_source(vessels, env)
+        ; backend_vessels(DateStr, Vessels) -> log_source(vessels, backend)
+        ; sample_vessels(DateStr, Vessels),   log_source(vessels, sample)
+        )
     ).
 
 %% fetch_available_resources(-Resources:dict) is det.
 %
 %  Resources dict with keys cranes, staff, storage, docks.
 fetch_available_resources(Resources) :-
-    (   load_resources_from_env(Resources)
-    ->  true
-    ;   backend_resources(Resources)
-    ->  true
-    ;   sample_resources(Resources)
+    (   config:prefer_backend_api(true)
+    ->  ( backend_resources(Resources)    -> log_source(resources, backend)
+        ; load_resources_from_env(Resources) -> log_source(resources, env)
+        ; sample_resources(Resources),        log_source(resources, sample)
+        )
+    ;   ( load_resources_from_env(Resources) -> log_source(resources, env)
+        ; backend_resources(Resources)       -> log_source(resources, backend)
+        ; sample_resources(Resources),          log_source(resources, sample)
+        )
     ).
 
 /* -------------------------------------------------------------------------
@@ -48,8 +56,8 @@ fetch_available_resources(Resources) :-
    ------------------------------------------------------------------------- */
 
 load_vessels_from_env(Vessels) :-
-    getenv('PROLOG_VESSELS_JSON', Path),
-    Path \= '',
+    config:default_vessels_fixture(Default),
+    fixture_path('PROLOG_VESSELS_JSON', Default, Path),
     access_file(Path, read),
     catch(
         (
@@ -71,8 +79,8 @@ load_vessels_from_env(Vessels) :-
 load_vessels_from_env(_) :- fail.
 
 load_resources_from_env(Resources) :-
-    getenv('PROLOG_RESOURCES_JSON', Path),
-    Path \= '',
+    config:default_resources_fixture(Default),
+    fixture_path('PROLOG_RESOURCES_JSON', Default, Path),
     access_file(Path, read),
     catch(
         (
@@ -88,6 +96,11 @@ load_resources_from_env(Resources) :-
         fail
     ).
 load_resources_from_env(_) :- fail.
+
+fixture_path(EnvVar, DefaultTerm, Path) :-
+    (   getenv(EnvVar, P), P \= '' -> Path = P
+    ;   Path = DefaultTerm
+    ).
 
 /* -------------------------------------------------------------------------
    Backend lookups (best-effort)
@@ -131,6 +144,11 @@ http_backend_options([
     timeout(10),
     cert_verify_hook(ssl_verify)
 ]).
+
+log_source(_Type, _Source) :-
+    config:log_api_calls(false), !.
+log_source(Type, Source) :-
+    format(user_error, '[data_service] ~w loaded from ~w~n', [Type, Source]).
 
 matches_date(DateStr, Dict) :-
     (   get_dict(arrivalDate, Dict, Arrival)
