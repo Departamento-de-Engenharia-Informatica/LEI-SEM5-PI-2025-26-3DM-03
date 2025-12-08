@@ -1,28 +1,54 @@
 {
   "vessels": [
-    {
-      "id": "V-101",
-      "arrival_time": 4,
-      "departure_time": 20,
-      "unload_time": 3,
-      "load_time": 2,
-      "assigned_dock": "D-A"
+    { 
+      "id": "V-101", 
+      "arrival_time": 4,  
+      "departure_time": 9,  
+      "unload_time": 3, 
+      "load_time": 2, 
+      "assigned_dock": "D-A",
+      "required_cranes": 1,
+      "required_staff": 1
     },
-    {
-      "id": "V-202",
-      "arrival_time": 8,
-      "departure_time": 26,
-      "unload_time": 4,
-      "load_time": 1,
-      "assigned_dock": "D-B"
+    { 
+      "id": "V-202", 
+      "arrival_time": 5,  
+      "departure_time": 10, 
+      "unload_time": 2, 
+      "load_time": 2, 
+      "assigned_dock": "D-A",
+      "required_cranes": 1,
+      "required_staff": 1
     },
-    {
-      "id": "V-303",
-      "arrival_time": 12,
-      "departure_time": 28,
-      "unload_time": 3,
-      "load_time": 2,
-      "assigned_dock": "D-A"
+    { 
+      "id": "V-303", 
+      "arrival_time": 6,  
+      "departure_time": 11, 
+      "unload_time": 3, 
+      "load_time": 2, 
+      "assigned_dock": "D-A",
+      "required_cranes": 1,
+      "required_staff": 1
+    },
+    { 
+      "id": "V-404", 
+      "arrival_time": 7,  
+      "departure_time": 11, 
+      "unload_time": 2, 
+      "load_time": 2, 
+      "assigned_dock": "D-A",
+      "required_cranes": 1,
+      "required_staff": 1
+    },
+    { 
+      "id": "V-505", 
+      "arrival_time": 8,  
+      "departure_time": 12, 
+      "unload_time": 2, 
+      "load_time": 2, 
+      "assigned_dock": "D-A",
+      "required_cranes": 1,
+      "required_staff": 1
     }
   ]
 }

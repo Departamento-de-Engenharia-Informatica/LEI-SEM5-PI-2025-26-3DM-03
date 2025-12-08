@@ -62,7 +62,13 @@ start_scheduling_server :-
         format('  POST /api/scheduling/generate~n'),
         format('  POST /api/scheduling/daily~n'),
         format('==============================================~n~n')
-    ).
+    ),
+    load_vessel_data,
+    load_resources_data.
+
+% Legacy hooks for preloading data; currently no-op (data is fetched on demand)
+load_vessel_data.
+load_resources_data.
 
 stop_scheduling_server :-
     server_port(Port),
@@ -117,7 +123,7 @@ process_daily(Request) :-
     ;   AlgorithmIn = "auto"
     ),
     (   config:log_api_calls(true)
-    ->  format(user_error, 'Computing daily schedule for: ~w using algorithm: ~w~n', [DateStr, Algorithm])
+    ->  format(user_error, 'Computing daily schedule for: ~w using algorithm: ~w~n', [DateStr, AlgorithmIn])
     ;   true
     ),
     retractall(scheduling_algorithms:user:vessel(_, _, _, _, _, _)),
@@ -139,7 +145,7 @@ process_daily(Request) :-
         scheduling_algorithms:assign_resources_to_schedule(
             Schedule, Resources, EnrichedScheduleBase
         ),
-        (   member(Algorithm, ["multi_crane", "multi_crane_auto"])
+        (   member(ResponseAlgorithm, ["multi_crane", "multi_crane_auto"])
         ->  CranesAlloc = AlgoResult.get(cranes_allocation, []),
             enrich_multi_crane_operations(EnrichedScheduleBase, CranesAlloc, Resources, EnrichedSchedule)
         ;   EnrichedSchedule = EnrichedScheduleBase

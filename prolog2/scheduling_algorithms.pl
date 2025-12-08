@@ -181,7 +181,8 @@ assign_resources_internal([(VesselId, StartTime, EndTime, _StartTimeStr, _EndTim
     DurationHours is EndTime - StartTime,
     select_crane_with_timing(Cranes, DockCode, StartTime, DurationHours, AssignedCranes,
                              CraneCode, CraneStart, _CraneEnd, CranesList, NewAssignedCranes0),
-    select_staff_with_timing(Staff, CraneCode, CranesList, StartTime, DurationHours, AssignedStaff,
+    crane_required_quals(Cranes, CranesList, RequiredQualifications),
+    select_staff_with_timing(Staff, CraneCode, RequiredQualifications, StartTime, DurationHours, AssignedStaff,
                              StaffId, StaffStart, _StaffEnd, NewAssignedStaff0),
     ActualStart is max(CraneStart, StaffStart),
     ActualEnd is ActualStart + DurationHours,
@@ -206,16 +207,15 @@ assign_resources_internal([(VesselId, StartTime, EndTime, _StartTimeStr, _EndTim
     },
     assign_resources_internal(RestSchedule, AvailableResources, NewAssignedStaff, NewAssignedCranes, RestOperations).
 
-select_staff_with_timing(_StaffList, _CraneCode, [], StartTime, Duration, AssignedStaff, "NO_STAFF_AVAILABLE",
-                         StartTime, EndTime, AssignedStaff) :-
-    EndTime is StartTime + Duration.
 select_staff_with_timing(StaffList, _CraneCode, RequiredQualifications, StartTime, Duration, AssignedStaff,
                          StaffId, ActualStart, ActualEnd, AssignedStaffOut) :-
     member(StaffMember, StaffList),
     StaffMemberId = StaffMember.mecanographicNumber,
     get_dict(status, StaffMember, "Available"),
-    member(RequiredQual, RequiredQualifications),
-    staff_has_qualification(StaffMember, RequiredQual),
+    ( RequiredQualifications = [] -> true
+    ; member(RequiredQual, RequiredQualifications),
+      staff_has_qualification(StaffMember, RequiredQual)
+    ),
     staff_operational_window(StaffMember, WindowStart, WindowEnd),
     staff_next_available_slot(StaffMemberId, WindowStart, WindowEnd, StartTime, Duration, AssignedStaff,
                               ActualStart, ActualEnd),
@@ -318,23 +318,18 @@ update_staff_booking("NO_STAFF_AVAILABLE", _S, _E, Assigned, Assigned).
 update_staff_booking(StaffId, Start, End, Assigned, [staff(StaffId, Start, End) | Assigned]).
 
 staff_has_qualification(StaffMember, RequiredQualification) :-
-    get_dict(qualifications, StaffMember, Qualifications),
-    (   atom(RequiredQualification)
-    ->  atom_string(RequiredQualification, ReqStr)
-    ;   ReqStr = RequiredQualification
-    ),
-    (   is_list(Qualifications)
-    ->  member(Qual, Qualifications),
-        (   atom(Qual)
-        ->  atom_string(Qual, QualStr)
-        ;   QualStr = Qual
-        ),
-        sub_string(QualStr, _, _, _, ReqStr)
-    ;   (   atom(Qualifications)
-        ->  atom_string(Qualifications, QualStr)
-        ;   QualStr = Qualifications
-        ),
-        sub_string(QualStr, _, _, _, ReqStr)
+    ( RequiredQualification == [] -> true
+    ; get_dict(qualifications, StaffMember, Qualifications),
+      (   atom(RequiredQualification) -> atom_string(RequiredQualification, ReqStr)
+      ;   ReqStr = RequiredQualification
+      ),
+      (   is_list(Qualifications)
+      ->  member(Qual, Qualifications),
+          (   atom(Qual) -> atom_string(Qual, QualStr) ; QualStr = Qual ),
+          sub_string(QualStr, _, _, _, ReqStr)
+      ;   (   atom(Qualifications) -> atom_string(Qualifications, QualStr) ; QualStr = Qualifications ),
+          sub_string(QualStr, _, _, _, ReqStr)
+      )
     ).
 
 staff_is_busy(StaffId, StartTime, EndTime, AssignedStaff) :-
@@ -615,6 +610,18 @@ count_cranes([H | T], N, C) :-
     (   H =:= N
     ->  C is CT + 1
     ;   C is CT
+    ).
+
+% Derive required qualifications from selected cranes (first crane only for now)
+crane_required_quals(_AllCranes, [], []) :- !.
+crane_required_quals(AllCranes, [Code | _], Quals) :-
+    (   member(Crane, AllCranes),
+        get_dict(code, Crane, Code)
+    ->  (   get_dict(qualificationRequirementIds, Crane, Quals) -> true
+        ;   get_dict(requiredQualifications, Crane, Quals) -> true
+        ;   Quals = []
+        )
+    ;   Quals = []
     ).
 
 crane_hours_multi([], 0).
