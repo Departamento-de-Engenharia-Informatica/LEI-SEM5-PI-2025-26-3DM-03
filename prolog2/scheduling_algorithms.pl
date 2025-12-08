@@ -117,7 +117,7 @@ compute_heuristic_schedule_internal(Heuristic, Schedule, TotalDelay) :-
         user:vessel(VesselId, ArrivalTime, DepartureTime, UnloadTime, LoadTime, Dock),
         Vessels
     ),
-    greedy_ordering(Heuristic, Vessels, OrderedStructs),
+    order_heuristic_sequence(Heuristic, Vessels, OrderedStructs),
     maplist(vh_id, OrderedStructs, OrderedIds),
     sequence_temporization(OrderedIds, Schedule),
     sum_delays(Schedule, TotalDelay).
@@ -244,6 +244,46 @@ heuristic_key(combo, Now, VH, Key) :-
     Score is 0.5 * Dep + 0.3 * Dur + 0.2 * Slack,
     Key = (Score, Dep, Arr).
 heuristic_key(_, Now, VH, Key) :- heuristic_key(combo, Now, VH, Key).
+
+% Heuristic ordering: static for eat/edt/spt/mst to mirror classic definitions; greedy for combo/urgency/default
+order_heuristic_sequence(eat, Vessels, Ordered) :-
+    maplist(vessel_key_eat, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_heuristic_sequence(edt, Vessels, Ordered) :-
+    maplist(vessel_key_edt, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_heuristic_sequence(spt, Vessels, Ordered) :-
+    maplist(vessel_key_spt, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_heuristic_sequence(mst, Vessels, Ordered) :-
+    maplist(vessel_key_mst, Vessels, Keyed),
+    keysort(Keyed, Sorted),
+    pairs_values(Sorted, Ordered).
+order_heuristic_sequence(combo, Vessels, Ordered) :-
+    greedy_ordering(combo, Vessels, Ordered).
+order_heuristic_sequence(urgency, Vessels, Ordered) :-
+    greedy_ordering(urgency, Vessels, Ordered).
+order_heuristic_sequence(_, Vessels, Ordered) :-
+    greedy_ordering(combo, Vessels, Ordered).
+
+vessel_key_edt(vh(Id,Arr,Dep,Un,Load,Dock), Key-vh(Id,Arr,Dep,Un,Load,Dock)) :-
+    Key = (Dep, Arr).
+vessel_key_eat(vh(Id,Arr,Dep,Un,Load,Dock), Key-vh(Id,Arr,Dep,Un,Load,Dock)) :-
+    Key = (Arr, Dep).
+vessel_key_spt(vh(Id,Arr,Dep,Un,Load,Dock), Key-vh(Id,Arr,Dep,Un,Load,Dock)) :-
+    Dur is Un + Load,
+    Key = (Dur, Dep).
+vessel_key_mst(vh(Id,Arr,Dep,Un,Load,Dock), Key-vh(Id,Arr,Dep,Un,Load,Dock)) :-
+    Dur is Un + Load,
+    Slack is (Dep - Arr) - Dur,
+    Key = (Slack, Dep).
+vessel_key_combo(vh(Id,Arr,Dep,Un,Load,Dock), Key-vh(Id,Arr,Dep,Un,Load,Dock)) :-
+    Dur is Un + Load,
+    Score is 0.6 * Dep + 0.4 * Dur,
+    Key = (Score, Arr).
 
 % ============================================================================
 % HEURISTIC EVALUATION HELPERS (quality study)

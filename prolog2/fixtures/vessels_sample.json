@@ -1,54 +1,14 @@
 {
   "vessels": [
-    { 
-      "id": "V-101", 
-      "arrival_time": 4,  
-      "departure_time": 9,  
-      "unload_time": 3, 
-      "load_time": 2, 
-      "assigned_dock": "D-A",
-      "required_cranes": 1,
-      "required_staff": 1
-    },
-    { 
-      "id": "V-202", 
-      "arrival_time": 5,  
-      "departure_time": 10, 
-      "unload_time": 2, 
-      "load_time": 2, 
-      "assigned_dock": "D-A",
-      "required_cranes": 1,
-      "required_staff": 1
-    },
-    { 
-      "id": "V-303", 
-      "arrival_time": 6,  
-      "departure_time": 11, 
-      "unload_time": 3, 
-      "load_time": 2, 
-      "assigned_dock": "D-A",
-      "required_cranes": 1,
-      "required_staff": 1
-    },
-    { 
-      "id": "V-404", 
-      "arrival_time": 7,  
-      "departure_time": 11, 
-      "unload_time": 2, 
-      "load_time": 2, 
-      "assigned_dock": "D-A",
-      "required_cranes": 1,
-      "required_staff": 1
-    },
-    { 
-      "id": "V-505", 
-      "arrival_time": 8,  
-      "departure_time": 12, 
-      "unload_time": 2, 
-      "load_time": 2, 
-      "assigned_dock": "D-A",
-      "required_cranes": 1,
-      "required_staff": 1
-    }
+    { "id": "va", "arrival_time": 6,  "departure_time": 63,  "unload_time": 10, "load_time": 16, "assigned_dock": "DOCK-A" },
+    { "id": "vb", "arrival_time": 23, "departure_time": 50,  "unload_time": 9,  "load_time": 7,  "assigned_dock": "DOCK-A" },
+    { "id": "vc", "arrival_time": 8,  "departure_time": 40,  "unload_time": 5,  "load_time": 12, "assigned_dock": "DOCK-A" },
+    { "id": "vd", "arrival_time": 27, "departure_time": 40,  "unload_time": 0,  "load_time": 8,  "assigned_dock": "DOCK-A" },
+    { "id": "ve", "arrival_time": 36, "departure_time": 70,  "unload_time": 12, "load_time": 0,  "assigned_dock": "DOCK-A" },
+    { "id": "vf", "arrival_time": 40, "departure_time": 60,  "unload_time": 8,  "load_time": 6,  "assigned_dock": "DOCK-A" },
+    { "id": "vg", "arrival_time": 52, "departure_time": 80,  "unload_time": 9,  "load_time": 10, "assigned_dock": "DOCK-A" },
+    { "id": "vi", "arrival_time": 61, "departure_time": 90,  "unload_time": 13, "load_time": 8,  "assigned_dock": "DOCK-A" },
+    { "id": "vj", "arrival_time": 74, "departure_time": 100, "unload_time": 7,  "load_time": 7,  "assigned_dock": "DOCK-A" },
+    { "id": "vk", "arrival_time": 81, "departure_time": 110, "unload_time": 6,  "load_time": 8,  "assigned_dock": "DOCK-A" }
   ]
 }
