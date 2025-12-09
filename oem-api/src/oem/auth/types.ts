@@ -1,8 +1,8 @@
 export type AuthenticatedUser = {
-  token: string;
-  roles: string[];
-  permissions: string[];
   userId?: string;
+  email?: string;
+  name?: string;
+  roles: string[];
   tenantId?: string;
-  attributes?: unknown;
+  attributes?: Record<string, unknown>;
 };

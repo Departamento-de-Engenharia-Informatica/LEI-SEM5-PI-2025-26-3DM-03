@@ -21,7 +21,7 @@ export class OperationPlanController {
   constructor(private readonly service: OperationPlanService) {}
 
   @Get()
-  @Roles('oem:plans:read')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'List operation plans' })
   @ApiOkResponse({ type: OperationPlanEntity, isArray: true })
   async findAll(): Promise<OperationPlanEntity[]> {
@@ -29,7 +29,7 @@ export class OperationPlanController {
   }
 
   @Get(':id')
-  @Roles('oem:plans:read')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get operation plan by id' })
   @ApiOkResponse({ type: OperationPlanEntity })
   async findOne(@Param('id') id: string): Promise<OperationPlanEntity> {
@@ -37,7 +37,7 @@ export class OperationPlanController {
   }
 
   @Post()
-  @Roles('oem:plans:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Create operation plan' })
   @ApiCreatedResponse({ type: OperationPlanEntity })
   create(@Body() payload: CreateOperationPlanDto): Promise<OperationPlanEntity> {
@@ -45,7 +45,7 @@ export class OperationPlanController {
   }
 
   @Post('generate')
-  @Roles('oem:plans:generate')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({
     summary: 'Generate operation plans for a given day from VVNs (preview or save)',
   })
@@ -59,7 +59,7 @@ export class OperationPlanController {
   }
 
   @Patch(':id')
-  @Roles('oem:plans:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Update operation plan' })
   @ApiOkResponse({ type: OperationPlanEntity })
   update(
@@ -70,7 +70,7 @@ export class OperationPlanController {
   }
 
   @Delete(':id')
-  @Roles('oem:plans:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Delete operation plan' })
   @ApiOkResponse({ type: OperationPlanEntity })
   remove(@Param('id') id: string): Promise<OperationPlanEntity> {

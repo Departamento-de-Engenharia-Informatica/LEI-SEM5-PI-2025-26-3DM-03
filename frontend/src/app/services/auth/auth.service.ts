@@ -95,7 +95,7 @@ export class AuthService  {
 
   /**
    * Map server role names into the frontend's simplified role keys:
-   * admin | operator | agent | authority
+   * admin | logistics-operator | operator | agent | authority
    */
   private normalizeUserRoles(user: AuthUser | null | undefined) {
     if (!user) return;
@@ -104,7 +104,8 @@ export class AuthService  {
       const s = r.toString();
       const lower = s.toLowerCase();
       if (lower.includes('admin')) return 'admin';
-      if (lower.includes('operator') || lower.includes('logistic')) return 'operator';
+      if (lower.includes('logistics') || lower.includes('logistic-operator')) return 'logistics-operator';
+      if (lower.includes('operator')) return 'operator';
       if (lower.includes('agent') || lower.includes('representative')) return 'agent';
       if (lower.includes('authority') || lower.includes('port')) return 'authority';
       if (lower.includes('system')) return 'system';
@@ -120,6 +121,9 @@ export class AuthService  {
     try {
       if (user.role && (!Array.isArray(user.roles) || !user.roles.includes(user.role))) {
         user.roles = Array.isArray(user.roles) ? [...user.roles, user.role] : [user.role];
+      }
+      if (Array.isArray(user.roles) && user.roles.includes('logistics-operator') && !user.roles.includes('operator')) {
+        user.roles = [...user.roles, 'operator'];
       }
     } catch {}
   }

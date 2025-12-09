@@ -1,0 +1,27 @@
+<section>
+  <h1>Planos de Operação</h1>
+
+  <div *ngIf="loading">A carregar...</div>
+  <div *ngIf="error && !loading" class="error">{{ error }}</div>
+
+  <table *ngIf="!loading && !error && plans.length > 0">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Estado</th>
+        <th>Visita</th>
+        <th>Criado em</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let plan of plans">
+        <td>{{ plan.name }}</td>
+        <td>{{ plan.status }}</td>
+        <td>{{ plan.vesselVisitId || '-' }}</td>
+        <td>{{ plan.createdAt | date: 'short' }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p *ngIf="!loading && !error && plans.length === 0">Sem planos de operação disponíveis.</p>
+</section>

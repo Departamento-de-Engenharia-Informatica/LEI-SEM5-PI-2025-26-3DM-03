@@ -8,7 +8,7 @@ import { LoginComponent } from '../../pages/login/login.component';
 import { ToastContainerComponent } from '../toast/toast-container.component';
 //import { HttpClientModule } from '@angular/common/http';
 
-type Role = 'admin' | 'operator' | 'agent' | 'authority';
+type Role = 'admin' | 'operator' | 'logistics-operator' | 'agent' | 'authority';
 
 interface MenuChild {
   key: string;
@@ -76,6 +76,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'public_resources', label_en: 'Shared Resources', label_pt: 'Recursos Partilhados', icon: 'bi-folder2-open', route: '/public-resources', roles: ['admin','operator','agent','authority'] },
     { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
+    { key: 'oem_operation_plans', label_en: 'Operation Plans', label_pt: 'Planos de Operação', icon: 'bi-diagram-3', route: '/oem/operation-plans', roles: ['admin','logistics-operator'] },
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
   // Port 3D
@@ -147,12 +148,26 @@ export class LayoutComponent implements OnInit, OnDestroy {
   private updateDisplayedMenu() {
     const u = this.auth.user;
     console.log('[Layout] updateDisplayedMenu: auth.user=', u);
-    if (!u || !u.role) {
+    if (!u || (!u.role && !Array.isArray(u.roles))) {
       this.displayedMenu = [];
     } else {
-      const r = u.role as Role;
-      // Admin sees all regardless of listed roles
-      this.displayedMenu = r === 'admin' ? this.menuItems.slice() : this.menuItems.filter(m => m.roles.includes(r));
+      const roleSet = new Set<string>();
+      if (u.role) {
+        roleSet.add(u.role);
+      }
+      if (Array.isArray(u.roles)) {
+        for (const r of u.roles) {
+          if (r) {
+            roleSet.add(r);
+          }
+        }
+      }
+
+      if (roleSet.has('admin')) {
+        this.displayedMenu = this.menuItems.slice();
+      } else {
+        this.displayedMenu = this.menuItems.filter((m) => m.roles.some((role) => roleSet.has(role)));
+      }
     }
     console.log('[Layout] displayedMenu=', this.displayedMenu.map(x => x.key));
   }

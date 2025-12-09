@@ -1,0 +1,26 @@
+section {
+  h1 {
+    margin-bottom: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #ccc;
+      text-align: left;
+    }
+
+    th {
+      background: #f3f3f3;
+    }
+  }
+
+  .error {
+    color: #b71c1c;
+    margin-bottom: 1rem;
+  }
+}
