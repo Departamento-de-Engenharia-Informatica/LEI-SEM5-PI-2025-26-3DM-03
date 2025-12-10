@@ -28,6 +28,9 @@ import { ComplementaryTaskEntity } from './persistence/complementary-task.entity
 import { IncidentTypeEntity } from './persistence/incident-type.entity';
 import { IncidentEntity } from './persistence/incident.entity';
 import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution.entity';
+import { OemVvn } from './vvn/oem-vvn.entity';
+import { OemVvnService } from './vvn/oem-vvn.service';
+import { OperationPlanTaskEntity } from './persistence/operation-plan-task.entity';
 
 @Module({
   imports: [
@@ -39,6 +42,8 @@ import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution
       IncidentTypeEntity,
       IncidentEntity,
       VesselVisitExecutionEntity,
+      OperationPlanTaskEntity,
+      OemVvn,
     ]),
   ],
   controllers: [
@@ -59,6 +64,7 @@ import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution
     ComplementaryTaskService,
     ComplementaryTaskCategoryService,
     ExternalClientsService,
+    OemVvnService,
     IamAuthGuard,
     RolesGuard,
     Reflector,

@@ -1,19 +1,25 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
-import { CreateOperationPlanDto, GenerateOperationPlansDto, UpdateOperationPlanDto } from '../dto';
+import { CreateOperationPlanDto, UpdateOperationPlanDto } from '../dto';
 import { OperationPlanService } from '../services';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/types';
+import {
+  OperationPlanPreviewDto,
+  OperationPlanPreviewRequestDto,
+  GenerateOperationPlansRequestDto,
+} from '../operation-plans/dtos';
 
-@ApiTags('Operation Plans')
+@ApiTags('OEM/OperationPlans')
 @ApiBearerAuth()
 @UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/operation-plans')
@@ -46,16 +52,15 @@ export class OperationPlanController {
 
   @Post('generate')
   @Roles('admin', 'logistics-operator')
-  @ApiOperation({
-    summary: 'Generate operation plans for a given day from VVNs (preview or save)',
-  })
+  @ApiOperation({ summary: 'Generate and persist operation plans for a day' })
+  @ApiBody({ type: GenerateOperationPlansRequestDto })
   @ApiOkResponse({ type: OperationPlanEntity, isArray: true })
-  async generate(
-    @Body() payload: GenerateOperationPlansDto,
+  generate(
+    @Body() payload: GenerateOperationPlansRequestDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<OperationPlanEntity[]> {
-    const userId = req.user?.userId;
-    return this.service.generateForDay(payload, userId);
+    const createdBy = req.user?.userId ?? req.user?.email ?? 'system';
+    return this.service.generateAndPersistForDay(payload.date, payload.algorithm, createdBy);
   }
 
   @Patch(':id')
@@ -75,5 +80,16 @@ export class OperationPlanController {
   @ApiOkResponse({ type: OperationPlanEntity })
   remove(@Param('id') id: string): Promise<OperationPlanEntity> {
     return this.service.remove(id);
+  }
+
+  @Post('preview')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'Preview operation plans for a day without persisting' })
+  @ApiBody({ type: OperationPlanPreviewRequestDto })
+  @ApiOkResponse({ type: OperationPlanPreviewDto, isArray: true })
+  preview(
+    @Body() payload: OperationPlanPreviewRequestDto,
+  ): Promise<OperationPlanPreviewDto[]> {
+    return this.service.generatePreviewForDay(payload.date, payload.algorithm);
   }
 }

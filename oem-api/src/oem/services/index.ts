@@ -5,3 +5,4 @@ export * from './incident-type.service';
 export * from './complementary-task.service';
 export * from './complementary-task-category.service';
 export * from './external-clients.service';
+export * from '../vvn/oem-vvn.service';

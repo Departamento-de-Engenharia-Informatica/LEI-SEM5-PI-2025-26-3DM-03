@@ -3,6 +3,44 @@ section {
     margin-bottom: 1rem;
   }
 
+  h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .preview-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+
+      input[type='date'] {
+        padding: 0.5rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+    }
+
+    button {
+      padding: 0.6rem 1.4rem;
+      border: none;
+      border-radius: 4px;
+      background-color: #1976d2;
+      color: #fff;
+      cursor: pointer;
+
+      &:disabled {
+        background-color: #90caf9;
+        cursor: not-allowed;
+      }
+    }
+  }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -22,5 +60,57 @@ section {
   .error {
     color: #b71c1c;
     margin-bottom: 1rem;
+  }
+
+  .success {
+    color: #1b5e20;
+    margin-bottom: 1rem;
+  }
+
+  .info {
+    margin-bottom: 1rem;
+    color: #424242;
+  }
+
+  .validation {
+    color: #b71c1c;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  .persist-button {
+    margin-top: 1rem;
+    padding: 0.6rem 1.4rem;
+    border: none;
+    border-radius: 4px;
+    background-color: #2e7d32;
+    color: #fff;
+    cursor: pointer;
+
+    &:disabled {
+      background-color: #a5d6a7;
+      cursor: not-allowed;
+    }
+  }
+
+  .toggle {
+    margin-right: 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+
+  .preview-table {
+    margin-top: 1rem;
+  }
+
+  .operations-table {
+    width: 100%;
+
+    th,
+    td {
+      background: #fafafa;
+    }
   }
 }

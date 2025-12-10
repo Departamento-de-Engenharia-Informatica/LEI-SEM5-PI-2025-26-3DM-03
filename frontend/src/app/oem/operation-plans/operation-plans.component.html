@@ -1,7 +1,96 @@
 <section>
   <h1>Planos de Operação</h1>
 
-  <div *ngIf="loading">A carregar...</div>
+  <form class="preview-form" [formGroup]="form" (ngSubmit)="onPreview()">
+    <div class="form-field">
+      <label for="plan-date">Data</label>
+      <input id="plan-date" type="date" formControlName="date" />
+    </div>
+    <button type="submit" [disabled]="previewLoading">Gerar Preview</button>
+  </form>
+  <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
+    Selecione uma data para gerar o preview.
+  </div>
+
+  <div *ngIf="previewLoading" class="info">A gerar preview...</div>
+  <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
+  <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
+  <div *ngIf="persistError" class="error">{{ persistError }}</div>
+
+  <table *ngIf="hasPreview && !previewLoading" class="preview-table">
+    <thead>
+      <tr>
+        <th>Vessel</th>
+        <th>Dock</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Delay</th>
+      </tr>
+    </thead>
+    <tbody>
+      <ng-container *ngFor="let preview of previewPlans; trackBy: trackByVvn">
+        <tr>
+          <td>
+            <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
+              {{ isExpanded(preview.vvnId) ? '▼' : '▶' }}
+            </button>
+            {{ preview.vesselName }}
+          </td>
+          <td>{{ preview.dockId }}</td>
+          <td>{{ preview.plannedStartTime | date: 'short' }}</td>
+          <td>{{ preview.plannedEndTime | date: 'short' }}</td>
+          <td>
+            {{
+              preview.expectedDelayMinutes !== null
+                ? (preview.expectedDelayMinutes + ' min')
+                : '-'
+            }}
+          </td>
+        </tr>
+        <tr *ngIf="isExpanded(preview.vvnId)">
+          <td colspan="5">
+            <table class="operations-table" *ngIf="preview.operations.length > 0; else emptyOperations">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Grua</th>
+                  <th>Armazém</th>
+                  <th>Início</th>
+                  <th>Fim</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let operation of preview.operations">
+                  <td>{{ operation.type }}</td>
+                  <td>{{ operation.craneId }}</td>
+                  <td>{{ operation.storageAreaId }}</td>
+                  <td>{{ operation.startTime | date: 'shortTime' }}</td>
+                  <td>{{ operation.endTime | date: 'shortTime' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <ng-template #emptyOperations>
+              <div class="info">Sem operações planeadas.</div>
+            </ng-template>
+          </td>
+        </tr>
+      </ng-container>
+    </tbody>
+  </table>
+
+  <button
+    *ngIf="hasPreview"
+    type="button"
+    class="persist-button"
+    [disabled]="persistLoading"
+    (click)="onPersist()"
+  >
+    {{ persistLoading ? 'A guardar...' : 'Guardar Planos' }}
+  </button>
+
+  <h2>Planos guardados</h2>
+
+  <div *ngIf="loading">A carregar planos guardados...</div>
   <div *ngIf="error && !loading" class="error">{{ error }}</div>
 
   <table *ngIf="!loading && !error && plans.length > 0">

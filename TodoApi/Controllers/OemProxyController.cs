@@ -6,7 +6,7 @@ using TodoApi.Services.Oem;
 namespace TodoApi.Controllers;
 
 [ApiController]
-[Route("oem")]
+[Route("api/oem")]
 [Authorize]
 public class OemProxyController : ControllerBase
 {
@@ -21,6 +21,20 @@ public class OemProxyController : ControllerBase
     public async Task<IActionResult> GetOperationPlans(CancellationToken cancellationToken)
     {
         var response = await _oemClient.GetOperationPlansAsync(cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("operation-plans/preview")]
+    public async Task<IActionResult> PreviewOperationPlans([FromBody] OperationPlanRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.PreviewOperationPlansAsync(request.Date, request.Algorithm, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("operation-plans/generate")]
+    public async Task<IActionResult> GenerateOperationPlans([FromBody] OperationPlanRequest request, CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GenerateOperationPlansAsync(request.Date, request.Algorithm, cancellationToken);
         return await ToActionResultAsync(response);
     }
 
@@ -41,3 +55,5 @@ public class OemProxyController : ControllerBase
         };
     }
 }
+
+public record OperationPlanRequest(string Date, string? Algorithm);

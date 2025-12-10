@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -34,6 +35,40 @@ public class OemClient
     public async Task<HttpResponseMessage> GetOperationPlansAsync(CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Get, "oem/operation-plans");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> PreviewOperationPlansAsync(string date, string? algorithm, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/operation-plans/preview")
+        {
+            Content = JsonContent.Create(new
+            {
+                date,
+                algorithm
+            })
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GenerateOperationPlansAsync(string date, string? algorithm, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/operation-plans/generate")
+        {
+            Content = JsonContent.Create(new
+            {
+                date,
+                algorithm
+            })
+        };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         ApplyIdentityHeaders(request);
