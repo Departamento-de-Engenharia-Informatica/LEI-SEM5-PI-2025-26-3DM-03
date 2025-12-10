@@ -102,6 +102,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly logisticsRoadDepth = 320;
   private readonly logisticsRoadWidthOffset = 0;
   private readonly logisticsRoadCenterZ = -550;
+  private readonly warehouseBaseZ = -820;
+  private readonly warehouseRowSpacing = 240;
   private readonly containerLaneZ = [-420, -320, -220, -120, -20, 80];
   private readonly containerLaneX = [-320, 0, 320];
   private readonly containerLaneHeights = [7, 6, 5, 4, 3, 2];
@@ -150,6 +152,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private truckTrailerTexture?: THREE.Texture;
   private readonly truckWindowTextureUrl = 'assets/textures/vidro.jpg';
   private truckWindowTexture?: THREE.Texture;
+  private dockServiceLanes: THREE.Object3D[] = [];
+  private dynamicWarehouseMeshes: THREE.Object3D[] = [];
+  private warehousePlacementRequestId = 0;
   private readonly pointer = new THREE.Vector2();
   private readonly raycaster = new THREE.Raycaster();
   private pointerEventsAttached = false;
@@ -258,6 +263,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.renderer?.dispose();
     this.clearDynamicVessels();
     this.clearDockLabels();
+    this.clearDockServiceLanes();
+    this.clearDynamicWarehouses();
     this.disposableGeometries.forEach((geom) => geom.dispose());
     this.disposableMaterials.forEach((mat) => mat.dispose());
     this.disposableTextures.forEach((tex) => tex.dispose());
@@ -497,7 +504,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.addLights();
     this.addWater();
     this.addPlatform();
-    this.addWarehouses();
     this.addLogisticsRoad();
     this.addLogisticsTrucks();
     this.addContainerRoads();
@@ -753,6 +759,133 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private clearDockServiceLanes() {
+    this.dockServiceLanes.forEach((lane) => this.scene.remove(lane));
+    this.dockServiceLanes = [];
+  }
+
+  private rebuildDockModules(docks: DockLayout[]) {
+    this.clearDockServiceLanes();
+    if (!docks.length) {
+      return;
+    }
+    const depth = Math.max(60, this.currentLogisticsRoadDepth * 0.92);
+    const centerZ = this.currentLogisticsRoadCenterZ;
+    const elevation = this.deckHeight + 1.65;
+    docks.forEach((dock) => {
+      const width = THREE.MathUtils.clamp(dock.size.length * 0.35, 220, 520);
+      const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, depth));
+      const material = this.trackMaterial(
+        new THREE.MeshStandardMaterial({
+          color: 0x1f2937,
+          roughness: 0.9,
+          metalness: 0.08,
+          transparent: true,
+          opacity: 0.9,
+        })
+      );
+      const module = new THREE.Mesh(geometry, material);
+      module.rotation.x = -Math.PI / 2;
+      module.position.set(this.mapDockToDeckX(dock), elevation, centerZ);
+      module.receiveShadow = true;
+      this.scene.add(module);
+      this.dockServiceLanes.push(module);
+      this.registerFacilityHotspot(
+        {
+          id: `dock-lane-${dock.dockId}`,
+          name: dock.name ?? `Dock ${dock.dockId}`,
+          type: 'dock',
+          object: module,
+          dockLayout: dock,
+        },
+        { persistent: false }
+      );
+    });
+  }
+
+  private clearDynamicWarehouses() {
+    this.dynamicWarehouseMeshes.forEach((warehouse) => this.scene.remove(warehouse));
+    this.dynamicWarehouseMeshes = [];
+  }
+
+  private updateWarehousePlacements(warehouses: WarehouseLayout[], dockMap: Map<number, DockLayout>) {
+    this.clearDynamicWarehouses();
+    const requestId = ++this.warehousePlacementRequestId;
+    if (!warehouses.length) {
+      this.spawnFallbackWarehouses(requestId);
+      return;
+    }
+
+    this.getWarehousePrototype()
+      .then((prototype) => {
+        if (requestId !== this.warehousePlacementRequestId) {
+          return;
+        }
+        const dockSlotCounters = new Map<number, number>();
+        let unassignedSlot = 0;
+        warehouses.forEach((layout, index) => {
+          const dock = this.resolveWarehouseDock(layout, dockMap);
+          let slotIndex: number;
+          if (dock) {
+            slotIndex = dockSlotCounters.get(dock.dockId) ?? 0;
+            dockSlotCounters.set(dock.dockId, slotIndex + 1);
+          } else {
+            slotIndex = unassignedSlot++;
+          }
+          const zBase = dock ? this.warehouseBaseZ : this.warehouseBaseZ - 160;
+          const z = this.computeWarehouseZ(slotIndex, zBase);
+          const targetX = dock ? this.mapDockToDeckX(dock) : this.mapLayoutXToDeckCoord(layout.position?.x ?? 0);
+          const size = new THREE.Vector3(
+            Math.max(80, layout.size.width),
+            Math.max(40, layout.size.height),
+            Math.max(80, layout.size.depth)
+          );
+          const placement = {
+            position: new THREE.Vector3(targetX, this.deckHeight, z),
+            size,
+            rotation: dock?.rotationY ?? 0,
+          };
+          const warehouse = this.instantiateWarehouse(prototype, placement);
+          this.scene.add(warehouse);
+          this.dynamicWarehouseMeshes.push(warehouse);
+          this.registerFacilityHotspot(
+            {
+              id: `warehouse-layout-${layout.storageAreaId}-${index}`,
+              name: layout.name || `Warehouse ${layout.storageAreaId}`,
+              type: 'warehouse',
+              object: warehouse,
+              warehouseLayout: layout,
+              dockLayout: dock,
+            },
+            { persistent: false }
+          );
+        });
+      })
+      .catch((error) => console.warn('[FinalScene] Falha ao posicionar armazéns dinâmicos', error));
+  }
+
+  private resolveWarehouseDock(layout: WarehouseLayout, dockMap: Map<number, DockLayout>): DockLayout | undefined {
+    const ids = layout.servedDockIds ?? [];
+    for (const id of ids) {
+      const dock = dockMap.get(id);
+      if (dock) {
+        return dock;
+      }
+    }
+    return undefined;
+  }
+
+  private mapLayoutXToDeckCoord(worldX: number): number {
+    const span = this.dockSpanInfo ?? { minEdge: -this.deckWidth / 2, span: this.deckWidth };
+    const ratio = span.span > 0 ? (worldX - span.minEdge) / span.span : 0.5;
+    const deckSpan = this.deckWidth - this.deckMarginToEdge * 2;
+    return (ratio - 0.5) * deckSpan;
+  }
+
+  private computeWarehouseZ(slotIndex: number, base: number): number {
+    return base - slotIndex * this.warehouseRowSpacing;
+  }
+
   private addLogisticsTrucks() {
     const roadZ = this.currentLogisticsRoadCenterZ;
     const laneOffset = 48;
@@ -787,7 +920,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       .catch((error) => console.warn('[FinalScene] Falha ao carregar Truck_DAF GLB', error));
   }
 
-  private addWarehouses() {
+  private spawnFallbackWarehouses(requestId: number) {
     const placements: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number }[] = [
       { position: new THREE.Vector3(-460, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
       { position: new THREE.Vector3(60, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
@@ -796,22 +929,29 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     this.getWarehousePrototype()
       .then((prototype) => {
-        placements.forEach((placement) => {
+        if (requestId !== this.warehousePlacementRequestId) {
+          return;
+        }
+        placements.forEach((placement, index) => {
           const warehouse = this.instantiateWarehouse(prototype, placement);
           this.scene.add(warehouse);
-          this.registerFacilityHotspot({
-            id: `warehouse-${placement.position.x}-${placement.position.z}`,
-            name: 'Armazém',
-            type: 'warehouse',
-            object: warehouse,
-            warehouseLayout: {
-              storageAreaId: 0,
+          this.dynamicWarehouseMeshes.push(warehouse);
+          this.registerFacilityHotspot(
+            {
+              id: `warehouse-fallback-${index}`,
               name: 'Armazém',
-              position: { x: placement.position.x, y: placement.position.y, z: placement.position.z },
-              rotationY: placement.rotation ?? 0,
-              size: { width: placement.size.x, depth: placement.size.z, height: placement.size.y },
+              type: 'warehouse',
+              object: warehouse,
+              warehouseLayout: {
+                storageAreaId: 0,
+                name: 'Armazém',
+                position: { x: placement.position.x, y: placement.position.y, z: placement.position.z },
+                rotationY: placement.rotation ?? 0,
+                size: { width: placement.size.x, depth: placement.size.z, height: placement.size.y },
+              },
             },
-          });
+            { persistent: false }
+          );
         });
       })
       .catch((error) => console.warn('[FinalScene] Falha ao carregar warehouse GLB', error));
@@ -1192,6 +1332,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.dockSpanInfo = this.computeDockSpan(docks);
     this.computeDockDeckOverrides(docks);
     this.updateDockLabels(docks);
+    const dockMap = new Map<number, DockLayout>(docks.map((d) => [d.dockId, d]));
+    this.rebuildDockModules(docks);
+    this.updateWarehousePlacements(layout.warehouses ?? [], dockMap);
     this.clearDynamicVessels();
 
     const classified = (layout.activeVessels ?? [])
@@ -1206,7 +1349,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
-    const dockMap = new Map<number, DockLayout>(docks.map((d) => [d.dockId, d]));
     const berthed = classified.filter((entry) => entry.state === 'loading' || entry.state === 'unloading');
     const waiting = classified.filter((entry) => entry.state === 'waiting');
     if (berthed.length) {
