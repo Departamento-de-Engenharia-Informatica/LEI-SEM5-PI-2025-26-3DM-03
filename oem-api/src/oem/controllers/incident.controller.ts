@@ -8,8 +8,8 @@ import {
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateIncidentDto, UpdateIncidentDto } from '../dto';
-import { Incident } from '../domain';
 import { IncidentService } from '../services';
+import { IncidentEntity } from '../persistence/incident.entity';
 
 @ApiTags('Incidents')
 @ApiBearerAuth()
@@ -21,40 +21,43 @@ export class IncidentController {
   @Get()
   @Roles('oem:incidents:read')
   @ApiOperation({ summary: 'List incidents' })
-  @ApiOkResponse({ type: Incident, isArray: true })
-  findAll(): Incident[] {
+  @ApiOkResponse({ type: IncidentEntity, isArray: true })
+  findAll(): Promise<IncidentEntity[]> {
     return this.service.findAll();
   }
 
   @Get(':id')
   @Roles('oem:incidents:read')
   @ApiOperation({ summary: 'Get incident by id' })
-  @ApiOkResponse({ type: Incident })
-  findOne(@Param('id') id: string): Incident {
+  @ApiOkResponse({ type: IncidentEntity })
+  findOne(@Param('id') id: string): Promise<IncidentEntity> {
     return this.service.findOne(id);
   }
 
   @Post()
   @Roles('oem:incidents:write')
   @ApiOperation({ summary: 'Create incident' })
-  @ApiCreatedResponse({ type: Incident })
-  create(@Body() payload: CreateIncidentDto): Incident {
+  @ApiCreatedResponse({ type: IncidentEntity })
+  create(@Body() payload: CreateIncidentDto): Promise<IncidentEntity> {
     return this.service.createIncident(payload);
   }
 
   @Patch(':id')
   @Roles('oem:incidents:write')
   @ApiOperation({ summary: 'Update incident' })
-  @ApiOkResponse({ type: Incident })
-  update(@Param('id') id: string, @Body() payload: UpdateIncidentDto): Incident {
+  @ApiOkResponse({ type: IncidentEntity })
+  update(
+    @Param('id') id: string,
+    @Body() payload: UpdateIncidentDto,
+  ): Promise<IncidentEntity> {
     return this.service.updateIncident(id, payload);
   }
 
   @Delete(':id')
   @Roles('oem:incidents:write')
   @ApiOperation({ summary: 'Delete incident' })
-  @ApiOkResponse({ type: Incident })
-  remove(@Param('id') id: string): Incident {
+  @ApiOkResponse({ type: IncidentEntity })
+  remove(@Param('id') id: string): Promise<IncidentEntity> {
     return this.service.remove(id);
   }
 }

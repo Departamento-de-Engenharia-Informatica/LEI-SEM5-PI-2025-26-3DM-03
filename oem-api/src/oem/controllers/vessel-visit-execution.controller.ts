@@ -8,8 +8,8 @@ import {
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '../dto';
-import { VesselVisitExecution } from '../domain';
 import { VesselVisitExecutionService } from '../services';
+import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
 
 @ApiTags('Vessel Visit Executions')
 @ApiBearerAuth()
@@ -21,43 +21,45 @@ export class VesselVisitExecutionController {
   @Get()
   @Roles('oem:vessel:read')
   @ApiOperation({ summary: 'List vessel visit executions' })
-  @ApiOkResponse({ type: VesselVisitExecution, isArray: true })
-  findAll(): VesselVisitExecution[] {
+  @ApiOkResponse({ type: VesselVisitExecutionEntity, isArray: true })
+  findAll(): Promise<VesselVisitExecutionEntity[]> {
     return this.service.findAll();
   }
 
   @Get(':id')
   @Roles('oem:vessel:read')
   @ApiOperation({ summary: 'Get vessel visit execution by id' })
-  @ApiOkResponse({ type: VesselVisitExecution })
-  findOne(@Param('id') id: string): VesselVisitExecution {
+  @ApiOkResponse({ type: VesselVisitExecutionEntity })
+  findOne(@Param('id') id: string): Promise<VesselVisitExecutionEntity> {
     return this.service.findOne(id);
   }
 
   @Post()
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Create vessel visit execution' })
-  @ApiCreatedResponse({ type: VesselVisitExecution })
-  create(@Body() payload: CreateVesselVisitExecutionDto): VesselVisitExecution {
+  @ApiCreatedResponse({ type: VesselVisitExecutionEntity })
+  create(
+    @Body() payload: CreateVesselVisitExecutionDto,
+  ): Promise<VesselVisitExecutionEntity> {
     return this.service.createExecution(payload);
   }
 
   @Patch(':id')
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Update vessel visit execution' })
-  @ApiOkResponse({ type: VesselVisitExecution })
+  @ApiOkResponse({ type: VesselVisitExecutionEntity })
   update(
     @Param('id') id: string,
     @Body() payload: UpdateVesselVisitExecutionDto,
-  ): VesselVisitExecution {
+  ): Promise<VesselVisitExecutionEntity> {
     return this.service.updateExecution(id, payload);
   }
 
   @Delete(':id')
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Delete vessel visit execution' })
-  @ApiOkResponse({ type: VesselVisitExecution })
-  remove(@Param('id') id: string): VesselVisitExecution {
+  @ApiOkResponse({ type: VesselVisitExecutionEntity })
+  remove(@Param('id') id: string): Promise<VesselVisitExecutionEntity> {
     return this.service.remove(id);
   }
 }

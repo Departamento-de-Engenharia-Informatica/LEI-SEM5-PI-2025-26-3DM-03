@@ -1,31 +1,50 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateComplementaryTaskCategoryDto, UpdateComplementaryTaskCategoryDto } from '../dto';
-import { ComplementaryTaskCategory } from '../domain';
-import { BaseInMemoryService } from './base-in-memory.service';
+import { ComplementaryTaskCategoryEntity } from '../persistence/complementary-task-category.entity';
 
 @Injectable()
-export class ComplementaryTaskCategoryService extends BaseInMemoryService<
-  ComplementaryTaskCategory,
-  CreateComplementaryTaskCategoryDto,
-  UpdateComplementaryTaskCategoryDto
-> {
-  createCategory(dto: CreateComplementaryTaskCategoryDto): ComplementaryTaskCategory {
-    return this.create(dto, (id, payload) => {
-      return new ComplementaryTaskCategory({
-        id,
-        createdAt: new Date(),
-        name: payload.name,
-        description: payload.description,
-      });
-    });
+export class ComplementaryTaskCategoryService {
+  constructor(
+    @InjectRepository(ComplementaryTaskCategoryEntity)
+    private readonly repo: Repository<ComplementaryTaskCategoryEntity>,
+  ) {}
+
+  findAll(): Promise<ComplementaryTaskCategoryEntity[]> {
+    return this.repo.find({ order: { name: 'ASC' } });
   }
 
-  updateCategory(id: string, dto: UpdateComplementaryTaskCategoryDto): ComplementaryTaskCategory {
-    return this.update(id, dto, (existing, payload) => {
-      return new ComplementaryTaskCategory({
-        ...existing,
-        ...payload,
-      });
+  async findOne(id: string): Promise<ComplementaryTaskCategoryEntity> {
+    const category = await this.repo.findOne({ where: { id } });
+    if (!category) {
+      throw new NotFoundException(`Complementary task category ${id} not found`);
+    }
+    return category;
+  }
+
+  async createCategory(
+    dto: CreateComplementaryTaskCategoryDto,
+  ): Promise<ComplementaryTaskCategoryEntity> {
+    const entity = this.repo.create({
+      name: dto.name,
+      description: dto.description,
     });
+    return this.repo.save(entity);
+  }
+
+  async updateCategory(
+    id: string,
+    dto: UpdateComplementaryTaskCategoryDto,
+  ): Promise<ComplementaryTaskCategoryEntity> {
+    const existing = await this.findOne(id);
+    const merged = this.repo.merge(existing, dto);
+    return this.repo.save(merged);
+  }
+
+  async remove(id: string): Promise<ComplementaryTaskCategoryEntity> {
+    const existing = await this.findOne(id);
+    await this.repo.remove(existing);
+    return existing;
   }
 }

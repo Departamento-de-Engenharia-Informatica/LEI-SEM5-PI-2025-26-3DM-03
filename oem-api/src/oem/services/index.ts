@@ -1,4 +1,3 @@
-export * from './base-in-memory.service';
 export * from './operation-plan.service';
 export * from './vessel-visit-execution.service';
 export * from './incident.service';

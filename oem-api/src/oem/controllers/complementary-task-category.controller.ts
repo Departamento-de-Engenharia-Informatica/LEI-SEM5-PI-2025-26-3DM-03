@@ -8,8 +8,8 @@ import {
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateComplementaryTaskCategoryDto, UpdateComplementaryTaskCategoryDto } from '../dto';
-import { ComplementaryTaskCategory } from '../domain';
 import { ComplementaryTaskCategoryService } from '../services';
+import { ComplementaryTaskCategoryEntity } from '../persistence/complementary-task-category.entity';
 
 @ApiTags('Complementary Task Categories')
 @ApiBearerAuth()
@@ -21,43 +21,45 @@ export class ComplementaryTaskCategoryController {
   @Get()
   @Roles('oem:tasks:read')
   @ApiOperation({ summary: 'List complementary task categories' })
-  @ApiOkResponse({ type: ComplementaryTaskCategory, isArray: true })
-  findAll(): ComplementaryTaskCategory[] {
+  @ApiOkResponse({ type: ComplementaryTaskCategoryEntity, isArray: true })
+  findAll(): Promise<ComplementaryTaskCategoryEntity[]> {
     return this.service.findAll();
   }
 
   @Get(':id')
   @Roles('oem:tasks:read')
   @ApiOperation({ summary: 'Get complementary task category by id' })
-  @ApiOkResponse({ type: ComplementaryTaskCategory })
-  findOne(@Param('id') id: string): ComplementaryTaskCategory {
+  @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
+  findOne(@Param('id') id: string): Promise<ComplementaryTaskCategoryEntity> {
     return this.service.findOne(id);
   }
 
   @Post()
   @Roles('oem:tasks:write')
   @ApiOperation({ summary: 'Create complementary task category' })
-  @ApiCreatedResponse({ type: ComplementaryTaskCategory })
-  create(@Body() payload: CreateComplementaryTaskCategoryDto): ComplementaryTaskCategory {
+  @ApiCreatedResponse({ type: ComplementaryTaskCategoryEntity })
+  create(
+    @Body() payload: CreateComplementaryTaskCategoryDto,
+  ): Promise<ComplementaryTaskCategoryEntity> {
     return this.service.createCategory(payload);
   }
 
   @Patch(':id')
   @Roles('oem:tasks:write')
   @ApiOperation({ summary: 'Update complementary task category' })
-  @ApiOkResponse({ type: ComplementaryTaskCategory })
+  @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
   update(
     @Param('id') id: string,
     @Body() payload: UpdateComplementaryTaskCategoryDto,
-  ): ComplementaryTaskCategory {
+  ): Promise<ComplementaryTaskCategoryEntity> {
     return this.service.updateCategory(id, payload);
   }
 
   @Delete(':id')
   @Roles('oem:tasks:write')
   @ApiOperation({ summary: 'Delete complementary task category' })
-  @ApiOkResponse({ type: ComplementaryTaskCategory })
-  remove(@Param('id') id: string): ComplementaryTaskCategory {
+  @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
+  remove(@Param('id') id: string): Promise<ComplementaryTaskCategoryEntity> {
     return this.service.remove(id);
   }
 }

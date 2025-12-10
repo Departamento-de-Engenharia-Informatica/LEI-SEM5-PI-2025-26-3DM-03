@@ -23,9 +23,24 @@ import {
   VesselVisitExecutionService,
 } from './services';
 import { OperationPlanEntity } from './persistence/operation-plan.entity';
+import { ComplementaryTaskCategoryEntity } from './persistence/complementary-task-category.entity';
+import { ComplementaryTaskEntity } from './persistence/complementary-task.entity';
+import { IncidentTypeEntity } from './persistence/incident-type.entity';
+import { IncidentEntity } from './persistence/incident.entity';
+import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution.entity';
 
 @Module({
-  imports: [HttpModule, TypeOrmModule.forFeature([OperationPlanEntity])],
+  imports: [
+    HttpModule,
+    TypeOrmModule.forFeature([
+      OperationPlanEntity,
+      ComplementaryTaskCategoryEntity,
+      ComplementaryTaskEntity,
+      IncidentTypeEntity,
+      IncidentEntity,
+      VesselVisitExecutionEntity,
+    ]),
+  ],
   controllers: [
     OemController,
     OperationPlanController,

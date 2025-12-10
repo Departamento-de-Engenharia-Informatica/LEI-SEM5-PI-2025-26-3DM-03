@@ -1,32 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CreateIncidentTypeDto, UpdateIncidentTypeDto } from '../dto';
-import { IncidentSeverity, IncidentType } from '../domain';
-import { BaseInMemoryService } from './base-in-memory.service';
+import { IncidentSeverity } from '../domain';
+import { IncidentTypeEntity } from '../persistence/incident-type.entity';
 
 @Injectable()
-export class IncidentTypeService extends BaseInMemoryService<
-  IncidentType,
-  CreateIncidentTypeDto,
-  UpdateIncidentTypeDto
-> {
-  createType(dto: CreateIncidentTypeDto): IncidentType {
-    return this.create(dto, (id, payload) => {
-      return new IncidentType({
-        id,
-        createdAt: new Date(),
-        name: payload.name,
-        description: payload.description,
-        severity: payload.severity ?? IncidentSeverity.Low,
-      });
-    });
+export class IncidentTypeService {
+  constructor(
+    @InjectRepository(IncidentTypeEntity)
+    private readonly repo: Repository<IncidentTypeEntity>,
+  ) {}
+
+  findAll(): Promise<IncidentTypeEntity[]> {
+    return this.repo.find({ order: { name: 'ASC' } });
   }
 
-  updateType(id: string, dto: UpdateIncidentTypeDto): IncidentType {
-    return this.update(id, dto, (existing, payload) => {
-      return new IncidentType({
-        ...existing,
-        ...payload,
-      });
+  async findOne(id: string): Promise<IncidentTypeEntity> {
+    const type = await this.repo.findOne({ where: { id } });
+    if (!type) {
+      throw new NotFoundException(`Incident type ${id} not found`);
+    }
+    return type;
+  }
+
+  async createType(dto: CreateIncidentTypeDto): Promise<IncidentTypeEntity> {
+    const entity = this.repo.create({
+      name: dto.name,
+      description: dto.description,
+      severity: dto.severity ?? IncidentSeverity.Low,
     });
+    return this.repo.save(entity);
+  }
+
+  async updateType(id: string, dto: UpdateIncidentTypeDto): Promise<IncidentTypeEntity> {
+    const existing = await this.findOne(id);
+    const merged = this.repo.merge(existing, dto);
+    return this.repo.save(merged);
+  }
+
+  async remove(id: string): Promise<IncidentTypeEntity> {
+    const existing = await this.findOne(id);
+    await this.repo.remove(existing);
+    return existing;
   }
 }
