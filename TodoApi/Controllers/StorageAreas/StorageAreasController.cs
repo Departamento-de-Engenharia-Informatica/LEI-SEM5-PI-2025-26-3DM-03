@@ -47,5 +47,13 @@ namespace TodoApi.Controllers.StorageAreas
             var entities = await _service.GetAllStorageAreasAsync();
             return Ok(entities.Select(StorageAreaMapper.ToDTO));
         }
+
+        
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            await _service.DeleteStorageAreaAsync(id);
+            return NoContent();
+        }
     }
 }

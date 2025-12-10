@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createPortalLatticeCraneModel } from '../crane/dockcrane.component';
-import { applyTruckTrailerTexture, applyTruckWindowTexture } from '../truck/truck-texture.util';
+import { createGroundModule } from '../ground/ground-module';
 import { firstValueFrom, Subscription } from 'rxjs';
 import {
   DockLayout,
@@ -13,6 +13,7 @@ import {
   PortLayoutDTO,
   PortLayoutService,
   WarehouseLayout,
+  CraneLayout,
 } from '../../../services/visualization/port-layout.service';
 import { DocksService } from '../../../services/docks/docks.service';
 import { StorageAreasService } from '../../../services/storage-areas/storage-areas.service';
@@ -92,36 +93,26 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly quayEdgeZ = 360;
   private readonly cargoVesselClearance = 22;
   private readonly cargoVesselFreeboard = 6;
-  private readonly cargoVesselTargetLength = 480;
+  private readonly cargoVesselTargetLength = 240;
   private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
   private readonly deckWidth = 1500;
-  private readonly deckDepth = 1350;
+  private readonly deckDepth = 1240;
   private readonly deckHeight = 60;
-  private readonly deckMarginToEdge = 15;
+  private readonly deckMarginToEdge = 120;
   private readonly apronDepth = 220;
-  private readonly logisticsRoadDepth = 320;
-  private readonly logisticsRoadWidthOffset = 0;
-  private readonly logisticsRoadCenterZ = -550;
   private readonly warehouseBaseZ = -820;
+  private readonly serviceRoadCenterZ = -560;
+  private readonly serviceRoadDepth = 280;
+  private readonly logisticsRoadTextureUrl = 'assets/textures/estrada.jpg';
+  private logisticsRoadTexture?: THREE.Texture;
   private readonly warehouseRowSpacing = 240;
-  private readonly containerLaneZ = [-420, -320, -220, -120, -20, 80];
-  private readonly containerLaneX = [-320, 0, 320];
-  private readonly containerLaneHeights = [7, 6, 5, 4, 3, 2];
-  private currentLogisticsRoadCenterZ = this.logisticsRoadCenterZ;
-  private currentLogisticsRoadCenterX = 0;
-  private currentLogisticsRoadWidth = this.deckWidth - this.logisticsRoadWidthOffset;
-  private currentLogisticsRoadDepth = this.logisticsRoadDepth;
-  private readonly logisticsRoadContainerWidthTrim = 40;
-  private readonly logisticsRoadFrontClearance = 25;
+  private readonly warehouseFootprintScale = 0.75;
   private readonly cameraMoveSpeed = 260;
+  private readonly containerStackUrls = ['assets/models/containers.glb'];
   private containerStackPrototype?: THREE.Group;
   private containerStackLoading?: Promise<THREE.Group>;
-  private readonly containerStackUrls = ['assets/models/containers.glb'];
-  private readonly containerTargetSpan = 55;
-  private readonly containerColors = [0xff8c5f, 0x00c2ff, 0xff4f81, 0x7dd87d, 0xffbf69, 0x9b5de5];
   private containerUnitSize = new THREE.Vector3(40, 16, 80);
-  private readonly containerCols = 3;
-  private readonly containerRows = 2;
+  private readonly containerColors = [0xff8c5f, 0x00c2ff, 0xff4f81, 0x7dd87d, 0xffbf69, 0x9b5de5];
   private readonly warehouseModelUrls = ['assets/models/warehouse.glb', 'assets/warehouse.glb'];
   private warehousePrototype?: THREE.Group;
   private warehouseLoading?: Promise<THREE.Group>;
@@ -140,21 +131,14 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly dockDeckSlots = [-360, 360];
   private dockDeckOverrides = new Map<number, number>();
   private readonly enablePlaceholderCargoVessels = false;
-  private readonly logisticsRoadTextureUrl = 'assets/textures/textura-da-estrada-do-asfalto-com-marcacoes-109441328.jpg';
-  private readonly containerRoadTextureUrl = 'assets/textures/estrada.jpg';
-  private logisticsRoadTexture?: THREE.Texture;
-  private containerRoadTexture?: THREE.Texture;
-  private readonly truckModelUrls = ['assets/models/Truck_DAF.glb', 'assets/Truck_DAF.glb'];
-  private readonly truckTargetSpan = 220;
-  private truckPrototype?: THREE.Group;
-  private truckLoading?: Promise<THREE.Group>;
-  private readonly truckTrailerTextureUrl = 'assets/textures/azul.jpg';
-  private truckTrailerTexture?: THREE.Texture;
-  private readonly truckWindowTextureUrl = 'assets/textures/vidro.jpg';
-  private truckWindowTexture?: THREE.Texture;
   private dockServiceLanes: THREE.Object3D[] = [];
   private dynamicWarehouseMeshes: THREE.Object3D[] = [];
+  private dynamicCraneMeshes: THREE.Object3D[] = [];
+  private dockRoadSegments: THREE.Mesh[] = [];
+  private containerYardRoads: THREE.Mesh[] = [];
+  private staticContainerStacks: THREE.Group[] = [];
   private warehousePlacementRequestId = 0;
+  private containerPlacementRequestId = 0;
   private readonly pointer = new THREE.Vector2();
   private readonly raycaster = new THREE.Raycaster();
   private pointerEventsAttached = false;
@@ -265,6 +249,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.clearDockLabels();
     this.clearDockServiceLanes();
     this.clearDynamicWarehouses();
+    this.clearDynamicCranes();
+    this.clearDockRoads();
+    this.clearContainerYardRoads();
+    this.clearStaticContainerStacks();
     this.disposableGeometries.forEach((geom) => geom.dispose());
     this.disposableMaterials.forEach((mat) => mat.dispose());
     this.disposableTextures.forEach((tex) => tex.dispose());
@@ -504,12 +492,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.addLights();
     this.addWater();
     this.addPlatform();
-    this.addLogisticsRoad();
-    this.addLogisticsTrucks();
-    this.addContainerRoads();
-    this.addRoadConnections();
-    this.addContainerFields();
-    this.addCranes();
+    this.addServiceRoad();
     this.addDockDetails();
   }
 
@@ -600,6 +583,66 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   }
 
+  private addServiceRoad() {
+    const moduleWidth = this.deckWidth - 120;
+    const module = createGroundModule({
+      width: moduleWidth,
+      depth: this.serviceRoadDepth + 40,
+      height: 4,
+      textureUrl: 'assets/textures/floor.png',
+      textureRepeat: { x: Math.max(moduleWidth / 260, 1), y: Math.max((this.serviceRoadDepth + 40) / 260, 1) },
+      road: {
+        width: moduleWidth,
+        depth: this.serviceRoadDepth,
+        textureUrl: 'assets/textures/textura-da-estrada-do-asfalto-com-marcacoes-109441328.jpg',
+        textureRepeat: { x: Math.max(moduleWidth / 260, 1), y: Math.max(this.serviceRoadDepth / 160, 1) },
+      },
+    });
+    const box = module.geometry as THREE.BoxGeometry;
+    const height = box?.parameters?.height ?? 0;
+    module.position.set(0, this.deckHeight - height / 2 + 0.2, this.serviceRoadCenterZ);
+    this.scene.add(module);
+  }
+
+  private rebuildContainerStacks(docks: DockLayout[]) {
+    const requestId = ++this.containerPlacementRequestId;
+    this.clearStaticContainerStacks();
+    if (!docks.length) {
+      return;
+    }
+    this.getContainerStackPrototype()
+      .then((prototype) => {
+        if (requestId !== this.containerPlacementRequestId) {
+          return;
+        }
+        docks.forEach((dock, index) => {
+          const stack = this.buildContainerStack(prototype, 5, 2, 4, index * 23);
+          stack.rotation.y = dock.rotationY ?? 0;
+
+          stack.updateMatrixWorld(true);
+          const baseSize = new THREE.Box3().setFromObject(stack).getSize(new THREE.Vector3());
+          const laneWidth = THREE.MathUtils.clamp(this.convertLayoutDistance(dock.size.length * 0.35, 180, 420), 160, 520);
+          const rearLimit = this.serviceRoadCenterZ + this.serviceRoadDepth / 2 + 60;
+          const frontLimit = this.quayEdgeZ - this.apronDepth - 25;
+          const availableSpan = Math.max(150, frontLimit - rearLimit);
+          const targetDepth = THREE.MathUtils.clamp(
+            this.convertLayoutDistance(dock.size.width * 0.55, 180, 340),
+            140,
+            availableSpan - 30
+          );
+          const scaleX = laneWidth / Math.max(baseSize.x, 1);
+          const scaleZ = targetDepth / Math.max(baseSize.z, 1);
+          stack.scale.set(scaleX, 1, scaleZ);
+          const centerZ = frontLimit - targetDepth / 2 - 10;
+          const shiftedX = this.mapDockToDeckX(dock) - laneWidth * 0.3;
+          stack.position.set(shiftedX, this.deckHeight, centerZ - 150);
+          this.scene.add(stack);
+          this.staticContainerStacks.push(stack);
+        });
+      })
+      .catch((error) => console.warn('[FinalScene] Falha ao posicionar contentores', error));
+  }
+
   private addDockDetails() {
     const bollardGeo = this.trackGeometry(new THREE.CylinderGeometry(4, 4, 8, 16));
     const bollardMat = this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xfaf3c0, roughness: 0.3 }));
@@ -630,164 +673,70 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   }
 
-  private addLogisticsRoad() {
-    const baseRoadWidth = this.deckWidth - this.logisticsRoadWidthOffset;
-    const containerTrim = Math.min(this.logisticsRoadContainerWidthTrim, baseRoadWidth - 100);
-    const roadWidth = baseRoadWidth - containerTrim;
-    const roadCenterX = -containerTrim / 2;
-    let centerZ = this.logisticsRoadCenterZ;
-    let depth = this.logisticsRoadDepth;
-    const elevation = this.deckHeight + 1.5;
-
-    const halfDepth = depth / 2;
-    const spacingZ = this.containerUnitSize.z + 4;
-    const halfRowSpan = Math.max(0, ((this.containerRows - 1) * spacingZ) / 2);
-    const containerFrontExtent = halfRowSpan + this.containerUnitSize.z / 2 + this.logisticsRoadFrontClearance;
-    const containerMinZ = Math.min(...this.containerLaneZ) - containerFrontExtent;
-    const farEdge = centerZ + halfDepth;
-    if (farEdge > containerMinZ) {
-      const overlap = farEdge - containerMinZ;
-      depth = Math.max(30, depth - overlap);
-      centerZ -= overlap / 2;
-    }
-    this.currentLogisticsRoadCenterZ = centerZ;
-
-    const roadTexture = this.getLogisticsRoadTexture();
-    roadTexture.repeat.set(Math.max(roadWidth / 260, 1), Math.max(depth / 160, 1));
-    const roadMaterial = this.trackMaterial(
-      new THREE.MeshStandardMaterial({
-        map: roadTexture,
-        color: 0xffffff,
-        roughness: 0.85,
-        metalness: 0.08,
-      })
-    );
-    const road = new THREE.Mesh(this.trackGeometry(new THREE.PlaneGeometry(roadWidth, depth)), roadMaterial);
-    road.rotation.x = -Math.PI / 2;
-    road.position.set(roadCenterX, elevation, centerZ);
-    road.receiveShadow = true;
-    this.scene.add(road);
-    this.currentLogisticsRoadCenterX = roadCenterX;
-    this.currentLogisticsRoadWidth = roadWidth;
-    this.currentLogisticsRoadDepth = depth;
-  }
-
-  private addContainerRoads() {
-    const laneZ = this.containerLaneZ;
-    const laneX = this.containerLaneX;
-    if (laneZ.length < 2 || laneX.length < 2) {
-      return;
-    }
-    const baseY = this.deckHeight + 1.2;
-    const xSpan = laneX[laneX.length - 1] - laneX[0] + 260;
-    const zSpan = laneZ[laneZ.length - 1] - laneZ[0] + 260;
-    const verticalWidth = 40;
-    const zCenter = laneZ[0] + (laneZ[laneZ.length - 1] - laneZ[0]) / 2;
-    const baseTexture = this.getContainerRoadTexture();
-
-    for (let i = 0; i < laneX.length - 1; i++) {
-      const midX = (laneX[i] + laneX[i + 1]) / 2;
-      const verticalTexture = baseTexture.clone();
-      this.trackTexture(verticalTexture);
-      verticalTexture.wrapS = THREE.ClampToEdgeWrapping;
-      verticalTexture.wrapT = THREE.ClampToEdgeWrapping;
-      verticalTexture.repeat.set(1, 1);
-      verticalTexture.center.set(0.5, 0.5);
-      verticalTexture.rotation = Math.PI / 2;
-      const strip = new THREE.Mesh(
-        this.trackGeometry(new THREE.PlaneGeometry(verticalWidth, zSpan)),
-        this.trackMaterial(
-          new THREE.MeshStandardMaterial({
-            map: verticalTexture,
-            color: 0xffffff,
-            roughness: 0.85,
-            metalness: 0.08,
-          })
-        )
-      );
-      strip.rotation.x = -Math.PI / 2;
-      strip.position.set(midX, baseY + 0.05, zCenter);
-      strip.receiveShadow = true;
-        this.scene.add(strip);
-    }
-  }
-
-  private addRoadConnections() {
-    const laneX = this.containerLaneX;
-    if (laneX.length < 2) {
-      return;
-    }
-    const baseTexture = this.getContainerRoadTexture();
-    const startZ = this.currentLogisticsRoadCenterZ + this.currentLogisticsRoadDepth / 2 - 1;
-    const targetZ = Math.min(...this.containerLaneZ) - this.containerUnitSize.z / 2 - 2;
-    const depth = targetZ - startZ;
-    if (depth <= 4) {
-      return;
-    }
-    const connectors: number[] = [];
-    for (let i = 0; i < laneX.length - 1; i++) {
-      const midpoint = (laneX[i] + laneX[i + 1]) / 2;
-      if (midpoint < 0) {
-        continue;
-      }
-      connectors.push(midpoint);
-    }
-    connectors.forEach((x) => {
-      const width = 45;
-      const texture = baseTexture.clone();
-      this.trackTexture(texture);
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.repeat.set(1, 1);
-      texture.center.set(0.5, 0.5);
-      texture.rotation = Math.PI / 2;
-      const connector = new THREE.Mesh(
-        this.trackGeometry(new THREE.PlaneGeometry(width, depth)),
-        this.trackMaterial(
-          new THREE.MeshStandardMaterial({
-            map: texture,
-            color: 0xffffff,
-            roughness: 0.85,
-            metalness: 0.08,
-          })
-        )
-      );
-      connector.rotation.x = -Math.PI / 2;
-      connector.position.set(x, this.deckHeight + 1.3, startZ + depth / 2);
-      connector.receiveShadow = true;
-      this.scene.add(connector);
-    });
-  }
-
   private clearDockServiceLanes() {
     this.dockServiceLanes.forEach((lane) => this.scene.remove(lane));
     this.dockServiceLanes = [];
   }
 
+  private clearDockRoads() {
+    this.dockRoadSegments.forEach((segment) => {
+      this.scene.remove(segment);
+      segment.geometry.dispose();
+      const material = segment.material as THREE.MeshStandardMaterial;
+      if (material.map) {
+        material.map.dispose();
+      }
+      material.dispose();
+    });
+    this.dockRoadSegments = [];
+  }
+
+  private clearContainerYardRoads() {
+    this.containerYardRoads.forEach((segment) => {
+      this.scene.remove(segment);
+      segment.geometry.dispose();
+      const material = segment.material as THREE.MeshStandardMaterial;
+      if (material.map) {
+        material.map.dispose();
+      }
+      material.dispose();
+    });
+    this.containerYardRoads = [];
+  }
+
+  private clearStaticContainerStacks() {
+    this.staticContainerStacks.forEach((stack) => {
+      this.scene.remove(stack);
+      stack.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry?.dispose?.();
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach((mat) => mat.dispose?.());
+          } else {
+            (obj.material as THREE.Material)?.dispose?.();
+          }
+        }
+      });
+    });
+    this.staticContainerStacks = [];
+  }
+
   private rebuildDockModules(docks: DockLayout[]) {
     this.clearDockServiceLanes();
+    this.clearDockRoads();
+    this.clearContainerYardRoads();
     if (!docks.length) {
       return;
     }
-    const depth = Math.max(60, this.currentLogisticsRoadDepth * 0.92);
-    const centerZ = this.currentLogisticsRoadCenterZ;
-    const elevation = this.deckHeight + 1.65;
+    const elevation = this.deckHeight + 1.5;
     docks.forEach((dock) => {
-      const width = THREE.MathUtils.clamp(dock.size.length * 0.35, 220, 520);
+      const width = this.convertLayoutDistance(dock.size.length, 200, this.deckWidth - this.deckMarginToEdge * 2);
+      const depth = this.convertLayoutDistance(dock.size.width, 80, this.apronDepth);
       const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, depth));
-      const material = this.trackMaterial(
-        new THREE.MeshStandardMaterial({
-          color: 0x1f2937,
-          roughness: 0.9,
-          metalness: 0.08,
-          transparent: true,
-          opacity: 0.9,
-        })
-      );
+      const material = this.trackMaterial(new THREE.MeshBasicMaterial({ visible: false }));
       const module = new THREE.Mesh(geometry, material);
       module.rotation.x = -Math.PI / 2;
-      module.position.set(this.mapDockToDeckX(dock), elevation, centerZ);
-      module.receiveShadow = true;
+      module.position.set(this.mapDockToDeckX(dock), elevation, this.quayEdgeZ - depth / 2);
       this.scene.add(module);
       this.dockServiceLanes.push(module);
       this.registerFacilityHotspot(
@@ -801,6 +750,70 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         { persistent: false }
       );
     });
+    this.createDockRoads(docks);
+    this.createContainerYardRoads(docks);
+  }
+
+  private createDockRoads(docks: DockLayout[]) {
+    if (!docks.length) {
+      return;
+    }
+    const dockFront = this.quayEdgeZ - this.apronDepth + 6;
+    const targetRear = this.serviceRoadCenterZ + this.serviceRoadDepth / 2 - 40;
+    const roadTexture = this.getLogisticsRoadTexture();
+    docks.forEach((dock) => {
+      const width = THREE.MathUtils.clamp(this.convertLayoutDistance(dock.size.width * 0.25, 60, 140), 50, 160);
+      const start = dockFront;
+      const rearLimit = Math.min(targetRear, start + 160);
+      const length = Math.max(80, rearLimit - start);
+      const texture = roadTexture.clone();
+      texture.repeat.set(Math.max(width / 90, 1), Math.max(length / 160, 1));
+      const material = this.trackMaterial(
+        new THREE.MeshStandardMaterial({
+          map: texture,
+          color: 0xffffff,
+          roughness: 0.9,
+          metalness: 0.05,
+        })
+      );
+      const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, length));
+      const road = new THREE.Mesh(geometry, material);
+      road.rotation.x = -Math.PI / 2;
+      road.position.set(this.mapDockToDeckX(dock), this.deckHeight + 0.85, start + length / 2);
+      road.receiveShadow = true;
+      this.scene.add(road);
+      this.dockRoadSegments.push(road);
+    });
+  }
+
+  private createContainerYardRoads(docks: DockLayout[]) {
+    if (!docks.length) {
+      return;
+    }
+    const startZ = this.serviceRoadCenterZ + this.serviceRoadDepth / 2 + 12;
+    const endZ = this.quayEdgeZ - this.apronDepth - 36;
+    const length = Math.max(140, endZ - startZ);
+    const texture = this.getLogisticsRoadTexture();
+    docks.forEach((dock) => {
+      const width = THREE.MathUtils.clamp(this.convertLayoutDistance(dock.size.width * 0.12, 28, 70), 20, 80);
+      const map = this.trackTexture(texture.clone());
+      map.repeat.set(Math.max(width / 90, 1), Math.max(length / 160, 1));
+      const material = this.trackMaterial(
+        new THREE.MeshStandardMaterial({
+          map,
+          color: 0xffffff,
+          roughness: 0.9,
+          metalness: 0.05,
+        })
+      );
+      const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, length));
+      const lane = new THREE.Mesh(geometry, material);
+      lane.rotation.x = -Math.PI / 2;
+      lane.position.set(this.mapDockToDeckX(dock) + 120, this.deckHeight + 0.84, startZ + length / 2);
+      lane.receiveShadow = true;
+      this.scene.add(lane);
+      this.containerYardRoads.push(lane);
+    });
   }
 
   private clearDynamicWarehouses() {
@@ -812,7 +825,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.clearDynamicWarehouses();
     const requestId = ++this.warehousePlacementRequestId;
     if (!warehouses.length) {
-      this.spawnFallbackWarehouses(requestId);
       return;
     }
 
@@ -832,14 +844,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
           } else {
             slotIndex = unassignedSlot++;
           }
-          const zBase = dock ? this.warehouseBaseZ : this.warehouseBaseZ - 160;
+          const zBase = dock ? this.warehouseBaseZ : this.warehouseBaseZ - 120;
           const z = this.computeWarehouseZ(slotIndex, zBase);
           const targetX = dock ? this.mapDockToDeckX(dock) : this.mapLayoutXToDeckCoord(layout.position?.x ?? 0);
           const size = new THREE.Vector3(
-            Math.max(80, layout.size.width),
-            Math.max(40, layout.size.height),
-            Math.max(80, layout.size.depth)
+            this.convertLayoutDistance(layout.size.width, 60, this.deckWidth * 0.22),
+            THREE.MathUtils.clamp(layout.size.height ?? 40, 28, 110),
+            this.convertLayoutDistance(layout.size.depth, 60, 220)
           );
+          size.x *= this.warehouseFootprintScale;
+          size.z *= this.warehouseFootprintScale;
           const placement = {
             position: new THREE.Vector3(targetX, this.deckHeight, z),
             size,
@@ -875,6 +889,130 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return undefined;
   }
 
+  private convertLayoutDistance(length: number | undefined, min: number, max: number): number {
+    if (!Number.isFinite(length)) {
+      return (min + max) / 2;
+    }
+    const scale = this.getLayoutToDeckScale();
+    const converted = length! * scale;
+    return THREE.MathUtils.clamp(converted, min, max);
+  }
+
+  private getLayoutToDeckScale(): number {
+    const span = this.dockSpanInfo;
+    if (!span || !isFinite(span.span) || span.span <= 0) {
+      return 1;
+    }
+    const deckSpan = this.deckWidth - this.deckMarginToEdge * 2;
+    return deckSpan / span.span;
+  }
+
+  private clearDynamicCranes() {
+    this.dynamicCraneMeshes.forEach((crane) => this.scene.remove(crane));
+    this.dynamicCraneMeshes = [];
+  }
+
+  private updateCranes(cranes: CraneLayout[], dockMap: Map<number, DockLayout>) {
+    this.clearDynamicCranes();
+    if (!cranes.length) {
+      this.spawnFallbackCranes();
+      return;
+    }
+
+    const totalPerDock = new Map<number, number>();
+    cranes.forEach((crane) => {
+      if (typeof crane.dockId === 'number' && dockMap.has(crane.dockId)) {
+        totalPerDock.set(crane.dockId, (totalPerDock.get(crane.dockId) ?? 0) + 1);
+      }
+    });
+    const placedPerDock = new Map<number, number>();
+    let fallbackIndex = 0;
+
+    cranes.forEach((layout, index) => {
+      const dock = typeof layout.dockId === 'number' ? dockMap.get(layout.dockId) : undefined;
+      const craneMesh = this.createCraneMesh(layout);
+      let position: THREE.Vector3;
+      let rotation = Math.PI;
+      const verticalOffset = 50;
+      let baseY = this.deckHeight + verticalOffset;
+
+      if (dock) {
+        const total = totalPerDock.get(dock.dockId) ?? 1;
+        const seq = placedPerDock.get(dock.dockId) ?? 0;
+        placedPerDock.set(dock.dockId, seq + 1);
+        const deckLength = this.convertLayoutDistance(dock.size.length, 200, this.deckWidth - 200);
+        const spacing = deckLength / (total + 1);
+        const localX = -deckLength / 2 + spacing * (seq + 1);
+        const baseX = this.mapDockToDeckX(dock);
+        baseY = dock.position.y + dock.size.height + verticalOffset;
+        position = new THREE.Vector3(baseX + localX, baseY, this.quayEdgeZ - 40);
+        rotation = dock.rotationY ?? Math.PI;
+      } else if (layout.position) {
+        baseY = (layout.position.y ?? this.deckHeight) + verticalOffset;
+        position = new THREE.Vector3(this.mapLayoutXToDeckCoord(layout.position.x), baseY, this.quayEdgeZ - 40);
+      } else {
+        const offsetX = -600 + fallbackIndex * 400;
+        fallbackIndex++;
+        position = new THREE.Vector3(offsetX, baseY, this.quayEdgeZ - 40);
+      }
+
+      craneMesh.position.copy(position);
+      craneMesh.rotation.y = typeof layout.rotationY === 'number' ? layout.rotationY : rotation;
+      this.scene.add(craneMesh);
+      this.dynamicCraneMeshes.push(craneMesh);
+      this.registerFacilityHotspot(
+        {
+          id: `crane-${layout.code ?? index}`,
+          name: layout.name || layout.code || `Crane ${index + 1}`,
+          type: 'crane',
+          object: craneMesh,
+          craneSpecs: {
+            designation: layout.name ?? layout.code,
+            height: layout.height,
+            gauge: layout.gauge,
+            clearance: layout.clearance,
+          },
+          dockLayout: dock,
+        },
+        { persistent: false }
+      );
+    });
+  }
+
+  private createCraneMesh(layout?: CraneLayout): THREE.Group {
+    const crane = createPortalLatticeCraneModel({
+      height: layout?.height ?? 90,
+      seawardBoomLength: 150,
+      landsideBoomLength: 80,
+      gauge: layout?.gauge ?? 74,
+      clearance: layout?.clearance ?? 70,
+    });
+    const baseHeight = 90;
+    const targetHeight = Math.max(40, layout?.height ?? baseHeight);
+    crane.scale.setScalar(targetHeight / baseHeight);
+    return crane;
+  }
+
+  private spawnFallbackCranes() {
+    const offsets = [-360, 360];
+    offsets.forEach((x, index) => {
+      const crane = this.createCraneMesh();
+      crane.position.set(x, this.deckHeight + 20, this.quayEdgeZ - 40);
+      crane.rotation.y = Math.PI;
+      this.scene.add(crane);
+      this.dynamicCraneMeshes.push(crane);
+      this.registerFacilityHotspot(
+        {
+          id: `crane-fallback-${index}`,
+          name: index === 0 ? 'Grua STS Oeste' : 'Grua STS Este',
+          type: 'crane',
+          object: crane,
+        },
+        { persistent: false }
+      );
+    });
+  }
+
   private mapLayoutXToDeckCoord(worldX: number): number {
     const span = this.dockSpanInfo ?? { minEdge: -this.deckWidth / 2, span: this.deckWidth };
     const ratio = span.span > 0 ? (worldX - span.minEdge) / span.span : 0.5;
@@ -884,77 +1022,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private computeWarehouseZ(slotIndex: number, base: number): number {
     return base - slotIndex * this.warehouseRowSpacing;
-  }
-
-  private addLogisticsTrucks() {
-    const roadZ = this.currentLogisticsRoadCenterZ;
-    const laneOffset = 48;
-    const elevation = this.deckHeight + 1.5;
-
-    this.getTruckPrototype()
-      .then((prototype) => {
-        const centerX = this.currentLogisticsRoadCenterX;
-        const halfWidth = Math.max(20, this.currentLogisticsRoadWidth / 2);
-        const laneSpacing = Math.min(Math.max(halfWidth - 30, 40), 220);
-        const trucks = [
-          {
-            position: new THREE.Vector3(
-              centerX,
-              elevation,
-              roadZ + this.currentLogisticsRoadDepth / 2 - 40
-            ),
-            rotation: Math.PI / 2,
-          },
-          {
-            position: new THREE.Vector3(centerX - laneSpacing * 0.8, elevation, roadZ - laneOffset * 0.7),
-            rotation: -Math.PI / 2 - 0.05,
-          },
-        ];
-        trucks.forEach((config) => {
-          const truck = this.instantiateTruck(prototype);
-          truck.position.copy(config.position);
-          truck.rotation.y = config.rotation;
-          this.scene.add(truck);
-        });
-      })
-      .catch((error) => console.warn('[FinalScene] Falha ao carregar Truck_DAF GLB', error));
-  }
-
-  private spawnFallbackWarehouses(requestId: number) {
-    const placements: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number }[] = [
-      { position: new THREE.Vector3(-460, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
-      { position: new THREE.Vector3(60, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
-      { position: new THREE.Vector3(580, 60, -820), size: new THREE.Vector3(320, 150, 240), rotation: 0 },
-    ];
-
-    this.getWarehousePrototype()
-      .then((prototype) => {
-        if (requestId !== this.warehousePlacementRequestId) {
-          return;
-        }
-        placements.forEach((placement, index) => {
-          const warehouse = this.instantiateWarehouse(prototype, placement);
-          this.scene.add(warehouse);
-          this.dynamicWarehouseMeshes.push(warehouse);
-          this.registerFacilityHotspot(
-            {
-              id: `warehouse-fallback-${index}`,
-              name: 'Armazém',
-              type: 'warehouse',
-              object: warehouse,
-              warehouseLayout: {
-                storageAreaId: 0,
-                name: 'Armazém',
-                position: { x: placement.position.x, y: placement.position.y, z: placement.position.z },
-                rotationY: placement.rotation ?? 0,
-                size: { width: placement.size.x, depth: placement.size.z, height: placement.size.y },
-              },
-            },
-            { persistent: false }
-          );
-        });
-      })
-      .catch((error) => console.warn('[FinalScene] Falha ao carregar warehouse GLB', error));
   }
 
   private getWarehousePrototype(): Promise<THREE.Group> {
@@ -1191,24 +1258,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : texture.anisotropy;
-    texture.anisotropy = maxAnisotropy;
+    const maxAniso = this.renderer?.capabilities.getMaxAnisotropy();
+    if (maxAniso && maxAniso > 0) {
+      texture.anisotropy = Math.min(8, maxAniso);
+    }
     this.logisticsRoadTexture = this.trackTexture(texture);
     return this.logisticsRoadTexture;
-  }
-
-  private getContainerRoadTexture(): THREE.Texture {
-    if (this.containerRoadTexture) {
-      return this.containerRoadTexture;
-    }
-    const texture = this.textureLoader.load(this.containerRoadTextureUrl);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : texture.anisotropy;
-    texture.anisotropy = maxAnisotropy;
-    this.containerRoadTexture = this.trackTexture(texture);
-    return this.containerRoadTexture;
   }
 
   private getDeckOffsetZ(): number {
@@ -1226,97 +1281,104 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return texture;
   }
 
-  private addContainerFields() {
-    const placements: { position: THREE.Vector3; rotation?: number; cols: number; rows: number; maxLevels: number }[] = [];
-    const laneZ = this.containerLaneZ;
-    const laneX = this.containerLaneX;
-    const laneHeights = this.containerLaneHeights;
-    laneZ.forEach((z, idxZ) => {
-      laneX.forEach((x, idxX) => {
-        const cols = this.containerCols;
-        const rows = this.containerRows;
-        const baseMax = laneHeights[idxZ % laneHeights.length];
-        let maxLevels = Math.max(2, baseMax - Math.max(0, idxX - 1));
-        if (idxZ === 0) {
-          maxLevels = Math.max(1, baseMax - idxX - (idxX === 2 ? 2 : idxX));
-        }
-        maxLevels = Math.min(maxLevels, 3);
-        placements.push({ position: new THREE.Vector3(x, 60, z), cols, rows, maxLevels });
+  private getContainerStackPrototype(): Promise<THREE.Group> {
+    if (this.containerStackPrototype) {
+      return Promise.resolve(this.containerStackPrototype);
+    }
+    if (!this.containerStackLoading) {
+      this.containerStackLoading = new Promise((resolve, reject) => {
+        const queue = [...this.containerStackUrls];
+        const loadNext = () => {
+          const url = queue.shift();
+          if (!url) {
+            reject(new Error('Sem modelo GLB de contentores disponível'));
+            return;
+          }
+          this.gltfLoader.load(
+            url,
+            (gltf) => {
+              this.prepareContainerPrototype(gltf.scene);
+              this.containerStackPrototype = gltf.scene;
+              resolve(gltf.scene);
+            },
+            undefined,
+            (error) => {
+              console.warn('[FinalScene] erro ao carregar containers', url, error);
+              loadNext();
+            }
+          );
+        };
+        loadNext();
       });
-    });
-
-    this.getContainerStackPrototype()
-      .then((prototype) => {
-        placements.forEach((placement, index) => {
-          const stack = this.buildContainerStack(prototype, placement.cols, placement.rows, placement.maxLevels, index * 13);
-          stack.position.copy(placement.position);
-          stack.rotation.y = placement.rotation ?? 0;
-          stack.updateMatrixWorld(true);
-          this.scene.add(stack);
-        });
-      })
-      .catch((err) => console.error('[FinalScene] Falha ao carregar contentores GLB', err));
-
-    const minX = Math.min(...laneX);
-    const maxX = Math.max(...laneX);
-    const minZ = Math.min(...laneZ);
-    const maxZ = Math.max(...laneZ);
-    const yardWidth = (maxX - minX) + this.containerUnitSize.x * 2.5;
-    const yardDepth = (maxZ - minZ) + this.containerUnitSize.z * 2.5;
-    const yardCenterX = (maxX + minX) / 2;
-    const yardCenterZ = (maxZ + minZ) / 2;
-    const yardPlane = new THREE.Mesh(new THREE.PlaneGeometry(yardWidth, yardDepth), new THREE.MeshBasicMaterial({ visible: false }));
-    yardPlane.rotation.x = -Math.PI / 2;
-    yardPlane.position.set(yardCenterX, 60, yardCenterZ);
-    this.scene.add(yardPlane);
-    this.registerFacilityHotspot({
-      id: 'yard-main',
-      name: 'Zona de Contentores',
-      type: 'yard',
-      object: yardPlane,
-      yardLayout: {
-        storageAreaId: 101,
-        name: 'Yard Principal',
-        width: this.deckWidth - 200,
-        depth: 600,
-        x: 0,
-        z: yardPlane.position.z,
-        y: 0,
-      },
-    });
+    }
+    return this.containerStackLoading;
   }
 
-  private addCranes() {
-    const offsets = [-360, 360];
-    const craneZ = 250;
-    offsets.forEach((x, index) => {
-      const crane = createPortalLatticeCraneModel({
-        height: 90,
-        seawardBoomLength: 150,
-        landsideBoomLength: 80,
-        gauge: 74,
-        clearance: 70,
-      });
-      crane.position.set(x, 60, craneZ);
-      crane.scale.setScalar(1.4);
-      crane.rotation.y = Math.PI;
-      this.scene.add(crane);
-      this.registerFacilityHotspot({
-        id: `crane-${index}`,
-        name: index === 0 ? 'Grua STS Oeste' : 'Grua STS Este',
-        type: 'crane',
-        object: crane,
-        craneSpecs: {
-          designation: 'Portal Lattice Crane',
-          height: 90,
-          gauge: 74,
-          clearance: 70,
-        },
-      });
+  private prepareContainerPrototype(root: THREE.Group) {
+    root.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
     });
-    if (this.enablePlaceholderCargoVessels) {
-      this.placeCargoVessels(offsets);
+    const box = new THREE.Box3().setFromObject(root);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z) || 1;
+    const scale = 55 / maxDim;
+    root.scale.setScalar(scale);
+    root.updateMatrixWorld(true);
+    const normalized = new THREE.Box3().setFromObject(root);
+    const center = normalized.getCenter(new THREE.Vector3());
+    root.position.set(-center.x, -normalized.min.y, -center.z);
+    this.containerUnitSize = normalized.getSize(new THREE.Vector3());
+  }
+
+  private buildContainerStack(
+    prototype: THREE.Group,
+    columns: number,
+    rows: number,
+    maxLevels: number,
+    seed: number
+  ): THREE.Group {
+    const group = new THREE.Group();
+    const spacingX = this.containerUnitSize.x + 4;
+    const spacingZ = this.containerUnitSize.z + 6;
+    const spacingY = this.containerUnitSize.y + 1.8;
+    const offsetX = ((columns - 1) * spacingX) / 2;
+    const offsetZ = ((rows - 1) * spacingZ) / 2;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < columns; col++) {
+        const maxStack = Math.max(1, Math.min(3, maxLevels));
+        const stackHeight = Math.max(1, 1 + ((row * 3 + col * 5 + seed) % maxStack));
+        for (let level = 0; level < stackHeight; level++) {
+          const color = this.containerColors[(row + col + level + seed) % this.containerColors.length];
+          const container = this.cloneContainerPrototype(prototype, color);
+          container.position.set(col * spacingX - offsetX, level * spacingY, row * spacingZ - offsetZ);
+          group.add(container);
+        }
+      }
     }
+    return group;
+  }
+
+  private cloneContainerPrototype(prototype: THREE.Group, color: number): THREE.Group {
+    const clone = prototype.clone(true);
+    const tint = new THREE.Color(color);
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const material = obj.material as THREE.Material;
+        const mat = material.clone() as THREE.MeshStandardMaterial;
+        if (mat.color) {
+          mat.color.copy(tint);
+        }
+        mat.needsUpdate = true;
+        obj.material = mat;
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+    return clone;
   }
 
   private loadPortAssignments() {
@@ -1335,6 +1397,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const dockMap = new Map<number, DockLayout>(docks.map((d) => [d.dockId, d]));
     this.rebuildDockModules(docks);
     this.updateWarehousePlacements(layout.warehouses ?? [], dockMap);
+    this.updateCranes(layout.cranes ?? [], dockMap);
+    this.rebuildContainerStacks(docks);
     this.clearDynamicVessels();
 
     const classified = (layout.activeVessels ?? [])
@@ -1725,40 +1789,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return cloned;
   }
 
-  private buildContainerStack(
-    prototype: THREE.Group,
-    columns: number,
-    rows: number,
-    maxLevels: number,
-    seed: number
-  ): THREE.Group {
-    const group = new THREE.Group();
-    const spacingX = this.containerUnitSize.x + 3;
-    const spacingZ = this.containerUnitSize.z + 4;
-    const spacingY = this.containerUnitSize.y + 1.5;
-    const offsetX = ((columns - 1) * spacingX) / 2;
-    const offsetZ = ((rows - 1) * spacingZ) / 2;
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < columns; col++) {
-        const maxAllowed = Math.min(3, Math.max(1, maxLevels));
-        const stackHeight = Math.max(2, 1 + ((row + col * 2 + seed) % maxAllowed));
-        for (let level = 0; level < stackHeight; level++) {
-          const color = this.containerColors[(row + col + level + seed) % this.containerColors.length];
-          const container = this.cloneContainerPrototype(prototype, color);
-          container.position.set(
-            col * spacingX - offsetX,
-            level * spacingY,
-            row * spacingZ - offsetZ
-          );
-          group.add(container);
-        }
-      }
-    }
-
-    return group;
-  }
-
   private refreshFacilityInfo(facility: FacilityHotspot) {
     const requestId = ++this.facilityInfoRequestId;
     this.facilityInfoCard = this.createBaseInfoCard(facility);
@@ -1956,24 +1986,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     };
   }
 
-  private cloneContainerPrototype(prototype: THREE.Group, color: number): THREE.Group {
-    const clone = prototype.clone(true);
-    const tint = new THREE.Color(color);
-    clone.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        const mat = (obj.material as THREE.Material).clone() as THREE.MeshStandardMaterial;
-        if (mat.color) {
-          mat.color.copy(tint);
-        }
-        mat.needsUpdate = true;
-        obj.material = mat;
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-      }
-    });
-    return clone;
-  }
-
   private formatNumber(value: number | undefined, digits = 0): string {
     if (value === undefined || Number.isNaN(value)) {
       return '—';
@@ -2024,224 +2036,4 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return `${this.formatNumber(dock.size.length)} x ${this.formatNumber(dock.size.width)} m`;
   }
 
-  private getContainerStackPrototype(): Promise<THREE.Group> {
-    if (this.containerStackPrototype) {
-      return Promise.resolve(this.containerStackPrototype);
-    }
-
-    if (!this.containerStackLoading) {
-      this.containerStackLoading = new Promise((resolve, reject) => {
-        const queue = [...this.containerStackUrls];
-        const loadNext = () => {
-          const url = queue.shift();
-          if (!url) {
-            reject(new Error('Sem modelo GLB de contentores disponível'));
-            return;
-          }
-          this.gltfLoader.load(
-            url,
-            (gltf) => {
-              const root = gltf.scene;
-              this.prepareGlbContainerPrototype(root);
-              this.containerStackPrototype = root;
-              resolve(root);
-            },
-            undefined,
-            (err) => {
-              console.warn('[FinalScene] Falha ao carregar modelo', url, err);
-              loadNext();
-            }
-          );
-        };
-        loadNext();
-      });
-    }
-
-    return this.containerStackLoading;
-  }
-
-  private prepareGlbContainerPrototype(root: THREE.Group) {
-    root.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if ((mesh as any).isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
-
-    const box = new THREE.Box3().setFromObject(root);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    const scale = this.containerTargetSpan / maxDim;
-    root.scale.setScalar(scale);
-    root.updateMatrixWorld(true);
-
-    const normalizedBox = new THREE.Box3().setFromObject(root);
-    const center = new THREE.Vector3();
-    normalizedBox.getCenter(center);
-    root.position.x -= center.x;
-    root.position.z -= center.z;
-    root.position.y -= normalizedBox.min.y;
-    this.containerUnitSize = normalizedBox.getSize(new THREE.Vector3());
-  }
-
-  private getTruckPrototype(): Promise<THREE.Group> {
-    if (this.truckPrototype) {
-      return Promise.resolve(this.truckPrototype);
-    }
-
-    if (!this.truckLoading) {
-      this.truckLoading = new Promise((resolve, reject) => {
-        const urls = [...this.truckModelUrls];
-        const loadNext = () => {
-          const url = urls.shift();
-          if (!url) {
-            reject(new Error('Sem modelo GLB de camião disponível'));
-            return;
-          }
-          this.gltfLoader.load(
-            url,
-            (gltf) => {
-              try {
-                const prepared = this.prepareTruckPrototype(gltf.scene);
-                this.truckPrototype = prepared;
-                resolve(prepared);
-              } catch (e) {
-                reject(e);
-              }
-            },
-            undefined,
-            (error) => {
-              console.warn('[FinalScene] erro ao carregar modelo Truck', url, error);
-              loadNext();
-            }
-          );
-        };
-        loadNext();
-      });
-    }
-
-    return this.truckLoading;
-  }
-
-  private prepareTruckPrototype(source: THREE.Group): THREE.Group {
-    source.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        const material = child.material as THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[];
-        if (Array.isArray(material)) {
-          material.forEach((mat) => (mat.envMapIntensity = 1.1));
-        } else if (material) {
-          material.envMapIntensity = 1.1;
-        }
-      }
-    });
-
-    this.mirrorTruckParts(source);
-    this.applyTruckTexture(source);
-    this.applyTruckWindowMaterial(source);
-
-    const initialBox = new THREE.Box3().setFromObject(source);
-    const size = initialBox.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-    const scale = this.truckTargetSpan / maxDim;
-    source.scale.setScalar(scale);
-    source.updateMatrixWorld(true);
-
-    const pivot = new THREE.Group();
-    const scaledBox = new THREE.Box3().setFromObject(source);
-    const center = scaledBox.getCenter(new THREE.Vector3());
-    source.position.set(-center.x, -scaledBox.min.y, -center.z);
-    const height = scaledBox.getSize(new THREE.Vector3()).y;
-    source.position.y += Math.max(4, height * 0.02);
-    pivot.add(source);
-    pivot.updateMatrixWorld(true);
-    return pivot;
-  }
-
-  private mirrorTruckParts(model: THREE.Group): void {
-    const namesToMirror = ['Cube', 'truck_daf.003', 'truck_daf.002'];
-    for (const name of namesToMirror) {
-      const original = model.getObjectByName(name);
-      if (!original) {
-        continue;
-      }
-      const mirrored = original.clone(true);
-      mirrored.traverse((obj) => {
-        if (obj instanceof THREE.Mesh) {
-          if (Array.isArray(obj.material)) {
-            obj.material = obj.material.map((mat) => mat.clone());
-          } else if (obj.material) {
-            obj.material = obj.material.clone();
-          }
-        }
-      });
-      mirrored.scale.x *= -1;
-      original.parent?.add(mirrored);
-    }
-  }
-
-  private instantiateTruck(prototype: THREE.Group): THREE.Group {
-    const truck = prototype.clone(true);
-    truck.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-        if (Array.isArray(obj.material)) {
-          obj.material = obj.material.map((mat) => (mat as THREE.Material).clone());
-        } else if (obj.material) {
-          obj.material = (obj.material as THREE.Material).clone();
-        }
-      }
-    });
-    return truck;
-  }
-
-  private getTruckTrailerTexture(): THREE.Texture {
-    if (this.truckTrailerTexture) {
-      return this.truckTrailerTexture;
-    }
-    const texture = this.textureLoader.load(this.truckTrailerTextureUrl);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
-    if (maxAnisotropy && maxAnisotropy > 0) {
-      texture.anisotropy = Math.min(8, maxAnisotropy);
-    }
-    this.truckTrailerTexture = texture;
-    this.disposableTextures.push(texture);
-    return texture;
-  }
-
-  private applyTruckTexture(model: THREE.Group): void {
-    const texture = this.getTruckTrailerTexture();
-    applyTruckTrailerTexture(model, texture);
-  }
-
-  private getTruckWindowTexture(): THREE.Texture {
-    if (this.truckWindowTexture) {
-      return this.truckWindowTexture;
-    }
-    const texture = this.textureLoader.load(this.truckWindowTextureUrl);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.repeat.set(1, 1);
-    texture.center.set(0.5, 0.5);
-    texture.rotation = Math.PI / 2;
-    texture.needsUpdate = true;
-    const maxAnisotropy = this.renderer ? this.renderer.capabilities.getMaxAnisotropy() : null;
-    if (maxAnisotropy && maxAnisotropy > 0) {
-      texture.anisotropy = Math.min(8, maxAnisotropy);
-    }
-    this.truckWindowTexture = texture;
-    this.disposableTextures.push(texture);
-    return texture;
-  }
-
-  private applyTruckWindowMaterial(model: THREE.Group): void {
-    const texture = this.getTruckWindowTexture();
-    applyTruckWindowTexture(model, texture);
-  }
 }

@@ -6,6 +6,7 @@ import { DockCraneComponent } from './components/visualization/crane/dockcrane.c
 import { FinalSceneComponent } from './components/visualization/final-scene/final-scene.component';
 import { TruckComponent } from './components/visualization/truck/truck.component';
 import { CargoVesselComponent } from './components/visualization/vessel/cargo-vessel.component';
+import { GroundComponent } from './components/visualization/ground/ground.component';
 import { AuthGuard } from './services/auth/auth.guard';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
@@ -50,6 +51,7 @@ export const routes: Routes = [
   { path: 'truck', component: TruckComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   // Cargo vessel GLB viewer
   { path: 'cargo-vessel', component: CargoVesselComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'ground', component: GroundComponent, canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
 
   // Public minimal 3D viewer page (test-only)
   { path: 'viewer', loadComponent: () => import('./pages/viewer/viewer.component').then(m => m.ViewerComponent) },
