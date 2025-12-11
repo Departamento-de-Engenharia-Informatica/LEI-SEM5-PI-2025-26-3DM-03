@@ -107,6 +107,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private logisticsRoadTexture?: THREE.Texture;
   private readonly warehouseRowSpacing = 240;
   private readonly warehouseFootprintScale = 0.75;
+  private readonly warehouseHeightScale = 2;
   private readonly cameraMoveSpeed = 260;
   private readonly containerStackUrls = ['assets/models/containers.glb'];
   private containerStackPrototype?: THREE.Group;
@@ -134,7 +135,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private dockServiceLanes: THREE.Object3D[] = [];
   private dynamicWarehouseMeshes: THREE.Object3D[] = [];
   private dynamicCraneMeshes: THREE.Object3D[] = [];
-  private dockRoadSegments: THREE.Mesh[] = [];
   private containerYardRoads: THREE.Mesh[] = [];
   private staticContainerStacks: THREE.Group[] = [];
   private warehousePlacementRequestId = 0;
@@ -250,7 +250,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.clearDockServiceLanes();
     this.clearDynamicWarehouses();
     this.clearDynamicCranes();
-    this.clearDockRoads();
     this.clearContainerYardRoads();
     this.clearStaticContainerStacks();
     this.disposableGeometries.forEach((geom) => geom.dispose());
@@ -678,28 +677,15 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.dockServiceLanes = [];
   }
 
-  private clearDockRoads() {
-    this.dockRoadSegments.forEach((segment) => {
-      this.scene.remove(segment);
-      segment.geometry.dispose();
-      const material = segment.material as THREE.MeshStandardMaterial;
-      if (material.map) {
-        material.map.dispose();
-      }
-      material.dispose();
-    });
-    this.dockRoadSegments = [];
-  }
-
   private clearContainerYardRoads() {
-    this.containerYardRoads.forEach((segment) => {
-      this.scene.remove(segment);
-      segment.geometry.dispose();
-      const material = segment.material as THREE.MeshStandardMaterial;
-      if (material.map) {
-        material.map.dispose();
+    this.containerYardRoads.forEach((lane) => {
+      this.scene.remove(lane);
+      lane.geometry.dispose();
+      const mat = lane.material as THREE.MeshStandardMaterial;
+      if (mat.map) {
+        mat.map.dispose();
       }
-      material.dispose();
+      mat.dispose();
     });
     this.containerYardRoads = [];
   }
@@ -723,7 +709,6 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private rebuildDockModules(docks: DockLayout[]) {
     this.clearDockServiceLanes();
-    this.clearDockRoads();
     this.clearContainerYardRoads();
     if (!docks.length) {
       return;
@@ -750,40 +735,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         { persistent: false }
       );
     });
-    this.createDockRoads(docks);
     this.createContainerYardRoads(docks);
-  }
-
-  private createDockRoads(docks: DockLayout[]) {
-    if (!docks.length) {
-      return;
-    }
-    const dockFront = this.quayEdgeZ - this.apronDepth + 6;
-    const targetRear = this.serviceRoadCenterZ + this.serviceRoadDepth / 2 - 40;
-    const roadTexture = this.getLogisticsRoadTexture();
-    docks.forEach((dock) => {
-      const width = THREE.MathUtils.clamp(this.convertLayoutDistance(dock.size.width * 0.25, 60, 140), 50, 160);
-      const start = dockFront;
-      const rearLimit = Math.min(targetRear, start + 160);
-      const length = Math.max(80, rearLimit - start);
-      const texture = roadTexture.clone();
-      texture.repeat.set(Math.max(width / 90, 1), Math.max(length / 160, 1));
-      const material = this.trackMaterial(
-        new THREE.MeshStandardMaterial({
-          map: texture,
-          color: 0xffffff,
-          roughness: 0.9,
-          metalness: 0.05,
-        })
-      );
-      const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, length));
-      const road = new THREE.Mesh(geometry, material);
-      road.rotation.x = -Math.PI / 2;
-      road.position.set(this.mapDockToDeckX(dock), this.deckHeight + 0.85, start + length / 2);
-      road.receiveShadow = true;
-      this.scene.add(road);
-      this.dockRoadSegments.push(road);
-    });
   }
 
   private createContainerYardRoads(docks: DockLayout[]) {
@@ -806,6 +758,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
           metalness: 0.05,
         })
       );
+      material.polygonOffset = true;
+      material.polygonOffsetFactor = -0.2;
+      material.polygonOffsetUnits = -1;
       const geometry = this.trackGeometry(new THREE.PlaneGeometry(width, length));
       const lane = new THREE.Mesh(geometry, material);
       lane.rotation.x = -Math.PI / 2;
@@ -849,7 +804,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
           const targetX = dock ? this.mapDockToDeckX(dock) : this.mapLayoutXToDeckCoord(layout.position?.x ?? 0);
           const size = new THREE.Vector3(
             this.convertLayoutDistance(layout.size.width, 60, this.deckWidth * 0.22),
-            THREE.MathUtils.clamp(layout.size.height ?? 40, 28, 110),
+            THREE.MathUtils.clamp(layout.size.height ?? 40, 28, 110) * this.warehouseHeightScale,
             this.convertLayoutDistance(layout.size.depth, 60, 220)
           );
           size.x *= this.warehouseFootprintScale;
@@ -1254,15 +1209,15 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (this.logisticsRoadTexture) {
       return this.logisticsRoadTexture;
     }
-    const texture = this.textureLoader.load(this.logisticsRoadTextureUrl);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
+    const base = this.textureLoader.load(this.logisticsRoadTextureUrl);
+    base.colorSpace = THREE.SRGBColorSpace;
+    base.wrapS = THREE.RepeatWrapping;
+    base.wrapT = THREE.RepeatWrapping;
     const maxAniso = this.renderer?.capabilities.getMaxAnisotropy();
     if (maxAniso && maxAniso > 0) {
-      texture.anisotropy = Math.min(8, maxAniso);
+      base.anisotropy = Math.min(8, maxAniso);
     }
-    this.logisticsRoadTexture = this.trackTexture(texture);
+    this.logisticsRoadTexture = this.trackTexture(base);
     return this.logisticsRoadTexture;
   }
 
