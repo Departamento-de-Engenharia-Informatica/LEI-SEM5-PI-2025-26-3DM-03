@@ -8,5 +8,6 @@ namespace TodoApi.Application.Services.StorageAreas
         Task<StorageArea> UpdateStorageAreaAsync(int id, UpdateStorageAreaDTO dto);
         Task<StorageArea?> GetStorageAreaAsync(int id);
         Task<IEnumerable<StorageArea>> GetAllStorageAreasAsync();
+        Task DeleteStorageAreaAsync(int id);
     }
 }

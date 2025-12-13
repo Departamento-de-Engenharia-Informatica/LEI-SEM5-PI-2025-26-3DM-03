@@ -85,6 +85,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
       { key: 'craneDemo', label_en: 'Crane Model', label_pt: 'Grua STS', route: '/crane', icon: 'bi-lightning' },
       { key: 'truck3d', label_en: 'Truck 3D', label_pt: 'Camião DAF', route: '/truck', icon: 'bi-truck' },
       { key: 'cargoVessel3d', label_en: 'Cargo Vessel', label_pt: 'Navio Porta-Contentores', route: '/cargo-vessel', icon: 'bi-ship' },
+      { key: 'ground3d', label_en: 'Ground Module', label_pt: 'Chão 3D', route: '/ground', icon: 'bi-aspect-ratio' },
       { key: 'cube', label_en: '3D Demo', label_pt: '3D Demo', route: '/cube', icon: 'bi-box' },
       { key: 'final_3d', label_en: '3D Final', label_pt: '3D Final', route: '/final-3d', icon: 'bi-bricks' }
     ] },
@@ -240,4 +241,3 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
 }
-

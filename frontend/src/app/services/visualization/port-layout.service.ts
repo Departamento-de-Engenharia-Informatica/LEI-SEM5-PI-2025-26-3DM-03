@@ -36,6 +36,7 @@ export interface LandAreaLayout {
   width: number;
   depth: number;
   y: number;
+  servedDockIds?: number[];
 }
 
 export interface WarehouseLayout {
@@ -44,6 +45,18 @@ export interface WarehouseLayout {
   position: Vector3Lite;
   size: { width: number; depth: number; height: number };
   rotationY: number;
+  servedDockIds?: number[];
+}
+
+export interface CraneLayout {
+  code: string;
+  name: string;
+  dockId?: number;
+  position?: Vector3Lite;
+  rotationY?: number;
+  height?: number;
+  gauge?: number;
+  clearance?: number;
 }
 
 export interface PortLayoutDTO {
@@ -52,6 +65,7 @@ export interface PortLayoutDTO {
   landAreas: LandAreaLayout[];
   docks: DockLayout[];
   warehouses: WarehouseLayout[];
+  cranes?: CraneLayout[];
   materials?: MaterialLibraryDTO;
   activeVessels?: DockedVesselPlacement[];
 }

@@ -70,5 +70,16 @@ namespace TodoApi.Application.Services.StorageAreas
         {
             return await _repository.GetAllAsync();
         }
+
+        public async Task DeleteStorageAreaAsync(int id)
+        {
+            var area = await _repository.GetByIdAsync(id);
+            if (area == null)
+            {
+                throw new KeyNotFoundException("Storage area not found.");
+            }
+
+            await _repository.DeleteAsync(area);
+        }
     }
 }

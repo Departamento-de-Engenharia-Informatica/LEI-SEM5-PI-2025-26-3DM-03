@@ -56,6 +56,9 @@
       "capacity": "Capacidade",
       "capacityUnit": "TEU",
       "occupancy": "Ocupação",
+      "servedDocks": "Docas servidas",
+      "servedDocksHint": "Escolhe as docas onde este armazém opera.",
+      "noDocks": "Ainda não existem docas disponíveis.",
       "create": "Criar"
     },
     "list": {
@@ -81,6 +84,8 @@
       "type": "Tipo",
       "capacity": "Capacidade",
       "occupancy": "Ocupação",
+      "servedDocks": "Docas servidas",
+      "noDocks": "Sem docas disponíveis para associar.",
       "cancel": "Cancelar",
       "save": "Guardar",
       "close": "Fechar"
@@ -276,4 +281,3 @@
   }
 }
 }
-

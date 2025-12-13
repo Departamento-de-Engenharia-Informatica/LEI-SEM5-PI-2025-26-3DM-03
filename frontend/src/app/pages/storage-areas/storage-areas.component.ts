@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { StorageAreasService } from '../../services/storage-areas/storage-areas.service';
 import { StorageAreaDTO, CreateStorageAreaDTO, UpdateStorageAreaDTO } from '../../models/storage-area';
 import { TranslationService } from '../../services/i18n/translation.service';
+import { DocksService } from '../../services/docks/docks.service';
+import { DockDTO } from '../../models/dock';
 
 type SortKey = 'location' | 'type' | 'maxCapacityTEU' | 'currentOccupancyTEU';
 
@@ -19,6 +21,8 @@ export class StorageAreasComponent implements OnInit {
   filtered: StorageAreaDTO[] = [];
   loading = false;
   error: string | null = null;
+  availableDocks: DockDTO[] = [];
+  private dockLookup = new Map<number, DockDTO>();
 
   // pesquisa e ordenação
   q = '';
@@ -30,7 +34,8 @@ export class StorageAreasComponent implements OnInit {
     type: 'Yard',
     location: '',
     maxCapacityTEU: 0,
-    currentOccupancyTEU: 0
+    currentOccupancyTEU: 0,
+    servedDockIds: []
   };
 
   // edição
@@ -48,10 +53,14 @@ export class StorageAreasComponent implements OnInit {
     return new Intl.NumberFormat(this.locale, { maximumFractionDigits: 0 });
   }
 
-  constructor(private svc: StorageAreasService, public i18n: TranslationService) {}
+  constructor(
+    private svc: StorageAreasService,
+    private docksService: DocksService,
+    public i18n: TranslationService
+  ) {}
 
   async ngOnInit() {
-    await this.load();
+    await Promise.all([this.load(), this.loadDocks()]);
   }
 
   async load() {
@@ -64,6 +73,19 @@ export class StorageAreasComponent implements OnInit {
         this.error = e?.message || this.i18n.t('storageAreas.errors.load');
     } finally {
       this.loading = false;
+    }
+  }
+
+  private async loadDocks() {
+    try {
+      const docks = await this.docksService.getAll();
+      this.availableDocks = docks;
+      this.dockLookup.clear();
+      docks.forEach((dock) => this.dockLookup.set(dock.id, dock));
+    } catch (err) {
+      console.warn('[StorageAreas] Failed to load docks for association', err);
+      this.availableDocks = [];
+      this.dockLookup.clear();
     }
   }
 
@@ -178,7 +200,7 @@ export class StorageAreasComponent implements OnInit {
       const created = await this.svc.create(this.newArea);
       this.areas.unshift(created);
       this.applyFilterSort();
-      this.newArea = { type: 'Yard', location: '', maxCapacityTEU: 0, currentOccupancyTEU: 0 };
+      this.newArea = { type: 'Yard', location: '', maxCapacityTEU: 0, currentOccupancyTEU: 0, servedDockIds: [] };
     } catch (e: any) {
         this.error = e?.message || this.i18n.t('storageAreas.errors.create');
     }
@@ -190,7 +212,8 @@ export class StorageAreasComponent implements OnInit {
       type: area.type ?? 'Yard',
       location: area.location ?? '',
       maxCapacityTEU: area.maxCapacityTEU ?? 0,
-      currentOccupancyTEU: area.currentOccupancyTEU ?? 0
+      currentOccupancyTEU: area.currentOccupancyTEU ?? 0,
+      servedDockIds: [...(area.servedDockIds ?? [])]
     };
   }
 
@@ -208,6 +231,42 @@ export class StorageAreasComponent implements OnInit {
     } catch (e: any) {
         this.error = e?.message || this.i18n.t('storageAreas.errors.update');
     }
+  }
+
+  shouldEnableDockSelection(model: { type?: string | null } | null): boolean {
+    const type = model?.type ?? '';
+    return type.toLowerCase() === 'warehouse';
+  }
+
+  onTypeChange(model: CreateStorageAreaDTO | UpdateStorageAreaDTO) {
+    if (!this.shouldEnableDockSelection(model)) {
+      model.servedDockIds = [];
+    }
+  }
+
+  toggleDockSelection(
+    model: CreateStorageAreaDTO | UpdateStorageAreaDTO,
+    dockId: number,
+    selected: boolean
+  ) {
+    if (!model.servedDockIds) {
+      model.servedDockIds = [];
+    }
+    if (selected) {
+      if (!model.servedDockIds.includes(dockId)) {
+        model.servedDockIds = [...model.servedDockIds, dockId];
+      }
+    } else {
+      model.servedDockIds = model.servedDockIds.filter((id) => id !== dockId);
+    }
+  }
+
+  getDockNames(area: { servedDockIds?: number[] | null }): string[] {
+    const ids = area.servedDockIds ?? [];
+    if (!ids.length || !this.dockLookup.size) return [];
+    return ids
+      .map((id) => this.dockLookup.get(id)?.name || `Dock ${id}`)
+      .filter((name): name is string => !!name);
   }
 
   async delete(id: number) {

@@ -10,6 +10,7 @@ namespace TodoApi.Application.Services.Visualization
         public List<LandAreaLayoutDto> LandAreas { get; set; } = new();
         public List<DockLayoutDto> Docks { get; set; } = new();
         public List<WarehouseLayoutDto> Warehouses { get; set; } = new();
+        public List<CraneLayoutDto> Cranes { get; set; } = new();
         public MaterialLibraryDto Materials { get; set; } = new MaterialLibraryDto();
         public List<ActiveDockedVesselDto> ActiveVessels { get; set; } = new List<ActiveDockedVesselDto>();
     }
@@ -30,12 +31,14 @@ namespace TodoApi.Application.Services.Visualization
         public double Width { get; set; }
         public double Depth { get; set; }
         public double Y { get; set; }
+        public List<int> ServedDockIds { get; set; } = new List<int>();
     }
 
     public class DockLayoutDto
     {
         public long DockId { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string Location { get; set; } = string.Empty;
         public PositionDto Position { get; set; } = new PositionDto();
         public DockSizeDto Size { get; set; } = new DockSizeDto();
         public double RotationY { get; set; }
@@ -55,6 +58,19 @@ namespace TodoApi.Application.Services.Visualization
         public PositionDto Position { get; set; } = new PositionDto();
         public StructureSizeDto Size { get; set; } = new StructureSizeDto();
         public double RotationY { get; set; }
+        public List<int> ServedDockIds { get; set; } = new List<int>();
+    }
+
+    public class CraneLayoutDto
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public long? DockId { get; set; }
+        public PositionDto Position { get; set; } = new PositionDto();
+        public double RotationY { get; set; }
+        public double Height { get; set; }
+        public double Gauge { get; set; }
+        public double Clearance { get; set; }
     }
 
     public class StructureSizeDto
