@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { applyTruckTrailerTexture, applyTruckWindowTexture } from './truck-texture.util';
+import { createGroundModule } from '../ground/ground-module';
 
 @Component({
   selector: 'app-truck',
@@ -99,16 +100,23 @@ export class TruckComponent implements AfterViewInit, OnDestroy {
   };
 
   private addEnvironment(): void {
-    const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x5d646f,
-      roughness: 0.95,
-      metalness: 0.05,
+    const groundModule = createGroundModule({
+      width: 1400,
+      depth: 1000,
+      height: 14,
+      textureUrl: 'assets/textures/floor.png',
+      textureRepeat: { x: 5, y: 4 },
+      road: {
+        width: 620,
+        depth: 1000,
+        textureUrl: 'assets/textures/textura-da-estrada-do-asfalto-com-marcacoes-109441328.jpg',
+        textureRepeat: { x: 3, y: 6 },
+        heightOffset: 0.25,
+      },
     });
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
+    const groundHeight = (groundModule.geometry as THREE.BoxGeometry)?.parameters?.height ?? 0;
+    groundModule.position.y = -groundHeight / 2;
+    this.scene.add(groundModule);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.4);
     const hemi = new THREE.HemisphereLight(0xfefefe, 0x4c5560, 0.6);

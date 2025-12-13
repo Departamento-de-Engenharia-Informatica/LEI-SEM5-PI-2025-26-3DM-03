@@ -267,6 +267,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private warehousePrototype?: THREE.Group;
   private warehouseModelLoading?: Promise<THREE.Group>;
   private warehouseBaseDimensions?: THREE.Vector3;
+  private readonly uniformWarehouseLayoutSize = { width: 280, depth: 180, height: 45 } as const;
   private baseSceneBuilt = false;
   private pointerEventsAttached = false;
   private readonly pointerMoveHandler = (event: PointerEvent) => this.onPointerMove(event);
@@ -1288,9 +1289,9 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     const warehouse = prototype.clone(true);
     const dims = this.warehouseBaseDimensions ?? new THREE.Vector3(1, 1, 1);
     warehouse.scale.set(
-      layout.size.width / dims.x,
-      layout.size.height / dims.y,
-      layout.size.depth / dims.z
+      this.uniformWarehouseLayoutSize.width / dims.x,
+      this.uniformWarehouseLayoutSize.height / dims.y,
+      this.uniformWarehouseLayoutSize.depth / dims.z
     );
     warehouse.position.set(layout.position.x, layout.position.y, layout.position.z);
     warehouse.rotation.y = layout.rotationY || 0;
@@ -1307,7 +1308,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     w: WarehouseLayout,
     mats: { wall: THREE.Material; roof: THREE.Material; base: THREE.Material }
   ) {
-    const geo = new THREE.BoxGeometry(w.size.width, w.size.height, w.size.depth);
+    const geo = new THREE.BoxGeometry(
+      this.uniformWarehouseLayoutSize.width,
+      this.uniformWarehouseLayoutSize.height,
+      this.uniformWarehouseLayoutSize.depth
+    );
     const materials: THREE.Material[] = [
       mats.wall,
       mats.wall,
@@ -1317,7 +1322,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       mats.wall,
     ];
     const mesh = new THREE.Mesh(geo, materials);
-    mesh.position.set(w.position.x, w.position.y + w.size.height / 2, w.position.z);
+    mesh.position.set(
+      w.position.x,
+      w.position.y + this.uniformWarehouseLayoutSize.height / 2,
+      w.position.z
+    );
     mesh.rotation.y = w.rotationY || 0;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
