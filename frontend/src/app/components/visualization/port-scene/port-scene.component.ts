@@ -270,6 +270,9 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private readonly pointerClickHandler = (event: MouseEvent) => this.onPointerClick(event);
   private dockLabelSprites: THREE.Sprite[] = [];
   private vesselLabelSprites: THREE.Sprite[] = [];
+  private selectionSpotlight?: THREE.SpotLight;
+  private readonly selectionSpotlightTarget = new THREE.Object3D();
+  private readonly minSpotlightGroupSize = 4;
 
   constructor(private layoutApi: PortLayoutService, private zone: NgZone) {}
 
@@ -325,6 +328,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.truckGlassMaterial.dispose();
     this.clearLabelSprites();
     this.resetGeneratedAssets();
+    if (this.selectionSpotlight) {
+      this.scene.remove(this.selectionSpotlight);
+      this.scene.remove(this.selectionSpotlight.target);
+    }
   }
 
   // Cena simplificada: plataforma plana e alguns stacks GLB em cima
@@ -466,6 +473,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   const fill = new THREE.DirectionalLight(0xffffff, 0.25);
   fill.position.set(1200, 700, -800);
   this.scene.add(fill);
+  this.setupSelectionSpotlight();
 
     // Orbit controls (helps 3.3.6 later)
     this.controls = new OrbitControls(this.camera, this.canvas);
@@ -478,6 +486,26 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.controls.autoRotate = this.enableAutoRotate;
     this.controls.autoRotateSpeed = 0.4;
     this.controls.target.set(0, 0, 0);
+  }
+
+  private setupSelectionSpotlight() {
+    this.selectionSpotlightTarget.name = 'SelectionSpotTarget';
+    this.scene.add(this.selectionSpotlightTarget);
+
+    const spot = new THREE.SpotLight(
+      0xffffff,
+      1.35,
+      1800,
+      THREE.MathUtils.degToRad(44),
+      0.6,
+      1.4
+    );
+    spot.visible = false;
+    spot.penumbra = 0.6;
+    spot.castShadow = false;
+    spot.target = this.selectionSpotlightTarget;
+    this.scene.add(spot);
+    this.selectionSpotlight = spot;
   }
 
   private buildFromLayout(layout: PortLayoutDTO) {
@@ -677,6 +705,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private setSelectedContainer(container?: ContainerHotspot) {
     this.selectedContainer = container;
     this.updateSelectionOutline(container?.object);
+    this.updateSelectionSpotlightTarget(container);
     if (container) {
       this.focusCameraOn(container);
     }
@@ -751,6 +780,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private updateSelectionSpotlightTarget(target?: ContainerHotspot) {
+    if (!this.selectionSpotlight) return;
+    const hasGroup = this.containerHotspots.length >= this.minSpotlightGroupSize;
+    if (!target || !hasGroup) {
+      this.selectionSpotlight.visible = false;
+      return;
+    }
+    const center = this.getObjectCenter(target.object, target.worldPosition);
+    this.selectionSpotlightTarget.position.copy(center);
+    this.selectionSpotlightTarget.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
+  }
+
   private finalizeContainerTracking(clearExisting = false) {
     this.scene.updateMatrixWorld(true);
     if (clearExisting) {
@@ -763,6 +805,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.selectedContainer = undefined;
       this.updateHoverOutline(undefined);
       this.updateSelectionOutline(undefined);
+      this.updateSelectionSpotlightTarget(undefined);
     }
     let index = this.containerHotspots.length + 1;
     const tempBox = new THREE.Box3();
@@ -807,6 +850,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.totalContainers = this.containerHotspots.length;
     this.featuredContainers = this.containerHotspots.slice(0, 4);
     this.stagedContainers = [];
+    this.updateSelectionSpotlightTarget(this.selectedContainer);
   }
 
   private loadReferenceModel() {
@@ -1354,6 +1398,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.selectedContainer = undefined;
     this.updateHoverOutline(undefined);
     this.updateSelectionOutline(undefined);
+    this.updateSelectionSpotlightTarget(undefined);
   }
 
   private clearLabelSprites() {
@@ -2472,6 +2517,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.buildFromLayout(this.createDemoLayout());
   }
 
+  private updateSelectionSpotlight() {
+    if (!this.selectionSpotlight || !this.camera) return;
+    const active = !!this.selectedContainer && this.containerHotspots.length >= this.minSpotlightGroupSize;
+    if (!active) {
+      this.selectionSpotlight.visible = false;
+      return;
+    }
+    this.selectionSpotlight.position.copy(this.camera.position);
+    this.selectionSpotlight.target.position.copy(this.selectionSpotlightTarget.position);
+    this.selectionSpotlight.target.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
+  }
+
   private animate = () => {
     // Simple Gerstner-like ripples over the water plane
     if (this.waterGeom && this.waterBase) {
@@ -2493,6 +2551,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.waterGeom.computeVertexNormals();
     }
 
+    this.updateSelectionSpotlight();
     this.controls?.update();
     this.renderer.render(this.scene, this.camera);
     this.animationId = requestAnimationFrame(this.animate);

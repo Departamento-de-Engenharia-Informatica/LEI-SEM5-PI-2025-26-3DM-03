@@ -161,6 +161,22 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private hoveredFacility?: FacilityHotspot;
   selectedFacility?: FacilityHotspot;
   private facilitySelectionOutline?: THREE.BoxHelper;
+  private selectionSpotlight?: THREE.SpotLight;
+  private readonly selectionSpotTarget = new THREE.Object3D();
+  private readonly minSpotlightGroupSize = 1;
+  private ambientLight?: THREE.AmbientLight;
+  private hemiLight?: THREE.HemisphereLight;
+  private sunLight?: THREE.DirectionalLight;
+  private readonly initialCameraPosition = new THREE.Vector3();
+  private readonly initialCameraTarget = new THREE.Vector3();
+  private readonly ambientBaseIntensity = 0.35;
+  private readonly ambientDimIntensity = 0;
+  private readonly hemiBaseIntensity = 0.55;
+  private readonly hemiDimIntensity = 0.01;
+  private readonly sunBaseIntensity = 2.1;
+  private readonly sunDimIntensity = 0.02;
+  private readonly backgroundBaseColor = new THREE.Color(0xaed4ff);
+  private readonly backgroundDimColor = new THREE.Color(0x020305);
   private cameraTween?: CameraTween;
   infoOverlayVisible = false;
   facilityInfoCard?: FacilityInfoCard;
@@ -232,6 +248,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initRenderer();
+    this.setupSelectionSpotlight();
     this.buildScene();
     this.attachInputListeners();
     this.attachPointerEvents();
@@ -265,6 +282,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.facilitySelectionOutline?.geometry.dispose?.();
     if (this.facilitySelectionOutline) {
       (this.facilitySelectionOutline.material as THREE.Material).dispose?.();
+    }
+    if (this.selectionSpotlight) {
+      this.scene.remove(this.selectionSpotlight);
+      this.scene.remove(this.selectionSpotTarget);
     }
     if (this.layoutRefreshHandle) {
       window.clearInterval(this.layoutRefreshHandle);
@@ -320,6 +341,13 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     } else if (key === 'i') {
       this.toggleInfoOverlay(event);
       handled = true;
+    } else if (key === 'escape') {
+      this.exitFullscreenIfActive();
+      this.clearSelectionFocus();
+      handled = true;
+    } else if (key === 'z') {
+      this.clearSelectionFocus();
+      handled = true;
     }
     if (handled) {
       event.preventDefault();
@@ -347,6 +375,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (!document.fullscreenElement) {
       wrapper.requestFullscreen?.().catch((err) => console.warn('[FinalScene] Fullscreen falhou', err));
     } else {
+      document.exitFullscreen?.();
+    }
+  }
+
+  private exitFullscreenIfActive() {
+    if (document.fullscreenElement) {
       document.exitFullscreen?.();
     }
   }
@@ -430,6 +464,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectedFacility = facility;
     this.focusCameraOn(facility);
     this.highlightFacility(facility);
+    this.updateSelectionSpotlightTarget(facility);
     if (this.infoOverlayVisible) {
       this.refreshFacilityInfo(facility);
     }
@@ -439,18 +474,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (!this.camera || !this.controls) return;
     const focus = facility.focus ?? this.getObjectCenter(facility.object);
     const offset = this.camera.position.clone().sub(this.controls.target);
-    const startPos = this.camera.position.clone();
-    const startTarget = this.controls.target.clone();
     const endTarget = focus.clone();
     const endPos = focus.clone().add(offset);
-    this.cameraTween = {
-      startPos,
-      endPos,
-      startTarget,
-      endTarget,
-      startTime: performance.now(),
-      duration: 650,
-    };
+    this.startCameraTween(endPos, endTarget, 650);
   }
 
   private highlightFacility(target?: FacilityHotspot) {
@@ -464,6 +490,18 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
     this.facilitySelectionOutline.setFromObject(target.object);
     this.facilitySelectionOutline.visible = true;
+  }
+
+  private clearSelectionFocus() {
+    this.selectedFacility = undefined;
+    this.highlightFacility(undefined);
+    this.updateSelectionSpotlightTarget(undefined);
+    this.resetCameraToInitial();
+  }
+
+  private resetCameraToInitial() {
+    if (!this.camera || !this.controls) return;
+    this.startCameraTween(this.initialCameraPosition, this.initialCameraTarget, 700);
   }
 
   private initRenderer() {
@@ -488,10 +526,36 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.controls.maxDistance = 2200;
     this.controls.target.set(0, 80, 0);
     this.controls.update();
+
+    this.initialCameraPosition.copy(this.camera.position);
+    this.initialCameraTarget.copy(this.controls.target);
+  }
+
+  private setupSelectionSpotlight() {
+    this.selectionSpotTarget.name = 'FacilitySpotTarget';
+    this.scene.add(this.selectionSpotTarget);
+
+    const spot = new THREE.SpotLight(
+      0xffffff,
+      220,
+      2600,
+      THREE.MathUtils.degToRad(32),
+      0.35,
+      0.7
+    );
+    spot.penumbra = 0.55;
+    spot.castShadow = true;
+    spot.shadow.mapSize.set(2048, 2048);
+    spot.shadow.camera.near = 30;
+    spot.shadow.camera.far = 1800;
+    spot.visible = false;
+    spot.target = this.selectionSpotTarget;
+    this.scene.add(spot);
+    this.selectionSpotlight = spot;
   }
 
   private buildScene() {
-    this.scene.background = new THREE.Color(0xaed4ff);
+    this.scene.background = this.backgroundBaseColor.clone();
     this.scene.fog = new THREE.Fog(0xd8ecff, 1200, 3600);
 
     this.addLights();
@@ -508,23 +572,23 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addLights() {
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x8fb3cc, 0.55);
-    this.scene.add(hemi);
+    this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x8fb3cc, this.hemiBaseIntensity);
+    this.scene.add(this.hemiLight);
 
-    const ambient = new THREE.AmbientLight(0xffffff, 0.35);
-    this.scene.add(ambient);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, this.ambientBaseIntensity);
+    this.scene.add(this.ambientLight);
 
-    const sun = new THREE.DirectionalLight(0xfff4da, 2.1);
-    sun.position.set(-420, 960, 180);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(4096, 4096);
-    sun.shadow.camera.near = 100;
-    sun.shadow.camera.far = 2500;
-    sun.shadow.camera.left = -1400;
-    sun.shadow.camera.right = 1400;
-    sun.shadow.camera.top = 1200;
-    sun.shadow.camera.bottom = -800;
-    this.scene.add(sun);
+    this.sunLight = new THREE.DirectionalLight(0xfff4da, this.sunBaseIntensity);
+    this.sunLight.position.set(-420, 960, 180);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.set(4096, 4096);
+    this.sunLight.shadow.camera.near = 100;
+    this.sunLight.shadow.camera.far = 2500;
+    this.sunLight.shadow.camera.left = -1400;
+    this.sunLight.shadow.camera.right = 1400;
+    this.sunLight.shadow.camera.top = 1200;
+    this.sunLight.shadow.camera.bottom = -800;
+    this.scene.add(this.sunLight);
   }
 
   private addWater() {
@@ -968,6 +1032,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     this.updateCameraKeyboardMovement(delta);
     this.updateCameraTween();
+    this.updateSelectionSpotlight();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.animationId = requestAnimationFrame(this.animate);
@@ -1249,6 +1314,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.remove(this.facilitySelectionOutline);
       this.facilitySelectionOutline = undefined;
     }
+    this.updateSelectionSpotlightTarget(undefined);
   }
 
   private updateDockLabels(docks: DockLayout[]) {
@@ -1878,8 +1944,67 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return box.getCenter(new THREE.Vector3());
   }
 
+  private startCameraTween(endPos: THREE.Vector3, endTarget: THREE.Vector3, duration = 650) {
+    if (!this.camera || !this.controls) return;
+    this.cameraTween = {
+      startPos: this.camera.position.clone(),
+      endPos: endPos.clone(),
+      startTarget: this.controls.target.clone(),
+      endTarget: endTarget.clone(),
+      startTime: performance.now(),
+      duration,
+    };
+  }
+
+  private updateSelectionSpotlightTarget(facility?: FacilityHotspot) {
+    if (!this.selectionSpotlight) return;
+    const hasGroup = this.facilityHotspots.length >= this.minSpotlightGroupSize;
+    if (!facility || !hasGroup) {
+      this.selectionSpotlight.visible = false;
+      return;
+    }
+    const center = facility.focus ?? this.getObjectCenter(facility.object);
+    this.selectionSpotTarget.position.copy(center);
+    this.selectionSpotTarget.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
+  }
+
   private describeDock(dock: DockLayout): string {
     return `${this.formatNumber(dock.size.length)} x ${this.formatNumber(dock.size.width)} m`;
+  }
+
+  private updateSelectionSpotlight() {
+    if (!this.selectionSpotlight || !this.camera) return;
+    const active = !!this.selectedFacility && this.facilityHotspots.length >= this.minSpotlightGroupSize;
+    if (!active) {
+      this.selectionSpotlight.visible = false;
+      if (this.ambientLight) {
+        this.ambientLight.intensity = this.ambientBaseIntensity;
+      }
+      if (this.hemiLight) {
+        this.hemiLight.intensity = this.hemiBaseIntensity;
+      }
+      if (this.sunLight) {
+        this.sunLight.intensity = this.sunBaseIntensity;
+      }
+      this.scene.background = this.backgroundBaseColor;
+      return;
+    }
+    const targetPos = this.selectionSpotTarget.position;
+    this.selectionSpotlight.position.set(targetPos.x, targetPos.y + 520, targetPos.z);
+    this.selectionSpotlight.target.position.copy(this.selectionSpotTarget.position);
+    this.selectionSpotlight.target.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
+    if (this.ambientLight) {
+      this.ambientLight.intensity = this.ambientDimIntensity;
+    }
+    if (this.hemiLight) {
+      this.hemiLight.intensity = this.hemiDimIntensity;
+    }
+    if (this.sunLight) {
+      this.sunLight.intensity = this.sunDimIntensity;
+    }
+    this.scene.background = this.backgroundDimColor;
   }
 
   private getContainerStackPrototype(): Promise<THREE.Group> {
