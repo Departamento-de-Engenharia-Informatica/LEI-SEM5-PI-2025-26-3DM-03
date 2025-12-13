@@ -20,7 +20,7 @@ export class OperationPlanPreviewDto {
   @ApiProperty({ description: 'Difference between planned end and expected departure in minutes', example: 15 })
   expectedDelayMinutes!: number | null;
 
-  @ApiProperty({ example: 'fake-sequential' })
+  @ApiProperty({ example: 'single-crane' })
   algorithmUsed!: string;
 
   @ApiProperty({ type: OperationTaskPreviewDto, isArray: true })

@@ -12,7 +12,7 @@
     Selecione uma data para gerar o preview.
   </div>
 
-  <div *ngIf="previewLoading" class="info">A gerar preview...</div>
+  <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
   <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
   <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
   <div *ngIf="persistError" class="error">{{ persistError }}</div>

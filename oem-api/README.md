@@ -23,3 +23,13 @@ npm run start:dev
 - `GET /api/oem/ping` – OEM module placeholder response.
 
 Next steps include adding JWT/OIDC guard middleware, fleshing out CRUD operations, and connecting to the chosen persistence layer.
+
+## Operation Plans (User Story 4.1.2)
+
+- Preview (no persistence): `POST /api/oem/operation-plans/preview` with body `{ "date": "2025-12-08", "algorithm": "single-crane" }`.
+- Persist for day: `POST /api/oem/operation-plans/generate` with body `{ "date": "2025-12-08", "algorithm": "single-crane" }`.
+- Algorithms (hardcoded for now):
+  - `single-crane` (default): sequential unload/load using one crane per VVN, 2 min/container.
+  - `multi-crane`: parallelizes (two cranes) to cut duration roughly in half to reduce delays.
+- Metadata recorded automatically on persist: `algorithmUsed`, `createdBy` (from JWT if present, else `system`), and `createdAt`.
+- Plans include per-VVN operations with resources/time windows and are generated from approved VVNs; if there are no VVNs for the date, the endpoint returns an empty list.

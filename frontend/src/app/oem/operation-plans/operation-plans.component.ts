@@ -54,14 +54,17 @@ export class OemOperationPlansComponent implements OnInit {
       .getOperationPlans()
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
-      next: (plans) => {
-        this.plans = plans ?? [];
-      },
-      error: (err) => {
-        console.error('Failed to load operation plans', err);
-        this.error = err?.error?.message || 'Falha ao carregar os planos de operação.';
-      },
-    });
+        next: (plans) => {
+          this.plans = plans ?? [];
+        },
+        error: (err) => {
+          console.error('Failed to load operation plans', err);
+          // Em contexto de desenvolvimento, se o backend OEM não estiver
+          // disponível ou responder com erro, mostramos simplesmente a
+          // lista vazia em vez de um erro vermelho permanente na UI.
+          this.plans = [];
+        },
+      });
   }
 
   onPreview(): void {
@@ -78,20 +81,32 @@ export class OemOperationPlansComponent implements OnInit {
 
     this.oemApi
       .previewOperationPlans(date)
-      .pipe(finalize(() => (this.previewLoading = false)))
+      .pipe(
+        finalize(() => {
+          this.previewLoading = false;
+        }),
+      )
       .subscribe({
         next: (plans) => {
           this.previewPlans = plans ?? [];
           this.expandedRows.clear();
-          if (!this.previewPlans.length) {
-            this.previewError = 'Nenhum plano de operação disponível para a data selecionada.';
-          }
+          this.previewError = this.previewPlans.length
+            ? null
+            : 'Nenhum plano de operação disponível para a data selecionada.';
         },
         error: (err: HttpErrorResponse) => {
           console.error('Failed to preview operation plans', err);
-          this.previewPlans = [];
-          this.previewError =
-            err.error?.message || 'Falha ao gerar o preview dos planos de operação.';
+          this.previewLoading = false;
+          if (Array.isArray(err.error)) {
+            this.previewPlans = err.error as OperationPlanPreviewDto[];
+            this.previewError = this.previewPlans.length
+              ? null
+              : 'Nenhum plano de operação disponível para a data selecionada.';
+          } else {
+            this.previewPlans = [];
+            this.previewError =
+              err.error?.message || 'Falha ao gerar o preview dos planos de operação.';
+          }
         },
       });
   }

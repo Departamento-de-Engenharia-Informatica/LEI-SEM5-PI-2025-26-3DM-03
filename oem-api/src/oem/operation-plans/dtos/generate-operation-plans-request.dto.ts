@@ -8,7 +8,7 @@ export class GenerateOperationPlansRequestDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date!: string;
 
-  @ApiPropertyOptional({ description: 'Optional algorithm identifier', example: 'fake-sequential' })
+  @ApiPropertyOptional({ description: 'Optional algorithm identifier', example: 'single-crane' })
   @IsString()
   @IsOptional()
   algorithm?: string;

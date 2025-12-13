@@ -37,7 +37,7 @@ export class OemApiService {
     return this.http.get<OperationPlanDto[]>(`/api/oem/operation-plans`, { withCredentials: true });
   }
 
-  previewOperationPlans(date: string, algorithm = 'fake-sequential') {
+  previewOperationPlans(date: string, algorithm = 'single-crane') {
     return this.http.post<OperationPlanPreviewDto[]>(
       `/api/oem/operation-plans/preview`,
       { date, algorithm },
@@ -45,7 +45,7 @@ export class OemApiService {
     );
   }
 
-  generateOperationPlans(date: string, algorithm = 'fake-sequential') {
+  generateOperationPlans(date: string, algorithm = 'single-crane') {
     return this.http.post<OperationPlanDto[]>(
       `/api/oem/operation-plans/generate`,
       { date, algorithm },

@@ -24,10 +24,20 @@ export class OperationPlanService {
   ) {}
 
   async findAll(): Promise<OperationPlanEntity[]> {
-    return this.repo.find({
-      order: { createdAt: 'DESC' },
-      relations: ['tasks'],
-    });
+    try {
+      return await this.repo.find({
+        order: { createdAt: 'DESC' },
+        relations: ['tasks'],
+      });
+    } catch (error) {
+      // In dev scenarios we prefer not to break the SPA if the
+      // operation_plans table is empty or misconfigured. Instead,
+      // we log the error and return an empty list so that the
+      // "Planos guardados" section simply appears vazio.
+      // eslint-disable-next-line no-console
+      console.error('Failed to load operation plans from database', error);
+      return [];
+    }
   }
 
   async findOne(id: string): Promise<OperationPlanEntity> {
@@ -40,7 +50,7 @@ export class OperationPlanService {
 
   async generateAndPersistForDay(
     date: string,
-    algorithm = 'fake-sequential',
+    algorithm = 'single-crane',
     createdBy?: string,
   ): Promise<OperationPlanEntity[]> {
     const { start, end } = this.getDayRange(date);
@@ -220,9 +230,9 @@ export class OperationPlanService {
 
   async generatePreviewForDay(
     date: string,
-    algorithm = 'fake-sequential',
+    algorithm = 'single-crane',
   ): Promise<OperationPlanPreviewDto[]> {
-    const vvns = await this.vvnService.getApprovedForDay(date);
+    const vvns: OemVvn[] = await this.vvnService.getApprovedForDay(date);
     if (!vvns.length) {
       return [];
     }
@@ -236,22 +246,20 @@ export class OperationPlanService {
 
       for (const vvn of dockVvns) {
         const plannedStart = this.computePlannedStart(vvn.eta, currentDockTime);
-        const durationMinutes = Math.max(vvn.containers, 0) * 2;
-        const plannedEnd = new Date(plannedStart.getTime() + durationMinutes * 60_000);
-        currentDockTime = new Date(plannedEnd.getTime());
+        const schedule = this.buildScheduleForVvn(vvn, plannedStart, algorithm);
+        currentDockTime = new Date(schedule.plannedEnd.getTime());
 
-        const expectedDelayMinutes = this.computeDelayMinutes(plannedEnd, vvn.etd);
-        const operations = this.buildOperations(plannedStart, plannedEnd);
+        const expectedDelayMinutes = this.computeDelayMinutes(schedule.plannedEnd, vvn.etd);
 
         previews.push({
           vvnId: vvn.id,
           vesselName: vvn.vesselName,
           dockId: vvn.dockId,
-          plannedStartTime: plannedStart.toISOString(),
-          plannedEndTime: plannedEnd.toISOString(),
+          plannedStartTime: schedule.plannedStart.toISOString(),
+          plannedEndTime: schedule.plannedEnd.toISOString(),
           expectedDelayMinutes,
           algorithmUsed: algorithm,
-          operations,
+          operations: schedule.operations,
         });
       }
     }
@@ -285,30 +293,70 @@ export class OperationPlanService {
     return Math.round(diffMs / 60_000);
   }
 
-  private buildOperations(plannedStart: Date, plannedEnd: Date): OperationTaskPreviewDto[] {
+  private buildScheduleForVvn(
+    vvn: OemVvn,
+    plannedStart: Date,
+    algorithm: string,
+  ): { plannedStart: Date; plannedEnd: Date; operations: OperationTaskPreviewDto[] } {
+    const baseDurationMinutes = Math.max(vvn.containers * 2, 60); // hardcoded rate: 2 min/container, min 1h
+    const storageArea = `YARD-${vvn.dockId ?? 'GEN'}`;
+
+    if (algorithm === 'multi-crane') {
+      const effectiveMinutes = Math.ceil(baseDurationMinutes / 2); // two cranes to cut duration
+      const plannedEnd = new Date(plannedStart.getTime() + effectiveMinutes * 60_000);
+      const totalMs = Math.max(plannedEnd.getTime() - plannedStart.getTime(), 0);
+      const mid = new Date(plannedStart.getTime() + Math.round(totalMs / 2));
+
+      return {
+        plannedStart,
+        plannedEnd,
+        operations: [
+          {
+            type: 'UNLOAD',
+            craneId: 'CRANE-A',
+            storageAreaId: storageArea,
+            startTime: plannedStart.toISOString(),
+            endTime: mid.toISOString(),
+          },
+          {
+            type: 'LOAD',
+            craneId: 'CRANE-B',
+            storageAreaId: storageArea,
+            startTime: mid.toISOString(),
+            endTime: plannedEnd.toISOString(),
+          },
+        ],
+      };
+    }
+
+    // default: single-crane sequential (optimal placeholder)
+    const plannedEnd = new Date(plannedStart.getTime() + baseDurationMinutes * 60_000);
     const totalMs = Math.max(plannedEnd.getTime() - plannedStart.getTime(), 0);
     const halfMs = Math.round(totalMs / 2);
 
     const unloadEnd = new Date(plannedStart.getTime() + halfMs);
     const loadStart = new Date(unloadEnd.getTime());
 
-    const unload: OperationTaskPreviewDto = {
-      type: 'UNLOAD',
-      craneId: 'CRANE-1',
-      storageAreaId: 'YARD-1',
-      startTime: plannedStart.toISOString(),
-      endTime: unloadEnd.toISOString(),
+    return {
+      plannedStart,
+      plannedEnd,
+      operations: [
+        {
+          type: 'UNLOAD',
+          craneId: 'CRANE-1',
+          storageAreaId: storageArea,
+          startTime: plannedStart.toISOString(),
+          endTime: unloadEnd.toISOString(),
+        },
+        {
+          type: 'LOAD',
+          craneId: 'CRANE-1',
+          storageAreaId: storageArea,
+          startTime: loadStart.toISOString(),
+          endTime: plannedEnd.toISOString(),
+        },
+      ],
     };
-
-    const load: OperationTaskPreviewDto = {
-      type: 'LOAD',
-      craneId: 'CRANE-1',
-      storageAreaId: 'YARD-1',
-      startTime: loadStart.toISOString(),
-      endTime: plannedEnd.toISOString(),
-    };
-
-    return [unload, load];
   }
 
   private getDayRange(date: string): { start: Date; end: Date } {

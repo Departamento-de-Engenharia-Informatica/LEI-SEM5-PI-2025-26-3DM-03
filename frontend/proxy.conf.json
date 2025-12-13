@@ -1,5 +1,12 @@
 [
   {
+    "context": ["/api/oem", "/api/OEM"],
+    "target": "http://localhost:3000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  {
     "context": ["/api/scheduling", "/api/Scheduling"],
     "target": "http://localhost:5003",
     "secure": false,
