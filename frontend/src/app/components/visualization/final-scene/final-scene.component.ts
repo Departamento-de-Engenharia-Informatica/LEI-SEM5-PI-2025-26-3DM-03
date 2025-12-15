@@ -739,8 +739,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     deck.receiveShadow = true;
     this.scene.add(deck);
 
+    const apronHeight = this.deckHeight * 1.0;
     const apron = new THREE.Mesh(
-      this.trackGeometry(new THREE.PlaneGeometry(this.deckWidth, this.apronDepth)),
+      this.trackGeometry(new THREE.BoxGeometry(this.deckWidth, apronHeight, this.apronDepth)),
       this.trackMaterial(
         new THREE.MeshStandardMaterial({
           map: apronTexture,
@@ -750,8 +751,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         })
       )
     );
-    apron.rotation.x = -Math.PI / 2;
-    apron.position.set(0, this.deckHeight + 1, this.quayEdgeZ - this.apronDepth / 2);
+    apron.position.set(0, this.deckHeight - apronHeight / 2 + 1, this.quayEdgeZ - this.apronDepth / 2);
+    apron.castShadow = true;
     apron.receiveShadow = true;
     this.scene.add(apron);
 
