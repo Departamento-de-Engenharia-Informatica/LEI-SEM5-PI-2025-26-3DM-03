@@ -621,12 +621,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const spot = new THREE.SpotLight(
       0xffffff,
       220,
-      2600,
-      THREE.MathUtils.degToRad(32),
-      0.35,
+      1800,
+      THREE.MathUtils.degToRad(24),
+      0.38,
       0.7
     );
-    spot.penumbra = 0.55;
+    spot.penumbra = 0.4;
     spot.castShadow = true;
     spot.shadow.mapSize.set(2048, 2048);
     spot.shadow.camera.near = 30;
@@ -644,12 +644,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       const fill = new THREE.SpotLight(
         0xffffff,
         cfg.intensity,
-        2600,
-        THREE.MathUtils.degToRad(50),
-        0.65,
+        1800,
+        THREE.MathUtils.degToRad(30),
+        0.5,
         0.8
       );
-      fill.penumbra = 0.55;
+      fill.penumbra = 0.45;
       fill.castShadow = false;
       fill.visible = false;
       fill.userData['offset'] = cfg.offset.clone();
