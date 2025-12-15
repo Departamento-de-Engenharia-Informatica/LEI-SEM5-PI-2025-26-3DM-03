@@ -1,153 +1,243 @@
-<section>
-  <h1>Planos de Operação</h1>
+<section class="operation-plans">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Home / Dashboard</p>
+      <h1>Planos de Operação</h1>
+      <p class="subtitle">
+        Gere um preview para a data escolhida, selecione as VVNs que quer incluir e guarde os planos. Use os filtros para pesquisar planos guardados.
+      </p>
+    </div>
+  </header>
 
   <form class="preview-form" [formGroup]="form" (ngSubmit)="onPreview()">
-    <div class="form-field">
-      <label for="plan-date">Data</label>
-      <input id="plan-date" type="date" formControlName="date" />
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="plan-date">Data</label>
+        <input id="plan-date" type="date" formControlName="date" />
+      </div>
+      <button type="submit" [disabled]="previewLoading">
+        {{ previewLoading ? 'A gerar...' : 'Gerar Preview' }}
+      </button>
     </div>
-    <button type="submit" [disabled]="previewLoading">Gerar Preview</button>
+    <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
+      Selecione uma data para gerar o preview.
+    </div>
   </form>
-  <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
-    Selecione uma data para gerar o preview.
+
+  <div class="status-row">
+    <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
+    <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
+    <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
+    <div *ngIf="persistError" class="error">{{ persistError }}</div>
   </div>
 
-  <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
-  <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
-  <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
-  <div *ngIf="persistError" class="error">{{ persistError }}</div>
-
-  <table *ngIf="hasPreview && !previewLoading" class="preview-table">
-    <thead>
-      <tr>
-        <th></th>
-        <th>Vessel</th>
-        <th>Dock</th>
-        <th>Start</th>
-        <th>End</th>
-        <th>Delay</th>
-      </tr>
-    </thead>
-    <tbody>
-      <ng-container *ngFor="let preview of previewPlans; trackBy: trackByVvn">
+  <div class="table-wrapper" *ngIf="hasPreview">
+    <table class="preview-table">
+      <thead>
         <tr>
-          <td>
-            <input
-              type="checkbox"
-              [checked]="isSelected(preview.vvnId)"
-              (change)="toggleSelected(preview.vvnId)"
-              [title]="'Selecionar VVN ' + preview.vesselName"
-            />
-          </td>
-          <td>
-            <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
-              {{ isExpanded(preview.vvnId) ? '▼' : '▶' }}
-            </button>
-            {{ preview.vesselName }}
-          </td>
-          <td>{{ preview.dockId }}</td>
-          <td>{{ preview.plannedStartTime | date: 'short' }}</td>
-          <td>{{ preview.plannedEndTime | date: 'short' }}</td>
-          <td>
-            {{
-              preview.expectedDelayMinutes !== null
-                ? (preview.expectedDelayMinutes + ' min')
-                : '-'
-            }}
-          </td>
+          <th class="checkbox-col"></th>
+          <th>Vessel</th>
+          <th>Dock</th>
+          <th>Início</th>
+          <th>Fim</th>
+          <th>Delay</th>
         </tr>
-        <tr *ngIf="isExpanded(preview.vvnId)">
-          <td colspan="5">
-            <table class="operations-table" *ngIf="preview.operations.length > 0; else emptyOperations">
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Grua</th>
-                  <th>Armazém</th>
-                  <th>Início</th>
-                  <th>Fim</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let operation of preview.operations">
-                  <td>{{ operation.type }}</td>
-                  <td>{{ operation.craneId }}</td>
-                  <td>{{ operation.storageAreaId }}</td>
-                  <td>{{ operation.startTime | date: 'shortTime' }}</td>
-                  <td>{{ operation.endTime | date: 'shortTime' }}</td>
-                </tr>
-              </tbody>
-            </table>
-            <ng-template #emptyOperations>
-              <div class="info">Sem operações planeadas.</div>
-            </ng-template>
-          </td>
-        </tr>
-      </ng-container>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let preview of previewPlans; trackBy: trackByVvn">
+          <tr>
+            <td class="checkbox-col">
+              <input
+                type="checkbox"
+                [checked]="isSelected(preview.vvnId)"
+                (change)="toggleSelected(preview.vvnId)"
+                [title]="'Selecionar VVN ' + preview.vesselName"
+              />
+            </td>
+            <td>
+              <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
+                {{ isExpanded(preview.vvnId) ? '▼' : '▶' }}
+              </button>
+              {{ preview.vesselName }}
+            </td>
+            <td>{{ preview.dockId }}</td>
+            <td>{{ preview.plannedStartTime | date: 'short' }}</td>
+            <td>{{ preview.plannedEndTime | date: 'short' }}</td>
+            <td>
+              {{
+                preview.expectedDelayMinutes !== null
+                  ? (preview.expectedDelayMinutes + ' min')
+                  : '-'
+              }}
+            </td>
+          </tr>
+          <tr *ngIf="isExpanded(preview.vvnId)">
+            <td colspan="6">
+              <table class="operations-table" *ngIf="preview.operations.length > 0; else emptyOperations">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Grua</th>
+                    <th>Armazém</th>
+                    <th>Início</th>
+                    <th>Fim</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let operation of preview.operations">
+                    <td>{{ operation.type }}</td>
+                    <td>{{ operation.craneId }}</td>
+                    <td>{{ operation.storageAreaId }}</td>
+                    <td>{{ operation.startTime | date: 'shortTime' }}</td>
+                    <td>{{ operation.endTime | date: 'shortTime' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <ng-template #emptyOperations>
+                <div class="info">Sem operações planeadas.</div>
+              </ng-template>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
 
-  <button
-    *ngIf="hasPreview"
-    type="button"
-    class="persist-button"
-    [disabled]="persistLoading"
-    (click)="onPersist()"
-  >
-    {{ persistLoading ? 'A guardar...' : 'Guardar Planos' }}
-  </button>
+  <div class="preview-actions" *ngIf="hasPreview">
+    <button
+      type="button"
+      class="persist-button"
+      [disabled]="persistLoading || !previewPlans.length"
+      (click)="onPersist()"
+    >
+      {{ persistLoading ? 'A guardar...' : 'Guardar planos selecionados' }}
+    </button>
+    <p class="hint">Selecione as VVNs que pretende guardar antes de confirmar.</p>
+  </div>
 
-  <h2>Planos guardados</h2>
-
-  <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
-    <div class="form-row">
-      <div class="form-field">
-        <label for="saved-from">De</label>
-        <input id="saved-from" type="date" formControlName="from" />
-      </div>
-      <div class="form-field">
-        <label for="saved-to">Até</label>
-        <input id="saved-to" type="date" formControlName="to" />
-      </div>
-      <div class="form-field">
-        <label for="saved-vessel">Visita (ID)</label>
-        <input
-          id="saved-vessel"
-          type="text"
-          formControlName="vesselVisitId"
-          placeholder="ex: 1"
-        />
-      </div>
-      <div class="form-actions">
-        <button type="submit" [disabled]="loading">Pesquisar</button>
-        <button type="button" (click)="resetSavedFilters()" [disabled]="loading">Limpar</button>
-      </div>
+  <section class="saved-section">
+    <div class="section-header">
+      <h2>Planos guardados</h2>
+      <span class="badge" *ngIf="plans.length">{{ plans.length }}</span>
     </div>
-  </form>
 
-  <div *ngIf="loading">A carregar planos guardados...</div>
-  <div *ngIf="error && !loading" class="error">{{ error }}</div>
+    <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="saved-from">De</label>
+          <input id="saved-from" type="date" formControlName="from" />
+        </div>
+        <div class="form-field">
+          <label for="saved-to">Até</label>
+          <input id="saved-to" type="date" formControlName="to" />
+        </div>
+        <div class="form-field">
+          <label for="saved-vessel">VVN (ID)</label>
+          <input
+            id="saved-vessel"
+            type="text"
+            formControlName="vesselVisitId"
+            placeholder="ex: 1"
+          />
+        </div>
+        <div class="form-actions">
+          <button type="submit" [disabled]="loading">Filtrar</button>
+          <button type="button" (click)="resetSavedFilters()" [disabled]="loading">Limpar</button>
+        </div>
+      </div>
+    </form>
 
-  <table *ngIf="!loading && !error && plans.length > 0">
-    <thead>
-      <tr>
-        <th (click)="changeSort('name')">Nome</th>
-        <th>Estado</th>
-        <th (click)="changeSort('vesselVisitId')">Visita</th>
-        <th (click)="changeSort('plannedStartTime')">Início</th>
-        <th (click)="changeSort('createdAt')">Criado em</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let plan of sortedPlans">
-        <td>{{ plan.name }}</td>
-        <td>{{ plan.status }}</td>
-        <td>{{ plan.vesselVisitId || '-' }}</td>
-        <td>{{ plan.plannedStartTime | date: 'short' }}</td>
-        <td>{{ plan.createdAt | date: 'short' }}</td>
-      </tr>
-    </tbody>
-  </table>
+    <div *ngIf="loading" class="info">A carregar planos guardados...</div>
+    <div *ngIf="error && !loading" class="error">{{ error }}</div>
 
-  <p *ngIf="!loading && !error && plans.length === 0">Sem planos de operação disponíveis.</p>
+    <div class="table-wrapper" *ngIf="!loading && !error && sortedPlans.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th (click)="changeSort('name')">
+              Nome
+              <span class="sort-icon" [class.active]="sortKey === 'name'">
+                {{ sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+              </span>
+            </th>
+            <th>Estado</th>
+            <th (click)="changeSort('vesselVisitId')">
+              VVN
+              <span class="sort-icon" [class.active]="sortKey === 'vesselVisitId'">
+                {{ sortKey === 'vesselVisitId' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+              </span>
+            </th>
+            <th (click)="changeSort('plannedStartTime')">
+              Início
+              <span class="sort-icon" [class.active]="sortKey === 'plannedStartTime'">
+                {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+              </span>
+            </th>
+            <th (click)="changeSort('createdAt')">
+              Criado em
+              <span class="sort-icon" [class.active]="sortKey === 'createdAt'">
+                {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+              </span>
+            </th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let plan of sortedPlans">
+            <td>{{ plan.name }}</td>
+            <td>{{ plan.status }}</td>
+            <td>{{ plan.vesselVisitId || '-' }}</td>
+            <td>{{ plan.plannedStartTime | date: 'short' }}</td>
+            <td>{{ plan.createdAt | date: 'short' }}</td>
+            <td><button type="button" class="link-btn" (click)="startEdit(plan)">{{ editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar' }}</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <section class="edit-panel" *ngIf="editingPlan">
+      <div class="edit-header">
+        <div>
+          <h3>Edicao do plano {{ editingPlan.name }}</h3>
+          <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} | Dock {{ editingPlan.dockId || '-' }}</p>
+          <p class="muted small">Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason"> ({{ editingPlan.lastChangeReason }})</ng-container></p>
+        </div>
+        <button type="button" class="ghost-btn" (click)="cancelEdit()">Fechar</button>
+      </div>
+      <div class="edit-messages">
+        <p class="info" *ngIf="editLoading">A carregar detalhes do plano...</p>
+        <p class="error" *ngIf="editError">{{ editError }}</p>
+        <p class="success" *ngIf="editSuccess">{{ editSuccess }}</p>
+        <ul class="warning-list" *ngIf="editWarnings.length">
+          <li *ngFor="let warning of editWarnings">{{ warning }}</li>
+        </ul>
+      </div>
+      <form class="edit-form" [formGroup]="editForm" (ngSubmit)="onSaveEdit()">
+        <div class="edit-grid">
+          <label>
+            Dock
+            <input type="text" formControlName="dockId" placeholder="ex: A" />
+          </label>
+          <label>
+            Estado
+            <select formControlName="status">
+              <option *ngFor="let status of planStatuses" [value]="status">{{ status }}</option>
+            </select>
+          </label>
+          <label class="wide">
+            Motivo da alteracao
+            <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
+          </label>
+        </div>
+        <div class="edit-actions">
+          <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">
+            {{ editSaving ? 'A guardar...' : 'Guardar alteracoes' }}
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <p *ngIf="!loading && !error && sortedPlans.length === 0" class="info">
+      {{ savedEmptyMessage || 'Sem planos de operação disponíveis.' }}
+    </p>
+  </section>
 </section>

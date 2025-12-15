@@ -31,6 +31,7 @@ import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution
 import { OemVvn } from './vvn/oem-vvn.entity';
 import { OemVvnService } from './vvn/oem-vvn.service';
 import { OperationPlanTaskEntity } from './persistence/operation-plan-task.entity';
+import { OperationPlanChangeLogEntity } from './persistence/operation-plan-change-log.entity';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { OperationPlanTaskEntity } from './persistence/operation-plan-task.entit
       IncidentEntity,
       VesselVisitExecutionEntity,
       OperationPlanTaskEntity,
+      OperationPlanChangeLogEntity,
       OemVvn,
     ]),
   ],

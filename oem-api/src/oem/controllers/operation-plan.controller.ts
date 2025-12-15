@@ -10,7 +10,7 @@ import {
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateOperationPlanDto, UpdateOperationPlanDto } from '../dto';
-import { OperationPlanService } from '../services';
+import { OperationPlanService, OperationPlanUpdateResult } from '../services';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/types';
@@ -18,6 +18,7 @@ import {
   OperationPlanPreviewDto,
   OperationPlanPreviewRequestDto,
   GenerateOperationPlansRequestDto,
+  OperationPlanUpdateResponseDto,
 } from '../operation-plans/dtos';
 
 @ApiTags('OEM/OperationPlans')
@@ -91,12 +92,14 @@ export class OperationPlanController {
   @Patch(':id')
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Update operation plan' })
-  @ApiOkResponse({ type: OperationPlanEntity })
+  @ApiOkResponse({ type: OperationPlanUpdateResponseDto })
   update(
     @Param('id') id: string,
     @Body() payload: UpdateOperationPlanDto,
-  ): Promise<OperationPlanEntity> {
-    return this.service.updatePlan(id, payload);
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<OperationPlanUpdateResult> {
+    const updatedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
+    return this.service.updatePlan(id, payload, updatedBy);
   }
 
   @Delete(':id')

@@ -1,9 +1,16 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { OperationPlanStatus } from '../domain/operation-plan.entity';
 import { ComplementaryTaskEntity } from './complementary-task.entity';
 import { IncidentEntity } from './incident.entity';
 import { VesselVisitExecutionEntity } from './vessel-visit-execution.entity';
 import { OperationPlanTaskEntity } from './operation-plan-task.entity';
+import { OperationPlanChangeLogEntity } from './operation-plan-change-log.entity';
 
 export type PlanOperation = {
   resourceId?: string;
@@ -51,6 +58,18 @@ export class OperationPlanEntity {
   @Column({ type: 'text', nullable: true })
   createdBy?: string;
 
+  @Column({ type: 'text', nullable: true })
+  lastUpdatedBy?: string;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', nullable: true })
+  updatedAt?: Date;
+
+  @Column({ name: 'last_change_reason', type: 'text', nullable: true })
+  lastChangeReason?: string;
+
+  @Column({ name: 'last_change_warnings', type: 'simple-json', nullable: true })
+  lastChangeWarnings?: string[];
+
   @Column({ type: 'simple-json', nullable: true })
   operations?: PlanOperation[];
 
@@ -73,4 +92,9 @@ export class OperationPlanEntity {
     cascade: true,
   })
   tasks?: OperationPlanTaskEntity[];
+
+  @OneToMany(() => OperationPlanChangeLogEntity, (log) => log.operationPlan, {
+    cascade: true,
+  })
+  changeLogs?: OperationPlanChangeLogEntity[];
 }

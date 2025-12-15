@@ -32,6 +32,9 @@ export class OperationPlanTaskEntity {
   @Column({ name: 'storage_area_id', type: 'text', nullable: true })
   storageAreaId?: string;
 
+  @Column({ name: 'staff_ids', type: 'simple-json', nullable: true })
+  staffIds?: string[];
+
   @Column({ name: 'start_time', type: 'datetime' })
   startTime!: Date;
 

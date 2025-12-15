@@ -2,8 +2,13 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { AxiosResponse } from 'axios';
-import { Between, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
-import { CreateOperationPlanDto, GenerateOperationPlansDto, UpdateOperationPlanDto } from '../dto';
+import { Between, LessThanOrEqual, MoreThanOrEqual, Not, Repository } from 'typeorm';
+import {
+  CreateOperationPlanDto,
+  GenerateOperationPlansDto,
+  OperationPlanTaskDto,
+  UpdateOperationPlanDto,
+} from '../dto';
 import { OperationPlanPreviewDto, OperationTaskPreviewDto } from '../operation-plans/dtos';
 import { OperationPlanStatus } from '../domain';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
@@ -11,6 +16,13 @@ import { ExternalClientsService, VesselVisitNotification } from './external-clie
 import { OemVvnService } from '../vvn/oem-vvn.service';
 import { OemVvn } from '../vvn/oem-vvn.entity';
 import { OperationPlanTaskEntity } from '../persistence/operation-plan-task.entity';
+import { OperationPlanChangeLogEntity } from '../persistence/operation-plan-change-log.entity';
+
+export type OperationPlanUpdateResult = {
+  plan: OperationPlanEntity;
+  warnings: string[];
+  logEntry?: OperationPlanChangeLogEntity;
+};
 
 @Injectable()
 export class OperationPlanService {
@@ -64,7 +76,14 @@ export class OperationPlanService {
   }
 
   async findOne(id: string): Promise<OperationPlanEntity> {
-    const found = await this.repo.findOne({ where: { id } });
+    const found = await this.repo.findOne({
+      where: { id },
+      relations: ['tasks', 'changeLogs'],
+      order: {
+        tasks: { startTime: 'ASC' },
+        changeLogs: { createdAt: 'DESC' },
+      },
+    });
     if (!found) {
       throw new NotFoundException(`Operation plan ${id} not found`);
     }
@@ -155,8 +174,11 @@ export class OperationPlanService {
       description: dto.description,
       vesselVisitId: dto.vesselVisitId,
       sourceVvnId: dto.sourceVvnId,
+      dockId: dto.dockId,
       shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : undefined,
       targetDay: dto.targetDay ? new Date(dto.targetDay) : undefined,
+      plannedStartTime: dto.plannedStartTime ? new Date(dto.plannedStartTime) : undefined,
+      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : undefined,
       algorithmUsed: dto.algorithmUsed,
       createdBy: dto.createdBy,
       operations: dto.operations?.map((op) => ({
@@ -169,10 +191,58 @@ export class OperationPlanService {
     return this.repo.save(entity);
   }
 
-  async updatePlan(id: string, dto: UpdateOperationPlanDto): Promise<OperationPlanEntity> {
+  async updatePlan(
+    id: string,
+    dto: UpdateOperationPlanDto,
+    updatedBy?: string,
+  ): Promise<OperationPlanUpdateResult> {
     const existing = await this.findOne(id);
+
+    const taskValidationErrors = this.validateTasks(dto.tasks);
+    if (taskValidationErrors.length) {
+      throw new BadRequestException(taskValidationErrors.join(' '));
+    }
+
+    const normalizedTasks = (dto.tasks ?? existing.tasks ?? []).map((task) => {
+      const start = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      const end = task.endTime instanceof Date ? task.endTime : new Date(task.endTime);
+      return this.taskRepo.create({
+        id: task.id,
+        operationPlanId: existing.id,
+        type: task.type,
+        craneId: task.craneId,
+        storageAreaId: task.storageAreaId,
+        staffIds: task.staffIds?.filter(Boolean),
+        startTime: start,
+        endTime: end,
+      });
+    });
+
+    const candidatePlan: Partial<OperationPlanEntity> = {
+      id: existing.id,
+      dockId: dto.dockId ?? existing.dockId,
+      sourceVvnId: dto.sourceVvnId ?? existing.sourceVvnId,
+      plannedStartTime: dto.plannedStartTime
+        ? new Date(dto.plannedStartTime)
+        : existing.plannedStartTime,
+      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : existing.plannedEndTime,
+      shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : existing.shiftDate,
+      targetDay: dto.targetDay ? new Date(dto.targetDay) : existing.targetDay,
+      algorithmUsed: dto.algorithmUsed ?? existing.algorithmUsed,
+      status: dto.status ?? existing.status,
+    };
+
+    const planDay =
+      dto.targetDay ?? existing.targetDay?.toISOString().slice(0, 10) ?? dto.plannedStartTime?.slice(0, 10);
+    const warnings = await this.detectInconsistencies(candidatePlan, normalizedTasks, planDay);
+
     const merged = this.repo.merge(existing, {
       ...dto,
+      dockId: dto.dockId ?? existing.dockId,
+      plannedStartTime: dto.plannedStartTime
+        ? new Date(dto.plannedStartTime)
+        : existing.plannedStartTime,
+      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : existing.plannedEndTime,
       shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : existing.shiftDate,
       targetDay: dto.targetDay ? new Date(dto.targetDay) : existing.targetDay,
       operations: dto.operations
@@ -182,8 +252,49 @@ export class OperationPlanService {
             endTime: op.endTime ? new Date(op.endTime) : undefined,
           }))
         : existing.operations,
+      lastUpdatedBy: updatedBy ?? existing.lastUpdatedBy,
+      lastChangeReason: dto.reason ?? existing.lastChangeReason,
+      lastChangeWarnings: warnings,
     });
-    return this.repo.save(merged);
+
+    let logEntry: OperationPlanChangeLogEntity | undefined;
+
+    await this.repo.manager.transaction(async (entityManager) => {
+      const planRepo = entityManager.getRepository(OperationPlanEntity);
+      const taskRepo = entityManager.getRepository(OperationPlanTaskEntity);
+      const logRepo = entityManager.getRepository(OperationPlanChangeLogEntity);
+
+      const savedPlan = await planRepo.save(merged);
+
+      // Replace tasks to keep it simple and predictable.
+      await taskRepo.delete({ operationPlanId: savedPlan.id });
+      if (normalizedTasks.length) {
+        await taskRepo.save(
+          normalizedTasks.map((task) => ({
+            ...task,
+            id: undefined, // force new ids so history in change log captures deltas
+            operationPlanId: savedPlan.id,
+          })),
+        );
+      }
+
+      const changes: Record<string, unknown> = {
+        fields: this.extractPlanFieldChanges(existing, merged),
+        tasksUpdated: normalizedTasks.length,
+      };
+
+      logEntry = logRepo.create({
+        operationPlanId: savedPlan.id,
+        changedBy: updatedBy,
+        reason: dto.reason,
+        changes,
+        warnings,
+      });
+      await logRepo.save(logEntry);
+    });
+
+    const plan = await this.findOne(id);
+    return { plan, warnings, logEntry };
   }
 
   async remove(id: string): Promise<OperationPlanEntity> {
@@ -297,6 +408,148 @@ export class OperationPlanService {
     }
 
     return previews.sort((a, b) => a.plannedStartTime.localeCompare(b.plannedStartTime));
+  }
+
+  private validateTasks(tasks?: (OperationPlanTaskDto | OperationPlanTaskEntity)[]): string[] {
+    if (!tasks || tasks.length === 0) {
+      return [];
+    }
+    const errors: string[] = [];
+    tasks.forEach((task, idx) => {
+      const start = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
+      const end = task.endTime instanceof Date ? task.endTime : new Date(task.endTime);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        errors.push(`Task #${idx + 1} has invalid dates.`);
+      } else if (start.getTime() >= end.getTime()) {
+        errors.push(`Task #${idx + 1} must finish after it starts.`);
+      }
+    });
+    return errors;
+  }
+
+  private async detectInconsistencies(
+    candidatePlan: Partial<OperationPlanEntity>,
+    tasks: OperationPlanTaskEntity[],
+    planDay?: string | null,
+  ): Promise<string[]> {
+    const warnings: string[] = [];
+    if (!tasks.length) {
+      return warnings;
+    }
+
+    const dayIso =
+      planDay ?? this.toIsoDate(candidatePlan.plannedStartTime) ?? this.toIsoDate(tasks[0].startTime);
+
+    let otherPlans: OperationPlanEntity[] = [];
+    if (dayIso) {
+      try {
+        const { start, end } = this.getDayRange(dayIso);
+        otherPlans = await this.repo.find({
+          where: { id: Not(candidatePlan.id as string), plannedStartTime: Between(start, end) },
+          relations: ['tasks'],
+        });
+      } catch {
+        // ignore filter errors
+      }
+    }
+
+    for (const task of tasks) {
+      if (candidatePlan.plannedStartTime && task.startTime < candidatePlan.plannedStartTime) {
+        warnings.push(
+          `Task ${task.type} starts before the plan start (${candidatePlan.plannedStartTime.toISOString()}).`,
+        );
+      }
+      if (candidatePlan.plannedEndTime && task.endTime > candidatePlan.plannedEndTime) {
+        warnings.push(
+          `Task ${task.type} ends after the plan end (${candidatePlan.plannedEndTime.toISOString()}).`,
+        );
+      }
+
+      for (const other of otherPlans) {
+        if (!other.tasks?.length) continue;
+        for (const otherTask of other.tasks) {
+          if (
+            task.craneId &&
+            otherTask.craneId &&
+            task.craneId === otherTask.craneId &&
+            this.overlaps(task.startTime, task.endTime, otherTask.startTime, otherTask.endTime)
+          ) {
+            warnings.push(
+              `Crane ${task.craneId} overlaps with plan ${other.name} (${other.id}) between ${task.startTime.toISOString()} and ${task.endTime.toISOString()}.`,
+            );
+          }
+
+          if (task.staffIds?.length && otherTask.staffIds?.length) {
+            const sharedStaff = task.staffIds.filter((id) => otherTask.staffIds?.includes(id));
+            if (
+              sharedStaff.length &&
+              this.overlaps(task.startTime, task.endTime, otherTask.startTime, otherTask.endTime)
+            ) {
+              warnings.push(
+                `Staff ${sharedStaff.join(', ')} already assigned to plan ${other.name} (${other.id}) for the same time.`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    if (dayIso && candidatePlan.sourceVvnId) {
+      try {
+        const vvns = await this.vvnService.getApprovedForDay(dayIso);
+        const current = vvns.find((v) => v.id.toString() === candidatePlan.sourceVvnId?.toString());
+        if (current) {
+          const start = candidatePlan.plannedStartTime ?? tasks[0].startTime;
+          const end =
+            candidatePlan.plannedEndTime ?? tasks[tasks.length - 1].endTime ?? tasks[0].endTime;
+          if (current.eta && start.getTime() < current.eta.getTime()) {
+            warnings.push('Plan starts before the approved VVN ETA.');
+          }
+          if (current.etd && end.getTime() > current.etd.getTime()) {
+            warnings.push('Plan end exceeds the VVN estimated departure.');
+          }
+        }
+      } catch {
+        // ignore warning enrichment failures
+      }
+    }
+
+    return Array.from(new Set(warnings));
+  }
+
+  private extractPlanFieldChanges(
+    oldPlan: OperationPlanEntity,
+    newPlan: OperationPlanEntity,
+  ): Record<string, unknown> {
+    const watched: Array<keyof OperationPlanEntity> = [
+      'dockId',
+      'plannedStartTime',
+      'plannedEndTime',
+      'algorithmUsed',
+      'status',
+    ];
+    const diff: Record<string, unknown> = {};
+    for (const key of watched) {
+      const before = (oldPlan as any)[key];
+      const after = (newPlan as any)[key];
+      const beforeVal = before instanceof Date ? before.toISOString() : before;
+      const afterVal = after instanceof Date ? after.toISOString() : after;
+      if (beforeVal !== afterVal) {
+        diff[key] = { before: beforeVal, after: afterVal };
+      }
+    }
+    return diff;
+  }
+
+  private overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
+    return aStart.getTime() < bEnd.getTime() && bStart.getTime() < aEnd.getTime();
+  }
+
+  private toIsoDate(value?: Date | string | null): string | null {
+    if (!value) return null;
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 10);
   }
 
   private groupByDock(vvns: OemVvn[]): Map<string, OemVvn[]> {

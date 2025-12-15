@@ -1,147 +1,107 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import {
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+import { finalize } from 'rxjs/operators';
 import {
   OemApiService,
   OperationPlanDto,
   OperationPlanPreviewDto,
 } from '../oem-api.service';
 
+type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
+
 @Component({
   selector: 'app-oem-operation-plans',
-  templateUrl: './operation-plans.component.html',
-  styleUrls: ['./operation-plans.component.scss'],
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './operation-plans.component.html',
+  styleUrls: ['./operation-plans.component.scss'],
 })
 export class OemOperationPlansComponent implements OnInit {
   form: FormGroup;
   savedFilterForm: FormGroup;
+
   plans: OperationPlanDto[] = [];
+  previewPlans: OperationPlanPreviewDto[] = [];
+
   loading = false;
   error: string | null = null;
-  previewPlans: OperationPlanPreviewDto[] = [];
+
   previewLoading = false;
   previewError: string | null = null;
+
   persistLoading = false;
   persistError: string | null = null;
   successMessage: string | null = null;
-  private readonly expandedRows = new Set<string>();
-  private readonly selectedVvns = new Set<string>();
-  sortKey: 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt' = 'plannedStartTime';
+
+  expandedRows = new Set<string>();
+  selectedVvns = new Set<string>();
+  savedEmptyMessage: string | null = null;
+
+  sortKey: SortKey = 'plannedStartTime';
   sortDir: 'asc' | 'desc' = 'asc';
 
-  constructor(private readonly oemApi: OemApiService, private readonly formBuilder: FormBuilder) {
-    this.form = this.formBuilder.group({
-      date: ['', Validators.required],
+  editForm: FormGroup;
+  editingPlan: OperationPlanDto | null = null;
+  editLoading = false;
+  editSaving = false;
+  editError: string | null = null;
+  editWarnings: string[] = [];
+  editSuccess: string | null = null;
+
+  readonly planStatuses = [
+    'draft',
+    'planned',
+    'in-progress',
+    'completed',
+    'cancelled',
+  ];
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly api: OemApiService,
+  ) {
+    this.form = this.fb.group({
+      date: [this.todayIso(), Validators.required],
     });
 
-    this.savedFilterForm = this.formBuilder.group({
+    this.savedFilterForm = this.fb.group({
       from: [''],
       to: [''],
       vesselVisitId: [''],
     });
+
+    this.editForm = this.createEditForm();
   }
 
   ngOnInit(): void {
     this.fetchPlans();
   }
 
+  get dateControl() {
+    return this.form.get('date');
+  }
+
   get hasPreview(): boolean {
     return this.previewPlans.length > 0;
   }
 
-  get dateControl(): FormControl<string | null> {
-    return this.form.get('date') as FormControl<string | null>;
-  }
-
-  get savedFromControl(): FormControl<string | null> {
-    return this.savedFilterForm.get('from') as FormControl<string | null>;
-  }
-
-  get savedToControl(): FormControl<string | null> {
-    return this.savedFilterForm.get('to') as FormControl<string | null>;
-  }
-
-  get savedVesselControl(): FormControl<string | null> {
-    return this.savedFilterForm.get('vesselVisitId') as FormControl<string | null>;
-  }
-
   get sortedPlans(): OperationPlanDto[] {
-    const copy = [...this.plans];
     const dir = this.sortDir === 'asc' ? 1 : -1;
-
-    return copy.sort((a, b) => {
-      const av = (a[this.sortKey] as string | null | undefined) ?? '';
-      const bv = (b[this.sortKey] as string | null | undefined) ?? '';
-      if (av === bv) return 0;
+    return [...this.plans].sort((a, b) => {
+      const av = this.sortValue(a);
+      const bv = this.sortValue(b);
+      if (av === bv) {
+        return 0;
+      }
       return av > bv ? dir : -dir;
     });
-  }
-
-  private fetchPlans(): void {
-    this.loading = true;
-    this.error = null;
-    this.oemApi
-      .getOperationPlans()
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: (plans) => {
-          this.plans = plans ?? [];
-        },
-        error: (err) => {
-          console.error('Failed to load operation plans', err);
-          this.plans = [];
-        },
-      });
-  }
-
-  onSearchSaved(): void {
-    const from = (this.savedFilterForm.value.from as string | undefined) || undefined;
-    const to = (this.savedFilterForm.value.to as string | undefined) || undefined;
-    const vesselVisitId =
-      (this.savedFilterForm.value.vesselVisitId as string | undefined)?.trim() || undefined;
-
-    this.loading = true;
-    this.error = null;
-    this.oemApi
-      .getOperationPlans({ from, to, vesselVisitId })
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: (plans) => {
-          this.plans = plans ?? [];
-          this.error = null;
-        },
-        error: (err) => {
-          console.error('Failed to load filtered operation plans', err);
-          // Em alguns ambientes o Angular devolve status 0 mesmo que o
-          // backend esteja acessível; nestes casos mostramos simplesmente
-          // uma lista vazia em vez de um erro vermelho.
-          if (err.status === 0) {
-            this.error = null;
-            this.plans = [];
-          } else {
-            this.error = 'Falha ao carregar os planos guardados.';
-            this.plans = [];
-          }
-        },
-      });
-  }
-
-  resetSavedFilters(): void {
-    this.savedFilterForm.reset({ from: '', to: '', vesselVisitId: '' });
-    this.fetchPlans();
-  }
-
-  changeSort(key: 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt'): void {
-    if (this.sortKey === key) {
-      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortKey = key;
-      this.sortDir = 'asc';
-    }
   }
 
   onPreview(): void {
@@ -150,127 +110,223 @@ export class OemOperationPlansComponent implements OnInit {
       return;
     }
 
-    const date = (this.form.value.date as string) ?? '';
+    const date = this.form.value.date;
     this.previewLoading = true;
     this.previewError = null;
-    this.successMessage = null;
     this.persistError = null;
+    this.successMessage = null;
 
-    this.oemApi
-      .previewOperationPlans(date)
+    this.api
+      .previewOperationPlans(date, 'single-crane', this.selectedAsArray())
       .pipe(
         finalize(() => {
           this.previewLoading = false;
         }),
       )
       .subscribe({
-        next: (plans) => {
-          console.debug('Preview OK', plans);
+        next: plans => {
           this.previewPlans = plans ?? [];
           this.expandedRows.clear();
-          this.selectedVvns.clear();
-          this.previewError = this.previewPlans.length
-            ? null
-            : 'Nenhum plano de operação disponível para a data selecionada.';
+          this.selectedVvns = new Set(this.previewPlans.map(p => p.vvnId));
+          if (!this.previewPlans.length) {
+            this.previewError =
+              'Nenhum plano de operação disponível para a data selecionada.';
+          }
         },
         error: (err: HttpErrorResponse) => {
-          console.error('Failed to preview operation plans', err);
-          // Se já temos planos carregados, mantemos o preview atual
-          // e só registamos o erro em consola (por ex. erro intermitente
-          // de rede ou pedido duplicado).
-          if (this.previewPlans.length > 0) {
-            return;
-          }
-
           if (Array.isArray(err.error)) {
-            console.debug('Preview payload returned in error channel', err.error);
             this.previewPlans = err.error as OperationPlanPreviewDto[];
-            this.selectedVvns.clear();
             this.previewError = this.previewPlans.length
               ? null
               : 'Nenhum plano de operação disponível para a data selecionada.';
-          } else {
-            this.previewPlans = [];
-            this.previewError =
-              err.error?.message ||
-              (err.status
-                ? `Falha ao gerar o preview (HTTP ${err.status}).`
-                : 'Falha ao gerar o preview dos planos de operação.');
+            return;
           }
+
+          this.previewPlans = [];
+          this.selectedVvns.clear();
+          this.previewError = this.normalizeError(
+            err,
+            'Falha ao gerar o preview dos planos de operação.',
+          );
         },
       });
   }
 
   onPersist(): void {
     if (this.form.invalid || !this.previewPlans.length) {
+      this.form.markAllAsTouched();
       return;
     }
 
-    const date = (this.form.value.date as string) ?? '';
-    const vvnIds = Array.from(this.selectedVvns);
+    const date = this.form.value.date;
+    const vvnIds = this.selectedAsArray();
+
     this.persistLoading = true;
     this.persistError = null;
     this.successMessage = null;
 
-    this.oemApi
-      .generateOperationPlans(date, 'single-crane', vvnIds)
+    this.api
+      .generateOperationPlans(
+        date,
+        'single-crane',
+        vvnIds.length ? vvnIds : undefined,
+      )
       .pipe(finalize(() => (this.persistLoading = false)))
       .subscribe({
         next: () => {
           this.successMessage = 'Planos guardados com sucesso.';
           this.previewPlans = [];
-          this.expandedRows.clear();
           this.selectedVvns.clear();
+          this.expandedRows.clear();
           this.fetchPlans();
         },
         error: (err: HttpErrorResponse) => {
-          console.error('Failed to persist operation plans', err);
           if (err.status === 409) {
-            this.persistError =
-              'Operation Plans for this day already exist. Please use regeneration flow (4.1.5).';
+            this.persistError = 'Já existem planos para esta data.';
             return;
           }
 
-          // Em alguns ambientes o pedido pode ter sido bem-sucedido no backend
-          // mas o Angular reporta um erro de rede (status 0). Nesses casos,
-          // verificamos se o plano para o dia selecionado já aparece na lista
-          // de "Planos guardados" e, se sim, tratamos como sucesso.
           if (err.status === 0) {
-            this.oemApi.getOperationPlans().subscribe({
-              next: (plans) => {
-                this.plans = plans ?? [];
-                const day = date.trim();
-                const hasPlanForDay = (plans ?? []).some((p) => {
-                  const targetDay = p.targetDay ?? p.plannedStartTime ?? '';
-                  return !!day && targetDay.startsWith(day);
-                });
-
-                if (hasPlanForDay) {
-                  this.successMessage = 'Planos guardados com sucesso.';
-                  this.previewPlans = [];
-                  this.expandedRows.clear();
-                  this.selectedVvns.clear();
-                  return;
-                }
-
-                this.persistError =
-                  'Falha ao guardar os planos de operação (erro de rede).';
-              },
-              error: () => {
-                this.persistError =
-                  err.error?.message || 'Falha ao guardar os planos de operação.';
-              },
-            });
-          } else {
             this.persistError =
-              err.error?.message || 'Falha ao guardar os planos de operação.';
+              'Falha ao guardar os planos de operação (erro de rede).';
+            this.fetchPlans();
+            return;
           }
+
+          this.persistError = this.normalizeError(
+            err,
+            'Falha ao guardar os planos de operação.',
+          );
         },
       });
   }
 
-  isExpanded(vvnId: string): boolean {
-    return this.expandedRows.has(vvnId);
+  fetchPlans(): void {
+    const { from, to, vesselVisitId } = this.savedFilterForm.value;
+    this.loading = true;
+    this.error = null;
+    this.savedEmptyMessage = null;
+
+    this.api
+      .getOperationPlans({
+        from: from || undefined,
+        to: to || undefined,
+        vesselVisitId: vesselVisitId || undefined,
+      })
+      .pipe(
+        finalize(() => {
+          this.loading = false;
+        }),
+      )
+      .subscribe({
+        next: plans => {
+          this.plans = plans ?? [];
+          this.savedEmptyMessage = this.plans.length
+            ? null
+            : 'Nenhum plano encontrado para os filtros aplicados.';
+        },
+        error: (err: HttpErrorResponse) => {
+          // Mantemos os dados anteriores para não "sumir" a lista em caso de falha de rede.
+          this.error = this.normalizeError(
+            err,
+            'Falha ao carregar os planos guardados.',
+          );
+          this.savedEmptyMessage = null;
+        },
+      });
+  }
+
+  onSearchSaved(): void {
+    this.fetchPlans();
+  }
+
+  resetSavedFilters(): void {
+    this.savedFilterForm.reset({
+      from: '',
+      to: '',
+      vesselVisitId: '',
+    });
+    this.fetchPlans();
+  }
+
+  startEdit(plan: OperationPlanDto): void {
+    this.editLoading = true;
+    this.editError = null;
+    this.editWarnings = [];
+    this.editSuccess = null;
+
+    this.api
+      .getOperationPlan(plan.id)
+      .pipe(
+        finalize(() => {
+          this.editLoading = false;
+        }),
+      )
+      .subscribe({
+        next: fullPlan => {
+          this.editingPlan = fullPlan;
+          this.editForm = this.createEditForm(fullPlan);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.editError = this.normalizeError(err, 'Falha ao carregar o plano para edicao.');
+          this.editingPlan = null;
+        },
+      });
+  }
+
+  cancelEdit(): void {
+    this.editingPlan = null;
+    this.editForm = this.createEditForm();
+    this.editWarnings = [];
+    this.editSuccess = null;
+    this.editError = null;
+  }
+
+  onSaveEdit(): void {
+    if (!this.editingPlan) {
+      return;
+    }
+
+    if (this.editForm.invalid) {
+      this.editForm.markAllAsTouched();
+      return;
+    }
+
+    const payload = this.buildUpdatePayload();
+
+    this.editSaving = true;
+    this.editError = null;
+    this.editWarnings = [];
+    this.editSuccess = null;
+
+    this.api
+      .updateOperationPlan(this.editingPlan.id, payload)
+      .pipe(
+        finalize(() => {
+          this.editSaving = false;
+        }),
+      )
+      .subscribe({
+        next: response => {
+          this.editingPlan = response.plan;
+          this.editWarnings = response.warnings ?? [];
+          this.editSuccess = 'Plano atualizado e alteracao registada.';
+          this.editForm = this.createEditForm(response.plan);
+          this.plans = this.plans.map(p => (p.id === response.plan.id ? response.plan : p));
+        },
+        error: (err: HttpErrorResponse) => {
+          this.editError = this.normalizeError(err, 'Falha ao atualizar o plano.');
+        },
+      });
+  }
+
+  changeSort(key: SortKey): void {
+    if (this.sortKey === key) {
+      this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortKey = key;
+      this.sortDir = 'asc';
+    }
   }
 
   toggleExpanded(vvnId: string): void {
@@ -279,6 +335,10 @@ export class OemOperationPlansComponent implements OnInit {
     } else {
       this.expandedRows.add(vvnId);
     }
+  }
+
+  isExpanded(vvnId: string): boolean {
+    return this.expandedRows.has(vvnId);
   }
 
   toggleSelected(vvnId: string): void {
@@ -295,5 +355,63 @@ export class OemOperationPlansComponent implements OnInit {
 
   trackByVvn(_: number, item: OperationPlanPreviewDto): string {
     return item.vvnId;
+  }
+
+  private selectedAsArray(): string[] {
+    return Array.from(this.selectedVvns);
+  }
+
+  private sortValue(plan: OperationPlanDto): string | number {
+    switch (this.sortKey) {
+      case 'name':
+        return plan.name?.toLowerCase() ?? '';
+      case 'vesselVisitId':
+        return plan.vesselVisitId?.toString().toLowerCase() ?? '';
+      case 'createdAt':
+        return plan.createdAt ? new Date(plan.createdAt).getTime() : 0;
+      case 'plannedStartTime':
+      default:
+        return plan.plannedStartTime
+          ? new Date(plan.plannedStartTime).getTime()
+          : 0;
+    }
+  }
+
+  private normalizeError(err: HttpErrorResponse, fallback: string): string {
+    if (err?.error?.message) {
+      return err.error.message;
+    }
+    if (typeof err?.error === 'string') {
+      return err.error;
+    }
+    if (err?.status === 0) {
+      return `${fallback} (verifique a rede ou o proxy).`;
+    }
+    return fallback;
+  }
+
+  private todayIso(): string {
+    const now = new Date();
+    const pad = (v: number) => v.toString().padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  private createEditForm(plan?: OperationPlanDto): FormGroup {
+    const form = this.fb.group({
+      dockId: [plan?.dockId ?? ''],
+      status: [plan?.status ?? 'planned', Validators.required],
+      reason: ['', Validators.required],
+    });
+    return form;
+  }
+
+  private buildUpdatePayload(): { reason: string } & Partial<OperationPlanDto> {
+    const value = this.editForm.value as any;
+
+    return {
+      reason: (value.reason as string)?.trim(),
+      dockId: value.dockId || undefined,
+      status: value.status,
+    };
   }
 }

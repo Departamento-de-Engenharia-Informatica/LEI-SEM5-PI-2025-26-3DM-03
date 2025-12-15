@@ -13,6 +13,14 @@ export interface OperationPlanDto {
   plannedEndTime?: string | null;
   targetDay?: string | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
+  algorithmUsed?: string | null;
+  createdBy?: string | null;
+  lastUpdatedBy?: string | null;
+  lastChangeReason?: string | null;
+  lastChangeWarnings?: string[] | null;
+  tasks?: OperationPlanTaskDto[];
+  changeLogs?: OperationPlanChangeLogDto[];
 }
 
 export interface OperationTaskPreviewDto {
@@ -32,6 +40,32 @@ export interface OperationPlanPreviewDto {
   expectedDelayMinutes: number | null;
   algorithmUsed: string;
   operations: OperationTaskPreviewDto[];
+}
+
+export interface OperationPlanTaskDto {
+  id?: string;
+  type: string;
+  craneId?: string | null;
+  storageAreaId?: string | null;
+  staffIds?: string[];
+  startTime: string;
+  endTime: string;
+}
+
+export interface OperationPlanChangeLogDto {
+  id: string;
+  operationPlanId: string;
+  changedBy?: string | null;
+  reason?: string | null;
+  createdAt: string;
+  warnings?: string[] | null;
+  changes?: Record<string, unknown>;
+}
+
+export interface OperationPlanUpdateResponse {
+  plan: OperationPlanDto;
+  warnings: string[];
+  logEntry?: OperationPlanChangeLogDto;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -68,6 +102,20 @@ export class OemApiService {
     return this.http.post<OperationPlanDto[]>(
       `/api/oem/operation-plans/generate`,
       vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm },
+      { withCredentials: true },
+    );
+  }
+
+  getOperationPlan(id: string) {
+    return this.http.get<OperationPlanDto>(`/api/oem/operation-plans/${id}`, {
+      withCredentials: true,
+    });
+  }
+
+  updateOperationPlan(id: string, payload: { reason: string } & Partial<OperationPlanDto>) {
+    return this.http.patch<OperationPlanUpdateResponse>(
+      `/api/oem/operation-plans/${id}`,
+      payload,
       { withCredentials: true },
     );
   }

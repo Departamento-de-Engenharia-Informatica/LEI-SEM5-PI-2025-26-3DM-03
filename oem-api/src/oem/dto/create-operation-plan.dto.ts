@@ -85,6 +85,30 @@ export class CreateOperationPlanDto {
   targetDay?: string;
 
   @ApiPropertyOptional({
+    description: 'Dock assigned to the plan',
+    example: 'A',
+  })
+  @IsString()
+  @IsOptional()
+  dockId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Planned start timestamp in ISO-8601 format',
+    example: '2025-12-07T08:00:00Z',
+  })
+  @IsISO8601()
+  @IsOptional()
+  plannedStartTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'Planned end timestamp in ISO-8601 format',
+    example: '2025-12-07T12:00:00Z',
+  })
+  @IsISO8601()
+  @IsOptional()
+  plannedEndTime?: string;
+
+  @ApiPropertyOptional({
     description: 'Scheduling algorithm used',
     example: 'optimal',
   })
