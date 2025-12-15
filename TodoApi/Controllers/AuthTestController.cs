@@ -23,20 +23,51 @@ namespace TodoApi.Controllers
         public IActionResult Login()
         {
             Console.WriteLine("[AuthTestController] /authtest/login called");
-                        // In development redirect to the frontend app so SPA can pick up the session automatically.
-                        // In production prefer https frontend root. This keeps behavior consistent with the OIDC
-                        // events elsewhere which also redirect to the SPA after successful authentication.
-                        // Signal success back to the SPA so it can detect the successful signin
-                        var redirectUri = _env.IsDevelopment()
-                            ? "https://localhost:4200/?auth=ok"
-                            : "https://localhost:4200/?auth=ok";
 
-                        var props = new AuthenticationProperties
-                        {
-                                RedirectUri = redirectUri
-                        };
+            var disableOidc = HttpContext.RequestServices
+                .GetRequiredService<IConfiguration>()
+                .GetValue<bool>("DisableOidc");
 
-                        return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
+            // ===============================
+            // MODO TESTE (sem Google / OIDC)
+            // ===============================
+            if (disableOidc)
+            {
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.Name, "Local Dev User"),
+                    new Claim(ClaimTypes.Email, "dev@local.test"),
+                    new Claim(ClaimTypes.Role, "Admin")
+                };
+
+                var identity = new ClaimsIdentity(
+                    claims,
+                    CookieAuthenticationDefaults.AuthenticationScheme
+                );
+
+                var principal = new ClaimsPrincipal(identity);
+
+                HttpContext.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    principal
+                ).GetAwaiter().GetResult();
+
+                return Redirect("/");
+            }
+
+            // ===============================
+            // MODO NORMAL (Google OIDC)
+            // ===============================
+            var redirectUri = _env.IsDevelopment()
+                ? "https://localhost:4200/?auth=ok"
+                : "/";
+
+            var props = new AuthenticationProperties
+            {
+                RedirectUri = redirectUri
+            };
+
+            return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
         }
 
         // GET /authtest/me -> return name and email of authenticated user
