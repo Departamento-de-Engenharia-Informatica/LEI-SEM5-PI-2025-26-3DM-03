@@ -20,6 +20,7 @@
   <table *ngIf="hasPreview && !previewLoading" class="preview-table">
     <thead>
       <tr>
+        <th></th>
         <th>Vessel</th>
         <th>Dock</th>
         <th>Start</th>
@@ -30,6 +31,14 @@
     <tbody>
       <ng-container *ngFor="let preview of previewPlans; trackBy: trackByVvn">
         <tr>
+          <td>
+            <input
+              type="checkbox"
+              [checked]="isSelected(preview.vvnId)"
+              (change)="toggleSelected(preview.vvnId)"
+              [title]="'Selecionar VVN ' + preview.vesselName"
+            />
+          </td>
           <td>
             <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
               {{ isExpanded(preview.vvnId) ? '▼' : '▶' }}
@@ -90,23 +99,51 @@
 
   <h2>Planos guardados</h2>
 
+  <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
+    <div class="form-row">
+      <div class="form-field">
+        <label for="saved-from">De</label>
+        <input id="saved-from" type="date" formControlName="from" />
+      </div>
+      <div class="form-field">
+        <label for="saved-to">Até</label>
+        <input id="saved-to" type="date" formControlName="to" />
+      </div>
+      <div class="form-field">
+        <label for="saved-vessel">Visita (ID)</label>
+        <input
+          id="saved-vessel"
+          type="text"
+          formControlName="vesselVisitId"
+          placeholder="ex: 1"
+        />
+      </div>
+      <div class="form-actions">
+        <button type="submit" [disabled]="loading">Pesquisar</button>
+        <button type="button" (click)="resetSavedFilters()" [disabled]="loading">Limpar</button>
+      </div>
+    </div>
+  </form>
+
   <div *ngIf="loading">A carregar planos guardados...</div>
   <div *ngIf="error && !loading" class="error">{{ error }}</div>
 
   <table *ngIf="!loading && !error && plans.length > 0">
     <thead>
       <tr>
-        <th>Nome</th>
+        <th (click)="changeSort('name')">Nome</th>
         <th>Estado</th>
-        <th>Visita</th>
-        <th>Criado em</th>
+        <th (click)="changeSort('vesselVisitId')">Visita</th>
+        <th (click)="changeSort('plannedStartTime')">Início</th>
+        <th (click)="changeSort('createdAt')">Criado em</th>
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let plan of plans">
+      <tr *ngFor="let plan of sortedPlans">
         <td>{{ plan.name }}</td>
         <td>{{ plan.status }}</td>
         <td>{{ plan.vesselVisitId || '-' }}</td>
+        <td>{{ plan.plannedStartTime | date: 'short' }}</td>
         <td>{{ plan.createdAt | date: 'short' }}</td>
       </tr>
     </tbody>

@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { AxiosResponse } from 'axios';
-import { Between, Repository } from 'typeorm';
+import { Between, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
 import { CreateOperationPlanDto, GenerateOperationPlansDto, UpdateOperationPlanDto } from '../dto';
 import { OperationPlanPreviewDto, OperationTaskPreviewDto } from '../operation-plans/dtos';
 import { OperationPlanStatus } from '../domain';
@@ -23,10 +23,33 @@ export class OperationPlanService {
     private readonly vvnService: OemVvnService,
   ) {}
 
-  async findAll(): Promise<OperationPlanEntity[]> {
+  async findAll(filters?: {
+    from?: string;
+    to?: string;
+    vesselVisitId?: string;
+  }): Promise<OperationPlanEntity[]> {
     try {
+      const where: Record<string, unknown> = {};
+
+      if (filters?.vesselVisitId) {
+        where.vesselVisitId = filters.vesselVisitId;
+      }
+
+      if (filters?.from && filters?.to) {
+        const { start } = this.getDayRange(filters.from);
+        const { end } = this.getDayRange(filters.to);
+        where.plannedStartTime = Between(start, end);
+      } else if (filters?.from) {
+        const { start } = this.getDayRange(filters.from);
+        where.plannedStartTime = MoreThanOrEqual(start);
+      } else if (filters?.to) {
+        const { end } = this.getDayRange(filters.to);
+        where.plannedStartTime = LessThanOrEqual(end);
+      }
+
       return await this.repo.find({
-        order: { createdAt: 'DESC' },
+        where,
+        order: { plannedStartTime: 'ASC', createdAt: 'DESC' },
         relations: ['tasks'],
       });
     } catch (error) {
@@ -52,6 +75,7 @@ export class OperationPlanService {
     date: string,
     algorithm = 'single-crane',
     createdBy?: string,
+    vvnIds?: string[],
   ): Promise<OperationPlanEntity[]> {
     const { start, end } = this.getDayRange(date);
 
@@ -65,7 +89,7 @@ export class OperationPlanService {
       );
     }
 
-    const previews = await this.generatePreviewForDay(date, algorithm);
+    const previews = await this.generatePreviewForDay(date, algorithm, vvnIds);
     if (!previews.length) {
       return [];
     }
@@ -231,8 +255,16 @@ export class OperationPlanService {
   async generatePreviewForDay(
     date: string,
     algorithm = 'single-crane',
+    vvnIds?: string[],
   ): Promise<OperationPlanPreviewDto[]> {
-    const vvns: OemVvn[] = await this.vvnService.getApprovedForDay(date);
+    let vvns: OemVvn[] = await this.vvnService.getApprovedForDay(date);
+    if (vvnIds && vvnIds.length > 0) {
+      const set = new Set(vvnIds.map((v) => v.toString()));
+      vvns = vvns.filter((v) => set.has(v.id.toString()));
+      if (!vvns.length) {
+        return [];
+      }
+    }
     if (!vvns.length) {
       return [];
     }

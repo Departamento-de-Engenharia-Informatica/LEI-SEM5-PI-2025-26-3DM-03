@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
@@ -30,8 +31,27 @@ export class OperationPlanController {
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'List operation plans' })
   @ApiOkResponse({ type: OperationPlanEntity, isArray: true })
-  async findAll(): Promise<OperationPlanEntity[]> {
-    return this.service.findAll();
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    description: 'Start date (YYYY-MM-DD) for filtering plans by planned start time',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    description: 'End date (YYYY-MM-DD) for filtering plans by planned start time',
+  })
+  @ApiQuery({
+    name: 'vesselVisitId',
+    required: false,
+    description: 'Optional vessel visit identifier to filter plans',
+  })
+  async findAll(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('vesselVisitId') vesselVisitId?: string,
+  ): Promise<OperationPlanEntity[]> {
+    return this.service.findAll({ from, to, vesselVisitId });
   }
 
   @Get(':id')
@@ -60,7 +80,12 @@ export class OperationPlanController {
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<OperationPlanEntity[]> {
     const createdBy = req.user?.userId ?? req.user?.email ?? 'system';
-    return this.service.generateAndPersistForDay(payload.date, payload.algorithm, createdBy);
+    return this.service.generateAndPersistForDay(
+      payload.date,
+      payload.algorithm,
+      createdBy,
+      payload.vvnIds,
+    );
   }
 
   @Patch(':id')
@@ -90,6 +115,6 @@ export class OperationPlanController {
   preview(
     @Body() payload: OperationPlanPreviewRequestDto,
   ): Promise<OperationPlanPreviewDto[]> {
-    return this.service.generatePreviewForDay(payload.date, payload.algorithm);
+    return this.service.generatePreviewForDay(payload.date, payload.algorithm, payload.vvnIds);
   }
 }

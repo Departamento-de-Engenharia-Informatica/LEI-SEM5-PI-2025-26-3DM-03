@@ -1,5 +1,5 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 
 export class OperationPlanPreviewRequestDto {
   @ApiProperty({ description: 'Target day to generate previews (YYYY-MM-DD)' })
@@ -12,4 +12,14 @@ export class OperationPlanPreviewRequestDto {
   @IsString()
   @IsOptional()
   algorithm?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional list of VVN identifiers to include. If omitted, all approved VVNs for the day are considered.',
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  vvnIds?: string[];
 }

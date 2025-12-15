@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 export interface OperationPlanDto {
@@ -7,6 +7,11 @@ export interface OperationPlanDto {
   description?: string | null;
   status: string;
   vesselVisitId?: string | null;
+  sourceVvnId?: string | null;
+  dockId?: string | null;
+  plannedStartTime?: string | null;
+  plannedEndTime?: string | null;
+  targetDay?: string | null;
   createdAt?: string | null;
 }
 
@@ -33,22 +38,36 @@ export interface OperationPlanPreviewDto {
 export class OemApiService {
   constructor(private readonly http: HttpClient) {}
 
-  getOperationPlans() {
-    return this.http.get<OperationPlanDto[]>(`/api/oem/operation-plans`, { withCredentials: true });
+  getOperationPlans(filters?: { from?: string; to?: string; vesselVisitId?: string }) {
+    let params = new HttpParams();
+    if (filters?.from) {
+      params = params.set('from', filters.from);
+    }
+    if (filters?.to) {
+      params = params.set('to', filters.to);
+    }
+    if (filters?.vesselVisitId) {
+      params = params.set('vesselVisitId', filters.vesselVisitId);
+    }
+
+    return this.http.get<OperationPlanDto[]>(`/api/oem/operation-plans`, {
+      withCredentials: true,
+      params: params.keys().length ? params : undefined,
+    });
   }
 
-  previewOperationPlans(date: string, algorithm = 'single-crane') {
+  previewOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
     return this.http.post<OperationPlanPreviewDto[]>(
       `/api/oem/operation-plans/preview`,
-      { date, algorithm },
+      vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm },
       { withCredentials: true },
     );
   }
 
-  generateOperationPlans(date: string, algorithm = 'single-crane') {
+  generateOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
     return this.http.post<OperationPlanDto[]>(
       `/api/oem/operation-plans/generate`,
-      { date, algorithm },
+      vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm },
       { withCredentials: true },
     );
   }

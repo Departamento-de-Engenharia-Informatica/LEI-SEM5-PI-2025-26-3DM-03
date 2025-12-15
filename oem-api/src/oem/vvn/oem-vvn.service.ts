@@ -12,7 +12,7 @@ export class OemVvnService {
   private readonly todoApiBaseUrl = (
     process.env.TODO_API_BASE_URL ||
     process.env.VESSEL_VISIT_NOTIFICATIONS_URL ||
-    'https://localhost:7167/api'
+    'http://localhost:8080/api'
   ).replace(/\/+$/, '');
 
   constructor(
@@ -31,12 +31,11 @@ export class OemVvnService {
     const end = this.parseDayEnd(trimmed);
 
     // 1. Try to fetch Approved VVNs from the main TodoApi service
-    // Try configured URL, then HTTPS 7167 (Kestrel default), then HTTP 8080 (Kestrel http), then 5000.
+    // Try configured URL, then HTTP 8080 (Kestrel http), then HTTPS 7167 (Kestrel https).
     const candidates = [
       this.todoApiBaseUrl,
-      'https://localhost:7167/api',
       'http://localhost:8080/api',
-      'http://localhost:5000/api',
+      'https://localhost:7167/api',
     ].filter((v, idx, arr) => arr.indexOf(v) === idx); // unique
 
     for (const base of candidates) {
@@ -69,8 +68,8 @@ export class OemVvnService {
     vvn.vesselName = dto.vesselId;
     // Use ApprovedDockId if available; otherwise, group under a generic dock
     vvn.dockId = dto.approvedDockId != null ? String(dto.approvedDockId) : 'UNASSIGNED';
-    vvn.eta = new Date(dto.arrivalDate);
-    vvn.etd = dto.departureDate ? new Date(dto.departureDate) : undefined;
+    vvn.eta = this.parseAsUtc(dto.arrivalDate);
+    vvn.etd = dto.departureDate ? this.parseAsUtc(dto.departureDate) : undefined;
     vvn.containers = dto.cargoManifest?.length ?? 0;
     vvn.status = dto.status?.toUpperCase() || 'APPROVED';
     return vvn;
@@ -147,14 +146,14 @@ export class OemVvnService {
       const fromTime = dayStart.getTime();
       const toTime = dayEnd.getTime();
 
-      const forDay = allApproved.filter((v) => {
-        const arrival = new Date(v.arrivalDate);
-        if (Number.isNaN(arrival.getTime())) {
-          return false;
-        }
-        const t = arrival.getTime();
-        return t >= fromTime && t <= toTime;
-      });
+      const forDay = allApproved
+        .map((v) => ({ dto: v, eta: this.parseAsUtc(v.arrivalDate) }))
+        .filter(({ eta }) => !Number.isNaN(eta.getTime()))
+        .filter(({ eta }) => {
+          const t = eta.getTime();
+          return t >= fromTime && t <= toTime;
+        })
+        .map(({ dto }) => dto);
 
       if (forDay.length > 0) {
         this.logger.log(`Fetched ${forDay.length} VVNs from ${url}`);
@@ -166,6 +165,16 @@ export class OemVvnService {
     }
 
     return [];
+}
+
+  // Ensures strings without timezone are treated as UTC (e.g., "2025-11-16T00:00:00" -> Z)
+  private parseAsUtc(value: string): Date {
+    if (!value) {
+      return new Date(NaN);
+    }
+    const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+    const normalized = hasTz ? value : `${value}Z`;
+    return new Date(normalized);
   }
 }
 
