@@ -7,7 +7,8 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { TimeoutError } from 'rxjs';
+import { finalize, timeout } from 'rxjs/operators';
 import {
   OemApiService,
   OperationPlanDto,
@@ -266,6 +267,7 @@ export class OemOperationPlansComponent implements OnInit {
     this.api
       .getOperationPlan(plan.id)
       .pipe(
+        timeout(5000),
         finalize(() => {
           this.editLoading = false;
         }),
@@ -276,6 +278,11 @@ export class OemOperationPlansComponent implements OnInit {
           this.editForm = this.createEditForm(fullPlan);
         },
         error: (err: HttpErrorResponse) => {
+          if (err instanceof TimeoutError || err.name === 'TimeoutError') {
+            this.editError = 'Tempo esgotado a carregar detalhes do plano. Verifique se o OEM está acessível em HTTPS na porta configurada.';
+            return;
+          }
+
           if (err.status === 0) {
             this.editWarnings = [
               'Não foi possível atualizar os detalhes do plano (rede/proxy). A editar com os dados atuais.',
