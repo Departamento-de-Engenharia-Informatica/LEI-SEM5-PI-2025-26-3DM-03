@@ -22,6 +22,7 @@ import { StorageAreaDTO } from '../../../models/storage-area';
 import { AuthService } from '../../../services/auth/auth.service';
 import { ToastService } from '../../toast/toast.service';
 import { applyTruckTrailerTexture, applyTruckWindowTexture } from '../truck/truck-texture.util';
+import { removeEmbeddedTruckFromCargoVessel } from '../vessel/cargo-vessel-truck.util';
 
 type FacilityType = 'dock' | 'yard' | 'warehouse' | 'crane' | 'vessel' | 'generic';
 type VesselVisualState = 'waiting' | 'loading' | 'unloading';
@@ -96,7 +97,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly waterLevelY = 52;
   private readonly quayEdgeZ = 360;
   private readonly cargoVesselClearance = 22;
-  private readonly cargoVesselFreeboard = 6;
+  private readonly cargoVesselFreeboard = -8;
   private readonly cargoVesselTargetLength = 240;
   private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
   private readonly deckWidth = 1500;
@@ -109,6 +110,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly serviceRoadDepth = 280;
   private readonly logisticsRoadTextureUrl = 'assets/textures/estrada.jpg';
   private logisticsRoadTexture?: THREE.Texture;
+  private readonly showLogisticsTrucks = false;
   private readonly warehouseRowSpacing = 240;
   private readonly warehouseFootprintScale = 0.75;
   private readonly warehouseHeightScale = 2;
@@ -779,7 +781,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const height = box?.parameters?.height ?? 0;
     module.position.set(0, this.deckHeight - height / 2 + 0.2, this.serviceRoadCenterZ);
     this.scene.add(module);
-    this.loadLogisticsTruck();
+    if (this.showLogisticsTrucks) {
+      this.loadLogisticsTruck();
+    }
   }
 
   private loadLogisticsTruck() {
@@ -1015,7 +1019,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const bollardMat = this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xfaf3c0, roughness: 0.3 }));
     for (let i = -6; i <= 6; i++) {
       const bollard = new THREE.Mesh(bollardGeo, bollardMat);
-      bollard.position.set(i * 110, 70, 360);
+      bollard.position.set(i * 110, this.deckHeight + 6, this.quayEdgeZ - 10);
       bollard.castShadow = true;
       this.scene.add(bollard);
     }
@@ -1464,6 +1468,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private prepareCargoVesselPrototype(root: THREE.Group) {
+    removeEmbeddedTruckFromCargoVessel(root);
     root.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
         obj.castShadow = true;
