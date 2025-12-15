@@ -5,10 +5,10 @@ export class OemVvn {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'vessel_name', type: 'text' })
   vesselName!: string;
 
-  @Column({ type: 'text' })
+  @Column({ name: 'dock_id', type: 'text' })
   dockId!: string;
 
   @Column({ type: 'datetime' })

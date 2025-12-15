@@ -33,3 +33,17 @@ Next steps include adding JWT/OIDC guard middleware, fleshing out CRUD operation
   - `multi-crane`: parallelizes (two cranes) to cut duration roughly in half to reduce delays.
 - Metadata recorded automatically on persist: `algorithmUsed`, `createdBy` (from JWT if present, else `system`), and `createdAt`.
 - Plans include per-VVN operations with resources/time windows and are generated from approved VVNs; if there are no VVNs for the date, the endpoint returns an empty list.
+
+## Migrating & seeding
+
+Run the TypeORM migrations (they also insert demo operation plans) with:
+
+```bash
+npm run migration:run
+```
+
+To revert the last migration:
+
+```bash
+npm run migration:revert
+```

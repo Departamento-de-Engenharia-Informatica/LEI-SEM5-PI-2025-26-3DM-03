@@ -250,10 +250,18 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   startEdit(plan: OperationPlanDto): void {
+    this.editingPlan = plan;
+    this.editForm = this.createEditForm(plan);
     this.editLoading = true;
     this.editError = null;
     this.editWarnings = [];
     this.editSuccess = null;
+
+    if (!plan?.id) {
+      this.editLoading = false;
+      this.editWarnings = ['Plano sem identificador. Recarregue a página ou escolha outro plano.'];
+      return;
+    }
 
     this.api
       .getOperationPlan(plan.id)
@@ -268,8 +276,14 @@ export class OemOperationPlansComponent implements OnInit {
           this.editForm = this.createEditForm(fullPlan);
         },
         error: (err: HttpErrorResponse) => {
+          if (err.status === 0) {
+            this.editWarnings = [
+              'Não foi possível atualizar os detalhes do plano (rede/proxy). A editar com os dados atuais.',
+            ];
+            this.editError = null;
+            return;
+          }
           this.editError = this.normalizeError(err, 'Falha ao carregar o plano para edicao.');
-          this.editingPlan = null;
         },
       });
   }
