@@ -166,6 +166,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private facilitySelectionOutline?: THREE.BoxHelper;
   private selectionSpotlight?: THREE.SpotLight;
   private readonly selectionSpotTarget = new THREE.Object3D();
+  private selectionFillLights: THREE.SpotLight[] = [];
   private readonly minSpotlightGroupSize = 1;
   private ambientLight?: THREE.AmbientLight;
   private hemiLight?: THREE.HemisphereLight;
@@ -325,6 +326,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (this.selectionSpotlight) {
       this.scene.remove(this.selectionSpotlight);
       this.scene.remove(this.selectionSpotTarget);
+    }
+    if (this.selectionFillLights.length) {
+      this.selectionFillLights.forEach((light) => this.scene.remove(light));
+      this.selectionFillLights = [];
     }
     if (this.layoutRefreshHandle) {
       window.clearInterval(this.layoutRefreshHandle);
@@ -630,6 +635,28 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     spot.target = this.selectionSpotTarget;
     this.scene.add(spot);
     this.selectionSpotlight = spot;
+
+    const fillConfigs = [
+      { offset: new THREE.Vector3(420, 240, 180), intensity: 90 },
+      { offset: new THREE.Vector3(-380, 240, -140), intensity: 70 },
+    ];
+    this.selectionFillLights = fillConfigs.map((cfg, idx) => {
+      const fill = new THREE.SpotLight(
+        0xffffff,
+        cfg.intensity,
+        2600,
+        THREE.MathUtils.degToRad(50),
+        0.65,
+        0.8
+      );
+      fill.penumbra = 0.55;
+      fill.castShadow = false;
+      fill.visible = false;
+      fill.userData.offset = cfg.offset.clone();
+      fill.target = this.selectionSpotTarget;
+      this.scene.add(fill);
+      return fill;
+    });
   }
 
   private buildScene() {
@@ -2609,6 +2636,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotTarget.position.copy(center);
     this.selectionSpotTarget.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
+    this.selectionFillLights.forEach((fill) => {
+      const offset: THREE.Vector3 = fill.userData.offset ?? new THREE.Vector3();
+      fill.position.set(
+        this.selectionSpotTarget.position.x + offset.x,
+        this.selectionSpotTarget.position.y + offset.y,
+        this.selectionSpotTarget.position.z + offset.z
+      );
+      fill.target.updateMatrixWorld(true);
+      fill.visible = true;
+    });
   }
 
   private describeDock(dock: DockLayout): string {
@@ -2629,6 +2666,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       if (this.sunLight) {
         this.sunLight.intensity = this.sunBaseIntensity;
       }
+      this.selectionFillLights.forEach((fill) => (fill.visible = false));
       this.scene.background = this.backgroundBaseColor;
       return;
     }
@@ -2637,6 +2675,17 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotlight.target.position.copy(this.selectionSpotTarget.position);
     this.selectionSpotlight.target.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
+    this.selectionFillLights.forEach((fill) => {
+      const offset: THREE.Vector3 = fill.userData.offset ?? new THREE.Vector3();
+      fill.position.set(
+        targetPos.x + offset.x,
+        targetPos.y + offset.y,
+        targetPos.z + offset.z
+      );
+      fill.target.position.copy(this.selectionSpotTarget.position);
+      fill.target.updateMatrixWorld(true);
+      fill.visible = true;
+    });
     if (this.ambientLight) {
       this.ambientLight.intensity = this.ambientDimIntensity;
     }
