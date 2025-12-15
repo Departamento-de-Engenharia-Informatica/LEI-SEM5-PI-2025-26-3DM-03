@@ -71,6 +71,7 @@ namespace TodoApi.Application.Services.Visualization
         private const double DefaultCraneGauge = 70;
         private const double DefaultCraneClearance = 60;
         private const double CraneElevationOffset = 24;
+        private const double DefaultDockVisualWidth = 200;
 
         private static List<DockLayoutDto> BuildDockLayouts(IEnumerable<Dock> docks)
         {
@@ -78,7 +79,7 @@ namespace TodoApi.Application.Services.Visualization
             {
                 Entity = d,
                 Length = Math.Max(120, d.Length <= 0 ? 120 : d.Length),
-                Width = Math.Clamp(d.Depth <= 0 ? 60 : d.Depth * 4, 40, 160)
+                Width = DefaultDockVisualWidth
             }).ToList();
 
             if (normalized.Count == 0)

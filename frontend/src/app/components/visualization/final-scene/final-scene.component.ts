@@ -22,6 +22,7 @@ import { StorageAreaDTO } from '../../../models/storage-area';
 import { AuthService } from '../../../services/auth/auth.service';
 import { ToastService } from '../../toast/toast.service';
 import { applyTruckTrailerTexture, applyTruckWindowTexture } from '../truck/truck-texture.util';
+import { removeEmbeddedTruckFromCargoVessel } from '../vessel/cargo-vessel-truck.util';
 
 type FacilityType = 'dock' | 'yard' | 'warehouse' | 'crane' | 'vessel' | 'generic';
 type VesselVisualState = 'waiting' | 'loading' | 'unloading';
@@ -96,7 +97,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly waterLevelY = 52;
   private readonly quayEdgeZ = 360;
   private readonly cargoVesselClearance = 22;
-  private readonly cargoVesselFreeboard = 6;
+  private readonly cargoVesselFreeboard = -8;
   private readonly cargoVesselTargetLength = 240;
   private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
   private readonly deckWidth = 1500;
@@ -109,6 +110,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly serviceRoadDepth = 280;
   private readonly logisticsRoadTextureUrl = 'assets/textures/estrada.jpg';
   private logisticsRoadTexture?: THREE.Texture;
+  private readonly showLogisticsTrucks = false;
   private readonly warehouseRowSpacing = 240;
   private readonly warehouseFootprintScale = 0.75;
   private readonly warehouseHeightScale = 2;
@@ -166,6 +168,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private facilitySelectionOutline?: THREE.BoxHelper;
   private selectionSpotlight?: THREE.SpotLight;
   private readonly selectionSpotTarget = new THREE.Object3D();
+  private selectionFillLights: THREE.SpotLight[] = [];
   private readonly minSpotlightGroupSize = 1;
   private ambientLight?: THREE.AmbientLight;
   private hemiLight?: THREE.HemisphereLight;
@@ -325,6 +328,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (this.selectionSpotlight) {
       this.scene.remove(this.selectionSpotlight);
       this.scene.remove(this.selectionSpotTarget);
+    }
+    if (this.selectionFillLights.length) {
+      this.selectionFillLights.forEach((light) => this.scene.remove(light));
+      this.selectionFillLights = [];
     }
     if (this.layoutRefreshHandle) {
       window.clearInterval(this.layoutRefreshHandle);
@@ -616,12 +623,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const spot = new THREE.SpotLight(
       0xffffff,
       220,
-      2600,
-      THREE.MathUtils.degToRad(32),
-      0.35,
+      1800,
+      THREE.MathUtils.degToRad(24),
+      0.38,
       0.7
     );
-    spot.penumbra = 0.55;
+    spot.penumbra = 0.4;
     spot.castShadow = true;
     spot.shadow.mapSize.set(2048, 2048);
     spot.shadow.camera.near = 30;
@@ -630,6 +637,28 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     spot.target = this.selectionSpotTarget;
     this.scene.add(spot);
     this.selectionSpotlight = spot;
+
+    const fillConfigs = [
+      { offset: new THREE.Vector3(420, 240, 180), intensity: 220 },
+      { offset: new THREE.Vector3(-380, 240, -140), intensity: 220 },
+    ];
+    this.selectionFillLights = fillConfigs.map((cfg, idx) => {
+      const fill = new THREE.SpotLight(
+        0xffffff,
+        cfg.intensity,
+        1800,
+        THREE.MathUtils.degToRad(30),
+        0.5,
+        0.8
+      );
+      fill.penumbra = 0.45;
+      fill.castShadow = false;
+      fill.visible = false;
+      fill.userData['offset'] = cfg.offset.clone();
+      fill.target = this.selectionSpotTarget;
+      this.scene.add(fill);
+      return fill;
+    });
   }
 
   private buildScene() {
@@ -712,8 +741,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     deck.receiveShadow = true;
     this.scene.add(deck);
 
+    const apronHeight = this.deckHeight * 1.0;
     const apron = new THREE.Mesh(
-      this.trackGeometry(new THREE.PlaneGeometry(this.deckWidth, this.apronDepth)),
+      this.trackGeometry(new THREE.BoxGeometry(this.deckWidth, apronHeight, this.apronDepth)),
       this.trackMaterial(
         new THREE.MeshStandardMaterial({
           map: apronTexture,
@@ -723,8 +753,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         })
       )
     );
-    apron.rotation.x = -Math.PI / 2;
-    apron.position.set(0, this.deckHeight + 1, this.quayEdgeZ - this.apronDepth / 2);
+    apron.position.set(0, this.deckHeight - apronHeight / 2 + 1, this.quayEdgeZ - this.apronDepth / 2);
+    apron.castShadow = true;
     apron.receiveShadow = true;
     this.scene.add(apron);
 
@@ -751,7 +781,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const height = box?.parameters?.height ?? 0;
     module.position.set(0, this.deckHeight - height / 2 + 0.2, this.serviceRoadCenterZ);
     this.scene.add(module);
-    this.loadLogisticsTruck();
+    if (this.showLogisticsTrucks) {
+      this.loadLogisticsTruck();
+    }
   }
 
   private loadLogisticsTruck() {
@@ -987,7 +1019,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const bollardMat = this.trackMaterial(new THREE.MeshStandardMaterial({ color: 0xfaf3c0, roughness: 0.3 }));
     for (let i = -6; i <= 6; i++) {
       const bollard = new THREE.Mesh(bollardGeo, bollardMat);
-      bollard.position.set(i * 110, 70, 360);
+      bollard.position.set(i * 110, this.deckHeight + 6, this.quayEdgeZ - 10);
       bollard.castShadow = true;
       this.scene.add(bollard);
     }
@@ -1436,6 +1468,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private prepareCargoVesselPrototype(root: THREE.Group) {
+    removeEmbeddedTruckFromCargoVessel(root);
     root.traverse((obj) => {
       if (obj instanceof THREE.Mesh) {
         obj.castShadow = true;
@@ -2609,6 +2642,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotTarget.position.copy(center);
     this.selectionSpotTarget.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
+    this.selectionFillLights.forEach((fill) => {
+      const offset: THREE.Vector3 = (fill.userData['offset'] as THREE.Vector3 | undefined) ?? new THREE.Vector3();
+      fill.position.set(
+        this.selectionSpotTarget.position.x + offset.x,
+        this.selectionSpotTarget.position.y + offset.y,
+        this.selectionSpotTarget.position.z + offset.z
+      );
+      fill.target.updateMatrixWorld(true);
+      fill.visible = true;
+    });
   }
 
   private describeDock(dock: DockLayout): string {
@@ -2629,6 +2672,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       if (this.sunLight) {
         this.sunLight.intensity = this.sunBaseIntensity;
       }
+      this.selectionFillLights.forEach((fill) => (fill.visible = false));
       this.scene.background = this.backgroundBaseColor;
       return;
     }
@@ -2637,6 +2681,17 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotlight.target.position.copy(this.selectionSpotTarget.position);
     this.selectionSpotlight.target.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
+    this.selectionFillLights.forEach((fill) => {
+      const offset: THREE.Vector3 = (fill.userData['offset'] as THREE.Vector3 | undefined) ?? new THREE.Vector3();
+      fill.position.set(
+        targetPos.x + offset.x,
+        targetPos.y + offset.y,
+        targetPos.z + offset.z
+      );
+      fill.target.position.copy(this.selectionSpotTarget.position);
+      fill.target.updateMatrixWorld(true);
+      fill.visible = true;
+    });
     if (this.ambientLight) {
       this.ambientLight.intensity = this.ambientDimIntensity;
     }

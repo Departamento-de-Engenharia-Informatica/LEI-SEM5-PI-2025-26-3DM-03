@@ -1,13 +1,8 @@
-import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  OnDestroy,
-  ViewChild,
-} from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { removeEmbeddedTruckFromCargoVessel } from './cargo-vessel-truck.util';
 
 @Component({
   selector: 'app-cargo-vessel',
@@ -157,6 +152,7 @@ export class CargoVesselComponent implements AfterViewInit, OnDestroy {
   }
 
   private prepareVessel(model: THREE.Group): void {
+    removeEmbeddedTruckFromCargoVessel(model);
     model.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
