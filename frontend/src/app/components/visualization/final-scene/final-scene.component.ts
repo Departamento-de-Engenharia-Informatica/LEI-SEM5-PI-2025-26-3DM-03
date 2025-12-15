@@ -637,8 +637,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotlight = spot;
 
     const fillConfigs = [
-      { offset: new THREE.Vector3(420, 240, 180), intensity: 90 },
-      { offset: new THREE.Vector3(-380, 240, -140), intensity: 70 },
+      { offset: new THREE.Vector3(420, 240, 180), intensity: 220 },
+      { offset: new THREE.Vector3(-380, 240, -140), intensity: 220 },
     ];
     this.selectionFillLights = fillConfigs.map((cfg, idx) => {
       const fill = new THREE.SpotLight(
