@@ -652,7 +652,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       fill.penumbra = 0.55;
       fill.castShadow = false;
       fill.visible = false;
-      fill.userData.offset = cfg.offset.clone();
+      fill.userData['offset'] = cfg.offset.clone();
       fill.target = this.selectionSpotTarget;
       this.scene.add(fill);
       return fill;
@@ -2637,7 +2637,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotTarget.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
     this.selectionFillLights.forEach((fill) => {
-      const offset: THREE.Vector3 = fill.userData.offset ?? new THREE.Vector3();
+      const offset: THREE.Vector3 = (fill.userData['offset'] as THREE.Vector3 | undefined) ?? new THREE.Vector3();
       fill.position.set(
         this.selectionSpotTarget.position.x + offset.x,
         this.selectionSpotTarget.position.y + offset.y,
@@ -2676,7 +2676,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.selectionSpotlight.target.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
     this.selectionFillLights.forEach((fill) => {
-      const offset: THREE.Vector3 = fill.userData.offset ?? new THREE.Vector3();
+      const offset: THREE.Vector3 = (fill.userData['offset'] as THREE.Vector3 | undefined) ?? new THREE.Vector3();
       fill.position.set(
         targetPos.x + offset.x,
         targetPos.y + offset.y,
