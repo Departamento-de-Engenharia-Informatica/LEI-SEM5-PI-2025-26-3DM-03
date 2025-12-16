@@ -5,7 +5,6 @@ export class CreateOemVvn1733792000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     const driverType = queryRunner.connection.driver.options.type;
-    const uuidType = driverType === 'sqlite' ? 'varchar' : 'uuid';
     const dateTimeType = driverType === 'sqlite' ? 'datetime' : 'timestamp';
 
     await queryRunner.createTable(
@@ -14,10 +13,11 @@ export class CreateOemVvn1733792000000 implements MigrationInterface {
         columns: [
           {
             name: 'id',
-            type: uuidType,
+            type: 'integer',
             isPrimary: true,
             isNullable: false,
-            length: driverType === 'sqlite' ? '36' : undefined,
+            isGenerated: true,
+            generationStrategy: 'increment',
           },
           { name: 'vessel_name', type: 'text', isNullable: false },
           { name: 'dock_id', type: 'text', isNullable: false },

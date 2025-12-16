@@ -3,8 +3,8 @@ import { ComplementaryTaskEntity } from './complementary-task.entity';
 
 @Entity({ name: 'complementary_task_categories' })
 export class ComplementaryTaskCategoryEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ type: 'text' })
   name!: string;

@@ -3,7 +3,7 @@ import { OperationTaskPreviewDto } from './operation-task-preview.dto';
 
 export class OperationPlanPreviewDto {
   @ApiProperty({ description: 'Source Vessel Visit Notification identifier' })
-  vvnId!: string;
+  vvnId!: number;
 
   @ApiProperty()
   vesselName!: string;

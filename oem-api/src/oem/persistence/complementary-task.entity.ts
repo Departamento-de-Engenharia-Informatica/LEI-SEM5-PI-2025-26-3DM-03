@@ -14,8 +14,8 @@ import { OperationPlanEntity } from './operation-plan.entity';
 @Entity({ name: 'complementary_tasks' })
 @Index(['operationPlanId', 'status'])
 export class ComplementaryTaskEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ type: 'text' })
   title!: string;
@@ -23,8 +23,8 @@ export class ComplementaryTaskEntity {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'text', nullable: true, name: 'category_id' })
-  categoryId?: string;
+  @Column({ type: 'integer', nullable: true, name: 'category_id' })
+  categoryId?: number;
 
   @ManyToOne(() => ComplementaryTaskCategoryEntity, (category) => category.tasks, {
     nullable: true,
@@ -33,8 +33,8 @@ export class ComplementaryTaskEntity {
   @JoinColumn({ name: 'category_id' })
   category?: ComplementaryTaskCategoryEntity;
 
-  @Column({ type: 'text', nullable: true, name: 'operation_plan_id' })
-  operationPlanId?: string;
+  @Column({ type: 'integer', nullable: true, name: 'operation_plan_id' })
+  operationPlanId?: number;
 
   @ManyToOne(() => OperationPlanEntity, (plan) => plan.complementaryTasks, {
     nullable: true,

@@ -28,12 +28,12 @@ export class OperationPlan extends BaseDomainEntity {
   description?: string;
 
   @ApiPropertyOptional({ description: 'Identifier of the related vessel visit' })
-  vesselVisitId?: string;
+  vesselVisitId?: number;
 
   @ApiPropertyOptional({
     description: 'VVN identifier that originated this plan',
   })
-  sourceVvnId?: string;
+  sourceVvnId?: number;
 
   @ApiPropertyOptional({
     description: 'Shift date for the plan',

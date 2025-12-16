@@ -15,11 +15,11 @@ import { IncidentTypeEntity } from './incident-type.entity';
 @Entity({ name: 'incidents' })
 @Index(['operationPlanId', 'occurredAt'])
 export class IncidentEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-  @Column({ type: 'text', name: 'type_id' })
-  typeId!: string;
+  @Column({ type: 'integer', name: 'type_id' })
+  typeId!: number;
 
   @ManyToOne(() => IncidentTypeEntity, (type) => type.incidents, {
     nullable: false,
@@ -46,8 +46,8 @@ export class IncidentEntity {
   @Column({ type: 'datetime', nullable: true })
   resolvedAt?: Date;
 
-  @Column({ type: 'text', nullable: true, name: 'operation_plan_id' })
-  operationPlanId?: string;
+  @Column({ type: 'integer', nullable: true, name: 'operation_plan_id' })
+  operationPlanId?: number;
 
   @ManyToOne(() => OperationPlanEntity, (plan) => plan.incidents, {
     nullable: true,

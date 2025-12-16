@@ -40,8 +40,8 @@ export class OemOperationPlansComponent implements OnInit {
   persistError: string | null = null;
   successMessage: string | null = null;
 
-  expandedRows = new Set<string>();
-  selectedVvns = new Set<string>();
+  expandedRows = new Set<number>();
+  selectedVvns = new Set<number>();
   savedEmptyMessage: string | null = null;
 
   sortKey: SortKey = 'plannedStartTime';
@@ -303,7 +303,7 @@ export class OemOperationPlansComponent implements OnInit {
     }
   }
 
-  toggleExpanded(vvnId: string): void {
+  toggleExpanded(vvnId: number): void {
     if (this.expandedRows.has(vvnId)) {
       this.expandedRows.delete(vvnId);
     } else {
@@ -311,11 +311,11 @@ export class OemOperationPlansComponent implements OnInit {
     }
   }
 
-  isExpanded(vvnId: string): boolean {
+  isExpanded(vvnId: number): boolean {
     return this.expandedRows.has(vvnId);
   }
 
-  toggleSelected(vvnId: string): void {
+  toggleSelected(vvnId: number): void {
     if (this.selectedVvns.has(vvnId)) {
       this.selectedVvns.delete(vvnId);
     } else {
@@ -323,15 +323,15 @@ export class OemOperationPlansComponent implements OnInit {
     }
   }
 
-  isSelected(vvnId: string): boolean {
+  isSelected(vvnId: number): boolean {
     return this.selectedVvns.has(vvnId);
   }
 
-  trackByVvn(_: number, item: OperationPlanPreviewDto): string {
+  trackByVvn(_: number, item: OperationPlanPreviewDto): number {
     return item.vvnId;
   }
 
-  private selectedAsArray(): string[] {
+  private selectedAsArray(): number[] {
     return Array.from(this.selectedVvns);
   }
 

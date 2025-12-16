@@ -30,6 +30,8 @@ async function bootstrap() {
   const httpsOptions = loadHttpsOptions();
   const app = await NestFactory.create(AppModule, { cors: true, httpsOptions });
 
+  logger.log(`OEM DB path: ${process.env.DATABASE_PATH || 'port.db'}`);
+
   app.use(helmet());
   app.setGlobalPrefix('api');
   app.useGlobalPipes(

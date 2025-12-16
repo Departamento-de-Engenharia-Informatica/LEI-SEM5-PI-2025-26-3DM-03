@@ -7,7 +7,7 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const data: Partial<OemVvn>[] = [
       {
-        id: '11111111-1111-1111-1111-111111111111',
+        id: 1111,
         vesselName: 'Ever Demo',
         dockId: 'A',
         eta: new Date('2025-12-15T08:00:00Z'),
@@ -16,7 +16,7 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
         status: 'APPROVED',
       },
       {
-        id: '22222222-2222-2222-2222-222222222222',
+        id: 2222,
         vesselName: 'MSC Example',
         dockId: 'B',
         eta: new Date('2025-12-15T09:30:00Z'),
@@ -25,7 +25,7 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
         status: 'APPROVED',
       },
       {
-        id: '33333333-3333-3333-3333-333333333333',
+        id: 3333,
         vesselName: 'Hapag Mock',
         dockId: 'A',
         eta: new Date('2025-12-15T13:00:00Z'),
@@ -34,7 +34,7 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
         status: 'APPROVED',
       },
       {
-        id: '44444444-4444-4444-4444-444444444444',
+        id: 4444,
         vesselName: 'CMA Sample',
         dockId: 'C',
         eta: new Date('2025-12-16T06:30:00Z'),
@@ -50,10 +50,10 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.manager.delete(OemVvn, {
       id: In([
-        '11111111-1111-1111-1111-111111111111',
-        '22222222-2222-2222-2222-222222222222',
-        '33333333-3333-3333-3333-333333333333',
-        '44444444-4444-4444-4444-444444444444',
+        1111,
+        2222,
+        3333,
+        4444,
       ]),
     });
   }

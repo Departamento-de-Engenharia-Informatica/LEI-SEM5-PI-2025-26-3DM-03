@@ -1,5 +1,6 @@
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsArray, IsInt, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class GenerateOperationPlansRequestDto {
   @ApiProperty({ description: 'Target day for which plans should be generated (YYYY-MM-DD)' })
@@ -16,10 +17,11 @@ export class GenerateOperationPlansRequestDto {
   @ApiPropertyOptional({
     description:
       'Optional list of VVN identifiers to persist plans for. If omitted, all approved VVNs for the day are used.',
-    type: [String],
+    type: [Number],
   })
   @IsArray()
-  @IsString({ each: true })
+  @IsInt({ each: true })
+  @Type(() => Number)
   @IsOptional()
-  vvnIds?: string[];
+  vvnIds?: number[];
 }

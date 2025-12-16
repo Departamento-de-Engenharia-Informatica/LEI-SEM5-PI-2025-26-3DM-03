@@ -14,7 +14,7 @@ export enum IncidentStatus {
  */
 export class Incident extends BaseDomainEntity {
   @ApiProperty({ description: 'Incident type identifier' })
-  typeId: string;
+  typeId: number;
 
   @ApiProperty({ description: 'Incident title' })
   title: string;
@@ -37,11 +37,11 @@ export class Incident extends BaseDomainEntity {
   @ApiPropertyOptional({
     description: 'Linked operation plan',
   })
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   constructor(init?: Partial<Incident>) {
     super(init);
-    this.typeId = init?.typeId ?? '';
+    this.typeId = init?.typeId ?? 0;
     this.title = init?.title ?? '';
     this.description = init?.description;
     this.status = init?.status ?? IncidentStatus.Open;

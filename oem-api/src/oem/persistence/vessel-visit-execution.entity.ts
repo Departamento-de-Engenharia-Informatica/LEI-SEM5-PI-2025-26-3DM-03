@@ -13,8 +13,8 @@ import { OperationPlanEntity } from './operation-plan.entity';
 @Entity({ name: 'vessel_visit_executions' })
 @Index(['operationPlanId', 'status'])
 export class VesselVisitExecutionEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ type: 'text' })
   vesselName!: string;
@@ -22,8 +22,8 @@ export class VesselVisitExecutionEntity {
   @Column({ type: 'text', nullable: true })
   voyageNumber?: string;
 
-  @Column({ type: 'text', nullable: true, name: 'operation_plan_id' })
-  operationPlanId?: string;
+  @Column({ type: 'integer', nullable: true, name: 'operation_plan_id' })
+  operationPlanId?: number;
 
   @ManyToOne(() => OperationPlanEntity, (plan) => plan.vesselVisitExecutions, {
     nullable: true,

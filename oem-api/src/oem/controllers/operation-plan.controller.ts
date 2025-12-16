@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -10,7 +10,11 @@ import {
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateOperationPlanDto, UpdateOperationPlanDto } from '../dto';
-import { OperationPlanService, OperationPlanUpdateResult } from '../services';
+import {
+  OperationPlanService,
+  OperationPlanUpdateResult,
+  MissingOperationPlansService,
+} from '../services';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/types';
@@ -19,6 +23,8 @@ import {
   OperationPlanPreviewRequestDto,
   GenerateOperationPlansRequestDto,
   OperationPlanUpdateResponseDto,
+  MissingOperationPlanDto,
+  RegenerateMissingOperationPlansRequestDto,
 } from '../operation-plans/dtos';
 
 @ApiTags('OEM/OperationPlans')
@@ -26,7 +32,10 @@ import {
 @UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/operation-plans')
 export class OperationPlanController {
-  constructor(private readonly service: OperationPlanService) {}
+  constructor(
+    private readonly service: OperationPlanService,
+    private readonly missing: MissingOperationPlansService,
+  ) {}
 
   @Get()
   @Roles('admin', 'logistics-operator')
@@ -52,14 +61,18 @@ export class OperationPlanController {
     @Query('to') to?: string,
     @Query('vesselVisitId') vesselVisitId?: string,
   ): Promise<OperationPlanEntity[]> {
-    return this.service.findAll({ from, to, vesselVisitId });
+    const vesselVisitIdNum =
+      vesselVisitId != null && vesselVisitId.trim().length > 0
+        ? Number(vesselVisitId)
+        : undefined;
+    return this.service.findAll({ from, to, vesselVisitId: vesselVisitIdNum });
   }
 
   @Get(':id')
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get operation plan by id' })
   @ApiOkResponse({ type: OperationPlanEntity })
-  async findOne(@Param('id') id: string): Promise<OperationPlanEntity> {
+  async findOne(@Param('id', ParseIntPipe) id: number): Promise<OperationPlanEntity> {
     return this.service.findOne(id);
   }
 
@@ -94,7 +107,7 @@ export class OperationPlanController {
   @ApiOperation({ summary: 'Update operation plan' })
   @ApiOkResponse({ type: OperationPlanUpdateResponseDto })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateOperationPlanDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<OperationPlanUpdateResult> {
@@ -106,7 +119,7 @@ export class OperationPlanController {
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Delete operation plan' })
   @ApiOkResponse({ type: OperationPlanEntity })
-  remove(@Param('id') id: string): Promise<OperationPlanEntity> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<OperationPlanEntity> {
     return this.service.remove(id);
   }
 
@@ -119,5 +132,45 @@ export class OperationPlanController {
     @Body() payload: OperationPlanPreviewRequestDto,
   ): Promise<OperationPlanPreviewDto[]> {
     return this.service.generatePreviewForDay(payload.date, payload.algorithm, payload.vvnIds);
+  }
+
+  @Get('missing')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List VVNs without an Operation Plan for the given day' })
+  @ApiQuery({ name: 'date', required: true, description: 'Target day (YYYY-MM-DD)' })
+  @ApiOkResponse({ type: MissingOperationPlanDto, isArray: true })
+  async listMissing(@Query('date') date: string): Promise<MissingOperationPlanDto[]> {
+    const vvns = await this.missing.findMissingForDay(date);
+    return vvns.map((v) => ({
+      id: v.id,
+      vesselName: v.vesselName,
+      dockId: v.dockId,
+      eta: v.eta.toISOString(),
+      etd: v.etd ? v.etd.toISOString() : null,
+      containers: v.containers,
+      status: v.status,
+    }));
+  }
+
+  @Post('regenerate-missing')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({
+    summary: 'Regenerate operation plans for the day (overwrites existing plans once confirmed)',
+    description:
+      'Requires confirmOverwrite=true when there are existing plans for the day. Regenerates plans for approved VVNs of the target day.',
+  })
+  @ApiBody({ type: RegenerateMissingOperationPlansRequestDto })
+  @ApiOkResponse({ type: OperationPlanEntity, isArray: true })
+  regenerateMissing(
+    @Body() payload: RegenerateMissingOperationPlansRequestDto,
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<OperationPlanEntity[]> {
+    const createdBy = req.user?.userId ?? req.user?.email ?? 'system';
+    return this.missing.regenerateMissingForDay(
+      payload.date,
+      payload.algorithm ?? 'single-crane',
+      createdBy,
+      payload.confirmOverwrite,
+    );
   }
 }

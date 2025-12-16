@@ -17,6 +17,7 @@ import { OemVvnService } from '../vvn/oem-vvn.service';
 import { OemVvn } from '../vvn/oem-vvn.entity';
 import { OperationPlanTaskEntity } from '../persistence/operation-plan-task.entity';
 import { OperationPlanChangeLogEntity } from '../persistence/operation-plan-change-log.entity';
+import { OperationPlanMapper } from '../mappers/operation-plan.mapper';
 
 export type OperationPlanUpdateResult = {
   plan: OperationPlanEntity;
@@ -38,13 +39,16 @@ export class OperationPlanService {
   async findAll(filters?: {
     from?: string;
     to?: string;
-    vesselVisitId?: string;
+    vesselVisitId?: number | string;
   }): Promise<OperationPlanEntity[]> {
     try {
       const where: Record<string, unknown> = {};
 
-      if (filters?.vesselVisitId) {
-        where.vesselVisitId = filters.vesselVisitId;
+      if (filters?.vesselVisitId != null) {
+        const vId = Number(filters.vesselVisitId);
+        if (!Number.isNaN(vId)) {
+          where.vesselVisitId = vId;
+        }
       }
 
       if (filters?.from && filters?.to) {
@@ -75,7 +79,7 @@ export class OperationPlanService {
     }
   }
 
-  async findOne(id: string): Promise<OperationPlanEntity> {
+  async findOne(id: number): Promise<OperationPlanEntity> {
     const found = await this.repo.findOne({
       where: { id },
       relations: ['tasks', 'changeLogs'],
@@ -94,7 +98,7 @@ export class OperationPlanService {
     date: string,
     algorithm = 'single-crane',
     createdBy?: string,
-    vvnIds?: string[],
+    vvnIds?: number[],
   ): Promise<OperationPlanEntity[]> {
     const { start, end } = this.getDayRange(date);
 
@@ -113,86 +117,16 @@ export class OperationPlanService {
       return [];
     }
 
-    const persisted = await this.repo.manager.transaction(async (entityManager) => {
-      const planRepo = entityManager.getRepository(OperationPlanEntity);
-      const taskRepo = entityManager.getRepository(OperationPlanTaskEntity);
-      const createdPlans: OperationPlanEntity[] = [];
-
-      for (const preview of previews) {
-        const plan = planRepo.create({
-          name: `Plan for ${preview.vesselName}`,
-          description: `Automated schedule for VVN ${preview.vvnId} on ${date}`,
-          vesselVisitId: preview.vvnId,
-          sourceVvnId: preview.vvnId,
-          dockId: preview.dockId,
-          plannedStartTime: new Date(preview.plannedStartTime),
-          plannedEndTime: new Date(preview.plannedEndTime),
-          targetDay: start,
-          algorithmUsed: preview.algorithmUsed ?? algorithm,
-          status: OperationPlanStatus.Planned,
-          createdBy: createdBy ?? 'system',
-        });
-
-        const savedPlan = await planRepo.save(plan);
-
-        const taskEntities = preview.operations
-          .filter((operation) => operation.startTime && operation.endTime)
-          .map((operation) =>
-            taskRepo.create({
-              operationPlanId: savedPlan.id,
-              type: operation.type,
-              craneId: operation.craneId,
-              storageAreaId: operation.storageAreaId,
-              startTime: new Date(operation.startTime),
-              endTime: new Date(operation.endTime),
-            }),
-          );
-
-        if (taskEntities.length) {
-          const persistedTasks = await taskRepo.save(taskEntities);
-          savedPlan.tasks = persistedTasks;
-        } else {
-          savedPlan.tasks = [];
-        }
-
-        createdPlans.push(savedPlan);
-      }
-
-      return createdPlans;
-    });
-
-    return persisted.sort((a, b) => {
-      const timeA = a.plannedStartTime?.getTime() ?? 0;
-      const timeB = b.plannedStartTime?.getTime() ?? 0;
-      return timeA - timeB;
-    });
+    return this.persistPreviews(previews, date, algorithm, createdBy, start);
   }
 
   async createPlan(dto: CreateOperationPlanDto): Promise<OperationPlanEntity> {
-    const entity = this.repo.create({
-      name: dto.name,
-      description: dto.description,
-      vesselVisitId: dto.vesselVisitId,
-      sourceVvnId: dto.sourceVvnId,
-      dockId: dto.dockId,
-      shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : undefined,
-      targetDay: dto.targetDay ? new Date(dto.targetDay) : undefined,
-      plannedStartTime: dto.plannedStartTime ? new Date(dto.plannedStartTime) : undefined,
-      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : undefined,
-      algorithmUsed: dto.algorithmUsed,
-      createdBy: dto.createdBy,
-      operations: dto.operations?.map((op) => ({
-        ...op,
-        startTime: op.startTime ? new Date(op.startTime) : undefined,
-        endTime: op.endTime ? new Date(op.endTime) : undefined,
-      })),
-      status: dto.status ?? OperationPlanStatus.Draft,
-    });
+    const entity = this.repo.create(OperationPlanMapper.toPersistenceFromCreate(dto));
     return this.repo.save(entity);
   }
 
   async updatePlan(
-    id: string,
+    id: number,
     dto: UpdateOperationPlanDto,
     updatedBy?: string,
   ): Promise<OperationPlanUpdateResult> {
@@ -203,59 +137,25 @@ export class OperationPlanService {
       throw new BadRequestException(taskValidationErrors.join(' '));
     }
 
-    const normalizedTasks = (dto.tasks ?? existing.tasks ?? []).map((task) => {
-      const start = task.startTime instanceof Date ? task.startTime : new Date(task.startTime);
-      const end = task.endTime instanceof Date ? task.endTime : new Date(task.endTime);
-      return this.taskRepo.create({
-        id: task.id,
-        operationPlanId: existing.id,
-        type: task.type,
-        craneId: task.craneId,
-        storageAreaId: task.storageAreaId,
-        staffIds: task.staffIds?.filter(Boolean),
-        startTime: start,
-        endTime: end,
-      });
-    });
+    const normalizedTasks = OperationPlanMapper.normalizeTasksForUpdate(
+      existing,
+      dto,
+      this.taskRepo,
+    );
 
-    const candidatePlan: Partial<OperationPlanEntity> = {
-      id: existing.id,
-      dockId: dto.dockId ?? existing.dockId,
-      sourceVvnId: dto.sourceVvnId ?? existing.sourceVvnId,
-      plannedStartTime: dto.plannedStartTime
-        ? new Date(dto.plannedStartTime)
-        : existing.plannedStartTime,
-      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : existing.plannedEndTime,
-      shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : existing.shiftDate,
-      targetDay: dto.targetDay ? new Date(dto.targetDay) : existing.targetDay,
-      algorithmUsed: dto.algorithmUsed ?? existing.algorithmUsed,
-      status: dto.status ?? existing.status,
-    };
+    const candidatePlan: Partial<OperationPlanEntity> = OperationPlanMapper.buildCandidatePlan(
+      existing,
+      dto,
+    );
 
     const planDay =
       dto.targetDay ?? existing.targetDay?.toISOString().slice(0, 10) ?? dto.plannedStartTime?.slice(0, 10);
     const warnings = await this.detectInconsistencies(candidatePlan, normalizedTasks, planDay);
 
-    const merged = this.repo.merge(existing, {
-      ...dto,
-      dockId: dto.dockId ?? existing.dockId,
-      plannedStartTime: dto.plannedStartTime
-        ? new Date(dto.plannedStartTime)
-        : existing.plannedStartTime,
-      plannedEndTime: dto.plannedEndTime ? new Date(dto.plannedEndTime) : existing.plannedEndTime,
-      shiftDate: dto.shiftDate ? new Date(dto.shiftDate) : existing.shiftDate,
-      targetDay: dto.targetDay ? new Date(dto.targetDay) : existing.targetDay,
-      operations: dto.operations
-        ? dto.operations.map((op) => ({
-            ...op,
-            startTime: op.startTime ? new Date(op.startTime) : undefined,
-            endTime: op.endTime ? new Date(op.endTime) : undefined,
-          }))
-        : existing.operations,
-      lastUpdatedBy: updatedBy ?? existing.lastUpdatedBy,
-      lastChangeReason: dto.reason ?? existing.lastChangeReason,
-      lastChangeWarnings: warnings,
-    });
+    const merged = this.repo.merge(
+      existing,
+      OperationPlanMapper.applyUpdateDto(existing, dto, warnings, updatedBy),
+    );
 
     let logEntry: OperationPlanChangeLogEntity | undefined;
 
@@ -297,7 +197,7 @@ export class OperationPlanService {
     return { plan, warnings, logEntry };
   }
 
-  async remove(id: string): Promise<OperationPlanEntity> {
+  async remove(id: number): Promise<OperationPlanEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;
@@ -328,8 +228,13 @@ export class OperationPlanService {
         const draft: CreateOperationPlanDto = {
           name: `Plan for VVN ${vvn.id}`,
           description: `Auto-generated plan for VVN ${vvn.id} on ${targetDayIso}`,
-          vesselVisitId: vvn.vesselVisitId ?? vvn.id,
-          sourceVvnId: vvn.id,
+          vesselVisitId:
+            vvn.vesselVisitId != null
+              ? Number(vvn.vesselVisitId)
+              : vvn.id != null
+                ? Number(vvn.id)
+                : undefined,
+          sourceVvnId: vvn.id != null ? Number(vvn.id) : undefined,
           targetDay: dto.targetDay,
           shiftDate: vvn.eta ?? targetDayIso,
           algorithmUsed: dto.algorithm,
@@ -366,12 +271,12 @@ export class OperationPlanService {
   async generatePreviewForDay(
     date: string,
     algorithm = 'single-crane',
-    vvnIds?: string[],
+    vvnIds?: number[],
   ): Promise<OperationPlanPreviewDto[]> {
     let vvns: OemVvn[] = await this.vvnService.getApprovedForDay(date);
     if (vvnIds && vvnIds.length > 0) {
-      const set = new Set(vvnIds.map((v) => v.toString()));
-      vvns = vvns.filter((v) => set.has(v.id.toString()));
+      const set = new Set(vvnIds);
+      vvns = vvns.filter((v) => set.has(v.id));
       if (!vvns.length) {
         return [];
       }
@@ -410,6 +315,67 @@ export class OperationPlanService {
     return previews.sort((a, b) => a.plannedStartTime.localeCompare(b.plannedStartTime));
   }
 
+  async findMissingPlansForDay(date: string): Promise<OemVvn[]> {
+    const vvns = await this.vvnService.getApprovedForDay(date);
+    if (!vvns.length) {
+      return [];
+    }
+
+    const { start, end } = this.getDayRange(date);
+    const existingPlans = await this.repo.find({
+      where: { plannedStartTime: Between(start, end) },
+      select: ['id', 'vesselVisitId', 'sourceVvnId'],
+    });
+
+    const linkedIds = new Set<number>();
+    existingPlans.forEach((plan) => {
+      if (plan.sourceVvnId != null) linkedIds.add(Number(plan.sourceVvnId));
+      else if (plan.vesselVisitId != null) linkedIds.add(Number(plan.vesselVisitId));
+    });
+
+    return vvns.filter((v) => !linkedIds.has(v.id));
+  }
+
+  async regenerateMissingForDay(
+    date: string,
+    algorithm = 'single-crane',
+    createdBy?: string,
+    confirmOverwrite?: boolean,
+  ): Promise<OperationPlanEntity[]> {
+    const vvns = await this.vvnService.getApprovedForDay(date);
+    if (!vvns.length) {
+      return [];
+    }
+
+    const { start, end } = this.getDayRange(date);
+    const existingPlans = await this.repo.find({
+      where: { plannedStartTime: Between(start, end) },
+      select: ['id'],
+    });
+
+    if (existingPlans.length > 0 && !confirmOverwrite) {
+      throw new ConflictException(
+        'Regeneration will overwrite existing plans for this day. Set confirmOverwrite=true to proceed.',
+      );
+    }
+
+    if (existingPlans.length > 0) {
+      await this.repo.delete(existingPlans.map((p) => p.id));
+    }
+
+    const previews = await this.generatePreviewForDay(
+      date,
+      algorithm,
+      vvns.map((v) => v.id),
+    );
+
+    if (!previews.length) {
+      return [];
+    }
+
+    return this.persistPreviews(previews, date, algorithm, createdBy, start);
+  }
+
   private validateTasks(tasks?: (OperationPlanTaskDto | OperationPlanTaskEntity)[]): string[] {
     if (!tasks || tasks.length === 0) {
       return [];
@@ -444,8 +410,9 @@ export class OperationPlanService {
     if (dayIso) {
       try {
         const { start, end } = this.getDayRange(dayIso);
+        const excludeId = candidatePlan.id ?? -1;
         otherPlans = await this.repo.find({
-          where: { id: Not(candidatePlan.id as string), plannedStartTime: Between(start, end) },
+          where: { id: Not(excludeId), plannedStartTime: Between(start, end) },
           relations: ['tasks'],
         });
       } catch {
@@ -497,7 +464,7 @@ export class OperationPlanService {
     if (dayIso && candidatePlan.sourceVvnId) {
       try {
         const vvns = await this.vvnService.getApprovedForDay(dayIso);
-        const current = vvns.find((v) => v.id.toString() === candidatePlan.sourceVvnId?.toString());
+        const current = vvns.find((v) => v.id === candidatePlan.sourceVvnId);
         if (current) {
           const start = candidatePlan.plannedStartTime ?? tasks[0].startTime;
           const end =
@@ -543,6 +510,70 @@ export class OperationPlanService {
 
   private overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
     return aStart.getTime() < bEnd.getTime() && bStart.getTime() < aEnd.getTime();
+  }
+
+  private async persistPreviews(
+    previews: OperationPlanPreviewDto[],
+    date: string,
+    algorithm: string,
+    createdBy?: string,
+    targetDay?: Date,
+  ): Promise<OperationPlanEntity[]> {
+    const dayStart = targetDay ?? this.getDayRange(date).start;
+
+    const persisted = await this.repo.manager.transaction(async (entityManager) => {
+      const planRepo = entityManager.getRepository(OperationPlanEntity);
+      const taskRepo = entityManager.getRepository(OperationPlanTaskEntity);
+      const createdPlans: OperationPlanEntity[] = [];
+
+      for (const preview of previews) {
+        const plan = planRepo.create({
+          name: `Plan for ${preview.vesselName}`,
+          description: `Automated schedule for VVN ${preview.vvnId} on ${date}`,
+          vesselVisitId: preview.vvnId,
+          sourceVvnId: preview.vvnId,
+          dockId: preview.dockId,
+          plannedStartTime: new Date(preview.plannedStartTime),
+          plannedEndTime: new Date(preview.plannedEndTime),
+          targetDay: dayStart,
+          algorithmUsed: preview.algorithmUsed ?? algorithm,
+          status: OperationPlanStatus.Planned,
+          createdBy: createdBy ?? 'system',
+        });
+
+        const savedPlan = await planRepo.save(plan);
+
+        const taskEntities = preview.operations
+          .filter((operation) => operation.startTime && operation.endTime)
+          .map((operation) =>
+            taskRepo.create({
+              operationPlanId: savedPlan.id,
+              type: operation.type,
+              craneId: operation.craneId,
+              storageAreaId: operation.storageAreaId,
+              startTime: new Date(operation.startTime),
+              endTime: new Date(operation.endTime),
+            }),
+          );
+
+        if (taskEntities.length) {
+          const persistedTasks = await taskRepo.save(taskEntities);
+          savedPlan.tasks = persistedTasks;
+        } else {
+          savedPlan.tasks = [];
+        }
+
+        createdPlans.push(savedPlan);
+      }
+
+      return createdPlans;
+    });
+
+    return persisted.sort((a, b) => {
+      const timeA = a.plannedStartTime?.getTime() ?? 0;
+      const timeB = b.plannedStartTime?.getTime() ?? 0;
+      return timeA - timeB;
+    });
   }
 
   private toIsoDate(value?: Date | string | null): string | null {

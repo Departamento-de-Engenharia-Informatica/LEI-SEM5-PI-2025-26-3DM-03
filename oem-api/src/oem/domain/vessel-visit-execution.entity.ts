@@ -19,7 +19,7 @@ export class VesselVisitExecution extends BaseDomainEntity {
   voyageNumber?: string;
 
   @ApiPropertyOptional({ description: 'Linked operation plan id' })
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   @ApiPropertyOptional({ description: 'Estimated time of arrival' })
   eta?: Date;
