@@ -20,6 +20,8 @@ import { routes } from './app.routes';
 // Use local lightweight translate mock (no external dependency required)
 import { TranslateMockModule } from './services/i18n/translate.mock.module';
 import { MockTranslateService } from './services/i18n/translate.mock.impl';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { ErrorInterceptor } from './services/http/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -52,6 +54,13 @@ export const appConfig: ApplicationConfig = {
         return t.use(saved);
       },
       deps: [MockTranslateService],
+      multi: true,
+    },
+
+    // Interceptor global de erros: diferencia TodoAPI vs OEM/Scheduling e evita logout global em qualquer erro
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: ErrorInterceptor,
       multi: true,
     },
   ],

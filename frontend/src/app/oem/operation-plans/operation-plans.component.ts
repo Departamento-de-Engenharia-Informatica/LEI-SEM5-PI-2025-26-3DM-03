@@ -1,13 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import {
-  FormBuilder,
-  FormGroup,
-  ReactiveFormsModule,
-  Validators,
-} from '@angular/forms';
-import { TimeoutError } from 'rxjs';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { finalize, timeout } from 'rxjs/operators';
 import {
   OemApiService,
@@ -119,11 +113,7 @@ export class OemOperationPlansComponent implements OnInit {
 
     this.api
       .previewOperationPlans(date, 'single-crane', this.selectedAsArray())
-      .pipe(
-        finalize(() => {
-          this.previewLoading = false;
-        }),
-      )
+      .pipe(finalize(() => (this.previewLoading = false)))
       .subscribe({
         next: plans => {
           this.previewPlans = plans ?? [];
@@ -131,7 +121,7 @@ export class OemOperationPlansComponent implements OnInit {
           this.selectedVvns = new Set(this.previewPlans.map(p => p.vvnId));
           if (!this.previewPlans.length) {
             this.previewError =
-              'Nenhum plano de operação disponível para a data selecionada.';
+              'Nenhum plano de operacao disponivel para a data selecionada.';
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -139,7 +129,7 @@ export class OemOperationPlansComponent implements OnInit {
             this.previewPlans = err.error as OperationPlanPreviewDto[];
             this.previewError = this.previewPlans.length
               ? null
-              : 'Nenhum plano de operação disponível para a data selecionada.';
+              : 'Nenhum plano de operacao disponivel para a data selecionada.';
             return;
           }
 
@@ -147,7 +137,7 @@ export class OemOperationPlansComponent implements OnInit {
           this.selectedVvns.clear();
           this.previewError = this.normalizeError(
             err,
-            'Falha ao gerar o preview dos planos de operação.',
+            'Falha ao gerar o preview dos planos de operacao.',
           );
         },
       });
@@ -183,20 +173,20 @@ export class OemOperationPlansComponent implements OnInit {
         },
         error: (err: HttpErrorResponse) => {
           if (err.status === 409) {
-            this.persistError = 'Já existem planos para esta data.';
+            this.persistError = 'Ja existem planos para esta data.';
             return;
           }
 
           if (err.status === 0) {
             this.persistError =
-              'Falha ao guardar os planos de operação (erro de rede).';
+              'Falha ao guardar os planos de operacao (erro de rede).';
             this.fetchPlans();
             return;
           }
 
           this.persistError = this.normalizeError(
             err,
-            'Falha ao guardar os planos de operação.',
+            'Falha ao guardar os planos de operacao.',
           );
         },
       });
@@ -214,11 +204,7 @@ export class OemOperationPlansComponent implements OnInit {
         to: to || undefined,
         vesselVisitId: vesselVisitId || undefined,
       })
-      .pipe(
-        finalize(() => {
-          this.loading = false;
-        }),
-      )
+      .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: plans => {
           this.plans = plans ?? [];
@@ -227,7 +213,6 @@ export class OemOperationPlansComponent implements OnInit {
             : 'Nenhum plano encontrado para os filtros aplicados.';
         },
         error: (err: HttpErrorResponse) => {
-          // Mantemos os dados anteriores para não "sumir" a lista em caso de falha de rede.
           this.error = this.normalizeError(
             err,
             'Falha ao carregar os planos guardados.',
@@ -253,46 +238,10 @@ export class OemOperationPlansComponent implements OnInit {
   startEdit(plan: OperationPlanDto): void {
     this.editingPlan = plan;
     this.editForm = this.createEditForm(plan);
-    this.editLoading = true;
+    this.editLoading = false;
     this.editError = null;
     this.editWarnings = [];
     this.editSuccess = null;
-
-    if (!plan?.id) {
-      this.editLoading = false;
-      this.editWarnings = ['Plano sem identificador. Recarregue a página ou escolha outro plano.'];
-      return;
-    }
-
-    this.api
-      .getOperationPlan(plan.id)
-      .pipe(
-        timeout(5000),
-        finalize(() => {
-          this.editLoading = false;
-        }),
-      )
-      .subscribe({
-        next: fullPlan => {
-          this.editingPlan = fullPlan;
-          this.editForm = this.createEditForm(fullPlan);
-        },
-        error: (err: HttpErrorResponse) => {
-          if (err instanceof TimeoutError || err.name === 'TimeoutError') {
-            this.editError = 'Tempo esgotado a carregar detalhes do plano. Verifique se o OEM está acessível em HTTPS na porta configurada.';
-            return;
-          }
-
-          if (err.status === 0) {
-            this.editWarnings = [
-              'Não foi possível atualizar os detalhes do plano (rede/proxy). A editar com os dados atuais.',
-            ];
-            this.editError = null;
-            return;
-          }
-          this.editError = this.normalizeError(err, 'Falha ao carregar o plano para edicao.');
-        },
-      });
   }
 
   cancelEdit(): void {
@@ -310,6 +259,7 @@ export class OemOperationPlansComponent implements OnInit {
 
     if (this.editForm.invalid) {
       this.editForm.markAllAsTouched();
+      this.editError = 'Preencha motivo e estado antes de guardar.';
       return;
     }
 
@@ -322,11 +272,7 @@ export class OemOperationPlansComponent implements OnInit {
 
     this.api
       .updateOperationPlan(this.editingPlan.id, payload)
-      .pipe(
-        finalize(() => {
-          this.editSaving = false;
-        }),
-      )
+      .pipe(finalize(() => (this.editSaving = false)))
       .subscribe({
         next: response => {
           this.editingPlan = response.plan;
@@ -423,6 +369,7 @@ export class OemOperationPlansComponent implements OnInit {
       status: [plan?.status ?? 'planned', Validators.required],
       reason: ['', Validators.required],
     });
+
     return form;
   }
 

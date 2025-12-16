@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { catchError, Observable, of } from 'rxjs';
 
 export interface OperationPlanDto {
   id: string;
@@ -70,53 +71,46 @@ export interface OperationPlanUpdateResponse {
 
 @Injectable({ providedIn: 'root' })
 export class OemApiService {
+  private readonly proxyBase = '/api/oem/operation-plans';
+
   constructor(private readonly http: HttpClient) {}
 
-  getOperationPlans(filters?: { from?: string; to?: string; vesselVisitId?: string }) {
+  private buildParams(filters?: { from?: string; to?: string; vesselVisitId?: string }): HttpParams {
     let params = new HttpParams();
-    if (filters?.from) {
-      params = params.set('from', filters.from);
-    }
-    if (filters?.to) {
-      params = params.set('to', filters.to);
-    }
-    if (filters?.vesselVisitId) {
-      params = params.set('vesselVisitId', filters.vesselVisitId);
-    }
+    if (filters?.from) params = params.set('from', filters.from);
+    if (filters?.to) params = params.set('to', filters.to);
+    if (filters?.vesselVisitId) params = params.set('vesselVisitId', filters.vesselVisitId);
+    return params;
+  }
 
-    return this.http.get<OperationPlanDto[]>(`/api/oem/operation-plans`, {
+  getOperationPlans(filters?: { from?: string; to?: string; vesselVisitId?: string }) {
+    const params = this.buildParams(filters);
+    const opts = {
       withCredentials: true,
       params: params.keys().length ? params : undefined,
-    });
+    };
+    return this.http.get<OperationPlanDto[]>(this.proxyBase, opts);
   }
 
   previewOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
-    return this.http.post<OperationPlanPreviewDto[]>(
-      `/api/oem/operation-plans/preview`,
-      vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm },
-      { withCredentials: true },
-    );
+    const payload = vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm };
+    const url = `${this.proxyBase}/preview`;
+    return this.http.post<OperationPlanPreviewDto[]>(url, payload, { withCredentials: true });
   }
 
   generateOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
-    return this.http.post<OperationPlanDto[]>(
-      `/api/oem/operation-plans/generate`,
-      vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm },
-      { withCredentials: true },
-    );
+    const payload = vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm };
+    const url = `${this.proxyBase}/generate`;
+    return this.http.post<OperationPlanDto[]>(url, payload, { withCredentials: true });
   }
 
   getOperationPlan(id: string) {
-    return this.http.get<OperationPlanDto>(`/api/oem/operation-plans/${id}`, {
-      withCredentials: true,
-    });
+    const url = `${this.proxyBase}/${id}`;
+    return this.http.get<OperationPlanDto>(url, { withCredentials: true });
   }
 
   updateOperationPlan(id: string, payload: { reason: string } & Partial<OperationPlanDto>) {
-    return this.http.patch<OperationPlanUpdateResponse>(
-      `/api/oem/operation-plans/${id}`,
-      payload,
-      { withCredentials: true },
-    );
+    const url = `${this.proxyBase}/${id}`;
+    return this.http.patch<OperationPlanUpdateResponse>(url, payload, { withCredentials: true });
   }
 }
