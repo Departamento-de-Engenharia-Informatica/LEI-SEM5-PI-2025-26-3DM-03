@@ -109,7 +109,10 @@ export class OemApiService {
     return this.http.get<OperationPlanDto>(url, { withCredentials: true });
   }
 
-  updateOperationPlan(id: string, payload: { reason: string } & Partial<OperationPlanDto>) {
+  updateOperationPlan(
+    id: string,
+    payload: { lastChangeReason: string } & Partial<OperationPlanDto>,
+  ) {
     const url = `${this.proxyBase}/${id}`;
     return this.http.patch<OperationPlanUpdateResponse>(url, payload, { withCredentials: true });
   }

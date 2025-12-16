@@ -22,6 +22,7 @@ import { TranslateMockModule } from './services/i18n/translate.mock.module';
 import { MockTranslateService } from './services/i18n/translate.mock.impl';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { ErrorInterceptor } from './services/http/error.interceptor';
+import { AuthInterceptor } from './services/auth/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -58,6 +59,11 @@ export const appConfig: ApplicationConfig = {
     },
 
     // Interceptor global de erros: diferencia TodoAPI vs OEM/Scheduling e evita logout global em qualquer erro
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
+      multi: true,
+    },
     {
       provide: HTTP_INTERCEPTORS,
       useClass: ErrorInterceptor,

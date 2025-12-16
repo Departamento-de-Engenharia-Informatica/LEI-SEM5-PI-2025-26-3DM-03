@@ -7,9 +7,12 @@ export class IamAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     const req = context.switchToHttp().getRequest<Request>();
     const candidate = this.buildUserFromRequest(req);
-    const user = candidate && (candidate.userId || candidate.email)
-      ? candidate
-      : this.buildDevFallbackUser();
+    const hasIdentity = !!candidate && (!!candidate.userId || !!candidate.email);
+    const candidateRoles = Array.isArray(candidate?.roles)
+      ? (candidate?.roles as string[]).filter((role) => !!role?.trim())
+      : [];
+    const hasRoles = candidateRoles.length > 0;
+    const user = hasIdentity && hasRoles ? { ...candidate!, roles: candidateRoles } : this.buildDevFallbackUser();
 
     if (!user || (!user.userId && !user.email)) {
       throw new UnauthorizedException('Missing authenticated user context');

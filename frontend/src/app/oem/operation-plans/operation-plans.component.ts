@@ -1,8 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize, timeout } from 'rxjs/operators';
+import {
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+import { finalize } from 'rxjs/operators';
 import {
   OemApiService,
   OperationPlanDto,
@@ -279,7 +284,9 @@ export class OemOperationPlansComponent implements OnInit {
           this.editWarnings = response.warnings ?? [];
           this.editSuccess = 'Plano atualizado e alteracao registada.';
           this.editForm = this.createEditForm(response.plan);
-          this.plans = this.plans.map(p => (p.id === response.plan.id ? response.plan : p));
+          this.plans = this.plans.map(p =>
+            p.id === response.plan.id ? response.plan : p,
+          );
         },
         error: (err: HttpErrorResponse) => {
           this.editError = this.normalizeError(err, 'Falha ao atualizar o plano.');
@@ -364,20 +371,22 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   private createEditForm(plan?: OperationPlanDto): FormGroup {
-    const form = this.fb.group({
+    return this.fb.group({
       dockId: [plan?.dockId ?? ''],
       status: [plan?.status ?? 'planned', Validators.required],
       reason: ['', Validators.required],
     });
-
-    return form;
   }
 
-  private buildUpdatePayload(): { reason: string } & Partial<OperationPlanDto> {
+  /**
+   * Backend expects: { dockId?, status?, lastChangeReason }
+   * UI form uses "reason", we map it to "lastChangeReason".
+   */
+  private buildUpdatePayload(): { lastChangeReason: string } & Partial<OperationPlanDto> {
     const value = this.editForm.value as any;
 
     return {
-      reason: (value.reason as string)?.trim(),
+      lastChangeReason: (value.reason as string)?.trim(),
       dockId: value.dockId || undefined,
       status: value.status,
     };
