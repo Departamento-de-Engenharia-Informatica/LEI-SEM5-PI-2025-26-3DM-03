@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -30,7 +30,7 @@ export class IncidentTypeController {
   @Roles('oem:incidents:read')
   @ApiOperation({ summary: 'Get incident type by id' })
   @ApiOkResponse({ type: IncidentTypeEntity })
-  findOne(@Param('id') id: string): Promise<IncidentTypeEntity> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeEntity> {
     return this.service.findOne(id);
   }
 
@@ -47,7 +47,7 @@ export class IncidentTypeController {
   @ApiOperation({ summary: 'Update incident type' })
   @ApiOkResponse({ type: IncidentTypeEntity })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateIncidentTypeDto,
   ): Promise<IncidentTypeEntity> {
     return this.service.updateType(id, payload);
@@ -57,7 +57,7 @@ export class IncidentTypeController {
   @Roles('oem:incidents:write')
   @ApiOperation({ summary: 'Delete incident type' })
   @ApiOkResponse({ type: IncidentTypeEntity })
-  remove(@Param('id') id: string): Promise<IncidentTypeEntity> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeEntity> {
     return this.service.remove(id);
   }
 }

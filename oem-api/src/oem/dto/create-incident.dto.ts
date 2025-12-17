@@ -1,13 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IncidentSeverity } from '../domain/incident-type.entity';
 import { IncidentStatus } from '../domain/incident.entity';
 
 export class CreateIncidentDto {
-  @ApiProperty({ description: 'Type identifier', example: 'incident-type-1' })
-  @IsString()
+  @ApiProperty({ description: 'Type identifier', example: 1 })
+  @IsInt()
+  @Type(() => Number)
   @IsNotEmpty()
-  typeId!: string;
+  typeId!: number;
 
   @ApiProperty({ description: 'Short title of the incident' })
   @IsString()
@@ -20,9 +22,10 @@ export class CreateIncidentDto {
   description?: string;
 
   @ApiPropertyOptional({ description: 'Linked operation plan id' })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsOptional()
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   @ApiProperty({
     enum: IncidentStatus,

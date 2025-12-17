@@ -4,8 +4,8 @@ import { IncidentEntity } from './incident.entity';
 
 @Entity({ name: 'incident_types' })
 export class IncidentTypeEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ type: 'text' })
   name!: string;

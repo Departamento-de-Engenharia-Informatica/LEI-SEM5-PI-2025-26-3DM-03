@@ -19,7 +19,7 @@ export class VesselVisitExecutionService {
     return this.repo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async findOne(id: string): Promise<VesselVisitExecutionEntity> {
+  async findOne(id: number): Promise<VesselVisitExecutionEntity> {
     const execution = await this.repo.findOne({ where: { id } });
     if (!execution) {
       throw new NotFoundException(`Vessel visit execution ${id} not found`);
@@ -46,7 +46,7 @@ export class VesselVisitExecutionService {
   }
 
   async updateExecution(
-    id: string,
+    id: number,
     dto: UpdateVesselVisitExecutionDto,
   ): Promise<VesselVisitExecutionEntity> {
     const existing = await this.findOne(id);
@@ -63,13 +63,13 @@ export class VesselVisitExecutionService {
     return this.repo.save(merged);
   }
 
-  async remove(id: string): Promise<VesselVisitExecutionEntity> {
+  async remove(id: number): Promise<VesselVisitExecutionEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;
   }
 
-  private async ensureOperationPlan(operationPlanId: string): Promise<void> {
+  private async ensureOperationPlan(operationPlanId: number): Promise<void> {
     const exists = await this.planRepo.exist({ where: { id: operationPlanId } });
     if (!exists) {
       throw new NotFoundException(`Operation plan ${operationPlanId} not found`);

@@ -19,10 +19,10 @@ export class ComplementaryTask extends BaseDomainEntity {
   description?: string;
 
   @ApiProperty({ description: 'Category identifier' })
-  categoryId: string;
+  categoryId: number;
 
   @ApiPropertyOptional({ description: 'Related operation plan id' })
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   @ApiProperty({ enum: ComplementaryTaskStatus })
   status: ComplementaryTaskStatus;
@@ -37,7 +37,7 @@ export class ComplementaryTask extends BaseDomainEntity {
     super(init);
     this.title = init?.title ?? '';
     this.description = init?.description;
-    this.categoryId = init?.categoryId ?? '';
+    this.categoryId = init?.categoryId ?? 0;
     this.operationPlanId = init?.operationPlanId;
     this.status = init?.status ?? ComplementaryTaskStatus.Pending;
     this.assigneeId = init?.assigneeId;

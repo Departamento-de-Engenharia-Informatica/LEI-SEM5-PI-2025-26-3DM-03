@@ -10,11 +10,11 @@ import { OperationPlanEntity } from './operation-plan.entity';
 
 @Entity({ name: 'operation_plan_tasks' })
 export class OperationPlanTaskEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
-  @Column({ name: 'operation_plan_id', type: 'text' })
-  operationPlanId!: string;
+  @Column({ name: 'operation_plan_id', type: 'integer' })
+  operationPlanId!: number;
 
   @ManyToOne(() => OperationPlanEntity, (plan) => plan.tasks, {
     nullable: false,

@@ -1,4 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
@@ -10,9 +11,9 @@ import {
 
 export class OperationPlanTaskDto {
   @ApiPropertyOptional({ description: 'Task identifier (used when editing existing tasks)' })
-  @IsString()
+  @Type(() => Number)
   @IsOptional()
-  id?: string;
+  id?: number;
 
   @ApiPropertyOptional({ description: 'Logical type of the task', example: 'UNLOAD' })
   @IsString()

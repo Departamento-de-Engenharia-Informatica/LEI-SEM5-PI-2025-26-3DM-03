@@ -15,7 +15,7 @@ export class ComplementaryTaskCategoryService {
     return this.repo.find({ order: { name: 'ASC' } });
   }
 
-  async findOne(id: string): Promise<ComplementaryTaskCategoryEntity> {
+  async findOne(id: number): Promise<ComplementaryTaskCategoryEntity> {
     const category = await this.repo.findOne({ where: { id } });
     if (!category) {
       throw new NotFoundException(`Complementary task category ${id} not found`);
@@ -34,7 +34,7 @@ export class ComplementaryTaskCategoryService {
   }
 
   async updateCategory(
-    id: string,
+    id: number,
     dto: UpdateComplementaryTaskCategoryDto,
   ): Promise<ComplementaryTaskCategoryEntity> {
     const existing = await this.findOne(id);
@@ -42,7 +42,7 @@ export class ComplementaryTaskCategoryService {
     return this.repo.save(merged);
   }
 
-  async remove(id: string): Promise<ComplementaryTaskCategoryEntity> {
+  async remove(id: number): Promise<ComplementaryTaskCategoryEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsISO8601, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { VesselExecutionStatus } from '../domain/vessel-visit-execution.entity';
 
 export class CreateVesselVisitExecutionDto {
@@ -14,9 +15,10 @@ export class CreateVesselVisitExecutionDto {
   voyageNumber?: string;
 
   @ApiPropertyOptional({ description: 'Related operation plan id' })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsOptional()
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   @ApiPropertyOptional({ description: 'Estimated time of arrival (ISO-8601)' })
   @IsISO8601()

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ComplementaryTaskStatus } from '../domain/complementary-task.entity';
 
 export class CreateComplementaryTaskDto {
@@ -14,14 +15,16 @@ export class CreateComplementaryTaskDto {
   description?: string;
 
   @ApiProperty({ description: 'Category identifier' })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsNotEmpty()
-  categoryId!: string;
+  categoryId!: number;
 
   @ApiPropertyOptional({ description: 'Related operation plan id' })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsOptional()
-  operationPlanId?: string;
+  operationPlanId?: number;
 
   @ApiPropertyOptional({ description: 'User responsible for the task' })
   @IsString()

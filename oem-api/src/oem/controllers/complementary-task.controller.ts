@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -30,7 +30,7 @@ export class ComplementaryTaskController {
   @Roles('oem:tasks:read')
   @ApiOperation({ summary: 'Get complementary task by id' })
   @ApiOkResponse({ type: ComplementaryTaskEntity })
-  findOne(@Param('id') id: string): Promise<ComplementaryTaskEntity> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskEntity> {
     return this.service.findOne(id);
   }
 
@@ -49,7 +49,7 @@ export class ComplementaryTaskController {
   @ApiOperation({ summary: 'Update complementary task' })
   @ApiOkResponse({ type: ComplementaryTaskEntity })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateComplementaryTaskDto,
   ): Promise<ComplementaryTaskEntity> {
     return this.service.updateTask(id, payload);
@@ -59,7 +59,7 @@ export class ComplementaryTaskController {
   @Roles('oem:tasks:write')
   @ApiOperation({ summary: 'Delete complementary task' })
   @ApiOkResponse({ type: ComplementaryTaskEntity })
-  remove(@Param('id') id: string): Promise<ComplementaryTaskEntity> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskEntity> {
     return this.service.remove(id);
   }
 }

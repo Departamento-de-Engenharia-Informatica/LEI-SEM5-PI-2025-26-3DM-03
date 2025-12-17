@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsISO8601,
   IsNotEmpty,
   IsOptional,
@@ -54,19 +55,21 @@ export class CreateOperationPlanDto {
 
   @ApiPropertyOptional({
     description: 'Identifier of the related vessel visit',
-    example: 'vessel-visit-123',
+    example: 123,
   })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsOptional()
-  vesselVisitId?: string;
+  vesselVisitId?: number;
 
   @ApiPropertyOptional({
     description: 'VVN identifier that originated this plan',
-    example: 'vvn-123',
+    example: 123,
   })
-  @IsString()
+  @IsInt()
+  @Type(() => Number)
   @IsOptional()
-  sourceVvnId?: string;
+  sourceVvnId?: number;
 
   @ApiPropertyOptional({
     description: 'Shift date in ISO-8601 format',

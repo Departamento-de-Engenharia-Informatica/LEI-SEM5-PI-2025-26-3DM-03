@@ -1,8 +1,6 @@
-import { randomUUID } from 'crypto';
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 type TaskSeed = {
-  id?: string;
   type: string;
   craneId?: string;
   storageAreaId?: string;
@@ -19,11 +17,11 @@ type OperationSeed = {
 };
 
 type PlanSeed = {
-  id: string;
+  id: number;
   name: string;
   description: string;
-  vesselVisitId: string;
-  sourceVvnId?: string;
+  vesselVisitId: number;
+  sourceVvnId?: number;
   dockId?: string;
   shiftDate: string;
   targetDay: string;
@@ -39,11 +37,11 @@ type PlanSeed = {
 
 const planSeeds: PlanSeed[] = [
   {
-    id: '8d91d070-f7ab-4134-9cab-7da9b1bf90a2',
+    id: 1,
     name: 'Plano demo Norte',
     description: 'Plano de operacao gerado via migracao para VVN-500',
-    vesselVisitId: 'VVN-500',
-    sourceVvnId: 'VVN-500',
+    vesselVisitId: 500,
+    sourceVvnId: 500,
     dockId: 'DOCK-1',
     shiftDate: '2025-12-11T07:45:00.000Z',
     targetDay: '2025-12-11T00:00:00.000Z',
@@ -71,7 +69,6 @@ const planSeeds: PlanSeed[] = [
     ],
     tasks: [
       {
-        id: '18fa31e6-a72c-4f2b-a237-e7003a7b0da2',
         type: 'UNLOAD',
         craneId: 'CRANE-1',
         storageAreaId: 'YARD-A',
@@ -79,7 +76,6 @@ const planSeeds: PlanSeed[] = [
         endTime: '2025-12-11T11:00:00.000Z',
       },
       {
-        id: '88a0ad72-660d-4901-9878-140655ae9b70',
         type: 'LOAD',
         craneId: 'CRANE-1',
         storageAreaId: 'YARD-A',
@@ -89,11 +85,11 @@ const planSeeds: PlanSeed[] = [
     ],
   },
   {
-    id: '6d4b4f0b-2b8d-4cda-91bc-24d83dc1a7f2',
+    id: 2,
     name: 'Plano demo Sul',
     description: 'Plano de operacao para VVN-777 com duas gruas',
-    vesselVisitId: 'VVN-777',
-    sourceVvnId: 'VVN-777',
+    vesselVisitId: 777,
+    sourceVvnId: 777,
     dockId: 'DOCK-3',
     shiftDate: '2025-12-12T06:45:00.000Z',
     targetDay: '2025-12-12T00:00:00.000Z',
@@ -121,7 +117,6 @@ const planSeeds: PlanSeed[] = [
     ],
     tasks: [
       {
-        id: 'f54bbd52-6929-44bf-bcfe-3d3a1dd0e4d1',
         type: 'UNLOAD',
         craneId: 'CRANE-2',
         storageAreaId: 'YARD-B',
@@ -129,7 +124,6 @@ const planSeeds: PlanSeed[] = [
         endTime: '2025-12-12T11:30:00.000Z',
       },
       {
-        id: '04b2141a-128d-4cad-933c-cdae32d42c69',
         type: 'LOAD',
         craneId: 'CRANE-3',
         storageAreaId: 'YARD-C',
@@ -139,11 +133,11 @@ const planSeeds: PlanSeed[] = [
     ],
   },
   {
-    id: '9c6381f5-4f8a-4c53-a8ce-fdc9d517c12d',
+    id: 3,
     name: 'Plano demo Express',
     description: 'Plano compacto para VVN-901 com janela reduzida',
-    vesselVisitId: 'VVN-901',
-    sourceVvnId: 'VVN-901',
+    vesselVisitId: 901,
+    sourceVvnId: 901,
     dockId: 'DOCK-2',
     shiftDate: '2025-12-13T08:30:00.000Z',
     targetDay: '2025-12-13T00:00:00.000Z',
@@ -171,7 +165,6 @@ const planSeeds: PlanSeed[] = [
     ],
     tasks: [
       {
-        id: '1c08cfa8-ef08-4d4f-8c31-3b12450f410c',
         type: 'UNLOAD',
         craneId: 'CRANE-4',
         storageAreaId: 'YARD-D',
@@ -179,7 +172,6 @@ const planSeeds: PlanSeed[] = [
         endTime: '2025-12-13T13:00:00.000Z',
       },
       {
-        id: 'b3d28fc6-91ab-4c94-9160-1b4601ff0436',
         type: 'LOAD',
         craneId: 'CRANE-4',
         storageAreaId: 'YARD-D',
@@ -240,19 +232,16 @@ export class SeedOperationPlans1734304000000 implements MigrationInterface {
       );
 
       for (const task of plan.tasks) {
-        const taskId = task.id ?? randomUUID();
         await queryRunner.query(
           `INSERT INTO operation_plan_tasks (
-            id,
             operation_plan_id,
             type,
             crane_id,
             storage_area_id,
             start_time,
             end_time
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
           [
-            taskId,
             plan.id,
             task.type,
             task.craneId ?? null,

@@ -21,7 +21,7 @@ export class ComplementaryTaskService {
     return this.repo.find({ order: { createdAt: 'DESC' } });
   }
 
-  async findOne(id: string): Promise<ComplementaryTaskEntity> {
+  async findOne(id: number): Promise<ComplementaryTaskEntity> {
     const task = await this.repo.findOne({ where: { id } });
     if (!task) {
       throw new NotFoundException(`Complementary task ${id} not found`);
@@ -52,7 +52,7 @@ export class ComplementaryTaskService {
   }
 
   async updateTask(
-    id: string,
+    id: number,
     dto: UpdateComplementaryTaskDto,
   ): Promise<ComplementaryTaskEntity> {
     const existing = await this.findOne(id);
@@ -72,13 +72,13 @@ export class ComplementaryTaskService {
     return this.repo.save(merged);
   }
 
-  async remove(id: string): Promise<ComplementaryTaskEntity> {
+  async remove(id: number): Promise<ComplementaryTaskEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;
   }
 
-  private async ensureOperationPlan(operationPlanId: string): Promise<void> {
+  private async ensureOperationPlan(operationPlanId: number): Promise<void> {
     const exists = await this.planRepo.exist({ where: { id: operationPlanId } });
     if (!exists) {
       throw new NotFoundException(`Operation plan ${operationPlanId} not found`);

@@ -22,11 +22,18 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'operation_plans',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
           { name: 'name', type: 'text', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
-          { name: 'vesselVisitId', type: 'text', isNullable: true },
-          { name: 'sourceVvnId', type: 'text', isNullable: true },
+          { name: 'vesselVisitId', type: 'integer', isNullable: true },
+          { name: 'sourceVvnId', type: 'integer', isNullable: true },
           { name: 'shiftDate', type: dateTimeType, isNullable: true },
           { name: 'targetDay', type: dateTimeType, isNullable: true },
           { name: 'algorithmUsed', type: 'text', isNullable: true },
@@ -42,7 +49,14 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'incident_types',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
           { name: 'name', type: 'text', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
           { name: 'severity', type: 'text', isNullable: false },
@@ -55,15 +69,22 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'incidents',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
-          { name: 'type_id', type: 'varchar', isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
+          { name: 'type_id', type: 'integer', isNullable: false },
           { name: 'title', type: 'text', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
           { name: 'status', type: 'text', isNullable: false },
           { name: 'severity', type: 'text', isNullable: false },
           { name: 'occurredAt', type: dateTimeType, isNullable: false },
           { name: 'resolvedAt', type: dateTimeType, isNullable: true },
-          { name: 'operation_plan_id', type: 'varchar', isNullable: true },
+          { name: 'operation_plan_id', type: 'integer', isNullable: true },
           { name: 'createdAt', type: dateTimeType, default: timestampDefault, isNullable: false },
         ],
       }),
@@ -100,7 +121,14 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'complementary_task_categories',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
           { name: 'name', type: 'text', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
           { name: 'createdAt', type: dateTimeType, default: timestampDefault, isNullable: false },
@@ -112,11 +140,18 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'complementary_tasks',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
           { name: 'title', type: 'text', isNullable: false },
           { name: 'description', type: 'text', isNullable: true },
-          { name: 'category_id', type: 'varchar', isNullable: true },
-          { name: 'operation_plan_id', type: 'varchar', isNullable: true },
+          { name: 'category_id', type: 'integer', isNullable: true },
+          { name: 'operation_plan_id', type: 'integer', isNullable: true },
           { name: 'assignee_id', type: 'text', isNullable: true },
           { name: 'due_date', type: dateTimeType, isNullable: true },
           { name: 'status', type: 'text', isNullable: false },
@@ -156,10 +191,17 @@ export class InitOemPersistence1733790000000 implements MigrationInterface {
       new Table({
         name: 'vessel_visit_executions',
         columns: [
-          { name: 'id', type: 'varchar', isPrimary: true, isNullable: false },
+          {
+            name: 'id',
+            type: 'integer',
+            isPrimary: true,
+            isNullable: false,
+            isGenerated: true,
+            generationStrategy: 'increment',
+          },
           { name: 'vesselName', type: 'text', isNullable: false },
           { name: 'voyageNumber', type: 'text', isNullable: true },
-          { name: 'operation_plan_id', type: 'varchar', isNullable: true },
+          { name: 'operation_plan_id', type: 'integer', isNullable: true },
           { name: 'eta', type: dateTimeType, isNullable: true },
           { name: 'etd', type: dateTimeType, isNullable: true },
           { name: 'status', type: 'text', isNullable: false },

@@ -1,7 +1,7 @@
 [
   {
     "context": ["/api/oem", "/api/OEM"],
-    "target": "https://localhost:3000",
+    "target": "http://localhost:3000",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
@@ -15,7 +15,7 @@
   },
   {
     "context": ["/api", "/authtest", "/admin"],
-    "target": "http://localhost:7167",
+     "target": "https://localhost:7167",
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"

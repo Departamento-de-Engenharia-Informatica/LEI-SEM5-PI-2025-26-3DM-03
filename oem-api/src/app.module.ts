@@ -8,9 +8,10 @@ import { OemModule } from './oem/oem.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: process.env.DATABASE_PATH || 'oem.db',
+      database: process.env.DATABASE_PATH || 'port.db',
       autoLoadEntities: true,
-      synchronize: true, // ok for dev; disable in prod and use migrations
+      synchronize: true,
+      logging: ['error', 'schema', 'warn', 'migration'],
     }),
     OemModule,
   ],

@@ -1,4 +1,5 @@
 export * from './operation-plan.service';
+export * from './missing-operation-plans.service';
 export * from './vessel-visit-execution.service';
 export * from './incident.service';
 export * from './incident-type.service';

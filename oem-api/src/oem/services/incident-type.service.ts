@@ -16,7 +16,7 @@ export class IncidentTypeService {
     return this.repo.find({ order: { name: 'ASC' } });
   }
 
-  async findOne(id: string): Promise<IncidentTypeEntity> {
+  async findOne(id: number): Promise<IncidentTypeEntity> {
     const type = await this.repo.findOne({ where: { id } });
     if (!type) {
       throw new NotFoundException(`Incident type ${id} not found`);
@@ -33,13 +33,13 @@ export class IncidentTypeService {
     return this.repo.save(entity);
   }
 
-  async updateType(id: string, dto: UpdateIncidentTypeDto): Promise<IncidentTypeEntity> {
+  async updateType(id: number, dto: UpdateIncidentTypeDto): Promise<IncidentTypeEntity> {
     const existing = await this.findOne(id);
     const merged = this.repo.merge(existing, dto);
     return this.repo.save(merged);
   }
 
-  async remove(id: string): Promise<IncidentTypeEntity> {
+  async remove(id: number): Promise<IncidentTypeEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;

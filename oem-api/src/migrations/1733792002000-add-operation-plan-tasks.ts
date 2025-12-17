@@ -12,8 +12,6 @@ export class AddOperationPlanTasks1733792002000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const driverType = queryRunner.connection.driver.options.type;
     const dateTimeType = driverType === 'sqlite' ? 'datetime' : 'timestamp';
-    const primaryType = driverType === 'sqlite' ? 'varchar' : 'uuid';
-    const fkType = driverType === 'sqlite' ? 'varchar' : 'uuid';
     const timestampDefault = driverType === 'sqlite' ? "(datetime('now'))" : 'CURRENT_TIMESTAMP';
 
     await queryRunner.addColumns('operation_plans', [
@@ -28,16 +26,16 @@ export class AddOperationPlanTasks1733792002000 implements MigrationInterface {
         columns: [
           {
             name: 'id',
-            type: primaryType,
+            type: 'integer',
             isPrimary: true,
             isNullable: false,
-            length: driverType === 'sqlite' ? '36' : undefined,
+            isGenerated: true,
+            generationStrategy: 'increment',
           },
           {
             name: 'operation_plan_id',
-            type: fkType,
+            type: 'integer',
             isNullable: false,
-            length: driverType === 'sqlite' ? '36' : undefined,
           },
           { name: 'type', type: 'text', isNullable: false },
           { name: 'crane_id', type: 'text', isNullable: true },

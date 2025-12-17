@@ -32,6 +32,7 @@ import { OemVvn } from './vvn/oem-vvn.entity';
 import { OemVvnService } from './vvn/oem-vvn.service';
 import { OperationPlanTaskEntity } from './persistence/operation-plan-task.entity';
 import { OperationPlanChangeLogEntity } from './persistence/operation-plan-change-log.entity';
+import { MissingOperationPlansService } from './services';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { OperationPlanChangeLogEntity } from './persistence/operation-plan-chang
   providers: [
     OemService,
     OperationPlanService,
+    MissingOperationPlansService,
     VesselVisitExecutionService,
     IncidentService,
     IncidentTypeService,

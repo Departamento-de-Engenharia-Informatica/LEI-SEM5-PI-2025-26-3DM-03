@@ -21,7 +21,7 @@ export class IncidentService {
     return this.repo.find({ order: { occurredAt: 'DESC' } });
   }
 
-  async findOne(id: string): Promise<IncidentEntity> {
+  async findOne(id: number): Promise<IncidentEntity> {
     const incident = await this.repo.findOne({ where: { id } });
     if (!incident) {
       throw new NotFoundException(`Incident ${id} not found`);
@@ -49,7 +49,7 @@ export class IncidentService {
     return this.repo.save(entity);
   }
 
-  async updateIncident(id: string, dto: UpdateIncidentDto): Promise<IncidentEntity> {
+  async updateIncident(id: number, dto: UpdateIncidentDto): Promise<IncidentEntity> {
     const existing = await this.findOne(id);
 
     if (dto.typeId) {
@@ -68,13 +68,13 @@ export class IncidentService {
     return this.repo.save(merged);
   }
 
-  async remove(id: string): Promise<IncidentEntity> {
+  async remove(id: number): Promise<IncidentEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;
   }
 
-  private async ensureOperationPlan(operationPlanId: string): Promise<void> {
+  private async ensureOperationPlan(operationPlanId: number): Promise<void> {
     const exists = await this.planRepo.exist({ where: { id: operationPlanId } });
     if (!exists) {
       throw new NotFoundException(`Operation plan ${operationPlanId} not found`);

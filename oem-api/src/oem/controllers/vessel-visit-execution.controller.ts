@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -30,7 +30,7 @@ export class VesselVisitExecutionController {
   @Roles('oem:vessel:read')
   @ApiOperation({ summary: 'Get vessel visit execution by id' })
   @ApiOkResponse({ type: VesselVisitExecutionEntity })
-  findOne(@Param('id') id: string): Promise<VesselVisitExecutionEntity> {
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<VesselVisitExecutionEntity> {
     return this.service.findOne(id);
   }
 
@@ -49,7 +49,7 @@ export class VesselVisitExecutionController {
   @ApiOperation({ summary: 'Update vessel visit execution' })
   @ApiOkResponse({ type: VesselVisitExecutionEntity })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateVesselVisitExecutionDto,
   ): Promise<VesselVisitExecutionEntity> {
     return this.service.updateExecution(id, payload);
@@ -59,7 +59,7 @@ export class VesselVisitExecutionController {
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Delete vessel visit execution' })
   @ApiOkResponse({ type: VesselVisitExecutionEntity })
-  remove(@Param('id') id: string): Promise<VesselVisitExecutionEntity> {
+  remove(@Param('id', ParseIntPipe) id: number): Promise<VesselVisitExecutionEntity> {
     return this.service.remove(id);
   }
 }

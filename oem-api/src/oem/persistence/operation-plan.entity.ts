@@ -22,8 +22,8 @@ export type PlanOperation = {
 
 @Entity({ name: 'operation_plans' })
 export class OperationPlanEntity {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @Column({ type: 'text' })
   name!: string;
@@ -31,11 +31,11 @@ export class OperationPlanEntity {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
-  @Column({ type: 'text', nullable: true })
-  vesselVisitId?: string;
+  @Column({ type: 'integer', nullable: true })
+  vesselVisitId?: number;
 
-  @Column({ type: 'text', nullable: true })
-  sourceVvnId?: string;
+  @Column({ type: 'integer', nullable: true })
+  sourceVvnId?: number;
 
   @Column({ name: 'dock_id', type: 'text', nullable: true })
   dockId?: string;

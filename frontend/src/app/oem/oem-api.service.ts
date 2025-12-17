@@ -3,12 +3,12 @@ import { Injectable } from '@angular/core';
 import { catchError, Observable, of } from 'rxjs';
 
 export interface OperationPlanDto {
-  id: string;
+  id: number;
   name: string;
   description?: string | null;
   status: string;
-  vesselVisitId?: string | null;
-  sourceVvnId?: string | null;
+  vesselVisitId?: number | null;
+  sourceVvnId?: number | null;
   dockId?: string | null;
   plannedStartTime?: string | null;
   plannedEndTime?: string | null;
@@ -33,7 +33,7 @@ export interface OperationTaskPreviewDto {
 }
 
 export interface OperationPlanPreviewDto {
-  vvnId: string;
+  vvnId: number;
   vesselName: string;
   dockId: string;
   plannedStartTime: string;
@@ -44,7 +44,7 @@ export interface OperationPlanPreviewDto {
 }
 
 export interface OperationPlanTaskDto {
-  id?: string;
+  id?: number;
   type: string;
   craneId?: string | null;
   storageAreaId?: string | null;
@@ -92,25 +92,25 @@ export class OemApiService {
     return this.http.get<OperationPlanDto[]>(this.proxyBase, opts);
   }
 
-  previewOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
+  previewOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: number[]) {
     const payload = vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm };
     const url = `${this.proxyBase}/preview`;
     return this.http.post<OperationPlanPreviewDto[]>(url, payload, { withCredentials: true });
   }
 
-  generateOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: string[]) {
+  generateOperationPlans(date: string, algorithm = 'single-crane', vvnIds?: number[]) {
     const payload = vvnIds && vvnIds.length > 0 ? { date, algorithm, vvnIds } : { date, algorithm };
     const url = `${this.proxyBase}/generate`;
     return this.http.post<OperationPlanDto[]>(url, payload, { withCredentials: true });
   }
 
-  getOperationPlan(id: string) {
+  getOperationPlan(id: number) {
     const url = `${this.proxyBase}/${id}`;
     return this.http.get<OperationPlanDto>(url, { withCredentials: true });
   }
 
   updateOperationPlan(
-    id: string,
+    id: number,
     payload: { lastChangeReason: string } & Partial<OperationPlanDto>,
   ) {
     const url = `${this.proxyBase}/${id}`;

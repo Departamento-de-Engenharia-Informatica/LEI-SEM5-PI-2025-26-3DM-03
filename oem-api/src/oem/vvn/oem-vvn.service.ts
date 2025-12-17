@@ -64,7 +64,7 @@ export class OemVvnService {
 
   private mapTodoVvnToOem(dto: VesselVisitNotificationDto): OemVvn {
     const vvn = new OemVvn();
-    vvn.id = dto.id.toString();
+    vvn.id = Number(dto.id);
     vvn.vesselName = dto.vesselId;
     // Use ApprovedDockId if available; otherwise, group under a generic dock
     vvn.dockId = dto.approvedDockId != null ? String(dto.approvedDockId) : 'UNASSIGNED';
@@ -77,7 +77,7 @@ export class OemVvnService {
 
   private buildDevSeedForDay(date: string): OemVvn[] {
     const mk = (
-      id: string,
+      id: number,
       vesselName: string,
       dockId: string,
       etaTime: string,
@@ -97,20 +97,18 @@ export class OemVvnService {
 
     if (date === '2025-12-15') {
       return [
-        mk('11111111-1111-1111-1111-111111111111', 'Ever Demo', 'A', '08:00:00', '16:00:00', 120),
-        mk('22222222-2222-2222-2222-222222222222', 'MSC Example', 'B', '09:30:00', '14:00:00', 80),
-        mk('33333333-3333-3333-3333-333333333333', 'Hapag Mock', 'A', '13:00:00', '20:00:00', 150),
+        mk(1111, 'Ever Demo', 'A', '08:00:00', '16:00:00', 120),
+        mk(2222, 'MSC Example', 'B', '09:30:00', '14:00:00', 80),
+        mk(3333, 'Hapag Mock', 'A', '13:00:00', '20:00:00', 150),
       ];
     }
 
     if (date === '2025-12-16') {
-      return [
-        mk('44444444-4444-4444-4444-444444444444', 'CMA Sample', 'C', '06:30:00', '17:15:00', 95),
-      ];
+      return [mk(4444, 'CMA Sample', 'C', '06:30:00', '17:15:00', 95)];
     }
 
     // Generic demo seed for any other day: a single vessel at dock A.
-    return [mk('demo-vvn-1', 'Demo Vessel', 'A', '08:00:00', '18:00:00', 100)];
+    return [mk(9001, 'Demo Vessel', 'A', '08:00:00', '18:00:00', 100)];
   }
 
   private parseDayStart(date: string): Date {
