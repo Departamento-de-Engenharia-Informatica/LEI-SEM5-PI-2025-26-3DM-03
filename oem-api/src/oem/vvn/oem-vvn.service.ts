@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { HttpService } from '@nestjs/axios';
 import { Between, Repository } from 'typeorm';
@@ -32,11 +32,7 @@ export class OemVvnService {
 
     // 1. Try to fetch Approved VVNs from the main TodoApi service
     // Try configured URL, then HTTP 8080 (Kestrel http), then HTTPS 7167 (Kestrel https).
-    const candidates = [
-      this.todoApiBaseUrl,
-      'http://localhost:8080/api',
-      'https://localhost:7167/api',
-    ].filter((v, idx, arr) => arr.indexOf(v) === idx); // unique
+    const candidates = this.getTodoApiCandidates();
 
     for (const base of candidates) {
       const vvnList = await this.tryFetchFromTodoApi(base, start, end);
@@ -60,6 +56,31 @@ export class OemVvnService {
 
     // 3. Final fallback: hardcoded demo VVNs for academic purposes
     return this.buildDevSeedForDay(trimmed);
+  }
+
+  async getById(vvnId: string | number): Promise<OemVvn> {
+    const normalizedId = String(vvnId).trim();
+    if (!normalizedId) {
+      throw new BadRequestException('vvnId must be provided.');
+    }
+
+    const candidates = this.getTodoApiCandidates();
+    for (const base of candidates) {
+      const remote = await this.tryFetchSingleFromTodoApi(base, normalizedId);
+      if (remote) {
+        return remote;
+      }
+    }
+
+    const numericId = Number(normalizedId);
+    if (!Number.isNaN(numericId)) {
+      const existing = await this.repo.findOne({ where: { id: numericId } });
+      if (existing) {
+        return existing;
+      }
+    }
+
+    throw new NotFoundException(`Vessel visit notification ${normalizedId} not found.`);
   }
 
   private mapTodoVvnToOem(dto: VesselVisitNotificationDto): OemVvn {
@@ -127,6 +148,14 @@ export class OemVvnService {
     return candidate;
   }
 
+  private getTodoApiCandidates(): string[] {
+    return [
+      this.todoApiBaseUrl,
+      'http://localhost:8080/api',
+      'https://localhost:7167/api',
+    ].filter((v, idx, arr) => arr.indexOf(v) === idx);
+  }
+
   private async tryFetchFromTodoApi(base: string, dayStart: Date, dayEnd: Date): Promise<OemVvn[]> {
     const url = `${base.replace(/\/+$/, '')}/VesselVisitNotifications`;
     try {
@@ -173,6 +202,30 @@ export class OemVvnService {
     const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
     const normalized = hasTz ? value : `${value}Z`;
     return new Date(normalized);
+  }
+
+  private async tryFetchSingleFromTodoApi(base: string, vvnId: string): Promise<OemVvn | null> {
+    const url = `${base.replace(/\/+$/, '')}/VesselVisitNotifications/${encodeURIComponent(vvnId)}`;
+    try {
+      const response = await firstValueFrom(
+        this.http.get<VesselVisitNotificationDto>(url, {
+          httpsAgent: url.startsWith('https://')
+            ? new https.Agent({ rejectUnauthorized: false })
+            : undefined,
+          timeout: 2_000,
+        }),
+      );
+
+      if (!response?.data) {
+        return null;
+      }
+
+      return this.mapTodoVvnToOem(response.data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Failed to fetch VVN ${vvnId} from ${url}: ${msg}`);
+      return null;
+    }
   }
 }
 

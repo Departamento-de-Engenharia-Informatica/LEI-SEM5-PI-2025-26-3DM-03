@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -10,6 +10,8 @@ import { IamAuthGuard, Roles, RolesGuard } from '../auth';
 import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '../dto';
 import { VesselVisitExecutionService } from '../services';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
+import { Request } from 'express';
+import { AuthenticatedUser } from '../auth/types';
 
 @ApiTags('Vessel Visit Executions')
 @ApiBearerAuth()
@@ -35,13 +37,15 @@ export class VesselVisitExecutionController {
   }
 
   @Post()
-  @Roles('oem:vessel:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Create vessel visit execution' })
   @ApiCreatedResponse({ type: VesselVisitExecutionEntity })
   create(
     @Body() payload: CreateVesselVisitExecutionDto,
+    @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<VesselVisitExecutionEntity> {
-    return this.service.createExecution(payload);
+    const createdBy = req.user?.userId ?? req.user?.email ?? 'unknown';
+    return this.service.createExecution(payload, createdBy);
   }
 
   @Patch(':id')
