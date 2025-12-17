@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using TodoApi.Domain.Repositories;
 using TodoApi.Models.Docks;
 using TodoApi.Models.StorageAreas;
@@ -17,32 +18,35 @@ namespace TodoApi.Application.Services.Visualization
         private readonly IVesselVisitNotificationRepository _notificationRepository;
         private readonly IVesselRepository _vesselRepository;
         private readonly IResourceRepository _resourceRepository;
+        private readonly ILogger<PortLayoutService>? _logger;
 
         public PortLayoutService(
             IDockRepository dockRepository,
             IStorageAreaRepository storageAreaRepository,
             IVesselVisitNotificationRepository notificationRepository,
             IVesselRepository vesselRepository,
-            IResourceRepository resourceRepository)
+            IResourceRepository resourceRepository,
+            ILogger<PortLayoutService>? logger = null)
         {
             _dockRepository = dockRepository;
             _storageAreaRepository = storageAreaRepository;
             _notificationRepository = notificationRepository;
             _vesselRepository = vesselRepository;
             _resourceRepository = resourceRepository;
+            _logger = logger;
         }
 
         public async Task<PortLayoutDto> BuildLayoutAsync()
         {
             var docks = (await _dockRepository.GetAllAsync()).ToList();
-            var storageAreas = (await _storageAreaRepository.GetAllAsync()).ToList();
+            var storageAreas = await SafeGetStorageAreasAsync();
 
             var dockLayouts = BuildDockLayouts(docks);
             var yardLayouts = BuildYardLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Yard), dockLayouts);
             var warehouseLayouts = BuildWarehouseLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Warehouse), dockLayouts, yardLayouts);
-            var resources = await _resourceRepository.GetAllAsync();
+            var resources = await SafeGetResourcesAsync();
             var craneLayouts = BuildCraneLayouts(resources, dockLayouts);
-            var activeVessels = await BuildActiveVesselsAsync(dockLayouts);
+            var activeVessels = await SafeBuildActiveVesselsAsync(dockLayouts);
 
             double docksSpan = dockLayouts.Count == 0
                 ? 2000
@@ -504,5 +508,47 @@ namespace TodoApi.Application.Services.Visualization
                 }
             };
         }
+
+        private async Task<List<StorageArea>> SafeGetStorageAreasAsync()
+        {
+            try
+            {
+                var areas = await _storageAreaRepository.GetAllAsync();
+                return areas?.ToList() ?? new List<StorageArea>();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter storage areas. Layout será gerado sem áreas de apoio.");
+                return new List<StorageArea>();
+            }
+        }
+
+        private async Task<List<Resource>> SafeGetResourcesAsync()
+        {
+            try
+            {
+                var resources = await _resourceRepository.GetAllAsync();
+                return resources?.ToList() ?? new List<Resource>();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter recursos. Layout será gerado sem gruas dinâmicas.");
+                return new List<Resource>();
+            }
+        }
+
+        private async Task<List<ActiveDockedVesselDto>> SafeBuildActiveVesselsAsync(IReadOnlyList<DockLayoutDto> dockLayouts)
+        {
+            try
+            {
+                return await BuildActiveVesselsAsync(dockLayouts);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter Vessel Visit Notifications. Layout será gerado sem navios ativos.");
+                return new List<ActiveDockedVesselDto>();
+            }
+        }
+
     }
 }
