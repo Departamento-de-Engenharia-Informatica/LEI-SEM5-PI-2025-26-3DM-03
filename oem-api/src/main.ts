@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
+import { OperationPlanService } from './oem/services';
 import { readFileSync } from 'fs';
 
 const logger = new Logger('Bootstrap');
@@ -50,6 +51,13 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  const planService = app.get(OperationPlanService);
+  try {
+    await planService.ensureDevSeed();
+  } catch (error) {
+    logger.warn(`Dev seed skipped: ${(error as Error).message}`);
+  }
 
   await app.listen(process.env.PORT ?? 3000);
   logger.log(`Server listening on ${httpsOptions ? 'https' : 'http'}://localhost:${process.env.PORT ?? 3000}`);

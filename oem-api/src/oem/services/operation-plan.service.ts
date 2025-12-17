@@ -9,7 +9,13 @@ import {
   OperationPlanTaskDto,
   UpdateOperationPlanDto,
 } from '../dto';
-import { OperationPlanPreviewDto, OperationTaskPreviewDto } from '../operation-plans/dtos';
+import {
+  OperationPlanPreviewDto,
+  OperationTaskPreviewDto,
+  ResourceAllocationQueryDto,
+  ResourceAllocationResourceType,
+  ResourceAllocationSummaryDto,
+} from '../operation-plans/dtos';
 import { OperationPlanStatus } from '../domain';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
 import { ExternalClientsService, VesselVisitNotification } from './external-clients.service';
@@ -376,6 +382,276 @@ export class OperationPlanService {
     return this.persistPreviews(previews, date, algorithm, createdBy, start);
   }
 
+  async getResourceAllocationSummary(
+    query: ResourceAllocationQueryDto,
+  ): Promise<ResourceAllocationSummaryDto[]> {
+    const { start, end } = this.getPeriodRange(query.fromDate, query.toDate);
+    const resourceId = query.resourceId?.trim() ? query.resourceId.trim() : undefined;
+
+    switch (query.resourceType) {
+      case 'dock':
+        return this.aggregateDockAllocations(start, end, resourceId);
+      case 'staff':
+        return this.aggregateStaffAllocations(start, end, resourceId);
+      case 'crane':
+      default:
+        return this.aggregateCraneAllocations(start, end, resourceId);
+    }
+  }
+
+  async ensureDevSeed(): Promise<void> {
+    const env = process.env.NODE_ENV?.toLowerCase();
+    if (env === 'production') {
+      return;
+    }
+
+    const seedMarker = 'dev-seed';
+    const existingSeeds = await this.repo.find({ where: { createdBy: seedMarker } });
+    if (existingSeeds.length >= 2) {
+      return;
+    }
+
+    const existingNames = new Set(existingSeeds.map((plan) => plan.name));
+
+    const seedFactories: Array<() => Partial<OperationPlanEntity>> = [
+      () => ({
+        name: 'Dev Seed - Sunrise Alpha',
+        description: 'Demo plan generated for developer testing (crane alpha).',
+        vesselVisitId: 9001,
+        sourceVvnId: 9001,
+        dockId: 'DCK-A1',
+        plannedStartTime: new Date('2025-12-02T07:00:00Z'),
+        plannedEndTime: new Date('2025-12-02T12:30:00Z'),
+        shiftDate: new Date('2025-12-02T07:00:00Z'),
+        targetDay: new Date('2025-12-02T00:00:00Z'),
+        algorithmUsed: 'single-crane',
+        status: OperationPlanStatus.Planned,
+        createdBy: seedMarker,
+        operations: [
+          {
+            resourceId: 'CRANE-ALPHA',
+            resourceType: 'crane',
+            operationType: 'unload',
+            startTime: new Date('2025-12-02T07:00:00Z'),
+            endTime: new Date('2025-12-02T09:30:00Z'),
+          },
+          {
+            resourceId: 'DOCK-A1',
+            resourceType: 'dock',
+            operationType: 'other',
+            startTime: new Date('2025-12-02T07:00:00Z'),
+            endTime: new Date('2025-12-02T12:30:00Z'),
+          },
+        ],
+        tasks: [
+          this.taskRepo.create({
+            type: 'UNLOAD',
+            craneId: 'CRANE-ALPHA',
+            storageAreaId: 'YARD-A',
+            staffIds: ['crew-101', 'crew-102'],
+            startTime: new Date('2025-12-02T07:00:00Z'),
+            endTime: new Date('2025-12-02T09:30:00Z'),
+          }),
+          this.taskRepo.create({
+            type: 'LOAD',
+            craneId: 'CRANE-ALPHA',
+            storageAreaId: 'YARD-A',
+            staffIds: ['crew-102', 'crew-103'],
+            startTime: new Date('2025-12-02T09:30:00Z'),
+            endTime: new Date('2025-12-02T12:30:00Z'),
+          }),
+        ],
+      }),
+      () => ({
+        name: 'Dev Seed - Harbor Bravo',
+        description: 'Demo plan generated for developer testing (crane bravo).',
+        vesselVisitId: 9002,
+        sourceVvnId: 9002,
+        dockId: 'DCK-B2',
+        plannedStartTime: new Date('2025-12-05T06:30:00Z'),
+        plannedEndTime: new Date('2025-12-05T11:45:00Z'),
+        shiftDate: new Date('2025-12-05T06:30:00Z'),
+        targetDay: new Date('2025-12-05T00:00:00Z'),
+        algorithmUsed: 'multi-crane',
+        status: OperationPlanStatus.Planned,
+        createdBy: seedMarker,
+        operations: [
+          {
+            resourceId: 'CRANE-BRAVO',
+            resourceType: 'crane',
+            operationType: 'unload',
+            startTime: new Date('2025-12-05T06:30:00Z'),
+            endTime: new Date('2025-12-05T09:00:00Z'),
+          },
+          {
+            resourceId: 'DOCK-B2',
+            resourceType: 'dock',
+            operationType: 'other',
+            startTime: new Date('2025-12-05T06:30:00Z'),
+            endTime: new Date('2025-12-05T11:45:00Z'),
+          },
+        ],
+        tasks: [
+          this.taskRepo.create({
+            type: 'UNLOAD',
+            craneId: 'CRANE-BRAVO',
+            storageAreaId: 'YARD-B',
+            staffIds: ['crew-201', 'crew-202'],
+            startTime: new Date('2025-12-05T06:30:00Z'),
+            endTime: new Date('2025-12-05T09:00:00Z'),
+          }),
+          this.taskRepo.create({
+            type: 'LOAD',
+            craneId: 'CRANE-BRAVO',
+            storageAreaId: 'YARD-B',
+            staffIds: ['crew-203', 'crew-202'],
+            startTime: new Date('2025-12-05T09:15:00Z'),
+            endTime: new Date('2025-12-05T11:45:00Z'),
+          }),
+        ],
+      }),
+    ];
+
+    const toPersist: OperationPlanEntity[] = [];
+
+    for (const factory of seedFactories) {
+      const candidate = factory();
+      if (!candidate.name || existingNames.has(candidate.name)) {
+        continue;
+      }
+      toPersist.push(this.repo.create(candidate));
+    }
+
+    if (!toPersist.length) {
+      return;
+    }
+
+    await this.repo.save(toPersist);
+  }
+
+  private async aggregateCraneAllocations(
+    rangeStart: Date,
+    rangeEnd: Date,
+    resourceId?: string,
+  ): Promise<ResourceAllocationSummaryDto[]> {
+    const tasks = await this.taskRepo.find({
+      where: {
+        startTime: LessThanOrEqual(rangeEnd),
+        endTime: MoreThanOrEqual(rangeStart),
+      },
+    });
+
+    const totals = new Map<string, { minutes: number; operations: number }>();
+
+    for (const task of tasks) {
+      if (!task.craneId) {
+        continue;
+      }
+      if (resourceId && task.craneId !== resourceId) {
+        continue;
+      }
+
+      const minutes = this.computeOverlapMinutes(task.startTime, task.endTime, rangeStart, rangeEnd);
+      if (minutes <= 0) {
+        continue;
+      }
+
+      const current = totals.get(task.craneId) ?? { minutes: 0, operations: 0 };
+      current.minutes += minutes;
+      current.operations += 1;
+      totals.set(task.craneId, current);
+    }
+
+    return this.toSummaryDtos('crane', totals);
+  }
+
+  private async aggregateStaffAllocations(
+    rangeStart: Date,
+    rangeEnd: Date,
+    resourceId?: string,
+  ): Promise<ResourceAllocationSummaryDto[]> {
+    const tasks = await this.taskRepo.find({
+      where: {
+        startTime: LessThanOrEqual(rangeEnd),
+        endTime: MoreThanOrEqual(rangeStart),
+      },
+    });
+
+    const totals = new Map<string, { minutes: number; operations: number }>();
+
+    for (const task of tasks) {
+      if (!task.staffIds?.length) {
+        continue;
+      }
+
+      const minutes = this.computeOverlapMinutes(task.startTime, task.endTime, rangeStart, rangeEnd);
+      if (minutes <= 0) {
+        continue;
+      }
+
+      for (const staffId of task.staffIds) {
+        if (!staffId) {
+          continue;
+        }
+        if (resourceId && staffId !== resourceId) {
+          continue;
+        }
+
+        const current = totals.get(staffId) ?? { minutes: 0, operations: 0 };
+        current.minutes += minutes;
+        current.operations += 1;
+        totals.set(staffId, current);
+      }
+    }
+
+    return this.toSummaryDtos('staff', totals);
+  }
+
+  private async aggregateDockAllocations(
+    rangeStart: Date,
+    rangeEnd: Date,
+    resourceId?: string,
+  ): Promise<ResourceAllocationSummaryDto[]> {
+    const qb = this.repo
+      .createQueryBuilder('plan')
+      .leftJoinAndSelect('plan.tasks', 'task')
+      .where('plan.dockId IS NOT NULL')
+      .andWhere('plan.plannedStartTime < :rangeEnd', { rangeEnd })
+      .andWhere('(plan.plannedEndTime IS NULL OR plan.plannedEndTime > :rangeStart)', {
+        rangeStart,
+      });
+
+    if (resourceId) {
+      qb.andWhere('plan.dockId = :dockId', { dockId: resourceId });
+    }
+
+    const plans = await qb.getMany();
+
+    const totals = new Map<string, { minutes: number; operations: number }>();
+
+    for (const plan of plans) {
+      if (!plan.dockId) {
+        continue;
+      }
+      if (resourceId && plan.dockId !== resourceId) {
+        continue;
+      }
+
+      const { start, end } = this.computePlanTimeline(plan);
+      const minutes = this.computeOverlapMinutes(start, end, rangeStart, rangeEnd);
+      if (minutes <= 0) {
+        continue;
+      }
+
+      const current = totals.get(plan.dockId) ?? { minutes: 0, operations: 0 };
+      current.minutes += minutes;
+      current.operations += 1;
+      totals.set(plan.dockId, current);
+    }
+
+    return this.toSummaryDtos('dock', totals);
+  }
+
   private validateTasks(tasks?: (OperationPlanTaskDto | OperationPlanTaskEntity)[]): string[] {
     if (!tasks || tasks.length === 0) {
       return [];
@@ -391,6 +667,107 @@ export class OperationPlanService {
       }
     });
     return errors;
+  }
+
+  private computePlanTimeline(plan: OperationPlanEntity): { start: Date | null; end: Date | null } {
+    const planStart = this.toDate(plan.plannedStartTime);
+    const planEnd = this.toDate(plan.plannedEndTime);
+
+    let earliest = planStart;
+    let latest = planEnd;
+
+    if (plan.tasks?.length) {
+      for (const task of plan.tasks) {
+        const taskStart = this.toDate(task.startTime);
+        const taskEnd = this.toDate(task.endTime);
+        if (taskStart && (!earliest || taskStart < earliest)) {
+          earliest = taskStart;
+        }
+        if (taskEnd && (!latest || taskEnd > latest)) {
+          latest = taskEnd;
+        }
+      }
+    }
+
+    return {
+      start: earliest ?? null,
+      end: latest ?? null,
+    };
+  }
+
+  private toSummaryDtos(
+    resourceType: ResourceAllocationResourceType,
+    totals: Map<string, { minutes: number; operations: number }>,
+  ): ResourceAllocationSummaryDto[] {
+    const summaries: ResourceAllocationSummaryDto[] = [];
+
+    for (const [resourceId, stats] of totals) {
+      const minutes = this.roundMinutes(stats.minutes);
+      if (minutes <= 0) {
+        continue;
+      }
+
+      summaries.push({
+        resourceType,
+        resourceId,
+        totalAllocatedMinutes: minutes,
+        totalAllocatedHours: this.roundMinutes(minutes / 60),
+        operationCount: stats.operations,
+      });
+    }
+
+    summaries.sort((a, b) => {
+      const diff = b.totalAllocatedMinutes - a.totalAllocatedMinutes;
+      if (Math.abs(diff) > 0.0001) {
+        return diff;
+      }
+      return a.resourceId.localeCompare(b.resourceId);
+    });
+
+    return summaries;
+  }
+
+  private roundMinutes(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  private computeOverlapMinutes(
+    rawStart: Date | string | null | undefined,
+    rawEnd: Date | string | null | undefined,
+    rangeStart: Date,
+    rangeEnd: Date,
+  ): number {
+    const start = this.toDate(rawStart);
+    const end = this.toDate(rawEnd);
+
+    if (!start || !end) {
+      return 0;
+    }
+
+    if (end.getTime() <= start.getTime()) {
+      return 0;
+    }
+
+    const clampedStart = start.getTime() < rangeStart.getTime() ? rangeStart : start;
+    const clampedEnd = end.getTime() > rangeEnd.getTime() ? rangeEnd : end;
+    const diffMs = clampedEnd.getTime() - clampedStart.getTime();
+
+    if (diffMs <= 0) {
+      return 0;
+    }
+
+    return diffMs / 60_000;
+  }
+
+  private toDate(value?: Date | string | null): Date | null {
+    if (!value) {
+      return null;
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date;
   }
 
   private async detectInconsistencies(
@@ -673,6 +1050,21 @@ export class OperationPlanService {
         },
       ],
     };
+  }
+
+  private getPeriodRange(from: Date, to: Date): { start: Date; end: Date } {
+    const start = this.toDate(from);
+    const end = this.toDate(to);
+
+    if (!start || !end) {
+      throw new BadRequestException('Invalid ISO-8601 date supplied for "from" or "to".');
+    }
+
+    if (start.getTime() >= end.getTime()) {
+      throw new BadRequestException('"to" must be greater than "from".');
+    }
+
+    return { start, end };
   }
 
   private getDayRange(date: string): { start: Date; end: Date } {

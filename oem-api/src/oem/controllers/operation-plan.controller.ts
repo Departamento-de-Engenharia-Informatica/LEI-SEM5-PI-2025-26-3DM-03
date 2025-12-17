@@ -25,6 +25,9 @@ import {
   OperationPlanUpdateResponseDto,
   MissingOperationPlanDto,
   RegenerateMissingOperationPlansRequestDto,
+  ResourceAllocationQueryDto,
+  ResourceAllocationSummaryDto,
+  resourceAllocationResourceTypes,
 } from '../operation-plans/dtos';
 
 @ApiTags('OEM/OperationPlans')
@@ -68,7 +71,7 @@ export class OperationPlanController {
     return this.service.findAll({ from, to, vesselVisitId: vesselVisitIdNum });
   }
 
-  @Get(':id')
+  @Get(':id(\\d+)')
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get operation plan by id' })
   @ApiOkResponse({ type: OperationPlanEntity })
@@ -132,6 +135,37 @@ export class OperationPlanController {
     @Body() payload: OperationPlanPreviewRequestDto,
   ): Promise<OperationPlanPreviewDto[]> {
     return this.service.generatePreviewForDay(payload.date, payload.algorithm, payload.vvnIds);
+  }
+
+  @Get('resource-allocation')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'Aggregate resource allocation for a given period' })
+  @ApiOkResponse({ type: ResourceAllocationSummaryDto, isArray: true })
+  @ApiQuery({
+    name: 'from',
+    required: true,
+    description: 'Inclusive ISO-8601 timestamp marking the start of the period',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: true,
+    description: 'Exclusive ISO-8601 timestamp marking the end of the period',
+  })
+  @ApiQuery({
+    name: 'resourceType',
+    required: true,
+    enum: resourceAllocationResourceTypes,
+    description: 'Resource category to aggregate (crane, dock, or staff)',
+  })
+  @ApiQuery({
+    name: 'resourceId',
+    required: false,
+    description: 'Optional resource identifier to narrow the results',
+  })
+  async getResourceAllocation(
+    @Query() query: ResourceAllocationQueryDto,
+  ): Promise<ResourceAllocationSummaryDto[]> {
+    return this.service.getResourceAllocationSummary(query);
   }
 
   @Get('missing')

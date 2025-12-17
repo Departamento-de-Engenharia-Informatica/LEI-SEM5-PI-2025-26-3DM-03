@@ -5,3 +5,4 @@ export * from './generate-operation-plans-request.dto';
 export * from './operation-plan-update-response.dto';
 export * from './missing-operation-plan.dto';
 export * from './regenerate-missing-operation-plans-request.dto';
+export * from './resource-allocation.dto';
