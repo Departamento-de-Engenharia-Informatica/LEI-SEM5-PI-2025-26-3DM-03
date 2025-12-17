@@ -1,19 +1,36 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '../dto';
+import { In, Repository } from 'typeorm';
+import {
+  CreateVesselVisitExecutionDto,
+  ExecutedOperationDto,
+  PlannedOperationWithExecutionDto,
+  UpdateVesselVisitExecutionDto,
+  UpsertExecutedOperationDto,
+} from '../dto';
 import { VesselExecutionStatus } from '../domain';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
 import { OemVvnService } from '../vvn/oem-vvn.service';
 import { VesselVisitExecutionAuditEntity } from '../persistence/vessel-visit-execution-audit.entity';
+import { OperationPlanEntity } from '../persistence/operation-plan.entity';
+import {
+  OperationExecutionStatus,
+  OperationPlanTaskEntity,
+} from '../persistence/operation-plan-task.entity';
+import { ExecutedOperationEntity } from '../persistence/executed-operation.entity';
+import { ExecutedOperationAuditEntity } from '../persistence/executed-operation-audit.entity';
 
 @Injectable()
 export class VesselVisitExecutionService {
   constructor(
     @InjectRepository(VesselVisitExecutionEntity)
     private readonly repo: Repository<VesselVisitExecutionEntity>,
-    @InjectRepository(VesselVisitExecutionAuditEntity)
-    private readonly auditRepo: Repository<VesselVisitExecutionAuditEntity>,
+    @InjectRepository(OperationPlanEntity)
+    private readonly planRepo: Repository<OperationPlanEntity>,
+    @InjectRepository(OperationPlanTaskEntity)
+    private readonly taskRepo: Repository<OperationPlanTaskEntity>,
+    @InjectRepository(ExecutedOperationEntity)
+    private readonly executedRepo: Repository<ExecutedOperationEntity>,
     private readonly vvnService: OemVvnService,
   ) {}
 
@@ -130,6 +147,193 @@ export class VesselVisitExecutionService {
     });
   }
 
+  async getPlannedOperations(
+    vveId: number,
+  ): Promise<PlannedOperationWithExecutionDto[]> {
+    const vve = await this.findOne(vveId);
+    const plan = await this.resolveOperationPlan(vve);
+
+    const tasks = await this.taskRepo.find({
+      where: { operationPlanId: plan.id },
+      order: { startTime: 'ASC' },
+    });
+
+    return tasks.map((task) => ({
+      id: task.id,
+      type: task.type,
+      craneId: task.craneId ?? null,
+      storageAreaId: task.storageAreaId ?? null,
+      staffIds: task.staffIds ?? null,
+      plannedStartTime: task.startTime.toISOString(),
+      plannedEndTime: task.endTime.toISOString(),
+      executionStatus: task.executionStatus ?? OperationExecutionStatus.Planned,
+      actualStartTime: task.actualStartTime ? task.actualStartTime.toISOString() : null,
+      actualEndTime: task.actualEndTime ? task.actualEndTime.toISOString() : null,
+      actualResourcesUsed: task.actualResourcesUsed ?? null,
+    }));
+  }
+
+  async listExecutedOperations(vveId: number): Promise<ExecutedOperationDto[]> {
+    const vve = await this.findOne(vveId);
+
+    const executions = await this.executedRepo.find({
+      where: { vveId: vve.id },
+      order: { plannedOperationId: 'ASC' },
+    });
+
+    if (!executions.length) {
+      return [];
+    }
+
+    const taskIds = executions.map((execution) => execution.plannedOperationId);
+    const tasks = await this.taskRepo.find({ where: { id: In(taskIds) } });
+    const taskMap = new Map<number, OperationPlanTaskEntity>();
+    tasks.forEach((task) => taskMap.set(task.id, task));
+
+    return executions.map((execution) => this.mapExecutedOperationDto(
+      execution,
+      taskMap.get(execution.plannedOperationId) ?? null,
+    ));
+  }
+
+  /**
+   * Dev/test helper that links a VVE to an existing operation plan without additional side effects.
+   */
+  async linkOperationPlan(
+    vveId: number,
+    operationPlanId: number,
+  ): Promise<VesselVisitExecutionEntity> {
+    const vve = await this.findOne(vveId);
+
+    const plan = await this.planRepo.findOne({ where: { id: operationPlanId } });
+    if (!plan) {
+      throw new NotFoundException(`Operation plan ${operationPlanId} not found.`);
+    }
+
+    vve.operationPlanId = plan.id;
+    return this.repo.save(vve);
+  }
+
+  async upsertExecutedOperation(
+    vveId: number,
+    plannedOperationId: number,
+    dto: UpsertExecutedOperationDto,
+    changedBy: string,
+  ): Promise<ExecutedOperationDto> {
+    if (
+      dto.actualStartTime === undefined &&
+      dto.actualEndTime === undefined &&
+      dto.resourcesUsed === undefined
+    ) {
+      throw new BadRequestException(
+        'Provide at least one of actualStartTime, actualEndTime or resourcesUsed.',
+      );
+    }
+
+    if (dto.resourcesUsed !== undefined) {
+      this.ensureObject('resourcesUsed', dto.resourcesUsed);
+    }
+
+    const vve = await this.findOne(vveId);
+
+    if (vve.status !== VesselExecutionStatus.InProgress) {
+      throw new BadRequestException('Only in-progress VVEs can record executed operations.');
+    }
+
+    const plan = await this.resolveOperationPlan(vve);
+
+    return this.repo.manager.transaction(async (manager) => {
+      const executedRepo = manager.getRepository(ExecutedOperationEntity);
+      const taskRepo = manager.getRepository(OperationPlanTaskEntity);
+      const auditRepo = manager.getRepository(ExecutedOperationAuditEntity);
+
+      const task = await taskRepo.findOne({
+        where: { id: plannedOperationId, operationPlanId: plan.id },
+      });
+
+      if (!task) {
+        throw new NotFoundException(
+          `Planned operation ${plannedOperationId} not found for operation plan ${plan.id}.`,
+        );
+      }
+
+      const existingExecution = await executedRepo.findOne({
+        where: { vveId: vve.id, plannedOperationId },
+      });
+
+      const beforeSnapshot = this.buildExecutedOperationSnapshot(
+        existingExecution ?? null,
+        task,
+      );
+
+      const nextActualStartTime =
+        dto.actualStartTime !== undefined
+          ? this.toDate(dto.actualStartTime, 'actualStartTime')
+          : existingExecution?.actualStartTime ?? task.actualStartTime ?? null;
+
+      const nextActualEndTime =
+        dto.actualEndTime !== undefined
+          ? this.toDate(dto.actualEndTime, 'actualEndTime')
+          : existingExecution?.actualEndTime ?? task.actualEndTime ?? null;
+
+      if (nextActualStartTime && nextActualEndTime) {
+        if (nextActualEndTime.getTime() <= nextActualStartTime.getTime()) {
+          throw new BadRequestException('actualEndTime must be after actualStartTime.');
+        }
+      }
+
+      const nextResourcesUsed =
+        dto.resourcesUsed !== undefined
+          ? (dto.resourcesUsed as Record<string, unknown>)
+          : existingExecution?.resourcesUsed ?? task.actualResourcesUsed ?? null;
+
+      const nextStatus = this.computeExecutionStatus(
+        task,
+        nextActualStartTime,
+        nextActualEndTime,
+      );
+
+      task.actualStartTime = nextActualStartTime ?? null;
+      task.actualEndTime = nextActualEndTime ?? null;
+      task.actualResourcesUsed = nextResourcesUsed ?? null;
+      task.executionStatus = nextStatus;
+
+      const payload = existingExecution
+        ? executedRepo.merge(existingExecution, {
+            actualStartTime: nextActualStartTime ?? null,
+            actualEndTime: nextActualEndTime ?? null,
+            resourcesUsed: nextResourcesUsed ?? null,
+            updatedBy: changedBy || 'unknown',
+          })
+        : executedRepo.create({
+            vveId: vve.id,
+            plannedOperationId,
+            actualStartTime: nextActualStartTime ?? null,
+            actualEndTime: nextActualEndTime ?? null,
+            resourcesUsed: nextResourcesUsed ?? null,
+            createdBy: changedBy || 'unknown',
+            updatedBy: changedBy || 'unknown',
+          });
+
+      const savedExecution = await executedRepo.save(payload);
+      await taskRepo.save(task);
+
+      const afterSnapshot = this.buildExecutedOperationSnapshot(savedExecution, task);
+
+      const audit = auditRepo.create({
+        executedOperationId: savedExecution.id,
+        changedBy: changedBy || 'unknown',
+        action: 'UPSERT_EXECUTED_OPERATION',
+        before: beforeSnapshot,
+        after: afterSnapshot,
+      });
+
+      await auditRepo.save(audit);
+
+      return this.mapExecutedOperationDto(savedExecution, task);
+    });
+  }
+
   async remove(id: number): Promise<VesselVisitExecutionEntity> {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
@@ -142,6 +346,12 @@ export class VesselVisitExecutionService {
       throw new BadRequestException(`Invalid ISO-8601 date supplied for "${field}".`);
     }
     return parsed;
+  }
+
+  private ensureObject(field: string, value: unknown): void {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      throw new BadRequestException(`${field} must be a JSON object.`);
+    }
   }
 
   private normalizeVvnId(vvn: { id?: number }, fallback: string | number): string {
@@ -175,6 +385,84 @@ export class VesselVisitExecutionService {
       dockId: execution.dockId ?? null,
       status: execution.status,
       lastWarning: execution.lastWarning ?? null,
+    };
+  }
+
+  private async resolveOperationPlan(vve: VesselVisitExecutionEntity): Promise<OperationPlanEntity> {
+    if (vve.operationPlanId) {
+      const byId = await this.planRepo.findOne({ where: { id: vve.operationPlanId } });
+      if (byId) {
+        return byId;
+      }
+    }
+
+    const numericVvnId = Number(vve.vvnId);
+    if (!Number.isNaN(numericVvnId)) {
+      const bySource = await this.planRepo.findOne({ where: { sourceVvnId: numericVvnId } });
+      if (bySource) {
+        return bySource;
+      }
+
+      const byVisit = await this.planRepo.findOne({ where: { vesselVisitId: numericVvnId } });
+      if (byVisit) {
+        return byVisit;
+      }
+    }
+
+    throw new NotFoundException(
+      `Operation plan could not be resolved for vessel visit execution ${vve.id}.`,
+    );
+  }
+
+  private computeExecutionStatus(
+    task: OperationPlanTaskEntity,
+    actualStart: Date | null,
+    actualEnd: Date | null,
+  ): OperationExecutionStatus {
+    if (actualEnd) {
+      // Consider the operation delayed if it concluded after the planned window or started late.
+      if (
+        actualEnd.getTime() > task.endTime.getTime() ||
+        (actualStart && actualStart.getTime() > task.startTime.getTime())
+      ) {
+        return OperationExecutionStatus.Delayed;
+      }
+      return OperationExecutionStatus.Completed;
+    }
+
+    if (actualStart) {
+      // Consider the operation delayed if it started after the planned start time.
+      if (actualStart.getTime() > task.startTime.getTime()) {
+        return OperationExecutionStatus.Delayed;
+      }
+      return OperationExecutionStatus.Started;
+    }
+
+    return task.executionStatus ?? OperationExecutionStatus.Planned;
+  }
+
+  private buildExecutedOperationSnapshot(
+    executed: ExecutedOperationEntity | null,
+    task: OperationPlanTaskEntity,
+  ): Record<string, unknown> {
+    return {
+      actualStartTime: (executed?.actualStartTime ?? task.actualStartTime) ?? null,
+      actualEndTime: (executed?.actualEndTime ?? task.actualEndTime) ?? null,
+      resourcesUsed: executed?.resourcesUsed ?? task.actualResourcesUsed ?? null,
+      executionStatus: task.executionStatus ?? OperationExecutionStatus.Planned,
+    };
+  }
+
+  private mapExecutedOperationDto(
+    executed: ExecutedOperationEntity,
+    task: OperationPlanTaskEntity | null,
+  ): ExecutedOperationDto {
+    return {
+      plannedOperationId: executed.plannedOperationId,
+      actualStartTime: executed.actualStartTime ? executed.actualStartTime.toISOString() : null,
+      actualEndTime: executed.actualEndTime ? executed.actualEndTime.toISOString() : null,
+      resourcesUsed: executed.resourcesUsed ?? null,
+      executionStatus: task?.executionStatus ?? OperationExecutionStatus.Planned,
     };
   }
 }

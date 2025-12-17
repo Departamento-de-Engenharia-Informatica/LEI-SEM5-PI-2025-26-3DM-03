@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -7,7 +19,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
-import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '../dto';
+import {
+  CreateVesselVisitExecutionDto,
+  ExecutedOperationDto,
+  PlannedOperationWithExecutionDto,
+  UpdateVesselVisitExecutionDto,
+  UpsertExecutedOperationDto,
+} from '../dto';
 import { VesselVisitExecutionService } from '../services';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
 import { Request } from 'express';
@@ -61,6 +79,54 @@ export class VesselVisitExecutionController {
     return this.service.updateExecution(id, payload, updatedBy);
   }
 
+  /**
+   * Dev/test helper to manually associate a VVE with an existing operation plan so executed-operation flows can be exercised end-to-end.
+   */
+  @Patch(':id/link-operation-plan')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: '[Dev/Test] Link vessel visit execution to an operation plan' })
+  @ApiOkResponse({ type: VesselVisitExecutionEntity })
+  linkOperationPlan(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('operationPlanId', ParseIntPipe) operationPlanId: number,
+  ): Promise<VesselVisitExecutionEntity> {
+    return this.service.linkOperationPlan(id, operationPlanId);
+  }
+
+  @Get(':id/planned-operations')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List planned operations linked to the vessel visit execution' })
+  @ApiOkResponse({ type: PlannedOperationWithExecutionDto, isArray: true })
+  getPlannedOperations(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<PlannedOperationWithExecutionDto[]> {
+    return this.service.getPlannedOperations(id);
+  }
+
+  @Get(':id/executed-operations')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List executed operations recorded for the vessel visit execution' })
+  @ApiOkResponse({ type: ExecutedOperationDto, isArray: true })
+  listExecutedOperations(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<ExecutedOperationDto[]> {
+    return this.service.listExecutedOperations(id);
+  }
+
+  @Put(':id/executed-operations/:plannedOperationId')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'Upsert executed operation details for a planned operation' })
+  @ApiOkResponse({ type: ExecutedOperationDto })
+  upsertExecutedOperation(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('plannedOperationId', ParseIntPipe) plannedOperationId: number,
+    @Body() payload: UpsertExecutedOperationDto,
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<ExecutedOperationDto> {
+    const changedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
+    return this.service.upsertExecutedOperation(id, plannedOperationId, payload, changedBy);
+  }
+
   @Delete(':id')
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Delete vessel visit execution' })
@@ -68,4 +134,5 @@ export class VesselVisitExecutionController {
   remove(@Param('id', ParseIntPipe) id: number): Promise<VesselVisitExecutionEntity> {
     return this.service.remove(id);
   }
+  
 }

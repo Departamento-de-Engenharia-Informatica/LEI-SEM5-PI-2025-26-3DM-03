@@ -5,8 +5,16 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { OperationPlanEntity } from './operation-plan.entity';
+
+export enum OperationExecutionStatus {
+  Planned = 'PLANNED',
+  Started = 'STARTED',
+  Completed = 'COMPLETED',
+  Delayed = 'DELAYED',
+}
 
 @Entity({ name: 'operation_plan_tasks' })
 export class OperationPlanTaskEntity {
@@ -43,4 +51,19 @@ export class OperationPlanTaskEntity {
 
   @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', nullable: true })
+  updatedAt?: Date | null;
+
+  @Column({ name: 'execution_status', type: 'text', default: OperationExecutionStatus.Planned })
+  executionStatus!: OperationExecutionStatus;
+
+  @Column({ name: 'actual_start_time', type: 'datetime', nullable: true })
+  actualStartTime?: Date | null;
+
+  @Column({ name: 'actual_end_time', type: 'datetime', nullable: true })
+  actualEndTime?: Date | null;
+
+  @Column({ name: 'actual_resources_used', type: 'simple-json', nullable: true })
+  actualResourcesUsed?: Record<string, unknown> | null;
 }

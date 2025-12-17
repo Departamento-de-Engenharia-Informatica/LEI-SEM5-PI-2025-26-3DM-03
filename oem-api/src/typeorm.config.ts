@@ -8,6 +8,8 @@ import { IncidentEntity } from './oem/persistence/incident.entity';
 import { IncidentTypeEntity } from './oem/persistence/incident-type.entity';
 import { VesselVisitExecutionEntity } from './oem/persistence/vessel-visit-execution.entity';
 import { VesselVisitExecutionAuditEntity } from './oem/persistence/vessel-visit-execution-audit.entity';
+import { ExecutedOperationEntity } from './oem/persistence/executed-operation.entity';
+import { ExecutedOperationAuditEntity } from './oem/persistence/executed-operation-audit.entity';
 import { OemVvn } from './oem/vvn/oem-vvn.entity';
 
 export default new DataSource({
@@ -23,6 +25,8 @@ export default new DataSource({
     IncidentTypeEntity,
     VesselVisitExecutionEntity,
     VesselVisitExecutionAuditEntity,
+    ExecutedOperationEntity,
+    ExecutedOperationAuditEntity,
     OemVvn,
   ],
   migrations: ['src/migrations/*.ts'],

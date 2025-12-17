@@ -34,6 +34,8 @@ import { OperationPlanTaskEntity } from './persistence/operation-plan-task.entit
 import { OperationPlanChangeLogEntity } from './persistence/operation-plan-change-log.entity';
 import { MissingOperationPlansService } from './services';
 import { VesselVisitExecutionAuditEntity } from './persistence/vessel-visit-execution-audit.entity';
+import { ExecutedOperationEntity } from './persistence/executed-operation.entity';
+import { ExecutedOperationAuditEntity } from './persistence/executed-operation-audit.entity';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { VesselVisitExecutionAuditEntity } from './persistence/vessel-visit-exec
       VesselVisitExecutionAuditEntity,
       OperationPlanTaskEntity,
       OperationPlanChangeLogEntity,
+      ExecutedOperationEntity,
+      ExecutedOperationAuditEntity,
       OemVvn,
     ]),
   ],
