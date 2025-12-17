@@ -43,6 +43,18 @@ export class VesselVisitExecution extends BaseDomainEntity {
   @ApiProperty({ enum: VesselExecutionStatus })
   status: VesselExecutionStatus;
 
+  @ApiPropertyOptional({ description: 'Actual berth time once the vessel is docked' })
+  actualBerthTime?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Identifier of the dock that hosted the vessel' })
+  dockId?: string | null;
+
+  @ApiPropertyOptional({ description: 'Last operational warning related to the execution' })
+  lastWarning?: string | null;
+
+  @ApiPropertyOptional({ description: 'Last update timestamp' })
+  updatedAt?: Date | null;
+
   constructor(init?: Partial<VesselVisitExecution>) {
     super(init);
     this.identifier = init?.identifier ?? '';
@@ -55,5 +67,9 @@ export class VesselVisitExecution extends BaseDomainEntity {
     this.etd = init?.etd;
     this.createdBy = init?.createdBy ?? 'system';
     this.status = init?.status ?? VesselExecutionStatus.InProgress;
+    this.actualBerthTime = init?.actualBerthTime ?? null;
+    this.dockId = init?.dockId ?? null;
+    this.lastWarning = init?.lastWarning ?? null;
+    this.updatedAt = init?.updatedAt ?? null;
   }
 }

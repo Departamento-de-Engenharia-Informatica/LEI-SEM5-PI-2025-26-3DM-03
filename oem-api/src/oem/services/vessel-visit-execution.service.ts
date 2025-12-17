@@ -5,12 +5,15 @@ import { CreateVesselVisitExecutionDto, UpdateVesselVisitExecutionDto } from '..
 import { VesselExecutionStatus } from '../domain';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
 import { OemVvnService } from '../vvn/oem-vvn.service';
+import { VesselVisitExecutionAuditEntity } from '../persistence/vessel-visit-execution-audit.entity';
 
 @Injectable()
 export class VesselVisitExecutionService {
   constructor(
     @InjectRepository(VesselVisitExecutionEntity)
     private readonly repo: Repository<VesselVisitExecutionEntity>,
+    @InjectRepository(VesselVisitExecutionAuditEntity)
+    private readonly auditRepo: Repository<VesselVisitExecutionAuditEntity>,
     private readonly vvnService: OemVvnService,
   ) {}
 
@@ -55,36 +58,76 @@ export class VesselVisitExecutionService {
   async updateExecution(
     id: number,
     dto: UpdateVesselVisitExecutionDto,
+    updatedBy: string,
   ): Promise<VesselVisitExecutionEntity> {
-    const existing = await this.findOne(id);
-    let eta = existing.eta;
-    let etd = existing.etd;
-    let vesselIdentifier = existing.vesselIdentifier;
-    let vvnId = existing.vvnId;
-    let identifier = existing.identifier;
-
-    if (dto.vvnId && dto.vvnId !== existing.vvnId) {
-      const vvn = await this.vvnService.getById(dto.vvnId);
-      vvnId = this.normalizeVvnId(vvn, dto.vvnId);
-      vesselIdentifier = vvn.vesselName;
-      eta = vvn.eta;
-      etd = vvn.etd;
-      identifier = await this.generateIdentifier(vvnId);
+    if (!dto.actualBerthTime && !dto.dockId) {
+      throw new BadRequestException('Provide at least actualBerthTime or dockId.');
     }
 
-    const merged = this.repo.merge(existing, {
-      identifier,
-      vvnId,
-      vesselIdentifier: dto.vesselIdentifier?.trim() || vesselIdentifier,
-      eta,
-      etd,
-      actualArrivalTime: dto.actualArrivalTime
-        ? this.toDate(dto.actualArrivalTime, 'actualArrivalTime')
-        : existing.actualArrivalTime,
-      status: dto.status ?? existing.status,
-    });
+    const existing = await this.findOne(id);
 
-    return this.repo.save(merged);
+    if (existing.status !== VesselExecutionStatus.InProgress) {
+      throw new BadRequestException(
+        'Only in-progress vessel visit executions can update berth time or dock.',
+      );
+    }
+
+    const beforeSnapshot = this.buildAuditSnapshot(existing);
+
+    let plannedDock: string | undefined;
+    try {
+      const plannedVvn = await this.vvnService.getById(existing.vvnId);
+      plannedDock = plannedVvn?.dockId ? String(plannedVvn.dockId).trim() : undefined;
+    } catch (error) {
+      plannedDock = undefined;
+    }
+
+    const nextActualBerthTime = dto.actualBerthTime
+      ? this.toDate(dto.actualBerthTime, 'actualBerthTime')
+      : existing.actualBerthTime;
+
+    let note: string | undefined;
+    let nextDockId = existing.dockId ?? null;
+    let nextLastWarning = existing.lastWarning ?? null;
+
+    if (dto.dockId) {
+      nextDockId = dto.dockId.trim();
+      if (plannedDock && nextDockId !== plannedDock) {
+        note = `Dock mismatch: planned ${plannedDock}, actual ${nextDockId}`;
+        nextLastWarning = note;
+      } else {
+        nextLastWarning = null;
+      }
+    }
+
+    return this.repo.manager.transaction(async (manager) => {
+      const vveRepo = manager.getRepository(VesselVisitExecutionEntity);
+      const auditRepo = manager.getRepository(VesselVisitExecutionAuditEntity);
+
+      existing.actualBerthTime = nextActualBerthTime ?? null;
+      existing.dockId = nextDockId ?? null;
+      existing.lastWarning = nextLastWarning ?? null;
+
+      const saved = await vveRepo.save(existing);
+
+      const auditPayload: Partial<VesselVisitExecutionAuditEntity> = {
+        vveId: saved.id,
+        changedBy: updatedBy || 'unknown',
+        action: 'UPDATE_BERTH_DOCK',
+        before: beforeSnapshot,
+        after: this.buildAuditSnapshot(saved),
+      };
+
+      if (note) {
+        auditPayload.note = note;
+      }
+
+      const audit = auditRepo.create(auditPayload);
+
+      await auditRepo.save(audit);
+
+      return saved;
+    });
   }
 
   async remove(id: number): Promise<VesselVisitExecutionEntity> {
@@ -124,5 +167,14 @@ export class VesselVisitExecutionService {
     }
 
     return candidate;
+  }
+
+  private buildAuditSnapshot(execution: VesselVisitExecutionEntity): Record<string, unknown> {
+    return {
+      actualBerthTime: execution.actualBerthTime ?? null,
+      dockId: execution.dockId ?? null,
+      status: execution.status,
+      lastWarning: execution.lastWarning ?? null,
+    };
   }
 }

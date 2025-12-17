@@ -1,18 +1,17 @@
-import { PartialType } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsOptional, IsString } from 'class-validator';
-import { CreateVesselVisitExecutionDto } from './create-vessel-visit-execution.dto';
-import { VesselExecutionStatus } from '../domain/vessel-visit-execution.entity';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
-export class UpdateVesselVisitExecutionDto extends PartialType(CreateVesselVisitExecutionDto) {
-	@IsString()
-	@IsOptional()
-	vesselIdentifier?: string;
-
+export class UpdateVesselVisitExecutionDto {
+	@ApiPropertyOptional({ description: 'Actual berth time recorded once the vessel is docked' })
 	@IsISO8601()
 	@IsOptional()
-	actualArrivalTime?: string;
+	actualBerthTime?: string;
 
-	@IsEnum(VesselExecutionStatus)
+	@ApiPropertyOptional({ description: 'Identifier of the dock that received the vessel' })
+	@Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+	@IsString()
+	@IsNotEmpty()
 	@IsOptional()
-	status?: VesselExecutionStatus;
+	dockId?: string;
 }

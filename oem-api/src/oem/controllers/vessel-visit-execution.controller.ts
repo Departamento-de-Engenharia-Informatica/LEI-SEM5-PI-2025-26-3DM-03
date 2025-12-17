@@ -49,14 +49,16 @@ export class VesselVisitExecutionController {
   }
 
   @Patch(':id')
-  @Roles('oem:vessel:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Update vessel visit execution' })
   @ApiOkResponse({ type: VesselVisitExecutionEntity })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateVesselVisitExecutionDto,
+    @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<VesselVisitExecutionEntity> {
-    return this.service.updateExecution(id, payload);
+    const updatedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
+    return this.service.updateExecution(id, payload, updatedBy);
   }
 
   @Delete(':id')

@@ -6,6 +6,7 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { VesselExecutionStatus } from '../domain/vessel-visit-execution.entity';
 import { OperationPlanEntity } from './operation-plan.entity';
@@ -52,6 +53,18 @@ export class VesselVisitExecutionEntity {
 
   @Column({ type: 'text', default: 'in-progress' })
   status!: VesselExecutionStatus;
+
+  @Column({ name: 'actual_berth_time', type: 'datetime', nullable: true })
+  actualBerthTime?: Date | null;
+
+  @Column({ name: 'dock_id', type: 'text', nullable: true })
+  dockId?: string | null;
+
+  @Column({ name: 'last_warning', type: 'text', nullable: true })
+  lastWarning?: string | null;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime', nullable: true })
+  updatedAt?: Date | null;
 
   @CreateDateColumn({ type: 'datetime' })
   createdAt!: Date;

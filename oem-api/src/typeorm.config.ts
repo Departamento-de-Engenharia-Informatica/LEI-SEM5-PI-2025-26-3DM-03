@@ -7,6 +7,7 @@ import { ComplementaryTaskCategoryEntity } from './oem/persistence/complementary
 import { IncidentEntity } from './oem/persistence/incident.entity';
 import { IncidentTypeEntity } from './oem/persistence/incident-type.entity';
 import { VesselVisitExecutionEntity } from './oem/persistence/vessel-visit-execution.entity';
+import { VesselVisitExecutionAuditEntity } from './oem/persistence/vessel-visit-execution-audit.entity';
 import { OemVvn } from './oem/vvn/oem-vvn.entity';
 
 export default new DataSource({
@@ -21,6 +22,7 @@ export default new DataSource({
     IncidentEntity,
     IncidentTypeEntity,
     VesselVisitExecutionEntity,
+    VesselVisitExecutionAuditEntity,
     OemVvn,
   ],
   migrations: ['src/migrations/*.ts'],
