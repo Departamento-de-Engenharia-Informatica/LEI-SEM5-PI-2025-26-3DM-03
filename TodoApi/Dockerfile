@@ -22,7 +22,7 @@ WORKDIR /app
 # App listens on 8080 by default (override with ASPNETCORE_URLS)
 ENV ASPNETCORE_URLS=http://0.0.0.0:8080
 # Disable OIDC in container by default; override in real environments
-ENV DISABLE_OIDC=true
+#ENV DISABLE_OIDC=true
 
 COPY --from=build /app/publish .
 
