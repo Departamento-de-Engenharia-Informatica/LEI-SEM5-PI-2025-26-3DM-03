@@ -20,47 +20,14 @@ namespace TodoApi.Controllers
         }
         // GET /authtest/login -> initiate login flow
         [HttpGet("login")]
+        [AllowAnonymous]
         public IActionResult Login()
         {
             Console.WriteLine("[AuthTestController] /authtest/login called");
 
-            var disableOidc = HttpContext.RequestServices
-                .GetRequiredService<IConfiguration>()
-                .GetValue<bool>("DisableOidc");
-
-            // ===============================
-            // MODO TESTE (sem Google / OIDC)
-            // ===============================
-            if (disableOidc)
-            {
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.Name, "Local Dev User"),
-                    new Claim(ClaimTypes.Email, "dev@local.test"),
-                    new Claim(ClaimTypes.Role, "Admin")
-                };
-
-                var identity = new ClaimsIdentity(
-                    claims,
-                    CookieAuthenticationDefaults.AuthenticationScheme
-                );
-
-                var principal = new ClaimsPrincipal(identity);
-
-                HttpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    principal
-                ).GetAwaiter().GetResult();
-
-                return Redirect("/");
-            }
-
-            // ===============================
-            // MODO NORMAL (Google OIDC)
-            // ===============================
             var redirectUri = _env.IsDevelopment()
                 ? "https://localhost:4200/?auth=ok"
-                : "/";
+                : "https://lei-sem5-g87.duckdns.org:8081/?auth=ok";
 
             var props = new AuthenticationProperties
             {
@@ -100,7 +67,9 @@ namespace TodoApi.Controllers
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
             // Redirect back to the frontend root after sign-out. Use http in development to match common `ng serve`.
-            var frontendRoot = _env.IsDevelopment() ? "http://localhost:4200/" : "https://localhost:4200/";
+            var frontendRoot = _env.IsDevelopment()
+                ? "http://localhost:4200/"
+                : "https://lei-sem5-g87.duckdns.org:8081/";
 
             // Trigger OpenID Connect sign-out (if supported) and redirect to frontend root
             var props = new AuthenticationProperties { RedirectUri = frontendRoot };

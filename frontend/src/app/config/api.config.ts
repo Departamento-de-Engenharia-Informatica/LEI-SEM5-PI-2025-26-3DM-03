@@ -1,4 +1,4 @@
 export const API_BASE_URL =
   window.location.hostname === 'localhost'
     ? 'https://localhost:7167'
-    : 'http://10.9.10.87:8080';
+    : 'http://lei-sem5-g87.duckdns.org:8080';
