@@ -1,63 +1,90 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiExtraModels,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
-import { CreateIncidentTypeDto, UpdateIncidentTypeDto } from '../dto';
+import {
+  CreateIncidentTypeDto,
+  IncidentTypeDto,
+  IncidentTypeQueryDto,
+  IncidentTypeTreeDto,
+  UpdateIncidentTypeDto,
+} from '../dto';
 import { IncidentTypeService } from '../services';
-import { IncidentTypeEntity } from '../persistence/incident-type.entity';
 
 @ApiTags('Incident Types')
 @ApiBearerAuth()
+@ApiExtraModels(IncidentTypeDto, IncidentTypeTreeDto)
 @UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/incident-types')
 export class IncidentTypeController {
   constructor(private readonly service: IncidentTypeService) {}
 
+  // TODO: swap logistics-operator for port-authority-officer once the IAM role exists.
   @Get()
-  @Roles('oem:incidents:read')
-  @ApiOperation({ summary: 'List incident types' })
-  @ApiOkResponse({ type: IncidentTypeEntity, isArray: true })
-  findAll(): Promise<IncidentTypeEntity[]> {
-    return this.service.findAll();
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List incident types with optional filters' })
+  @ApiQuery({ name: 'parentId', required: false, type: Number })
+  @ApiQuery({ name: 'severity', required: false, enum: ['MINOR', 'MAJOR', 'CRITICAL'] })
+  @ApiQuery({ name: 'q', required: false, type: String })
+  @ApiQuery({ name: 'tree', required: false, type: Boolean })
+  @ApiOkResponse({
+    description: 'Flat list or hierarchical tree of incident types',
+    schema: {
+      oneOf: [
+        { type: 'array', items: { $ref: getSchemaPath(IncidentTypeDto) } },
+        { type: 'array', items: { $ref: getSchemaPath(IncidentTypeTreeDto) } },
+      ],
+    },
+  })
+  async findAll(
+    @Query() filters: IncidentTypeQueryDto,
+  ): Promise<IncidentTypeDto[] | IncidentTypeTreeDto[]> {
+    if (filters.tree) {
+      return this.service.findTree(filters);
+    }
+    return this.service.findAll(filters);
   }
 
   @Get(':id')
-  @Roles('oem:incidents:read')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get incident type by id' })
-  @ApiOkResponse({ type: IncidentTypeEntity })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeEntity> {
+  @ApiOkResponse({ type: IncidentTypeDto })
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeDto> {
     return this.service.findOne(id);
   }
 
   @Post()
-  @Roles('oem:incidents:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Create incident type' })
-  @ApiCreatedResponse({ type: IncidentTypeEntity })
-  create(@Body() payload: CreateIncidentTypeDto): Promise<IncidentTypeEntity> {
-    return this.service.createType(payload);
+  @ApiCreatedResponse({ type: IncidentTypeDto })
+  create(@Body() payload: CreateIncidentTypeDto): Promise<IncidentTypeDto> {
+    return this.service.create(payload);
   }
 
   @Patch(':id')
-  @Roles('oem:incidents:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Update incident type' })
-  @ApiOkResponse({ type: IncidentTypeEntity })
+  @ApiOkResponse({ type: IncidentTypeDto })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateIncidentTypeDto,
-  ): Promise<IncidentTypeEntity> {
-    return this.service.updateType(id, payload);
+  ): Promise<IncidentTypeDto> {
+    return this.service.update(id, payload);
   }
 
   @Delete(':id')
-  @Roles('oem:incidents:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Delete incident type' })
-  @ApiOkResponse({ type: IncidentTypeEntity })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeEntity> {
+  @ApiOkResponse({ type: IncidentTypeDto })
+  remove(@Param('id', ParseIntPipe) id: number): Promise<IncidentTypeDto> {
     return this.service.remove(id);
   }
 }

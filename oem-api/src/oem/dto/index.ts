@@ -4,6 +4,8 @@ export * from './create-vessel-visit-execution.dto';
 export * from './update-vessel-visit-execution.dto';
 export * from './create-incident-type.dto';
 export * from './update-incident-type.dto';
+export * from './incident-type.dto';
+export * from './incident-type-query.dto';
 export * from './create-incident.dto';
 export * from './update-incident.dto';
 export * from './create-complementary-task.dto';

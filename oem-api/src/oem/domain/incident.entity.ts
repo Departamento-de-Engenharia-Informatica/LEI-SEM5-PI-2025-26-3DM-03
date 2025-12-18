@@ -45,7 +45,7 @@ export class Incident extends BaseDomainEntity {
     this.title = init?.title ?? '';
     this.description = init?.description;
     this.status = init?.status ?? IncidentStatus.Open;
-    this.severity = init?.severity ?? IncidentSeverity.Low;
+    this.severity = init?.severity ?? IncidentSeverity.MINOR;
     this.occurredAt = init?.occurredAt ?? new Date();
     this.resolvedAt = init?.resolvedAt;
     this.operationPlanId = init?.operationPlanId;

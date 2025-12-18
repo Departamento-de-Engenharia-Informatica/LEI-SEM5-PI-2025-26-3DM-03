@@ -42,7 +42,7 @@ export class IncidentService {
       description: dto.description,
       operationPlanId: dto.operationPlanId,
       status: dto.status ?? IncidentStatus.Open,
-      severity: dto.severity ?? IncidentSeverity.Low,
+      severity: dto.severity ?? IncidentSeverity.MINOR,
       occurredAt: new Date(dto.occurredAt),
       resolvedAt: dto.resolvedAt ? new Date(dto.resolvedAt) : undefined,
     });

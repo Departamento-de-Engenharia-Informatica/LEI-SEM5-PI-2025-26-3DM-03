@@ -1,8 +1,23 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { IncidentSeverity } from '../domain/incident-type.entity';
 
 export class CreateIncidentTypeDto {
+  @ApiProperty({ description: 'Unique code for the incident type', example: 'T-INC001' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^T-INC\d{3,}$/)
+  code!: string;
+
   @ApiProperty({ description: 'Name of the incident type' })
   @IsString()
   @IsNotEmpty()
@@ -13,10 +28,16 @@ export class CreateIncidentTypeDto {
   @IsOptional()
   description?: string;
 
-  @ApiProperty({
-    enum: IncidentSeverity,
-    default: IncidentSeverity.Low,
-  })
+  @ApiProperty({ enum: IncidentSeverity })
   @IsEnum(IncidentSeverity)
-  severity: IncidentSeverity = IncidentSeverity.Low;
+  severity!: IncidentSeverity;
+
+  @ApiPropertyOptional({ description: 'Identifier of the parent incident type' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === null || value === undefined || value === '' ? null : Number(value),
+  )
+  @IsInt()
+  @Min(1)
+  parentId?: number | null;
 }

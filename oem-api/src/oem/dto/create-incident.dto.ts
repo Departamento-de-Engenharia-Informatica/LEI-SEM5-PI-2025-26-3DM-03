@@ -36,10 +36,10 @@ export class CreateIncidentDto {
 
   @ApiProperty({
     enum: IncidentSeverity,
-    default: IncidentSeverity.Low,
+    default: IncidentSeverity.MINOR,
   })
   @IsEnum(IncidentSeverity)
-  severity: IncidentSeverity = IncidentSeverity.Low;
+  severity: IncidentSeverity = IncidentSeverity.MINOR;
 
   @ApiProperty({
     description: 'Occurrence timestamp (ISO-8601)',
