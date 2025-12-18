@@ -285,8 +285,14 @@ namespace TodoApi.Application.Services.Visualization
             var vesselLookup = vessels.ToDictionary(v => v.Imo, v => v, StringComparer.OrdinalIgnoreCase);
 
             var result = new List<ActiveDockedVesselDto>();
+            var fallbackDockId = dockLayouts[0].DockId;
+            var groupedByResolvedDock = approved.GroupBy(visit =>
+            {
+                var requestedDockId = visit.ApprovedDockId ?? fallbackDockId;
+                return dockLookup.ContainsKey(requestedDockId) ? requestedDockId : fallbackDockId;
+            });
 
-            foreach (var group in approved.GroupBy(v => v.ApprovedDockId!.Value))
+            foreach (var group in groupedByResolvedDock)
             {
                 if (!dockLookup.TryGetValue(group.Key, out var dock))
                 {
@@ -303,8 +309,14 @@ namespace TodoApi.Application.Services.Visualization
                     var visit = orderedByArrival[index];
                     vesselLookup.TryGetValue(visit.VesselId, out var vessel);
 
-                    var displayLength = Math.Clamp(dock.Size.Length * 0.7, 120, dock.Size.Length - 12);
-                    var estimatedBeam = Math.Clamp(dock.Size.Width * 0.65, 32, dock.Size.Width);
+                    var dockLength = dock.Size.Length;
+                    var dockWidth = dock.Size.Width;
+                    var lengthMin = Math.Min(120, dockLength - 12);
+                    var lengthMax = Math.Max(lengthMin, dockLength - 12);
+                    var displayLength = Math.Clamp(dockLength * 0.7, lengthMin, lengthMax);
+                    var beamMin = Math.Min(32, dockWidth);
+                    var beamMax = Math.Max(beamMin, dockWidth);
+                    var estimatedBeam = Math.Clamp(dockWidth * 0.65, beamMin, beamMax);
 
                     result.Add(new ActiveDockedVesselDto
                     {

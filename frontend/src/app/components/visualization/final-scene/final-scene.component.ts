@@ -70,6 +70,29 @@ interface CameraTween {
   duration: number;
 }
 
+interface VesselVisualBinding {
+  object: THREE.Group;
+  label?: THREE.Sprite;
+  state: VesselVisualState;
+}
+
+interface VesselAnimationState {
+  object: THREE.Group;
+  label?: THREE.Sprite;
+  startPos: THREE.Vector3;
+  endPos: THREE.Vector3;
+  startLabelPos?: THREE.Vector3;
+  endLabelPos?: THREE.Vector3;
+  startTime: number;
+  duration: number;
+  pathRight?: THREE.Vector3;
+  pathForward?: THREE.Vector3;
+  dragAmplitude: number;
+  bobAmplitude: number;
+  curve?: THREE.Curve<THREE.Vector3>;
+  onComplete?: () => void;
+}
+
 @Component({
   selector: 'app-final-scene',
   standalone: true,
@@ -94,15 +117,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly disposableTextures: THREE.Texture[] = [];
   private readonly gltfLoader = new GLTFLoader();
   private readonly textureLoader = new THREE.TextureLoader();
-  private readonly waterLevelY = 52;
+  private readonly waterLevelY = 60;
   private readonly quayEdgeZ = 360;
   private readonly cargoVesselClearance = 22;
   private readonly cargoVesselFreeboard = -8;
-  private readonly cargoVesselTargetLength = 240;
+  private readonly cargoVesselTargetLength = 300;
+  private readonly cargoVesselBeamScale = 0.7;
   private readonly cargoVesselModelUrls = ['assets/models/cargo_vessel.glb', 'assets/cargo_vessel.glb'];
   private readonly deckWidth = 1500;
   private readonly deckDepth = 1240;
-  private readonly deckHeight = 60;
+  private readonly deckHeight = 75;
   private readonly deckMarginToEdge = 120;
   private readonly apronDepth = 220;
   private readonly warehouseBaseZ = -820;
@@ -139,8 +163,13 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly maxBerthLanes = 1;
   private readonly vesselWaitingLeadMs = 10 * 60 * 1000;
   private readonly layoutRefreshMs = 30_000;
+  private readonly vesselArrivalAnimationMs = 24_000;
+  private readonly vesselDepartureAnimationMs = 24_000;
+  private readonly vesselDepartureExitDistance = 2400;
   private layoutData?: PortLayoutDTO;
   private dynamicVesselGroups: THREE.Object3D[] = [];
+  private vesselBindings = new Map<string, VesselVisualBinding>();
+  private vesselAnimations: VesselAnimationState[] = [];
   private dockNameSprites: THREE.Sprite[] = [];
   private vesselLabelSprites: THREE.Sprite[] = [];
   private dockSpanInfo?: { minEdge: number; maxEdge: number; span: number };
@@ -160,6 +189,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private pointerEventsAttached = false;
   private readonly pointerMoveHandler = (event: PointerEvent) => this.onScenePointerMove(event);
   private readonly pointerClickHandler = (event: MouseEvent) => this.onScenePointerClick(event);
+  private readonly vesselAnimBase = new THREE.Vector3();
+  private readonly vesselAnimOffset = new THREE.Vector3();
+  private readonly vesselAnimLabelBase = new THREE.Vector3();
+  private readonly vesselAnimTangent = new THREE.Vector3();
+  private readonly vesselAnimRight = new THREE.Vector3();
+  private readonly vesselAnimUp = new THREE.Vector3(0, 1, 0);
   private facilityHotspots: FacilityHotspot[] = [];
   private readonly persistentFacilityHotspots: FacilityHotspot[] = [];
   private facilityLookup = new Map<THREE.Object3D, FacilityHotspot>();
@@ -1273,8 +1308,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       const craneMesh = this.createCraneMesh(layout);
       let position: THREE.Vector3;
       let rotation = Math.PI;
-      const verticalOffset = 50;
-      let baseY = this.deckHeight + verticalOffset;
+      const verticalOffset = 0;
+      const deckBaseY = this.deckHeight + verticalOffset;
+      let baseY = deckBaseY;
 
       if (dock) {
         const total = totalPerDock.get(dock.dockId) ?? 1;
@@ -1285,10 +1321,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         const localX = -deckLength / 2 + spacing * (seq + 1);
         const baseX = this.mapDockToDeckX(dock);
         baseY = dock.position.y + dock.size.height + verticalOffset;
+        baseY = Math.max(baseY, deckBaseY);
         position = new THREE.Vector3(baseX + localX, baseY, this.quayEdgeZ - 40);
         rotation = dock.rotationY ?? Math.PI;
       } else if (layout.position) {
         baseY = (layout.position.y ?? this.deckHeight) + verticalOffset;
+        baseY = Math.max(baseY, deckBaseY);
         position = new THREE.Vector3(this.mapLayoutXToDeckCoord(layout.position.x), baseY, this.quayEdgeZ - 40);
       } else {
         const offsetX = -600 + fallbackIndex * 400;
@@ -1480,7 +1518,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const initialSize = initialBox.getSize(new THREE.Vector3());
     const maxDim = Math.max(initialSize.x, initialSize.y, initialSize.z) || 1;
     const scale = this.cargoVesselTargetLength / maxDim;
-    root.scale.setScalar(scale);
+    root.scale.set(scale, scale, scale * this.cargoVesselBeamScale);
     root.updateMatrixWorld(true);
 
     const sizedBox = new THREE.Box3().setFromObject(root);
@@ -1516,6 +1554,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
     this.updateCameraKeyboardMovement(delta);
     this.updateCameraTween();
+    this.updateVesselAnimations();
     this.updateSelectionSpotlight();
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
@@ -1577,6 +1616,62 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private updateVesselAnimations() {
+    if (!this.vesselAnimations.length) {
+      return;
+    }
+    const now = performance.now();
+    this.vesselAnimations = this.vesselAnimations.filter((anim) => {
+      const elapsed = now - anim.startTime;
+      const t = Math.min(1, elapsed / anim.duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      let basePos: THREE.Vector3;
+      let pathRight = anim.pathRight;
+      let forward = anim.pathForward;
+      if (anim.curve) {
+        basePos = anim.curve.getPoint(eased, this.vesselAnimBase);
+        const tangent = anim.curve.getTangent(eased, this.vesselAnimTangent);
+        this.vesselAnimRight.crossVectors(this.vesselAnimUp, tangent);
+        if (this.vesselAnimRight.lengthSq() === 0) {
+          this.vesselAnimRight.set(1, 0, 0);
+        } else {
+          this.vesselAnimRight.normalize();
+        }
+        pathRight = this.vesselAnimRight;
+        forward = tangent;
+      } else {
+        basePos = this.vesselAnimBase.lerpVectors(anim.startPos, anim.endPos, eased);
+      }
+      const dragPhase = eased * Math.PI;
+      const lateral = Math.sin(dragPhase) * anim.dragAmplitude;
+      const bob = Math.sin(dragPhase * 2) * anim.bobAmplitude;
+      this.vesselAnimOffset.copy(basePos);
+      if (pathRight) {
+        this.vesselAnimOffset.addScaledVector(pathRight, lateral);
+      }
+      this.vesselAnimOffset.y += bob;
+      anim.object.position.copy(this.vesselAnimOffset);
+      if (forward) {
+        const heading = Math.atan2(forward.x, forward.z);
+        anim.object.rotation.y = heading;
+      }
+      if (anim.label) {
+        const labelBase = this.computeLabelPosition(this.vesselAnimOffset.x, this.vesselAnimOffset.z);
+        labelBase.y += bob;
+        anim.label.position.copy(labelBase);
+      }
+      if (t >= 1) {
+        anim.object.position.copy(anim.endPos);
+        if (anim.label) {
+          anim.label.position.copy(this.computeLabelPosition(anim.endPos.x, anim.endPos.z));
+        }
+        anim.onComplete?.();
+        return false;
+      }
+      return true;
+    });
+  }
+
   private trackMaterial<T extends THREE.Material>(material: T): T {
     this.disposableMaterials.push(material);
     return material;
@@ -1590,6 +1685,135 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private trackTexture<T extends THREE.Texture>(texture: T): T {
     this.disposableTextures.push(texture);
     return texture;
+  }
+
+  private queueVesselArrivalAnimation(vessel: THREE.Group, label: THREE.Sprite | undefined, endPos: THREE.Vector3) {
+    this.cancelVesselAnimationFor(vessel);
+    const avoidanceOffset = this.computeArrivalAvoidanceOffset(endPos.z);
+    if (avoidanceOffset) {
+      const startPos = vessel.position.clone();
+      const arcControl = new THREE.Vector3(endPos.x - 220, endPos.y, endPos.z + avoidanceOffset);
+      const alignControl = new THREE.Vector3(endPos.x - 80, endPos.y, endPos.z);
+      const curve = new THREE.CatmullRomCurve3([startPos.clone(), arcControl, alignControl, endPos.clone()]);
+      const animation: VesselAnimationState = {
+        object: vessel,
+        label,
+        startPos,
+        endPos: endPos.clone(),
+        startTime: performance.now(),
+        duration: this.vesselArrivalAnimationMs,
+        dragAmplitude: 18,
+        bobAmplitude: 6,
+        curve,
+      };
+      this.vesselAnimations.push(animation);
+      return;
+    }
+    const pathVector = new THREE.Vector3().subVectors(endPos, vessel.position);
+    const distance = pathVector.length();
+    const pathDir = distance > 0.001 ? pathVector.clone().normalize() : new THREE.Vector3(0, 0, 1);
+    const pathRight = new THREE.Vector3(pathDir.z, 0, -pathDir.x);
+    if (pathRight.lengthSq() === 0) {
+      pathRight.set(1, 0, 0);
+    }
+    pathRight.normalize();
+    const dragFactor = Math.min(1, distance / 900);
+    const dragAmplitude = 18 * dragFactor;
+    const bobAmplitude = 6 * dragFactor;
+    const animation: VesselAnimationState = {
+      object: vessel,
+      label,
+      startPos: vessel.position.clone(),
+      endPos: endPos.clone(),
+      startTime: performance.now(),
+      duration: this.vesselArrivalAnimationMs,
+      pathRight,
+      pathForward: pathDir.clone(),
+      dragAmplitude,
+      bobAmplitude,
+    };
+    this.vesselAnimations.push(animation);
+  }
+
+  private computeArrivalAvoidanceOffset(targetZ: number): number | undefined {
+    if (!this.vesselBindings.size) {
+      return undefined;
+    }
+    const spacing = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 80;
+    const conflicts = Array.from(this.vesselBindings.values()).filter(
+      (binding) => binding.state !== 'waiting' && Math.abs(binding.object.position.z - targetZ) < spacing
+    );
+    if (!conflicts.length) {
+      return undefined;
+    }
+    const sign = targetZ >= this.quayEdgeZ ? 1 : -1;
+    return sign * spacing * conflicts.length;
+  }
+
+  private queueVesselDepartureAnimation(binding: VesselVisualBinding) {
+    const vessel = binding.object;
+    const label = binding.label;
+    this.cancelVesselAnimationFor(vessel);
+    const startPos = vessel.position.clone();
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(vessel.quaternion);
+    forward.y = 0;
+    if (forward.lengthSq() === 0) {
+      forward.set(0, 0, 1);
+    } else {
+      forward.normalize();
+    }
+    const right = new THREE.Vector3().crossVectors(this.vesselAnimUp, forward);
+    if (right.lengthSq() === 0) {
+      right.set(1, 0, 0);
+    } else {
+      right.normalize();
+    }
+    const lateralDirection = startPos.z >= this.quayEdgeZ ? 1 : -1;
+    const turnSide = -lateralDirection;
+    const turnNormal = right.multiplyScalar(turnSide);
+    const arcDirection = turnSide;
+    const turnRadius = Math.max(this.cargoVesselHalfBeam * 2, 220);
+    const leadDistance = Math.min(turnRadius * 0.35, 60);
+    const leadPoint = startPos.clone().add(forward.clone().multiplyScalar(leadDistance));
+    const center = leadPoint.clone().add(turnNormal.clone().multiplyScalar(turnRadius));
+    const startVec = leadPoint.clone().sub(center);
+    const arcSegments = 24;
+    const arcAngle = Math.PI;
+    const arcPoints: THREE.Vector3[] = [];
+    for (let i = 0; i <= arcSegments; i++) {
+      const angle = (arcAngle * i) / arcSegments * arcDirection;
+      const rotated = startVec.clone().applyAxisAngle(this.vesselAnimUp, angle);
+      const point = center.clone().add(rotated);
+      point.y = startPos.y;
+      arcPoints.push(point);
+    }
+    const arcEnd = arcPoints[arcPoints.length - 1].clone();
+    const exitDir =
+      arcPoints.length >= 2
+        ? arcEnd.clone().sub(arcPoints[arcPoints.length - 2]).setY(0).normalize()
+        : forward.clone().applyAxisAngle(this.vesselAnimUp, -Math.PI * arcDirection).normalize();
+    const exitPoint = arcEnd.clone().add(exitDir.multiplyScalar(this.vesselDepartureExitDistance));
+    const controlPoints = [startPos, leadPoint, ...arcPoints, exitPoint];
+    const curve = new THREE.CatmullRomCurve3(controlPoints);
+    const endPos = exitPoint.clone();
+    const animation: VesselAnimationState = {
+      object: vessel,
+      label,
+      startPos,
+      endPos,
+      startLabelPos: label ? label.position.clone() : undefined,
+      endLabelPos: label ? this.computeLabelPosition(endPos.x, endPos.z) : undefined,
+      startTime: performance.now(),
+      duration: this.vesselDepartureAnimationMs,
+      dragAmplitude: 16,
+      bobAmplitude: 7,
+      curve,
+      onComplete: () => {
+        this.scene.remove(vessel);
+        this.removeLabelSprite(label);
+      },
+    };
+    this.vesselAnimations.push(animation);
   }
 
   private getLogisticsRoadTexture(): THREE.Texture {
@@ -1755,39 +1979,95 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.updateWarehousePlacements(layout.warehouses ?? [], dockMap);
     this.updateCranes(layout.cranes ?? [], dockMap);
     this.rebuildContainerStacks(docks);
-    this.clearDynamicVessels();
+    const previousBindings = this.prepareVesselBindingsForUpdate();
 
-    const classified = (layout.activeVessels ?? [])
+    const vesselEntries = (layout.activeVessels ?? [])
       .filter((v): v is DockedVesselPlacement => !!v && typeof v.dockId === 'number')
-      .map((v) => ({ vessel: v, state: this.getVesselDisplayState(v) }))
-      .filter(
-        (entry): entry is { vessel: DockedVesselPlacement; state: VesselVisualState } =>
-          entry.state !== 'upcoming' && entry.state !== 'departed'
-      );
+      .map((v) => {
+        const state = this.getVesselDisplayState(v);
+        const key = this.getVesselKey(v);
+        return { vessel: v, state, key };
+      });
+
+    const departedKeys = new Set<string>(
+      vesselEntries.filter((entry) => entry.state === 'departed').map((entry) => entry.key)
+    );
+
+    const classified = vesselEntries.filter(
+      (entry): entry is { vessel: DockedVesselPlacement; state: VesselVisualState; key: string } =>
+        entry.state !== 'upcoming' && entry.state !== 'departed'
+    );
 
     if (!classified.length || !docks.length) {
+      this.disposeUnusedVessels(previousBindings, departedKeys);
       return;
     }
 
     const berthed = classified.filter((entry) => entry.state === 'loading' || entry.state === 'unloading');
     const waiting = classified.filter((entry) => entry.state === 'waiting');
     if (berthed.length) {
-      this.placeAssignedCargoVesselsFromLayout(berthed, dockMap);
+      this.placeAssignedCargoVesselsFromLayout(berthed, dockMap, previousBindings);
     }
     if (waiting.length) {
-      this.placeWaitingCargoVesselsFromLayout(waiting, dockMap);
+      this.placeWaitingCargoVesselsFromLayout(waiting, dockMap, previousBindings);
     }
+    this.disposeUnusedVessels(previousBindings, departedKeys);
   }
 
   private clearDynamicVessels() {
-    for (const obj of this.dynamicVesselGroups) {
-      this.scene.remove(obj);
-    }
+    this.vesselBindings.forEach((binding) => this.disposeVesselBinding(binding));
+    this.vesselBindings.clear();
     this.dynamicVesselGroups = [];
-    for (const sprite of this.vesselLabelSprites) {
-      this.scene.remove(sprite);
-    }
     this.vesselLabelSprites = [];
+    this.vesselAnimations = [];
+  }
+
+  private getVesselKey(placement: DockedVesselPlacement): string {
+    if (typeof placement.notificationId === 'number') {
+      return `notification-${placement.notificationId}`;
+    }
+    const arrival = placement.arrivalDate ?? 'unknown';
+    return `vessel-${placement.vesselId}-${arrival}`;
+  }
+
+  private prepareVesselBindingsForUpdate(): Map<string, VesselVisualBinding> {
+    const previous = this.vesselBindings;
+    this.vesselBindings = new Map();
+    this.dynamicVesselGroups = [];
+    this.vesselLabelSprites = [];
+    return previous;
+  }
+
+  private disposeUnusedVessels(previous: Map<string, VesselVisualBinding>, departedKeys?: Set<string>) {
+    previous.forEach((binding, key) => {
+      if (departedKeys && departedKeys.has(key)) {
+        this.queueVesselDepartureAnimation(binding);
+        departedKeys.delete(key);
+      } else {
+        this.disposeVesselBinding(binding);
+      }
+    });
+  }
+
+  private disposeVesselBinding(binding: VesselVisualBinding) {
+    this.cancelVesselAnimationFor(binding.object);
+    this.scene.remove(binding.object);
+    this.removeLabelSprite(binding.label);
+  }
+
+  private cancelVesselAnimationFor(target: THREE.Object3D) {
+    if (!this.vesselAnimations.length) {
+      return;
+    }
+    this.vesselAnimations = this.vesselAnimations.filter((anim) => anim.object !== target);
+  }
+
+  private removeLabelSprite(label?: THREE.Sprite) {
+    if (!label) {
+      return;
+    }
+    this.scene.remove(label);
+    this.vesselLabelSprites = this.vesselLabelSprites.filter((sprite) => sprite !== label);
   }
 
   private clearDockLabels() {
@@ -1872,7 +2152,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private placeAssignedCargoVesselsFromLayout(
     assignments: { vessel: DockedVesselPlacement; state: VesselVisualState }[],
-    dockMap: Map<number, DockLayout>
+    dockMap: Map<number, DockLayout>,
+    previousBindings: Map<string, VesselVisualBinding>
   ) {
     const ordered = [...assignments].sort((a, b) => {
       const vesselA = a.vessel;
@@ -1883,11 +2164,21 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       return vesselA.dockId - vesselB.dockId;
     });
 
+    const prepared = ordered.map((entry) => {
+      const key = this.getVesselKey(entry.vessel);
+      const reused = previousBindings.get(key);
+      if (reused) {
+        previousBindings.delete(key);
+        this.removeLabelSprite(reused.label);
+      }
+      return { entry, key, reused };
+    });
+
     this.getCargoVesselPrototype()
       .then((prototype) => {
         const berthZBase = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance;
         const laneSpacing = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 18;
-        ordered.forEach((entry) => {
+        prepared.forEach(({ entry, key, reused }) => {
           const info = entry.vessel;
           const dock = dockMap.get(info.dockId);
           if (!dock) return;
@@ -1895,25 +2186,38 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
           const seq = typeof info.sequenceOnDock === 'number' ? info.sequenceOnDock : 0;
           const laneIndex = Math.max(0, Math.min(this.maxBerthLanes - 1, seq));
           const z = berthZBase + laneIndex * laneSpacing;
-          const vessel = this.instantiateCargoVessel(prototype);
+          let vessel: THREE.Group;
+          if (reused) {
+            vessel = reused.object;
+          } else {
+            vessel = this.instantiateCargoVessel(prototype);
+            vessel.rotation.y = Math.PI / 2;
+            this.scene.add(vessel);
+          }
           if (this.canViewVesselStatuses) {
             this.applyVesselStatusColor(vessel, entry.state);
           }
-          vessel.position.set(baseX, this.waterLevelY + this.cargoVesselFreeboard, z);
-          vessel.rotation.y = Math.PI / 2;
-          this.scene.add(vessel);
-          this.dynamicVesselGroups.push(vessel);
+          const targetPos = new THREE.Vector3(baseX, this.waterLevelY + this.cargoVesselFreeboard, z);
           const labelOptions: { status?: VesselVisualState } | undefined = this.canViewVesselStatuses
             ? { status: entry.state }
             : undefined;
-          this.addVesselLabel(info, dock, baseX, z, labelOptions);
+          const label = this.addVesselLabel(info, dock, baseX, z, labelOptions);
+          if (reused && reused.state === 'waiting') {
+            this.queueVesselArrivalAnimation(vessel, label, targetPos);
+          } else {
+            this.cancelVesselAnimationFor(vessel);
+            vessel.position.copy(targetPos);
+            label.position.copy(this.computeLabelPosition(targetPos.x, targetPos.z));
+          }
+          this.dynamicVesselGroups.push(vessel);
+          this.vesselBindings.set(key, { object: vessel, label, state: entry.state });
           this.registerFacilityHotspot(
             {
               id: `vessel-${info.notificationId ?? info.vesselId}-berth-${entry.state}-${Math.random().toString(36).slice(2)}`,
               name: info.vesselName ?? `Navio ${info.vesselId}`,
               type: 'vessel',
               object: vessel,
-              focus: vessel.position.clone(),
+              focus: targetPos.clone(),
               vesselPlacement: info,
               vesselState: entry.state,
               dockName: dock.name ?? `Dock ${dock.dockId}`,
@@ -1927,41 +2231,56 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private placeWaitingCargoVesselsFromLayout(
     assignments: { vessel: DockedVesselPlacement; state: VesselVisualState }[],
-    dockMap: Map<number, DockLayout>
+    dockMap: Map<number, DockLayout>,
+    previousBindings: Map<string, VesselVisualBinding>
   ) {
     if (!assignments.length) {
       return;
     }
     const waitingOriginX = -1100;
     const waitingOriginZ = this.quayEdgeZ + this.cargoVesselHalfBeam + this.cargoVesselClearance + 60;
-    const laneSpacingX = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 120;
-    const laneSpacingZ = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 110;
+    const laneSpacingZ = this.cargoVesselHalfBeam * 2 + this.cargoVesselClearance + 140;
     const vesselsSorted = [...assignments].sort(
       (a, b) => this.getArrivalTime(a.vessel) - this.getArrivalTime(b.vessel)
     );
 
+    const prepared = vesselsSorted.map((entry) => {
+      const key = this.getVesselKey(entry.vessel);
+      const reused = previousBindings.get(key);
+      if (reused) {
+        previousBindings.delete(key);
+        this.removeLabelSprite(reused.label);
+        this.cancelVesselAnimationFor(reused.object);
+      }
+      return { entry, key, reused };
+    });
+
     this.getCargoVesselPrototype()
       .then((prototype) => {
-        vesselsSorted.forEach((entry, idx) => {
+        prepared.forEach(({ entry, key, reused }, idx) => {
           const info = entry.vessel;
-          const column = idx % 2;
-          const row = Math.floor(idx / 2);
-          const x = waitingOriginX - column * laneSpacingX;
-          const z = waitingOriginZ + row * laneSpacingZ;
-          const vessel = this.instantiateCargoVessel(prototype);
+          const x = waitingOriginX;
+          const z = waitingOriginZ + idx * laneSpacingZ;
+          let vessel: THREE.Group;
+          if (reused) {
+            vessel = reused.object;
+          } else {
+            vessel = this.instantiateCargoVessel(prototype);
+            vessel.rotation.y = Math.PI / 2;
+            this.scene.add(vessel);
+          }
           if (this.canViewVesselStatuses) {
             this.applyVesselStatusColor(vessel, 'waiting');
           }
           vessel.position.set(x, this.waterLevelY + this.cargoVesselFreeboard, z);
-          vessel.rotation.y = Math.PI / 2;
-          this.scene.add(vessel);
           this.dynamicVesselGroups.push(vessel);
           const dock = dockMap.get(info.dockId);
+          let label: THREE.Sprite | undefined;
           if (dock) {
             const labelOptions: { status?: VesselVisualState } | undefined = this.canViewVesselStatuses
               ? { status: 'waiting' }
               : undefined;
-            this.addVesselLabel(info, dock, x, z, labelOptions);
+            label = this.addVesselLabel(info, dock, x, z, labelOptions);
             this.registerFacilityHotspot(
               {
                 id: `vessel-${info.notificationId ?? info.vesselId}-waiting-${Math.random().toString(36).slice(2)}`,
@@ -1976,6 +2295,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
               { persistent: false }
             );
           }
+          this.vesselBindings.set(key, { object: vessel, label, state: 'waiting' });
         });
       })
       .catch((err) => console.warn('[FinalScene] Falha ao preparar navios em espera', err));
@@ -1987,7 +2307,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     x: number,
     z: number,
     opts?: { status?: VesselVisualState }
-  ) {
+  ): THREE.Sprite {
     const dockName = dock.name ?? `Dock ${dock.dockId}`;
     let text = `${info.vesselName ?? info.vesselId} — ${dockName}`;
     if (opts?.status) {
@@ -2000,9 +2320,14 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       color: textColor,
       scale: 160,
     });
-    label.position.set(x, this.waterLevelY + this.cargoVesselFreeboard + 90, z - this.cargoVesselHalfBeam * 0.4);
+    label.position.copy(this.computeLabelPosition(x, z));
     this.scene.add(label);
     this.vesselLabelSprites.push(label);
+    return label;
+  }
+
+  private computeLabelPosition(x: number, z: number): THREE.Vector3 {
+    return new THREE.Vector3(x, this.waterLevelY + this.cargoVesselFreeboard + 90, z - this.cargoVesselHalfBeam * 0.4);
   }
 
   private getStatusCssColor(status: VesselVisualState): string {
