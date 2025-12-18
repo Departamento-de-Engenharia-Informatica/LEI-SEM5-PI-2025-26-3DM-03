@@ -1,0 +1,92 @@
+<section class="vve-history">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Home / OEM</p>
+      <h1>Historico de Execucoes de Visita</h1>
+      <p class="subtitle">
+        Pesquise visitas por intervalo de datas, VVN ou navio para rever o historico e tempos de execucao.
+      </p>
+    </div>
+  </header>
+
+  <form class="filter-form" [formGroup]="filterForm" (ngSubmit)="onSearch()">
+    <div class="form-grid">
+      <label>
+        De
+        <input type="date" formControlName="from" />
+      </label>
+      <label>
+        Ate
+        <input type="date" formControlName="to" />
+      </label>
+      <label>
+        VVN (ID)
+        <input type="text" formControlName="vesselVisitId" placeholder="ex: 101" />
+      </label>
+      <label>
+        Navio
+        <input type="text" formControlName="vesselName" placeholder="ex: Ever Demo" />
+      </label>
+      <label>
+        Estado
+        <select formControlName="status">
+          <option value="">Todos</option>
+          <option *ngFor="let status of statusOptions" [value]="status">{{ status }}</option>
+        </select>
+      </label>
+    </div>
+    <div class="filter-actions">
+      <button type="submit" [disabled]="loading">
+        {{ loading ? 'A carregar...' : 'Filtrar' }}
+      </button>
+      <button type="button" class="ghost" (click)="resetFilters()" [disabled]="loading">
+        Limpar
+      </button>
+    </div>
+  </form>
+
+  <div class="status-row">
+    <div *ngIf="loading" class="info">A carregar execucoes...</div>
+    <div *ngIf="error && !loading" class="error">{{ error }}</div>
+    <div *ngIf="emptyMessage && !loading && !error" class="muted">{{ emptyMessage }}</div>
+  </div>
+
+  <div class="table-wrapper" *ngIf="!loading && !error && executions.length">
+    <table>
+      <thead>
+        <tr>
+          <th>VVN</th>
+          <th>Navio</th>
+          <th>Berth</th>
+          <th>Estado</th>
+          <th>Chegada (real)</th>
+          <th>Atracacao (real)</th>
+          <th>Partida (real)</th>
+          <th>Turnaround</th>
+          <th>Tempo Atracado</th>
+          <th>Espera para Berth</th>
+          <th>Atraso Chegada</th>
+          <th>Atraso Partida</th>
+          <th>Delay Operacoes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let exec of executions; trackBy: trackById">
+          <td>{{ exec.vesselVisitId }}</td>
+          <td>{{ exec.vesselName }}</td>
+          <td>{{ exec.berthId || '-' }}</td>
+          <td><span class="status-pill">{{ exec.status }}</span></td>
+          <td>{{ exec.actualArrivalTime | date: 'short' }}</td>
+          <td>{{ exec.actualBerthTime | date: 'short' }}</td>
+          <td>{{ exec.actualDepartureTime | date: 'short' }}</td>
+          <td>{{ displayMinutes(exec.totalTurnaroundMinutes) }}</td>
+          <td>{{ displayMinutes(exec.berthOccupancyMinutes) }}</td>
+          <td>{{ displayMinutes(exec.waitingForBerthMinutes) }}</td>
+          <td>{{ formatDelay(exec.arrivalDelayMinutes) }}</td>
+          <td>{{ formatDelay(exec.departureDelayMinutes) }}</td>
+          <td>{{ displayMinutes(exec.operationsDelayMinutes) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>

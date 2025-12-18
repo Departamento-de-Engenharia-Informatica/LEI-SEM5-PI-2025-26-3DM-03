@@ -7,6 +7,8 @@ import {
   PlannedOperationWithExecutionDto,
   UpdateVesselVisitExecutionDto,
   UpsertExecutedOperationDto,
+  VesselVisitExecutionFilterDto,
+  VesselVisitExecutionListItemDto,
 } from '../dto';
 import { VesselExecutionStatus } from '../domain';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
@@ -34,8 +36,45 @@ export class VesselVisitExecutionService {
     private readonly vvnService: OemVvnService,
   ) {}
 
-  findAll(): Promise<VesselVisitExecutionEntity[]> {
-    return this.repo.find({ order: { createdAt: 'DESC' } });
+  findAll(): Promise<VesselVisitExecutionListItemDto[]> {
+    return this.findAllWithFilters({});
+  }
+
+  async findAllWithFilters(
+    filters: VesselVisitExecutionFilterDto = {} as VesselVisitExecutionFilterDto,
+  ): Promise<VesselVisitExecutionListItemDto[]> {
+    const qb = this.repo.createQueryBuilder('vve');
+
+    qb.orderBy('vve.actualArrivalTime', 'ASC');
+
+    if (filters.from) {
+      const fromDate = this.normalizeBoundary(filters.from, 'start', 'from');
+      qb.andWhere('vve.actualArrivalTime >= :from', { from: fromDate });
+    }
+
+    if (filters.to) {
+      const toDate = this.normalizeBoundary(filters.to, 'end', 'to');
+      qb.andWhere('vve.actualArrivalTime <= :to', { to: toDate });
+    }
+
+    if (filters.vesselVisitId != null) {
+      qb.andWhere('vve.vesselVisitId = :vesselVisitId', {
+        vesselVisitId: Number(filters.vesselVisitId),
+      });
+    }
+
+    if (filters.vesselName) {
+      qb.andWhere('LOWER(vve.vesselName) LIKE :vesselName', {
+        vesselName: `%${filters.vesselName.toLowerCase()}%`,
+      });
+    }
+
+    if (filters.status) {
+      qb.andWhere('vve.status = :status', { status: filters.status });
+    }
+
+    const executions = await qb.getMany();
+    return executions.map((execution) => this.mapListItem(execution));
   }
 
   async findOne(id: number): Promise<VesselVisitExecutionEntity> {
@@ -54,17 +93,25 @@ export class VesselVisitExecutionService {
     const actualArrivalTime = this.toDate(dto.actualArrivalTime, 'actualArrivalTime');
 
     const normalizedVvnId = this.normalizeVvnId(vvn, dto.vvnId);
+    const vesselVisitId = Number(normalizedVvnId);
     const identifier = await this.generateIdentifier(normalizedVvnId);
 
     const entity = this.repo.create({
       identifier,
       vvnId: normalizedVvnId,
+      vesselVisitId: Number.isNaN(vesselVisitId) ? undefined : vesselVisitId,
+      vesselName: vvn.vesselName,
       vesselIdentifier: vvn.vesselName,
+      berthId: vvn.dockId,
       voyageNumber: undefined,
       operationPlanId: undefined,
       eta: vvn.eta,
       etd: vvn.etd,
+      plannedArrivalTime: vvn.eta ?? null,
+      plannedBerthTime: null,
+      plannedDepartureTime: vvn.etd ?? null,
       actualArrivalTime,
+      actualDepartureTime: null,
       createdBy: createdBy ?? 'unknown',
       status: VesselExecutionStatus.InProgress,
     });
@@ -104,13 +151,13 @@ export class VesselVisitExecutionService {
       : existing.actualBerthTime;
 
     let note: string | undefined;
-    let nextDockId = existing.dockId ?? null;
+    let nextBerthId = existing.berthId ?? null;
     let nextLastWarning = existing.lastWarning ?? null;
 
     if (dto.dockId) {
-      nextDockId = dto.dockId.trim();
-      if (plannedDock && nextDockId !== plannedDock) {
-        note = `Dock mismatch: planned ${plannedDock}, actual ${nextDockId}`;
+      nextBerthId = dto.dockId.trim();
+      if (plannedDock && nextBerthId !== plannedDock) {
+        note = `Dock mismatch: planned ${plannedDock}, actual ${nextBerthId}`;
         nextLastWarning = note;
       } else {
         nextLastWarning = null;
@@ -122,7 +169,7 @@ export class VesselVisitExecutionService {
       const auditRepo = manager.getRepository(VesselVisitExecutionAuditEntity);
 
       existing.actualBerthTime = nextActualBerthTime ?? null;
-      existing.dockId = nextDockId ?? null;
+      existing.berthId = nextBerthId ?? null;
       existing.lastWarning = nextLastWarning ?? null;
 
       const saved = await vveRepo.save(existing);
@@ -348,6 +395,19 @@ export class VesselVisitExecutionService {
     return parsed;
   }
 
+  private normalizeBoundary(value: string, boundary: 'start' | 'end', field: string): Date {
+    const parsed = this.toDate(value, field);
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+    if (isDateOnly) {
+      if (boundary === 'start') {
+        parsed.setUTCHours(0, 0, 0, 0);
+      } else {
+        parsed.setUTCHours(23, 59, 59, 999);
+      }
+    }
+    return parsed;
+  }
+
   private ensureObject(field: string, value: unknown): void {
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
       throw new BadRequestException(`${field} must be a JSON object.`);
@@ -382,10 +442,60 @@ export class VesselVisitExecutionService {
   private buildAuditSnapshot(execution: VesselVisitExecutionEntity): Record<string, unknown> {
     return {
       actualBerthTime: execution.actualBerthTime ?? null,
-      dockId: execution.dockId ?? null,
+      berthId: execution.berthId ?? null,
       status: execution.status,
       lastWarning: execution.lastWarning ?? null,
     };
+  }
+
+  private mapListItem(execution: VesselVisitExecutionEntity): VesselVisitExecutionListItemDto {
+    const plannedArrival = execution.plannedArrivalTime ?? execution.eta ?? null;
+    const plannedBerth = execution.plannedBerthTime ?? null;
+    const plannedDeparture = execution.plannedDepartureTime ?? execution.etd ?? null;
+    const actualArrival = execution.actualArrivalTime ?? null;
+    const actualBerth = execution.actualBerthTime ?? null;
+    const actualDeparture = execution.actualDepartureTime ?? null;
+
+    const vesselVisitId = Number.isFinite(execution.vesselVisitId)
+      ? Number(execution.vesselVisitId)
+      : !Number.isNaN(Number(execution.vvnId))
+        ? Number(execution.vvnId)
+        : execution.id;
+
+    return {
+      id: execution.id,
+      vesselVisitId,
+      vesselName: execution.vesselName || execution.vesselIdentifier || 'Vessel',
+      berthId: execution.berthId ?? null,
+      status: execution.status,
+      plannedArrivalTime: this.toIso(plannedArrival),
+      actualArrivalTime: this.toIso(actualArrival),
+      plannedBerthTime: this.toIso(plannedBerth),
+      actualBerthTime: this.toIso(actualBerth),
+      plannedDepartureTime: this.toIso(plannedDeparture),
+      actualDepartureTime: this.toIso(actualDeparture),
+      totalTurnaroundMinutes: this.diffMinutes(actualArrival, actualDeparture),
+      berthOccupancyMinutes: this.diffMinutes(actualBerth, actualDeparture),
+      waitingForBerthMinutes: this.diffMinutes(actualArrival, actualBerth),
+      arrivalDelayMinutes: this.diffMinutes(plannedArrival, actualArrival),
+      departureDelayMinutes: this.diffMinutes(plannedDeparture, actualDeparture),
+      operationsDelayMinutes: null, // TODO: derive from executed operations once the model is available.
+    };
+  }
+
+  private diffMinutes(
+    start: Date | null | undefined,
+    end: Date | null | undefined,
+  ): number | null {
+    if (!start || !end) {
+      return null;
+    }
+    const delta = end.getTime() - start.getTime();
+    return Math.round(delta / 60000);
+  }
+
+  private toIso(value?: Date | null): string | null {
+    return value ? value.toISOString() : null;
   }
 
   private async resolveOperationPlan(vve: VesselVisitExecutionEntity): Promise<OperationPlanEntity> {

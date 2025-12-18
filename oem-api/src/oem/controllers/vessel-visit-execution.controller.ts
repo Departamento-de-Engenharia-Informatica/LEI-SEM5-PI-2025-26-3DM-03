@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -25,6 +26,8 @@ import {
   PlannedOperationWithExecutionDto,
   UpdateVesselVisitExecutionDto,
   UpsertExecutedOperationDto,
+  VesselVisitExecutionFilterDto,
+  VesselVisitExecutionListItemDto,
 } from '../dto';
 import { VesselVisitExecutionService } from '../services';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
@@ -39,11 +42,13 @@ export class VesselVisitExecutionController {
   constructor(private readonly service: VesselVisitExecutionService) {}
 
   @Get()
-  @Roles('oem:vessel:read')
-  @ApiOperation({ summary: 'List vessel visit executions' })
-  @ApiOkResponse({ type: VesselVisitExecutionEntity, isArray: true })
-  findAll(): Promise<VesselVisitExecutionEntity[]> {
-    return this.service.findAll();
+  @Roles('admin', 'logistics-operator', 'oem:vessel:read')
+  @ApiOperation({ summary: 'List vessel visit executions with optional filters' })
+  @ApiOkResponse({ type: VesselVisitExecutionListItemDto, isArray: true })
+  findAll(
+    @Query() filters: VesselVisitExecutionFilterDto,
+  ): Promise<VesselVisitExecutionListItemDto[]> {
+    return this.service.findAllWithFilters(filters);
   }
 
   @Get(':id')

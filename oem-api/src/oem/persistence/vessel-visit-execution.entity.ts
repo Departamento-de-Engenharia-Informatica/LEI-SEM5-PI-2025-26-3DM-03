@@ -17,14 +17,20 @@ export class VesselVisitExecutionEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  @Column({ name: 'vessel_visit_id', type: 'integer', nullable: true })
+  vesselVisitId?: number | null;
+
+  @Column({ name: 'vesselName', type: 'text' })
+  vesselName!: string;
+
   @Column({ name: 'identifier', type: 'text', unique: true })
   identifier!: string;
 
   @Column({ name: 'vvn_id', type: 'text' })
   vvnId!: string;
 
-  @Column({ name: 'vesselName', type: 'text' })
-  vesselIdentifier!: string;
+  @Column({ type: 'text', nullable: true })
+  vesselIdentifier?: string | null;
 
   @Column({ type: 'text', nullable: true })
   voyageNumber?: string;
@@ -45,8 +51,20 @@ export class VesselVisitExecutionEntity {
   @Column({ type: 'datetime', nullable: true })
   etd?: Date;
 
+  @Column({ name: 'planned_arrival_time', type: 'datetime', nullable: true })
+  plannedArrivalTime?: Date | null;
+
+  @Column({ name: 'planned_berth_time', type: 'datetime', nullable: true })
+  plannedBerthTime?: Date | null;
+
+  @Column({ name: 'planned_departure_time', type: 'datetime', nullable: true })
+  plannedDepartureTime?: Date | null;
+
   @Column({ name: 'actual_arrival_time', type: 'datetime' })
   actualArrivalTime!: Date;
+
+  @Column({ name: 'actual_departure_time', type: 'datetime', nullable: true })
+  actualDepartureTime?: Date | null;
 
   @Column({ name: 'created_by', type: 'text' })
   createdBy!: string;
@@ -58,7 +76,7 @@ export class VesselVisitExecutionEntity {
   actualBerthTime?: Date | null;
 
   @Column({ name: 'dock_id', type: 'text', nullable: true })
-  dockId?: string | null;
+  berthId?: string | null;
 
   @Column({ name: 'last_warning', type: 'text', nullable: true })
   lastWarning?: string | null;

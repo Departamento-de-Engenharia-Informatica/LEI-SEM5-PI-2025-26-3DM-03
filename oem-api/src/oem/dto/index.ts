@@ -15,3 +15,5 @@ export * from './operation-plan-task.dto';
 export * from './upsert-executed-operation.dto';
 export * from './executed-operation.dto';
 export * from './planned-operation-with-execution.dto';
+export * from './vessel-visit-execution-filter.dto';
+export * from './vessel-visit-execution-list-item.dto';

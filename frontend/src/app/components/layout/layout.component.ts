@@ -77,6 +77,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
     { key: 'oem_operation_plans', label_en: 'Operation Plans', label_pt: 'Planos de Operação', icon: 'bi-diagram-3', route: '/oem/operation-plans', roles: ['admin','logistics-operator'] },
+    { key: 'oem_vve_history', label_en: 'Visit Executions', label_pt: 'Execuções de Visita', icon: 'bi-clock-history', route: '/oem/vessel-visit-executions', roles: ['admin','logistics-operator'] },
     // Representatives management by Port Authority Officer + admin (agent may have separate limited view later)
     { key: 'representatives', label_en: 'Representatives', label_pt: 'Representantes', icon: 'bi-people', route: '/representatives', roles: ['admin','authority'] },
   // Port 3D
@@ -255,4 +256,3 @@ export class LayoutComponent implements OnInit, OnDestroy {
   }
 
 }
-

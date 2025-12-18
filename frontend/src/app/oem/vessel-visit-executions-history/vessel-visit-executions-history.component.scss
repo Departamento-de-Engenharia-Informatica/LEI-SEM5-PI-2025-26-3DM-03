@@ -1,0 +1,157 @@
+.vve-history {
+  padding: 24px;
+  color: #0f172a;
+}
+
+.page-header {
+  margin-bottom: 16px;
+
+  .eyebrow {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 4px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .subtitle {
+    margin: 6px 0 0;
+    color: #475569;
+  }
+}
+
+.filter-form {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  margin-bottom: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+
+  label {
+    display: flex;
+    flex-direction: column;
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 14px;
+    gap: 6px;
+
+    input,
+    select {
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+  }
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+
+  button {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: #0f766e;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  button.ghost {
+    background: #fff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+.status-row {
+  min-height: 24px;
+  margin: 8px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .info {
+    color: #0ea5e9;
+    font-weight: 600;
+  }
+
+  .error {
+    color: #b91c1c;
+    font-weight: 600;
+  }
+
+  .muted {
+    color: #6b7280;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 960px;
+
+  th,
+  td {
+    padding: 12px 10px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+  }
+
+  thead th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #1e293b;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  tbody tr:hover {
+    background: #f8fafc;
+  }
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: #ecfeff;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  font-weight: 700;
+  font-size: 12px;
+}
