@@ -7,7 +7,6 @@ import {
 } from 'typeorm';
 import { OperationPlanStatus } from '../domain/operation-plan.entity';
 import { ComplementaryTaskEntity } from './complementary-task.entity';
-import { IncidentEntity } from './incident.entity';
 import { VesselVisitExecutionEntity } from './vessel-visit-execution.entity';
 import { OperationPlanTaskEntity } from './operation-plan-task.entity';
 import { OperationPlanChangeLogEntity } from './operation-plan-change-log.entity';
@@ -84,9 +83,6 @@ export class OperationPlanEntity {
 
   @OneToMany(() => VesselVisitExecutionEntity, (execution) => execution.operationPlan)
   vesselVisitExecutions?: VesselVisitExecutionEntity[];
-
-  @OneToMany(() => IncidentEntity, (incident) => incident.operationPlan)
-  incidents?: IncidentEntity[];
 
   @OneToMany(() => OperationPlanTaskEntity, (task) => task.operationPlan, {
     cascade: true,

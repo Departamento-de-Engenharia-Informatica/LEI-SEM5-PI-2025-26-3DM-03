@@ -27,6 +27,8 @@ import { ComplementaryTaskCategoryEntity } from './persistence/complementary-tas
 import { ComplementaryTaskEntity } from './persistence/complementary-task.entity';
 import { IncidentTypeEntity } from './persistence/incident-type.entity';
 import { IncidentEntity } from './persistence/incident.entity';
+import { IncidentAffectedVveEntity } from './persistence/incident-affected-vve.entity';
+import { IncidentAuditEntity } from './persistence/incident-audit.entity';
 import { VesselVisitExecutionEntity } from './persistence/vessel-visit-execution.entity';
 import { OemVvn } from './vvn/oem-vvn.entity';
 import { OemVvnService } from './vvn/oem-vvn.service';
@@ -46,6 +48,8 @@ import { ExecutedOperationAuditEntity } from './persistence/executed-operation-a
       ComplementaryTaskEntity,
       IncidentTypeEntity,
       IncidentEntity,
+      IncidentAffectedVveEntity,
+      IncidentAuditEntity,
       VesselVisitExecutionEntity,
       VesselVisitExecutionAuditEntity,
       OperationPlanTaskEntity,

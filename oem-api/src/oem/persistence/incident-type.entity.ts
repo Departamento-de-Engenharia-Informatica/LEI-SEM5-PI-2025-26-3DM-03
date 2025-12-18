@@ -46,7 +46,7 @@ export class IncidentTypeEntity {
   @OneToMany(() => IncidentTypeEntity, (type) => type.parent)
   children?: IncidentTypeEntity[];
 
-  @OneToMany(() => IncidentEntity, (incident) => incident.type)
+  @OneToMany(() => IncidentEntity, (incident) => incident.incidentType)
   incidents?: IncidentEntity[];
 
   @CreateDateColumn({ type: 'datetime' })

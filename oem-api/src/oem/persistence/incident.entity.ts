@@ -5,57 +5,80 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { IncidentStatus } from '../domain/incident.entity';
+import { IncidentScope } from '../domain/incident.entity';
 import { IncidentSeverity } from '../domain/incident-type.entity';
-import { OperationPlanEntity } from './operation-plan.entity';
 import { IncidentTypeEntity } from './incident-type.entity';
+import { IncidentAffectedVveEntity } from './incident-affected-vve.entity';
+import { IncidentAuditEntity } from './incident-audit.entity';
 
 @Entity({ name: 'incidents' })
-@Index(['operationPlanId', 'occurredAt'])
+@Index('IDX_incidents_severity', ['severity'])
+@Index('IDX_incidents_start_time', ['startTime'])
+@Index('IDX_incidents_end_time', ['endTime'])
+@Index('IDX_incidents_incident_type_id', ['incidentTypeId'])
+@Index('IDX_incidents_scope', ['scope'])
 export class IncidentEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ type: 'integer', name: 'type_id' })
-  typeId!: number;
+  @Index('UQ_incidents_identifier', { unique: true })
+  @Column({ type: 'text' })
+  identifier!: string;
+
+  @Column({ name: 'incident_type_id', type: 'integer' })
+  incidentTypeId!: number;
 
   @ManyToOne(() => IncidentTypeEntity, (type) => type.incidents, {
     nullable: false,
     onDelete: 'RESTRICT',
   })
-  @JoinColumn({ name: 'type_id' })
-  type!: IncidentTypeEntity;
-
-  @Column({ type: 'text' })
-  title!: string;
-
-  @Column({ type: 'text', nullable: true })
-  description?: string;
-
-  @Column({ type: 'text' })
-  status!: IncidentStatus;
+  @JoinColumn({ name: 'incident_type_id' })
+  incidentType!: IncidentTypeEntity;
 
   @Column({ type: 'text' })
   severity!: IncidentSeverity;
 
-  @Column({ type: 'datetime' })
-  occurredAt!: Date;
+  @Column({ type: 'text', nullable: true })
+  description?: string | null;
 
-  @Column({ type: 'datetime', nullable: true })
-  resolvedAt?: Date;
+  @Column({ name: 'start_time', type: 'datetime' })
+  startTime!: Date;
 
-  @Column({ type: 'integer', nullable: true, name: 'operation_plan_id' })
-  operationPlanId?: number;
+  @Column({ name: 'end_time', type: 'datetime', nullable: true })
+  endTime?: Date | null;
 
-  @ManyToOne(() => OperationPlanEntity, (plan) => plan.incidents, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'operation_plan_id' })
-  operationPlan?: OperationPlanEntity;
+  @Column({ name: 'duration_minutes', type: 'integer', nullable: true })
+  durationMinutes?: number | null;
 
-  @CreateDateColumn({ type: 'datetime' })
+  @Column({ type: 'text' })
+  scope!: IncidentScope;
+
+  @Column({ name: 'impact_from', type: 'datetime', nullable: true })
+  impactFrom?: Date | null;
+
+  @Column({ name: 'impact_to', type: 'datetime', nullable: true })
+  impactTo?: Date | null;
+
+  @Column({ name: 'created_by', type: 'text' })
+  createdBy!: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
+  updatedAt!: Date;
+
+  @OneToMany(() => IncidentAffectedVveEntity, (affected) => affected.incident, {
+    cascade: false,
+  })
+  affectedVves?: IncidentAffectedVveEntity[];
+
+  @OneToMany(() => IncidentAuditEntity, (audit) => audit.incident, {
+    cascade: false,
+  })
+  auditTrail?: IncidentAuditEntity[];
 }

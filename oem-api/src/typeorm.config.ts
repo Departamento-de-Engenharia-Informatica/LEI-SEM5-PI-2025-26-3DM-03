@@ -5,6 +5,8 @@ import { OperationPlanChangeLogEntity } from './oem/persistence/operation-plan-c
 import { ComplementaryTaskEntity } from './oem/persistence/complementary-task.entity';
 import { ComplementaryTaskCategoryEntity } from './oem/persistence/complementary-task-category.entity';
 import { IncidentEntity } from './oem/persistence/incident.entity';
+import { IncidentAffectedVveEntity } from './oem/persistence/incident-affected-vve.entity';
+import { IncidentAuditEntity } from './oem/persistence/incident-audit.entity';
 import { IncidentTypeEntity } from './oem/persistence/incident-type.entity';
 import { VesselVisitExecutionEntity } from './oem/persistence/vessel-visit-execution.entity';
 import { VesselVisitExecutionAuditEntity } from './oem/persistence/vessel-visit-execution-audit.entity';
@@ -22,6 +24,8 @@ export default new DataSource({
     ComplementaryTaskEntity,
     ComplementaryTaskCategoryEntity,
     IncidentEntity,
+    IncidentAffectedVveEntity,
+    IncidentAuditEntity,
     IncidentTypeEntity,
     VesselVisitExecutionEntity,
     VesselVisitExecutionAuditEntity,

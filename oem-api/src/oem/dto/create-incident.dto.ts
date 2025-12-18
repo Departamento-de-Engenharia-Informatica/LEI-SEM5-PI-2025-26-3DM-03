@@ -1,57 +1,68 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { IncidentSeverity } from '../domain/incident-type.entity';
-import { IncidentStatus } from '../domain/incident.entity';
+import { IncidentScope } from '../domain/incident.entity';
 
 export class CreateIncidentDto {
-  @ApiProperty({ description: 'Type identifier', example: 1 })
+  @ApiProperty({ description: 'Incident type identifier', example: 1 })
   @IsInt()
   @Type(() => Number)
-  @IsNotEmpty()
-  typeId!: number;
+  incidentTypeId!: number;
 
-  @ApiProperty({ description: 'Short title of the incident' })
-  @IsString()
-  @IsNotEmpty()
-  title!: string;
-
-  @ApiPropertyOptional({ description: 'Detailed description' })
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @ApiPropertyOptional({ description: 'Linked operation plan id' })
-  @IsInt()
-  @Type(() => Number)
-  @IsOptional()
-  operationPlanId?: number;
-
-  @ApiProperty({
-    enum: IncidentStatus,
-    default: IncidentStatus.Open,
-  })
-  @IsEnum(IncidentStatus)
-  status: IncidentStatus = IncidentStatus.Open;
-
-  @ApiProperty({
-    enum: IncidentSeverity,
-    default: IncidentSeverity.MINOR,
-  })
+  @ApiProperty({ enum: IncidentSeverity, description: 'Severity level for the incident' })
   @IsEnum(IncidentSeverity)
-  severity: IncidentSeverity = IncidentSeverity.MINOR;
+  severity!: IncidentSeverity;
 
-  @ApiProperty({
-    description: 'Occurrence timestamp (ISO-8601)',
-    example: '2025-12-07T10:00:00Z',
-  })
+  @ApiProperty({ description: 'ISO-8601 timestamp when the incident started' })
   @IsISO8601()
-  occurredAt!: string;
+  startTime!: string;
+
+  @ApiPropertyOptional({ description: 'ISO-8601 timestamp when the incident ended (if resolved)' })
+  @IsOptional()
+  @IsISO8601()
+  endTime?: string | null;
+
+  @ApiPropertyOptional({ description: 'Free-text description of the incident' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string | null;
+
+  @ApiProperty({ enum: IncidentScope, description: 'Impact scope' })
+  @IsEnum(IncidentScope)
+  scope!: IncidentScope;
+
+  @ApiPropertyOptional({ description: 'Impact window start (ISO-8601) for UPCOMING incidents' })
+  @IsOptional()
+  @IsISO8601()
+  impactFrom?: string | null;
+
+  @ApiPropertyOptional({ description: 'Impact window end (ISO-8601) for UPCOMING incidents' })
+  @IsOptional()
+  @IsISO8601()
+  impactTo?: string | null;
 
   @ApiPropertyOptional({
-    description: 'Resolution timestamp (ISO-8601)',
+    description: 'Identifiers of impacted VVEs (required for SPECIFIC scope)',
+    type: [Number],
   })
-  @IsISO8601()
   @IsOptional()
-  resolvedAt?: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  affectedVveIds?: number[];
 }
