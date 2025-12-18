@@ -21,6 +21,8 @@ import {
 } from '../persistence/operation-plan-task.entity';
 import { ExecutedOperationEntity } from '../persistence/executed-operation.entity';
 import { ExecutedOperationAuditEntity } from '../persistence/executed-operation-audit.entity';
+import { AuthenticatedUser } from '../auth/types';
+import { CompleteVesselVisitExecutionDto } from '../dto/complete-vessel-visit-execution.dto';
 
 @Injectable()
 export class VesselVisitExecutionService {
@@ -87,7 +89,7 @@ export class VesselVisitExecutionService {
 
   async createExecution(
     dto: CreateVesselVisitExecutionDto,
-    createdBy: string,
+    user: AuthenticatedUser | null,
   ): Promise<VesselVisitExecutionEntity> {
     const vvn = await this.vvnService.getById(dto.vvnId);
     const actualArrivalTime = this.toDate(dto.actualArrivalTime, 'actualArrivalTime');
@@ -112,7 +114,7 @@ export class VesselVisitExecutionService {
       plannedDepartureTime: vvn.etd ?? null,
       actualArrivalTime,
       actualDepartureTime: null,
-      createdBy: createdBy ?? 'unknown',
+      createdBy: this.resolveUserId(user),
       status: VesselExecutionStatus.InProgress,
     });
 
@@ -122,13 +124,15 @@ export class VesselVisitExecutionService {
   async updateExecution(
     id: number,
     dto: UpdateVesselVisitExecutionDto,
-    updatedBy: string,
+    user: AuthenticatedUser | null,
   ): Promise<VesselVisitExecutionEntity> {
     if (!dto.actualBerthTime && !dto.dockId) {
       throw new BadRequestException('Provide at least actualBerthTime or dockId.');
     }
 
     const existing = await this.findOne(id);
+
+    this.ensureMutableOrAdmin(existing, user, 'update berth/dock');
 
     if (existing.status !== VesselExecutionStatus.InProgress) {
       throw new BadRequestException(
@@ -176,7 +180,7 @@ export class VesselVisitExecutionService {
 
       const auditPayload: Partial<VesselVisitExecutionAuditEntity> = {
         vveId: saved.id,
-        changedBy: updatedBy || 'unknown',
+        changedBy: this.resolveUserId(user),
         action: 'UPDATE_BERTH_DOCK',
         before: beforeSnapshot,
         after: this.buildAuditSnapshot(saved),
@@ -265,7 +269,7 @@ export class VesselVisitExecutionService {
     vveId: number,
     plannedOperationId: number,
     dto: UpsertExecutedOperationDto,
-    changedBy: string,
+    user: AuthenticatedUser | null,
   ): Promise<ExecutedOperationDto> {
     if (
       dto.actualStartTime === undefined &&
@@ -282,6 +286,8 @@ export class VesselVisitExecutionService {
     }
 
     const vve = await this.findOne(vveId);
+
+    this.ensureMutableOrAdmin(vve, user, 'record executed operations');
 
     if (vve.status !== VesselExecutionStatus.InProgress) {
       throw new BadRequestException('Only in-progress VVEs can record executed operations.');
@@ -350,7 +356,7 @@ export class VesselVisitExecutionService {
             actualStartTime: nextActualStartTime ?? null,
             actualEndTime: nextActualEndTime ?? null,
             resourcesUsed: nextResourcesUsed ?? null,
-            updatedBy: changedBy || 'unknown',
+            updatedBy: this.resolveUserId(user),
           })
         : executedRepo.create({
             vveId: vve.id,
@@ -358,8 +364,8 @@ export class VesselVisitExecutionService {
             actualStartTime: nextActualStartTime ?? null,
             actualEndTime: nextActualEndTime ?? null,
             resourcesUsed: nextResourcesUsed ?? null,
-            createdBy: changedBy || 'unknown',
-            updatedBy: changedBy || 'unknown',
+            createdBy: this.resolveUserId(user),
+            updatedBy: this.resolveUserId(user),
           });
 
       const savedExecution = await executedRepo.save(payload);
@@ -369,7 +375,7 @@ export class VesselVisitExecutionService {
 
       const audit = auditRepo.create({
         executedOperationId: savedExecution.id,
-        changedBy: changedBy || 'unknown',
+        changedBy: this.resolveUserId(user),
         action: 'UPSERT_EXECUTED_OPERATION',
         before: beforeSnapshot,
         after: afterSnapshot,
@@ -385,6 +391,55 @@ export class VesselVisitExecutionService {
     const existing = await this.findOne(id);
     await this.repo.remove(existing);
     return existing;
+  }
+  
+  async completeExecution(
+    id: number,
+    dto: CompleteVesselVisitExecutionDto,
+    user: AuthenticatedUser | null,
+  ): Promise<VesselVisitExecutionEntity> {
+    const existing = await this.findOne(id);
+
+    // Enforce read-only rule for non-admins if already completed
+    this.ensureMutableOrAdmin(existing, user, 'complete execution');
+
+    if (existing.status === VesselExecutionStatus.Completed && !this.isAdmin(user)) {
+      throw new BadRequestException('Vessel visit execution is already completed.');
+    }
+
+    // Ensure all associated cargo operations are finished
+    await this.ensureAllOperationsFinished(existing);
+
+    const beforeSnapshot = this.buildAuditSnapshot(existing);
+
+    const actualUnberthTime = this.toDate(dto.actualUnberthTime, 'actualUnberthTime');
+    const actualPortDepartureTime = this.toDate(
+      dto.actualPortDepartureTime,
+      'actualPortDepartureTime',
+    );
+
+    existing.actualUnberthTime = actualUnberthTime;
+    existing.actualDepartureTime = actualPortDepartureTime;
+    existing.status = VesselExecutionStatus.Completed;
+
+    return this.repo.manager.transaction(async (manager) => {
+      const vveRepo = manager.getRepository(VesselVisitExecutionEntity);
+      const auditRepo = manager.getRepository(VesselVisitExecutionAuditEntity);
+
+      const saved = await vveRepo.save(existing);
+
+      const audit = auditRepo.create({
+        vveId: saved.id,
+        changedBy: this.resolveUserId(user),
+        action: 'COMPLETE_EXECUTION',
+        before: beforeSnapshot,
+        after: this.buildAuditSnapshot(saved),
+      });
+
+      await auditRepo.save(audit);
+
+      return saved;
+    });
   }
 
   private toDate(value: string, field: string): Date {
@@ -442,6 +497,8 @@ export class VesselVisitExecutionService {
   private buildAuditSnapshot(execution: VesselVisitExecutionEntity): Record<string, unknown> {
     return {
       actualBerthTime: execution.actualBerthTime ?? null,
+      actualUnberthTime: execution.actualUnberthTime ?? null,
+      actualDepartureTime: execution.actualDepartureTime ?? null,
       berthId: execution.berthId ?? null,
       status: execution.status,
       lastWarning: execution.lastWarning ?? null,
@@ -454,6 +511,7 @@ export class VesselVisitExecutionService {
     const plannedDeparture = execution.plannedDepartureTime ?? execution.etd ?? null;
     const actualArrival = execution.actualArrivalTime ?? null;
     const actualBerth = execution.actualBerthTime ?? null;
+    const actualUnberth = execution.actualUnberthTime ?? null;
     const actualDeparture = execution.actualDepartureTime ?? null;
 
     const vesselVisitId = Number.isFinite(execution.vesselVisitId)
@@ -472,10 +530,11 @@ export class VesselVisitExecutionService {
       actualArrivalTime: this.toIso(actualArrival),
       plannedBerthTime: this.toIso(plannedBerth),
       actualBerthTime: this.toIso(actualBerth),
+      actualUnberthTime: this.toIso(actualUnberth),
       plannedDepartureTime: this.toIso(plannedDeparture),
       actualDepartureTime: this.toIso(actualDeparture),
       totalTurnaroundMinutes: this.diffMinutes(actualArrival, actualDeparture),
-      berthOccupancyMinutes: this.diffMinutes(actualBerth, actualDeparture),
+      berthOccupancyMinutes: this.diffMinutes(actualBerth, actualUnberth ?? actualDeparture),
       waitingForBerthMinutes: this.diffMinutes(actualArrival, actualBerth),
       arrivalDelayMinutes: this.diffMinutes(plannedArrival, actualArrival),
       departureDelayMinutes: this.diffMinutes(plannedDeparture, actualDeparture),
@@ -496,6 +555,55 @@ export class VesselVisitExecutionService {
 
   private toIso(value?: Date | null): string | null {
     return value ? value.toISOString() : null;
+  }
+
+  private async ensureAllOperationsFinished(
+    execution: VesselVisitExecutionEntity,
+  ): Promise<void> {
+    let plan: OperationPlanEntity | null = null;
+    try {
+      plan = await this.resolveOperationPlan(execution);
+    } catch {
+      // No associated operation plan -> nothing to validate
+      return;
+    }
+
+    const tasks = await this.taskRepo.find({ where: { operationPlanId: plan.id } });
+    if (!tasks.length) {
+      return;
+    }
+
+    const unfinished = tasks.filter((t) =>
+      t.executionStatus === OperationExecutionStatus.Planned ||
+      t.executionStatus === OperationExecutionStatus.Started,
+    );
+
+    if (unfinished.length > 0) {
+      throw new BadRequestException(
+        `Cannot complete vessel visit execution while there are unfinished cargo operations (${unfinished.length} pending).`,
+      );
+    }
+  }
+
+  private isAdmin(user: AuthenticatedUser | null): boolean {
+    return !!user?.roles?.includes('admin');
+  }
+
+  private resolveUserId(user: AuthenticatedUser | null): string {
+    if (!user) return 'unknown';
+    return user.userId || user.email || 'unknown';
+  }
+
+  private ensureMutableOrAdmin(
+    execution: VesselVisitExecutionEntity,
+    user: AuthenticatedUser | null,
+    context: string,
+  ): void {
+    if (execution.status === VesselExecutionStatus.Completed && !this.isAdmin(user)) {
+      throw new BadRequestException(
+        `Completed vessel visit executions are read-only (${context}). Contact an administrator for corrections.`,
+      );
+    }
   }
 
   private async resolveOperationPlan(vve: VesselVisitExecutionEntity): Promise<OperationPlanEntity> {

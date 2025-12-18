@@ -79,6 +79,7 @@ export interface VesselVisitExecutionListItem {
   actualArrivalTime?: string | null;
   plannedBerthTime?: string | null;
   actualBerthTime?: string | null;
+  actualUnberthTime?: string | null;
   plannedDepartureTime?: string | null;
   actualDepartureTime?: string | null;
   totalTurnaroundMinutes?: number | null;
@@ -171,5 +172,13 @@ export class OemApiService {
       params: params.keys().length ? params : undefined,
     };
     return this.http.get<VesselVisitExecutionListItem[]>(this.vesselVisitExecutionBase, opts);
+  }
+
+  completeVesselVisitExecution(id: number, payload: {
+    actualUnberthTime: string;
+    actualPortDepartureTime: string;
+  }): Observable<VesselVisitExecutionListItem> {
+    const url = `${this.vesselVisitExecutionBase}/${id}/complete`;
+    return this.http.patch<VesselVisitExecutionListItem>(url, payload, { withCredentials: true });
   }
 }

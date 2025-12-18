@@ -15,6 +15,9 @@ import { OemApiService, VesselVisitExecutionListItem } from '../oem-api.service'
 export class VesselVisitExecutionsHistoryComponent implements OnInit {
   filterForm: FormGroup;
 
+  completeForm: FormGroup | null = null;
+  completing: VesselVisitExecutionListItem | null = null;
+
   executions: VesselVisitExecutionListItem[] = [];
   loading = false;
   error: string | null = null;
@@ -59,6 +62,67 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
       status: '',
     });
     this.fetchExecutions();
+  }
+
+  startComplete(exec: VesselVisitExecutionListItem): void {
+    if (exec.status === 'completed' || exec.status === 'cancelled') {
+      return;
+    }
+
+    this.completing = exec;
+    this.completeForm = this.fb.group({
+      actualUnberthTime: [exec.actualUnberthTime || exec.actualDepartureTime || '', Validators.required],
+      actualPortDepartureTime: [exec.actualDepartureTime || '', Validators.required],
+    });
+  }
+
+  cancelComplete(): void {
+    this.completing = null;
+    this.completeForm = null;
+  }
+
+  submitComplete(): void {
+    if (!this.completing || !this.completeForm) return;
+    if (this.completeForm.invalid) {
+      this.completeForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.completeForm.value as {
+      actualUnberthTime: string;
+      actualPortDepartureTime: string;
+    };
+
+    const toIso = (value: string) => {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    };
+
+    const payload = {
+      actualUnberthTime: toIso(raw.actualUnberthTime),
+      actualPortDepartureTime: toIso(raw.actualPortDepartureTime),
+    };
+
+    if (!payload.actualUnberthTime || !payload.actualPortDepartureTime) {
+      return;
+    }
+
+    this.loading = true;
+    this.error = null;
+
+    this.api
+      .completeVesselVisitExecution(this.completing.id, payload)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: () => {
+          this.cancelComplete();
+          this.fetchExecutions();
+        },
+        error: (err: HttpErrorResponse) => {
+          this.error = this.normalizeError(err, 'Falha ao concluir a execucao.');
+        },
+      });
   }
 
   displayMinutes(value?: number | null): string {

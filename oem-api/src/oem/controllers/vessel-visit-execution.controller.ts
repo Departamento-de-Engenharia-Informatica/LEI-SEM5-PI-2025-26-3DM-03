@@ -26,6 +26,7 @@ import {
   PlannedOperationWithExecutionDto,
   UpdateVesselVisitExecutionDto,
   UpsertExecutedOperationDto,
+  CompleteVesselVisitExecutionDto,
   VesselVisitExecutionFilterDto,
   VesselVisitExecutionListItemDto,
 } from '../dto';
@@ -67,8 +68,7 @@ export class VesselVisitExecutionController {
     @Body() payload: CreateVesselVisitExecutionDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<VesselVisitExecutionEntity> {
-    const createdBy = req.user?.userId ?? req.user?.email ?? 'unknown';
-    return this.service.createExecution(payload, createdBy);
+    return this.service.createExecution(payload, req.user ?? null);
   }
 
   @Patch(':id')
@@ -80,8 +80,19 @@ export class VesselVisitExecutionController {
     @Body() payload: UpdateVesselVisitExecutionDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<VesselVisitExecutionEntity> {
-    const updatedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
-    return this.service.updateExecution(id, payload, updatedBy);
+    return this.service.updateExecution(id, payload, req.user ?? null);
+  }
+
+  @Patch(':id/complete')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'Mark vessel visit execution as completed' })
+  @ApiOkResponse({ type: VesselVisitExecutionEntity })
+  complete(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: CompleteVesselVisitExecutionDto,
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<VesselVisitExecutionEntity> {
+    return this.service.completeExecution(id, payload, req.user ?? null);
   }
 
   /**
@@ -128,8 +139,7 @@ export class VesselVisitExecutionController {
     @Body() payload: UpsertExecutedOperationDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<ExecutedOperationDto> {
-    const changedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
-    return this.service.upsertExecutedOperation(id, plannedOperationId, payload, changedBy);
+    return this.service.upsertExecutedOperation(id, plannedOperationId, payload, req.user ?? null);
   }
 
   @Delete(':id')

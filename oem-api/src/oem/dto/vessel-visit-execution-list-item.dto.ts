@@ -33,6 +33,9 @@ export class VesselVisitExecutionListItemDto {
   @ApiPropertyOptional({ description: 'Actual berth time (ISO8601)' })
   actualBerthTime?: string | null;
 
+  @ApiPropertyOptional({ description: 'Actual unberth time (ISO8601)' })
+  actualUnberthTime?: string | null;
+
   @ApiPropertyOptional({ description: 'Planned departure time (ISO8601)' })
   plannedDepartureTime?: string | null;
 

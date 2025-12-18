@@ -17,3 +17,4 @@ export * from './executed-operation.dto';
 export * from './planned-operation-with-execution.dto';
 export * from './vessel-visit-execution-filter.dto';
 export * from './vessel-visit-execution-list-item.dto';
+export * from './complete-vessel-visit-execution.dto';

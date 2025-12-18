@@ -63,6 +63,9 @@ export class VesselVisitExecutionEntity {
   @Column({ name: 'actual_arrival_time', type: 'datetime' })
   actualArrivalTime!: Date;
 
+  @Column({ name: 'actual_unberth_time', type: 'datetime', nullable: true })
+  actualUnberthTime?: Date | null;
+
   @Column({ name: 'actual_departure_time', type: 'datetime', nullable: true })
   actualDepartureTime?: Date | null;
 

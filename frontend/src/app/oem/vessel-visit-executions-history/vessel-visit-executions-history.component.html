@@ -61,13 +61,15 @@
           <th>Estado</th>
           <th>Chegada (real)</th>
           <th>Atracacao (real)</th>
-          <th>Partida (real)</th>
+          <th>Desatracacao (real)</th>
+          <th>Saida Porto (real)</th>
           <th>Turnaround</th>
           <th>Tempo Atracado</th>
           <th>Espera para Berth</th>
           <th>Atraso Chegada</th>
           <th>Atraso Partida</th>
           <th>Delay Operacoes</th>
+          <th>Acoes</th>
         </tr>
       </thead>
       <tbody>
@@ -78,6 +80,7 @@
           <td><span class="status-pill">{{ exec.status }}</span></td>
           <td>{{ exec.actualArrivalTime | date: 'short' }}</td>
           <td>{{ exec.actualBerthTime | date: 'short' }}</td>
+          <td>{{ exec.actualUnberthTime | date: 'short' }}</td>
           <td>{{ exec.actualDepartureTime | date: 'short' }}</td>
           <td>{{ displayMinutes(exec.totalTurnaroundMinutes) }}</td>
           <td>{{ displayMinutes(exec.berthOccupancyMinutes) }}</td>
@@ -85,8 +88,40 @@
           <td>{{ formatDelay(exec.arrivalDelayMinutes) }}</td>
           <td>{{ formatDelay(exec.departureDelayMinutes) }}</td>
           <td>{{ displayMinutes(exec.operationsDelayMinutes) }}</td>
+          <td>
+            <button
+              type="button"
+              class="link-btn"
+              *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'"
+              (click)="startComplete(exec)"
+            >
+              Marcar como concluida
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
   </div>
+
+  <section class="complete-panel" *ngIf="completing && completeForm">
+    <h2>Concluir execucao para VVN {{ completing.vesselVisitId }} ({{ completing.vesselName }})</h2>
+    <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="complete-form">
+      <label>
+        Desatracacao (real)
+        <input type="datetime-local" formControlName="actualUnberthTime" />
+      </label>
+      <label>
+        Saida Porto (real)
+        <input type="datetime-local" formControlName="actualPortDepartureTime" />
+      </label>
+      <div class="actions">
+        <button type="submit" [disabled]="loading">
+          {{ loading ? 'A concluir...' : 'Concluir execucao' }}
+        </button>
+        <button type="button" class="ghost" (click)="cancelComplete()" [disabled]="loading">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </section>
 </section>
