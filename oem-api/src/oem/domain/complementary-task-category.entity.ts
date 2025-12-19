@@ -6,14 +6,23 @@ import { BaseDomainEntity } from './base-domain.entity';
  */
 export class ComplementaryTaskCategory extends BaseDomainEntity {
   @ApiProperty({ description: 'Category name' })
-  name: string;
+    private readonly code: string;
+    name: string;
 
   @ApiPropertyOptional({ description: 'Category description' })
-  description?: string;
+    private readonly description?: string | null;
+    private readonly defaultDurationMinutes?: number | null;
 
-  constructor(init?: Partial<ComplementaryTaskCategory>) {
-    super(init);
-    this.name = init?.name ?? '';
-    this.description = init?.description;
+    constructor(
+      init?: Partial<ComplementaryTaskCategory>,
+      code: string,
+      defaultDurationMinutes?: number | null,
+    ) {
+      super(init);
+      this.code = code;
+      this.name = init?.name ?? '';
+      this.description = init?.description ?? null;
+      this.defaultDurationMinutes =
+        defaultDurationMinutes !== undefined ? defaultDurationMinutes : null;
   }
 }

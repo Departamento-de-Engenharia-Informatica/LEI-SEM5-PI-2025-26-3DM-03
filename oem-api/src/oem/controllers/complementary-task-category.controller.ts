@@ -1,13 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiPropertyOptional,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
-import { CreateComplementaryTaskCategoryDto, UpdateComplementaryTaskCategoryDto } from '../dto';
+import { ComplementaryTaskCategoryQueryDto, CreateComplementaryTaskCategoryDto, UpdateComplementaryTaskCategoryDto } from '../dto';
 import { ComplementaryTaskCategoryService } from '../services';
 import { ComplementaryTaskCategoryEntity } from '../persistence/complementary-task-category.entity';
 
@@ -22,8 +24,9 @@ export class ComplementaryTaskCategoryController {
   @Roles('oem:tasks:read')
   @ApiOperation({ summary: 'List complementary task categories' })
   @ApiOkResponse({ type: ComplementaryTaskCategoryEntity, isArray: true })
-  findAll(): Promise<ComplementaryTaskCategoryEntity[]> {
-    return this.service.findAll();
+  @ApiQuery({ name: 'q', required: false, description: 'Free text search across code, name and description' })
+  findAll(@Query() query: ComplementaryTaskCategoryQueryDto): Promise<ComplementaryTaskCategoryEntity[]> {
+    return this.service.findAll(query);
   }
 
   @Get(':id')

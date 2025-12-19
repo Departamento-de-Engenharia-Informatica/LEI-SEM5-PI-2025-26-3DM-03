@@ -15,6 +15,7 @@ export * from './create-complementary-task.dto';
 export * from './update-complementary-task.dto';
 export * from './create-complementary-task-category.dto';
 export * from './update-complementary-task-category.dto';
+export * from './complementary-task-category-query.dto';
 export * from './generate-operation-plans.dto';
 export * from './operation-plan-task.dto';
 export * from './upsert-executed-operation.dto';
