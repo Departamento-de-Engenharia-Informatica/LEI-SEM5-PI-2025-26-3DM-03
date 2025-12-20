@@ -76,6 +76,72 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetVesselVisitExecutionsAsync(
+        string? from,
+        string? to,
+        int? vesselVisitId,
+        string? vesselName,
+        string? status,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["from"] = from,
+            ["to"] = to,
+            ["vesselVisitId"] = vesselVisitId?.ToString(),
+            ["vesselName"] = vesselName,
+            ["status"] = status
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/vessel-visit-executions"
+            : $"oem/vessel-visit-executions?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> CompleteVesselVisitExecutionAsync(
+        int id,
+        string actualUnberthTime,
+        string actualPortDepartureTime,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/vessel-visit-executions/{id}/complete")
+        {
+            Content = JsonContent.Create(new
+            {
+                actualUnberthTime,
+                actualPortDepartureTime
+            })
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string BuildQueryString(IDictionary<string, string?> values)
+    {
+        var items = new List<string>();
+        foreach (var entry in values)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Value))
+            {
+                continue;
+            }
+            var key = Uri.EscapeDataString(entry.Key);
+            var value = Uri.EscapeDataString(entry.Value);
+            items.Add($"{key}={value}");
+        }
+        return string.Join("&", items);
+    }
+
     private void ApplyIdentityHeaders(HttpRequestMessage request)
     {
         var principal = _httpContextAccessor.HttpContext?.User;

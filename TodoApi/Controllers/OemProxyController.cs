@@ -38,6 +38,39 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("vessel-visit-executions")]
+    public async Task<IActionResult> GetVesselVisitExecutions(
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] int? vesselVisitId,
+        [FromQuery] string? vesselName,
+        [FromQuery] string? status,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetVesselVisitExecutionsAsync(
+            from,
+            to,
+            vesselVisitId,
+            vesselName,
+            status,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("vessel-visit-executions/{id:int}/complete")]
+    public async Task<IActionResult> CompleteVesselVisitExecution(
+        [FromRoute] int id,
+        [FromBody] CompleteVesselVisitExecutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CompleteVesselVisitExecutionAsync(
+            id,
+            request.ActualUnberthTime,
+            request.ActualPortDepartureTime,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     private static async Task<IActionResult> ToActionResultAsync(HttpResponseMessage response)
     {
         using var httpResponse = response;
@@ -57,3 +90,4 @@ public class OemProxyController : ControllerBase
 }
 
 public record OperationPlanRequest(string Date, string? Algorithm);
+public record CompleteVesselVisitExecutionRequest(string ActualUnberthTime, string ActualPortDepartureTime);

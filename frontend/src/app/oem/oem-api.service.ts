@@ -90,10 +90,12 @@ export interface VesselVisitExecutionListItem {
   operationsDelayMinutes?: number | null;
 }
 
+const OEM_API_BASE = 'https://localhost:7167/api/oem';
+
 @Injectable({ providedIn: 'root' })
 export class OemApiService {
-  private readonly operationPlanBase = '/api/oem/operation-plans';
-  private readonly vesselVisitExecutionBase = '/api/oem/vessel-visit-executions';
+  private readonly operationPlanBase = `${OEM_API_BASE}/operation-plans`;
+  private readonly vesselVisitExecutionBase = `${OEM_API_BASE}/vessel-visit-executions`;
 
   constructor(private readonly http: HttpClient) {}
 

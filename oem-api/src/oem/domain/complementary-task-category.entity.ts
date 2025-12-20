@@ -5,24 +5,23 @@ import { BaseDomainEntity } from './base-domain.entity';
  * Categorisation reference for complementary tasks.
  */
 export class ComplementaryTaskCategory extends BaseDomainEntity {
+  @ApiProperty({ description: 'Stable category code' })
+  code: string;
+
   @ApiProperty({ description: 'Category name' })
-    private readonly code: string;
-    name: string;
+  name: string;
 
-  @ApiPropertyOptional({ description: 'Category description' })
-    private readonly description?: string | null;
-    private readonly defaultDurationMinutes?: number | null;
+  @ApiPropertyOptional({ description: 'Category description', nullable: true })
+  description?: string | null;
 
-    constructor(
-      init?: Partial<ComplementaryTaskCategory>,
-      code: string,
-      defaultDurationMinutes?: number | null,
-    ) {
-      super(init);
-      this.code = code;
-      this.name = init?.name ?? '';
-      this.description = init?.description ?? null;
-      this.defaultDurationMinutes =
-        defaultDurationMinutes !== undefined ? defaultDurationMinutes : null;
+  @ApiPropertyOptional({ description: 'Default duration in minutes', nullable: true })
+  defaultDurationMinutes?: number | null;
+
+  constructor(init?: Partial<ComplementaryTaskCategory>) {
+    super(init);
+    this.code = init?.code ?? '';
+    this.name = init?.name ?? '';
+    this.description = init?.description ?? null;
+    this.defaultDurationMinutes = init?.defaultDurationMinutes ?? null;
   }
 }
