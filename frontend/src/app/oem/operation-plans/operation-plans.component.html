@@ -2,27 +2,66 @@
   <header class="page-header">
     <div>
       <p class="eyebrow">Home / Dashboard</p>
-      <h1>Planos de Operação</h1>
+      <h1>Planos de Operacao</h1>
       <p class="subtitle">
-        Gere um preview para a data escolhida, selecione as VVNs que quer incluir e guarde os planos. Use os filtros para pesquisar planos guardados.
+        Planeie, visualize e gere os planos operacionais do porto.
       </p>
     </div>
   </header>
 
-  <form class="preview-form" [formGroup]="form" (ngSubmit)="onPreview()">
-    <div class="form-grid">
-      <div class="form-field">
-        <label for="plan-date">Data</label>
-        <input id="plan-date" type="date" formControlName="date" />
+  <div class="top-grid">
+    <article class="hero-card">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Planos de operacao</p>
+          <h2>Gerar plano de operacao</h2>
+          <p class="muted">Escolha a data e gere um preview.</p>
+        </div>
+        <span class="icon-chip">OP</span>
       </div>
-      <button type="submit" [disabled]="previewLoading">
-        {{ previewLoading ? 'A gerar...' : 'Gerar Preview' }}
-      </button>
-    </div>
-    <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
-      Selecione uma data para gerar o preview.
-    </div>
-  </form>
+      <form class="hero-form" [formGroup]="form" (ngSubmit)="onPreview()">
+        <div class="form-field">
+          <label for="plan-date">Data</label>
+          <input id="plan-date" type="date" formControlName="date" />
+        </div>
+        <button type="submit" [disabled]="previewLoading">
+          {{ previewLoading ? 'A gerar...' : 'Gerar Preview' }}
+        </button>
+      </form>
+      <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
+        Selecione uma data para gerar o preview.
+      </div>
+    </article>
+
+    <article class="hero-card outline">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Planos em falta</p>
+          <h2>Procurar VVNs</h2>
+          <p class="muted">Identifique VVNs sem plano e regenere o dia.</p>
+        </div>
+        <span class="icon-chip warn">MP</span>
+      </div>
+      <form class="hero-form" [formGroup]="missingForm" (ngSubmit)="onSearchMissing()">
+        <div class="form-field">
+          <label for="missing-date">Data</label>
+          <input id="missing-date" type="date" formControlName="date" />
+        </div>
+        <div class="form-field">
+          <label for="missing-algorithm">Algoritmo</label>
+          <select id="missing-algorithm" formControlName="algorithm">
+            <option *ngFor="let alg of algorithms" [value]="alg.id">{{ alg.label }}</option>
+          </select>
+        </div>
+        <button type="submit" [disabled]="missingLoading">
+          {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
+        </button>
+      </form>
+      <div class="validation" *ngIf="missingDateControl?.touched && missingDateControl?.invalid">
+        Selecione uma data valida para procurar VVNs sem plano.
+      </div>
+    </article>
+  </div>
 
   <div class="status-row">
     <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
@@ -31,6 +70,82 @@
     <div *ngIf="persistError" class="error">{{ persistError }}</div>
   </div>
 
+  <section class="missing-section">
+    <div class="missing-banner">
+      <div>
+        <h3>Planos em falta</h3>
+        <p>Identifique VVNs sem plano e regenere os planos do dia selecionado.</p>
+      </div>
+      <div class="banner-actions">
+        <button type="button" (click)="onSearchMissing()" [disabled]="missingLoading">
+          {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div *ngIf="missingLoading" class="info">A procurar VVNs sem plano...</div>
+      <div *ngIf="missingError && !missingLoading" class="error">{{ missingError }}</div>
+      <div *ngIf="regenerateSuccess" class="success">{{ regenerateSuccess }}</div>
+      <div *ngIf="regenerateError" class="error">{{ regenerateError }}</div>
+    </div>
+
+    <div class="missing-grid" *ngIf="!missingLoading && !missingError && missingPlans.length">
+      <article class="missing-card" *ngFor="let vvn of missingPlans">
+        <div class="missing-card-header">
+          <div>
+            <p class="eyebrow">VVN {{ vvn.id }}</p>
+            <h3>{{ vvn.vesselName }}</h3>
+          </div>
+          <span class="status-pill">{{ vvn.status }}</span>
+        </div>
+        <div class="missing-meta">
+          <div>
+            <span>Dock</span>
+            <strong>{{ vvn.dockId || '-' }}</strong>
+          </div>
+          <div>
+            <span>ETA</span>
+            <strong>{{ vvn.eta | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>ETD</span>
+            <strong>{{ vvn.etd ? (vvn.etd | date: 'short') : '-' }}</strong>
+          </div>
+          <div>
+            <span>Containers</span>
+            <strong>{{ vvn.containers }}</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="regenerate-panel" *ngIf="hasMissingPlans">
+      <div>
+        <h3>Regenerar planos do dia</h3>
+        <p class="muted">
+          Esta acao substitui qualquer plano existente para o dia selecionado quando confirmada.
+        </p>
+      </div>
+      <label class="confirm-box">
+        <input type="checkbox" formControlName="confirmOverwrite" />
+        Confirmo que pretendo substituir os planos existentes.
+      </label>
+      <button
+        type="button"
+        class="danger-btn"
+        [disabled]="regenerateLoading || missingForm.invalid || !missingForm.value.confirmOverwrite"
+        (click)="onRegenerateMissing()"
+      >
+        {{ regenerateLoading ? 'A regenerar...' : 'Regenerar planos' }}
+      </button>
+    </div>
+
+    <p *ngIf="!missingLoading && !missingError && missingPlans.length === 0" class="info">
+      {{ missingEmptyMessage || 'Sem VVNs em falta para esta data.' }}
+    </p>
+  </section>
+
   <div class="table-wrapper" *ngIf="hasPreview">
     <table class="preview-table">
       <thead>
@@ -38,7 +153,7 @@
           <th class="checkbox-col"></th>
           <th>Vessel</th>
           <th>Dock</th>
-          <th>Início</th>
+          <th>Inicio</th>
           <th>Fim</th>
           <th>Delay</th>
         </tr>
@@ -56,7 +171,7 @@
             </td>
             <td>
               <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
-                {{ isExpanded(preview.vvnId) ? '▼' : '▶' }}
+                {{ isExpanded(preview.vvnId) ? 'v' : '>' }}
               </button>
               {{ preview.vesselName }}
             </td>
@@ -78,8 +193,8 @@
                   <tr>
                     <th>Tipo</th>
                     <th>Grua</th>
-                    <th>Armazém</th>
-                    <th>Início</th>
+                    <th>Armazem</th>
+                    <th>Inicio</th>
                     <th>Fim</th>
                   </tr>
                 </thead>
@@ -94,7 +209,7 @@
                 </tbody>
               </table>
               <ng-template #emptyOperations>
-                <div class="info">Sem operações planeadas.</div>
+                <div class="info">Sem operacoes planeadas.</div>
               </ng-template>
             </td>
           </tr>
@@ -128,7 +243,7 @@
           <input id="saved-from" type="date" formControlName="from" />
         </div>
         <div class="form-field">
-          <label for="saved-to">Até</label>
+          <label for="saved-to">Ate</label>
           <input id="saved-to" type="date" formControlName="to" />
         </div>
         <div class="form-field">
@@ -157,26 +272,26 @@
             <th (click)="changeSort('name')">
               Nome
               <span class="sort-icon" [class.active]="sortKey === 'name'">
-                {{ sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+                {{ sortKey === 'name' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
             <th>Estado</th>
             <th (click)="changeSort('vesselVisitId')">
               VVN
               <span class="sort-icon" [class.active]="sortKey === 'vesselVisitId'">
-                {{ sortKey === 'vesselVisitId' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+                {{ sortKey === 'vesselVisitId' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
             <th (click)="changeSort('plannedStartTime')">
-              Início
+              Inicio
               <span class="sort-icon" [class.active]="sortKey === 'plannedStartTime'">
-                {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+                {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
             <th (click)="changeSort('createdAt')">
               Criado em
               <span class="sort-icon" [class.active]="sortKey === 'createdAt'">
-                {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? '▲' : '▼') : '⇅' }}
+                {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
             <th>Acoes</th>
@@ -189,7 +304,11 @@
             <td>{{ plan.vesselVisitId || '-' }}</td>
             <td>{{ plan.plannedStartTime | date: 'short' }}</td>
             <td>{{ plan.createdAt | date: 'short' }}</td>
-            <td><button type="button" class="link-btn" (click)="startEdit(plan)">{{ editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar' }}</button></td>
+            <td>
+              <button type="button" class="link-btn" (click)="startEdit(plan)">
+                {{ editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar' }}
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -237,7 +356,7 @@
     </section>
 
     <p *ngIf="!loading && !error && sortedPlans.length === 0" class="info">
-      {{ savedEmptyMessage || 'Sem planos de operação disponíveis.' }}
+      {{ savedEmptyMessage || 'Sem planos de operacao disponiveis.' }}
     </p>
   </section>
 </section>

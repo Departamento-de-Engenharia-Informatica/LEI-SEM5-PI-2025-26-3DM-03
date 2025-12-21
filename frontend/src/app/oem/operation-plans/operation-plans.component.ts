@@ -12,6 +12,7 @@ import {
   OemApiService,
   OperationPlanDto,
   OperationPlanPreviewDto,
+  MissingOperationPlanDto,
 } from '../oem-api.service';
 
 type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
@@ -55,6 +56,17 @@ export class OemOperationPlansComponent implements OnInit {
   editWarnings: string[] = [];
   editSuccess: string | null = null;
 
+  missingForm: FormGroup;
+  missingPlans: MissingOperationPlanDto[] = [];
+  missingLoading = false;
+  missingError: string | null = null;
+  missingEmptyMessage: string | null = null;
+  regenerateLoading = false;
+  regenerateError: string | null = null;
+  regenerateSuccess: string | null = null;
+
+  readonly algorithms = [{ id: 'single-crane', label: 'Single crane' }];
+
   readonly planStatuses = [
     'draft',
     'planned',
@@ -77,6 +89,12 @@ export class OemOperationPlansComponent implements OnInit {
       vesselVisitId: [''],
     });
 
+    this.missingForm = this.fb.group({
+      date: [this.todayIso(), Validators.required],
+      algorithm: ['single-crane', Validators.required],
+      confirmOverwrite: [false],
+    });
+
     this.editForm = this.createEditForm();
   }
 
@@ -90,6 +108,14 @@ export class OemOperationPlansComponent implements OnInit {
 
   get hasPreview(): boolean {
     return this.previewPlans.length > 0;
+  }
+
+  get missingDateControl() {
+    return this.missingForm.get('date');
+  }
+
+  get hasMissingPlans(): boolean {
+    return this.missingPlans.length > 0;
   }
 
   get sortedPlans(): OperationPlanDto[] {
@@ -238,6 +264,87 @@ export class OemOperationPlansComponent implements OnInit {
       vesselVisitId: '',
     });
     this.fetchPlans();
+  }
+
+  fetchMissingPlans(): void {
+    if (this.missingForm.invalid) {
+      this.missingForm.markAllAsTouched();
+      return;
+    }
+
+    const date = this.missingForm.value.date;
+    this.missingLoading = true;
+    this.missingError = null;
+    this.missingEmptyMessage = null;
+    this.regenerateError = null;
+    this.regenerateSuccess = null;
+
+    this.api
+      .getMissingOperationPlans(date)
+      .pipe(finalize(() => (this.missingLoading = false)))
+      .subscribe({
+        next: plans => {
+          this.missingPlans = plans ?? [];
+          this.missingEmptyMessage = this.missingPlans.length
+            ? null
+            : 'Nao existem VVNs sem plano para o dia selecionado.';
+        },
+        error: (err: HttpErrorResponse) => {
+          this.missingError = this.normalizeError(
+            err,
+            'Falha ao carregar VVNs sem plano.',
+          );
+          this.missingEmptyMessage = null;
+        },
+      });
+  }
+
+  onSearchMissing(): void {
+    this.fetchMissingPlans();
+  }
+
+  onRegenerateMissing(): void {
+    if (this.missingForm.invalid || !this.missingPlans.length) {
+      this.missingForm.markAllAsTouched();
+      return;
+    }
+
+    const { date, algorithm, confirmOverwrite } = this.missingForm.value;
+
+    if (!confirmOverwrite) {
+      this.regenerateError =
+        'Confirme o overwrite antes de regenerar os planos do dia.';
+      this.missingForm.get('confirmOverwrite')?.markAsTouched();
+      return;
+    }
+
+    this.regenerateLoading = true;
+    this.regenerateError = null;
+    this.regenerateSuccess = null;
+
+    this.api
+      .regenerateMissingOperationPlans(date, algorithm, confirmOverwrite)
+      .pipe(finalize(() => (this.regenerateLoading = false)))
+      .subscribe({
+        next: () => {
+          this.regenerateSuccess =
+            'Regeneracao concluida. Os planos foram atualizados.';
+          this.fetchPlans();
+          this.fetchMissingPlans();
+        },
+        error: (err: HttpErrorResponse) => {
+          if (err.status === 409) {
+            this.regenerateError =
+              'Existem planos para esta data. Confirme o overwrite para continuar.';
+            return;
+          }
+
+          this.regenerateError = this.normalizeError(
+            err,
+            'Falha ao regenerar os planos do dia.',
+          );
+        },
+      });
   }
 
   startEdit(plan: OperationPlanDto): void {

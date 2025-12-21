@@ -63,6 +63,16 @@ export interface OperationPlanChangeLogDto {
   changes?: Record<string, unknown>;
 }
 
+export interface MissingOperationPlanDto {
+  id: number;
+  vesselName: string;
+  dockId: string;
+  eta: string;
+  etd?: string | null;
+  containers: number;
+  status: string;
+}
+
 export interface OperationPlanUpdateResponse {
   plan: OperationPlanDto;
   warnings: string[];
@@ -141,6 +151,28 @@ export class OemApiService {
   ) {
     const url = `${this.operationPlanBase}/${id}`;
     return this.http.patch<OperationPlanUpdateResponse>(url, payload, { withCredentials: true });
+  }
+
+  getMissingOperationPlans(date: string) {
+    const params = new HttpParams().set('date', date);
+    const url = `${this.operationPlanBase}/missing`;
+    return this.http.get<MissingOperationPlanDto[]>(url, {
+      withCredentials: true,
+      params,
+    });
+  }
+
+  regenerateMissingOperationPlans(
+    date: string,
+    algorithm: string,
+    confirmOverwrite: boolean,
+  ) {
+    const url = `${this.operationPlanBase}/regenerate-missing`;
+    return this.http.post<OperationPlanDto[]>(
+      url,
+      { date, algorithm, confirmOverwrite },
+      { withCredentials: true },
+    );
   }
 
   private buildVveParams(filters?: {
