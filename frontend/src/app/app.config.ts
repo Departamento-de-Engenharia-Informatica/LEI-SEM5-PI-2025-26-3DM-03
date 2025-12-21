@@ -6,7 +6,7 @@ import {
   importProvidersFrom,
 } from '@angular/core';
 import { AuthService } from './services/auth/auth.service';
-import { provideRouter } from '@angular/router';
+import { PreloadAllModules, provideRouter, withPreloading } from '@angular/router';
 import {
   provideClientHydration,
   withEventReplay
@@ -28,7 +28,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes),
+    provideRouter(routes, withPreloading(PreloadAllModules)),
 
     // ✅ adiciona suporte HTTP global (resolve o erro "No provider for HttpClient")
     provideHttpClient(withInterceptorsFromDi()),
