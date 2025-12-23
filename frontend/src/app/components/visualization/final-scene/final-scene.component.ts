@@ -2413,8 +2413,9 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const label = this.createLabelSprite(text, {
       background,
       color: textColor,
-      scale: 160,
+      scale: 130,
       footerIcon: statusIcon,
+      layout: 'compact',
     });
     label.position.copy(this.computeLabelPosition(x, z));
     this.scene.add(label);
@@ -2448,6 +2449,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       color?: string;
       scale?: number;
       footerIcon?: string;
+      layout?: 'default' | 'compact';
     }
   ): THREE.Sprite {
     const canvas = document.createElement('canvas');
@@ -2458,14 +2460,36 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const lines = text.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
     const hasFooter = !!opts?.footerIcon;
+    const compact = opts?.layout === 'compact';
     const fontColor = opts?.color ?? '#0f1f32';
     const baseFontSize = 64;
-    const lineHeight = baseFontSize + 12;
+    const lineHeight = baseFontSize + 8;
     const textLines = lines.length ? lines : [''];
     const textBlockHeight = textLines.length * lineHeight;
-    const footerHeight = hasFooter ? lineHeight + 30 : 0;
-    const paddingY = 60;
-    const backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    let footerHeight: number;
+    let paddingY: number;
+    if (compact) {
+      footerHeight = hasFooter ? lineHeight : 0;
+      paddingY = hasFooter ? 18 : 24;
+    } else {
+      footerHeight = hasFooter ? lineHeight + 30 : 0;
+      paddingY = 60;
+    }
+    let backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    const maxRectHeight = canvas.height - 40;
+    if (backgroundHeight > maxRectHeight) {
+      const paddingReduction = Math.min(backgroundHeight - maxRectHeight, Math.max(0, paddingY - 20) * 2);
+      paddingY -= paddingReduction / 2;
+      backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    }
+    if (backgroundHeight > maxRectHeight && hasFooter) {
+      const footerReduction = Math.min(
+        backgroundHeight - maxRectHeight,
+        Math.max(0, footerHeight - lineHeight * (compact ? 0.4 : 0.6))
+      );
+      footerHeight -= footerReduction;
+      backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    }
     const rectY = canvas.height / 2 - backgroundHeight / 2;
     const rectHeight = Math.min(canvas.height - 40, backgroundHeight);
     this.paintRoundedRect(
@@ -2478,17 +2502,35 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       opts?.background ?? 'rgba(255,255,255,0.95)'
     );
     ctx.fillStyle = fontColor;
-    ctx.font = `bold ${baseFontSize}px "Inter", "Segoe UI", sans-serif`;
+    let fontSize = baseFontSize;
+    const applyFont = () => {
+      ctx.font = `bold ${fontSize}px "Inter", "Segoe UI", sans-serif`;
+    };
+    applyFont();
+    const usableWidth = canvas.width - 120;
+    let widestLine = 0;
+    textLines.forEach((line) => {
+      widestLine = Math.max(widestLine, ctx.measureText(line).width);
+    });
+    if (widestLine > usableWidth && widestLine > 0) {
+      const shrink = THREE.MathUtils.clamp(usableWidth / widestLine, 0.5, 1);
+      fontSize = Math.max(32, Math.floor(baseFontSize * shrink));
+      applyFont();
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const footerGap = hasFooter ? (compact ? lineHeight * 0.12 : lineHeight * 0.5) : 0;
     const textStartY = rectY + paddingY + lineHeight / 2;
     textLines.forEach((line, index) => {
-      const y = textStartY + index * lineHeight - (hasFooter ? footerHeight / 2 : 0);
+      const y = textStartY + index * lineHeight - footerGap;
       ctx.fillText(line, canvas.width / 2, y);
     });
     if (hasFooter) {
-      ctx.font = 'bold 84px "Inter", "Segoe UI", sans-serif';
-      ctx.fillText(opts.footerIcon ?? '', canvas.width / 2, rectY + rectHeight - lineHeight / 2);
+      ctx.font = `bold ${compact ? 68 : 80}px "Inter", "Segoe UI", sans-serif`;
+      const footerY = compact
+        ? rectY + rectHeight - lineHeight * 0.35
+        : rectY + rectHeight - lineHeight * 0.2;
+      ctx.fillText(opts.footerIcon ?? '', canvas.width / 2, footerY);
     }
     const texture = new THREE.CanvasTexture(canvas);
     texture.anisotropy = 4;
@@ -2503,10 +2545,13 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.disposableMaterials.push(material);
     const sprite = new THREE.Sprite(material);
     const scale = opts?.scale ?? 140;
-    const multilineFactor = Math.max(1, textLines.length * 0.45);
-    const footerFactor = hasFooter ? 0.3 : 0;
-    const heightMultiplier = 0.3 + multilineFactor * 0.2 + footerFactor;
-    sprite.scale.set(scale, Math.max(50, scale * heightMultiplier), 1);
+    const multilineFactor = Math.max(1, textLines.length * (compact ? 0.34 : 0.45));
+    const footerFactor = hasFooter ? (compact ? 0.1 : 0.3) : 0;
+    const baseHeight = compact ? 0.18 : 0.3;
+    const perLine = compact ? 0.1 : 0.2;
+    const heightMultiplier = baseHeight + multilineFactor * perLine + footerFactor;
+    const minHeight = compact ? 35 : 45;
+    sprite.scale.set(scale, Math.max(minHeight, scale * heightMultiplier), 1);
     return sprite;
   }
 
