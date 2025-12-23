@@ -1,0 +1,91 @@
+<section class="resource-allocation">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Home / OEM</p>
+      <h1>Alocacao de Recursos</h1>
+      <p class="subtitle">
+        Consulte o tempo total alocado por recurso em periodos especificos.
+      </p>
+    </div>
+  </header>
+
+  <form class="filter-card" [formGroup]="form" (ngSubmit)="onSearch()">
+    <div class="filter-grid">
+      <label>
+        De
+        <input type="datetime-local" formControlName="from" />
+      </label>
+      <label>
+        Ate
+        <input type="datetime-local" formControlName="to" />
+      </label>
+      <label>
+        Tipo de recurso
+        <select formControlName="resourceType" (change)="onResourceTypeChange()">
+          <option *ngFor="let type of resourceTypes" [value]="type.id">
+            {{ type.label }}
+          </option>
+        </select>
+      </label>
+      <label *ngIf="form.value.resourceType === 'dock'; else manualResourceId">
+        Doca (opcional)
+        <select formControlName="resourceId" [disabled]="docksLoading || docks.length === 0">
+          <option value="">Todas as docas</option>
+          <option *ngFor="let dock of docks" [value]="dock.name">
+            {{ dock.name }} - {{ dock.location }}
+          </option>
+        </select>
+      </label>
+      <ng-template #manualResourceId>
+        <label>
+          Identificador (opcional)
+          <input type="text" formControlName="resourceId" placeholder="ex: CR-01" />
+        </label>
+      </ng-template>
+    </div>
+    <div class="filter-actions">
+      <button type="submit" [disabled]="loading">Consultar</button>
+      <button type="button" class="ghost" (click)="reset()" [disabled]="loading">
+        Limpar
+      </button>
+    </div>
+    <div class="info" *ngIf="form.value.resourceType === 'dock' && docksError">
+      {{ docksError }}
+    </div>
+    <div class="validation" *ngIf="(fromControl?.touched && fromControl?.invalid) || (toControl?.touched && toControl?.invalid)">
+      Selecione um intervalo valido.
+    </div>
+  </form>
+
+  <div class="status-row">
+    <div *ngIf="loading" class="info">A carregar alocacao...</div>
+    <div *ngIf="error && !loading" class="error">{{ error }}</div>
+  </div>
+
+  <div class="table-wrapper" *ngIf="!loading && !error && results.length">
+    <table>
+      <thead>
+        <tr>
+          <th>Tipo</th>
+          <th>Recurso</th>
+          <th>Total (min)</th>
+          <th>Total (h)</th>
+          <th>Operacoes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of results">
+          <td>{{ row.resourceType }}</td>
+          <td>{{ row.resourceId }}</td>
+          <td>{{ row.totalAllocatedMinutes }}</td>
+          <td>{{ row.totalAllocatedHours }}</td>
+          <td>{{ row.operationCount }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p *ngIf="!loading && !error && results.length === 0" class="info">
+    {{ emptyMessage || 'Sem resultados para o periodo selecionado.' }}
+  </p>
+</section>

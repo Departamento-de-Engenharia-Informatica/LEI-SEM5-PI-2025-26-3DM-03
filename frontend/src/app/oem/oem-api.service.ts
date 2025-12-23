@@ -73,6 +73,16 @@ export interface MissingOperationPlanDto {
   status: string;
 }
 
+export type ResourceAllocationResourceType = 'crane' | 'dock' | 'staff';
+
+export interface ResourceAllocationSummaryDto {
+  resourceType: ResourceAllocationResourceType;
+  resourceId: string;
+  totalAllocatedMinutes: number;
+  totalAllocatedHours: number;
+  operationCount: number;
+}
+
 export interface OperationPlanUpdateResponse {
   plan: OperationPlanDto;
   warnings: string[];
@@ -147,7 +157,7 @@ export class OemApiService {
 
   updateOperationPlan(
     id: number,
-    payload: { lastChangeReason: string } & Partial<OperationPlanDto>,
+    payload: { reason: string } & Partial<OperationPlanDto>,
   ) {
     const url = `${this.operationPlanBase}/${id}`;
     return this.http.patch<OperationPlanUpdateResponse>(url, payload, { withCredentials: true });
@@ -173,6 +183,26 @@ export class OemApiService {
       { date, algorithm, confirmOverwrite },
       { withCredentials: true },
     );
+  }
+
+  getResourceAllocation(filters: {
+    from: string;
+    to: string;
+    resourceType: ResourceAllocationResourceType;
+    resourceId?: string;
+  }) {
+    let params = new HttpParams()
+      .set('from', filters.from)
+      .set('to', filters.to)
+      .set('resourceType', filters.resourceType);
+    if (filters.resourceId) {
+      params = params.set('resourceId', filters.resourceId);
+    }
+    const url = `${this.operationPlanBase}/resource-allocation`;
+    return this.http.get<ResourceAllocationSummaryDto[]>(url, {
+      withCredentials: true,
+      params,
+    });
   }
 
   private buildVveParams(filters?: {

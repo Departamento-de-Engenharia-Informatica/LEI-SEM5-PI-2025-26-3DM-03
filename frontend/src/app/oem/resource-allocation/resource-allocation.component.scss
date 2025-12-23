@@ -1,0 +1,142 @@
+.resource-allocation {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+  color: #1b2a3a;
+
+  .page-header {
+    margin-bottom: 1rem;
+
+    .eyebrow {
+      font-size: 0.85rem;
+      color: #607d8b;
+      margin: 0 0 0.25rem;
+    }
+
+    h1 {
+      margin: 0 0 0.25rem;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: #455a64;
+    }
+  }
+
+  .filter-card {
+    background: #fff;
+    border: 1px solid #e0e7ef;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 10px 20px rgba(15, 60, 110, 0.08);
+  }
+
+  .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      font-weight: 600;
+      color: #2c3e50;
+
+      input,
+      select {
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #cfd8dc;
+        border-radius: 8px;
+        background: #fff;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+
+    button {
+      padding: 0.55rem 1.2rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      background: #1976d2;
+      color: #fff;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+
+      &:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(25, 118, 210, 0.2);
+      }
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+    }
+
+    .ghost {
+      background: #e0e0e0;
+      color: #1b2a3a;
+    }
+  }
+
+  .status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-height: 1.25rem;
+    margin: 0.75rem 0 0.5rem;
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 0.75rem;
+      border-bottom: 1px solid #e0e0e0;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f7f9fb;
+      font-weight: 600;
+    }
+  }
+
+  .error {
+    color: #b71c1c;
+    margin-bottom: 0.5rem;
+  }
+
+  .info {
+    margin-bottom: 0.5rem;
+    color: #424242;
+  }
+
+  .validation {
+    color: #b71c1c;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+  }
+}

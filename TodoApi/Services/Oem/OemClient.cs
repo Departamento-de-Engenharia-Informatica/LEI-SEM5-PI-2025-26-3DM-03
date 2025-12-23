@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using TodoApi.Models.Oem;
@@ -32,9 +33,24 @@ public class OemClient
         }
     }
 
-    public async Task<HttpResponseMessage> GetOperationPlansAsync(CancellationToken cancellationToken = default)
+    public async Task<HttpResponseMessage> GetOperationPlansAsync(
+        string? from,
+        string? to,
+        int? vesselVisitId,
+        CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, "oem/operation-plans");
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["from"] = from,
+            ["to"] = to,
+            ["vesselVisitId"] = vesselVisitId?.ToString()
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/operation-plans"
+            : $"oem/operation-plans?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         ApplyIdentityHeaders(request);
@@ -118,6 +134,22 @@ public class OemClient
                 actualUnberthTime,
                 actualPortDepartureTime
             })
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> UpdateOperationPlanAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/operation-plans/{id}")
+        {
+            Content = JsonContent.Create(payload)
         };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 

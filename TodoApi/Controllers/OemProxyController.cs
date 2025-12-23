@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TodoApi.Services.Oem;
@@ -18,9 +19,13 @@ public class OemProxyController : ControllerBase
     }
 
     [HttpGet("operation-plans")]
-    public async Task<IActionResult> GetOperationPlans(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetOperationPlans(
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] int? vesselVisitId,
+        CancellationToken cancellationToken)
     {
-        var response = await _oemClient.GetOperationPlansAsync(cancellationToken);
+        var response = await _oemClient.GetOperationPlansAsync(from, to, vesselVisitId, cancellationToken);
         return await ToActionResultAsync(response);
     }
 
@@ -35,6 +40,16 @@ public class OemProxyController : ControllerBase
     public async Task<IActionResult> GenerateOperationPlans([FromBody] OperationPlanRequest request, CancellationToken cancellationToken)
     {
         var response = await _oemClient.GenerateOperationPlansAsync(request.Date, request.Algorithm, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("operation-plans/{id:int}")]
+    public async Task<IActionResult> UpdateOperationPlan(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateOperationPlanAsync(id, payload, cancellationToken);
         return await ToActionResultAsync(response);
     }
 

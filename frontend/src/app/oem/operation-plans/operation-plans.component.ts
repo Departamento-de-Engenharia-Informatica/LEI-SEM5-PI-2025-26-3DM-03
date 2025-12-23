@@ -238,10 +238,12 @@ export class OemOperationPlansComponent implements OnInit {
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: plans => {
-          this.plans = plans ?? [];
+          const data = Array.isArray(plans) ? plans : [];
+          this.plans = data;
           this.savedEmptyMessage = this.plans.length
             ? null
             : 'Nenhum plano encontrado para os filtros aplicados.';
+          this.loading = false;
         },
         error: (err: HttpErrorResponse) => {
           this.error = this.normalizeError(
@@ -249,6 +251,7 @@ export class OemOperationPlansComponent implements OnInit {
             'Falha ao carregar os planos guardados.',
           );
           this.savedEmptyMessage = null;
+          this.loading = false;
         },
       });
   }
@@ -486,14 +489,13 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   /**
-   * Backend expects: { dockId?, status?, lastChangeReason }
-   * UI form uses "reason", we map it to "lastChangeReason".
+   * Backend expects: { reason, dockId?, status? }
    */
-  private buildUpdatePayload(): { lastChangeReason: string } & Partial<OperationPlanDto> {
+  private buildUpdatePayload(): { reason: string } & Partial<OperationPlanDto> {
     const value = this.editForm.value as any;
 
     return {
-      lastChangeReason: (value.reason as string)?.trim(),
+      reason: (value.reason as string)?.trim(),
       dockId: value.dockId || undefined,
       status: value.status,
     };
