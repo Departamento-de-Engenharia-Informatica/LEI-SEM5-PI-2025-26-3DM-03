@@ -308,20 +308,30 @@
             <td class="actions-cell">
               <button
                 type="button"
-                class="icon-btn"
+                class="action-btn edit"
                 (click)="startEdit(plan)"
                 [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
               >
-                ✏️
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 16.5V20h3.5L18 9.5l-3.5-3.5L4 16.5zm15.4-9.4a1 1 0 0 0 0-1.4L17.3 3.6a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6z"
+                  />
+                </svg>
+                <span>Editar</span>
               </button>
               <button
                 type="button"
-                class="icon-btn danger"
+                class="action-btn danger"
                 (click)="onDeletePlan(plan)"
                 [disabled]="deleteLoadingId === plan.id"
                 [title]="deleteLoadingId === plan.id ? 'A apagar...' : 'Apagar plano'"
               >
-                🗑️
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M7 6h10l-1 14H8L7 6zm3-3h4l1 2H9l1-2zM5 6h14v2H5V6z"
+                  />
+                </svg>
+                <span>Apagar</span>
               </button>
             </td>
           </tr>
@@ -331,9 +341,15 @@
     <section class="edit-panel" *ngIf="editingPlan">
       <div class="edit-header">
         <div>
-          <h3>Edicao do plano {{ editingPlan.name }}</h3>
-          <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} | Dock {{ editingPlan.dockId || '-' }}</p>
-          <p class="muted small">Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason"> ({{ editingPlan.lastChangeReason }})</ng-container></p>
+          <p class="eyebrow">Edicao do plano</p>
+          <h3>{{ editingPlan.name }}</h3>
+          <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} -> Dock {{ editingPlan.dockId || '-' }}</p>
+          <p class="muted small">
+            Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por
+            {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason">
+              ({{ editingPlan.lastChangeReason }})
+            </ng-container>
+          </p>
         </div>
         <button type="button" class="ghost-btn" (click)="cancelEdit()">Fechar</button>
       </div>
@@ -348,58 +364,87 @@
       <form class="edit-form" [formGroup]="editForm" (ngSubmit)="onSaveEdit()">
         <div class="edit-grid">
           <label>
-            Dock
-            <input type="text" formControlName="dockId" placeholder="ex: A" />
+            <span class="field-label">Dock</span>
+            <select formControlName="dockId">
+              <option value="">Selecionar dock</option>
+              <option *ngFor="let d of docks" [value]="d.id.toString()">
+                {{ d.name }} ({{ d.location }})
+              </option>
+            </select>
           </label>
           <label>
-            Estado
+            <span class="field-label">Estado</span>
             <select formControlName="status">
               <option *ngFor="let status of planStatuses" [value]="status">{{ status }}</option>
             </select>
           </label>
           <label class="wide">
-            Motivo da alteracao
+            <span class="field-label">Motivo da alteracao</span>
             <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
           </label>
         </div>
         <div class="tasks-editor" formArrayName="tasks">
-          <h4>Tarefas do plano</h4>
+          <div class="tasks-header">
+            <div>
+              <h4>Tarefas do plano</h4>
+              <p class="muted small">Associe grua, armazem e intervalos de tempo a cada tarefa.</p>
+            </div>
+            <button type="button" class="ghost-btn" (click)="addTask()">
+              + Adicionar tarefa
+            </button>
+          </div>
           <div
             class="task-row"
             *ngFor="let taskGroup of taskControls.controls; let i = index"
             [formGroupName]="i"
           >
-            <label>
-              Tipo
-              <input type="text" formControlName="type" />
-            </label>
-            <label>
-              Grua
-              <input type="text" formControlName="craneId" />
-            </label>
-            <label>
-              Armazem
-              <input type="text" formControlName="storageAreaId" />
-            </label>
-            <label>
-              Staff (IDs separados por virgula)
-              <input type="text" formControlName="staffIdsText" />
-            </label>
-            <label>
-              Inicio (ISO)
-              <input type="text" formControlName="startTime" />
-            </label>
-            <label>
-              Fim (ISO)
-              <input type="text" formControlName="endTime" />
-            </label>
-            <button type="button" class="ghost-btn small" (click)="removeTask(i)">
-              Remover
-            </button>
+            <div class="task-row-header">
+              <span class="task-title">Tarefa {{ i + 1 }}</span>
+              <button type="button" class="ghost-btn small" (click)="removeTask(i)">
+                Remover
+              </button>
+            </div>
+            <div class="task-row-fields">
+              <label>
+                <span class="field-label">Tipo</span>
+                <input type="text" formControlName="type" />
+              </label>
+              <label>
+                <span class="field-label">Grua</span>
+                <select formControlName="craneId">
+                  <option value="">Selecionar grua</option>
+                  <option *ngFor="let r of craneResources" [value]="r.code">
+                    {{ r.code }} - {{ r.description }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label">Armazem</span>
+                <select formControlName="storageAreaId">
+                  <option value="">Selecionar armazem</option>
+                  <option *ngFor="let a of storageAreas" [value]="a.id.toString()">
+                    {{ a.location }} ({{ a.type }})
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label">Staff</span>
+                <select formControlName="staffIds" multiple>
+                  <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
+                    {{ s.mecanographicNumber }} - {{ s.shortName }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span class="field-label">Inicio (ISO)</span>
+                <input type="text" formControlName="startTime" />
+              </label>
+              <label>
+                <span class="field-label">Fim (ISO)</span>
+                <input type="text" formControlName="endTime" />
+              </label>
+            </div>
           </div>
-          <button type="button" class="ghost-btn" (click)="addTask()">
-            Adicionar tarefa
-          </button>
         </div>
         <div class="edit-actions">
           <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">
@@ -414,3 +459,5 @@
     </p>
   </section>
 </section>
+
+

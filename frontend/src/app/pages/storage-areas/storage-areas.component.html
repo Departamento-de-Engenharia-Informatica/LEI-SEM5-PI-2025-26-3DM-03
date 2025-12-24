@@ -135,7 +135,7 @@
             </td>
             <td>
               <div class="stat">
-                <span class="stat-value">{{ area.maxCapacityTEU ?? '—' }}</span>
+                <span class="stat-value">{{ area.maxCapacityTEU }}</span>
                 <span class="stat-hint">{{ i18n.t('storageAreas.table.statHint') }}</span>
               </div>
             </td>
@@ -148,7 +148,7 @@
                   ></div>
                 </div>
                 <div class="progress-meta">
-                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU ?? '—' }} {{ i18n.t('storageAreas.table.occupancySuffix') }}</span>
+                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU }} {{ i18n.t('storageAreas.table.occupancySuffix') }}</span>
                   <span class="percent" *ngIf="getOccupancyPercent(area) !== null">
                     {{ percentFormatter.format(getOccupancyPercent(area)!) }}%
                   </span>

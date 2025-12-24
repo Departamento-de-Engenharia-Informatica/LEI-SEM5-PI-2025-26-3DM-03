@@ -16,6 +16,14 @@ import {
   MissingOperationPlanDto,
   OperationPlanTaskDto,
 } from '../oem-api.service';
+import { DocksService } from '../../services/docks/docks.service';
+import { DockDTO } from '../../models/dock';
+import { StorageAreasService } from '../../services/storage-areas/storage-areas.service';
+import { StorageAreaDTO } from '../../models/storage-area';
+import { ResourcesService } from '../../services/resources/resources.service';
+import { ResourceDTO } from '../../models/resource';
+import { StaffService } from '../../services/staff/staff.service';
+import { StaffDTO } from '../../models/staff';
 
 type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
 
@@ -70,6 +78,12 @@ export class OemOperationPlansComponent implements OnInit {
   regenerateError: string | null = null;
   regenerateSuccess: string | null = null;
 
+  // Recursos auxiliares para edição (dropdowns)
+  docks: DockDTO[] = [];
+  storageAreas: StorageAreaDTO[] = [];
+  craneResources: ResourceDTO[] = [];
+  staff: StaffDTO[] = [];
+
   readonly algorithms = [{ id: 'single-crane', label: 'Single crane' }];
 
   readonly planStatuses = [
@@ -83,6 +97,10 @@ export class OemOperationPlansComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly docksService: DocksService,
+    private readonly storageAreasService: StorageAreasService,
+    private readonly resourcesService: ResourcesService,
+    private readonly staffService: StaffService,
   ) {
     this.form = this.fb.group({
       date: [this.todayIso(), Validators.required],
@@ -103,8 +121,9 @@ export class OemOperationPlansComponent implements OnInit {
     this.editForm = this.createEditForm();
   }
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     this.fetchPlans();
+    await this.loadReferenceData();
   }
 
   get dateControl() {
@@ -514,6 +533,27 @@ export class OemOperationPlansComponent implements OnInit {
     return fallback;
   }
 
+  private async loadReferenceData(): Promise<void> {
+    try {
+      const [docks, areas, resources, staff] = await Promise.all([
+        this.docksService.getAll().catch(() => []),
+        this.storageAreasService.getAll().catch(() => []),
+        this.resourcesService.getAll().catch(() => []),
+        this.staffService.getAll().catch(() => []),
+      ]);
+
+      this.docks = Array.isArray(docks) ? docks : [];
+      this.storageAreas = Array.isArray(areas) ? areas : [];
+      const allResources = Array.isArray(resources) ? resources : [];
+      this.craneResources = allResources.filter(r =>
+        (r.type ?? '').toLowerCase().includes('crane'),
+      );
+      this.staff = Array.isArray(staff) ? staff : [];
+    } catch {
+      // Em caso de erro nos recursos auxiliares, mantemos os inputs operacionais
+    }
+  }
+
   private todayIso(): string {
     const now = new Date();
     const pad = (v: number) => v.toString().padStart(2, '0');
@@ -544,13 +584,12 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   private buildTaskGroup(task?: OperationPlanTaskDto) {
-    const staff = (task?.staffIds ?? []).join(', ');
     return this.fb.group({
       id: [task?.id ?? null],
       type: [task?.type ?? '', Validators.required],
       craneId: [task?.craneId ?? ''],
       storageAreaId: [task?.storageAreaId ?? ''],
-      staffIdsText: [staff],
+      staffIds: [task?.staffIds ?? []],
       startTime: [task?.startTime ?? '', Validators.required],
       endTime: [task?.endTime ?? '', Validators.required],
     });
@@ -564,7 +603,10 @@ export class OemOperationPlansComponent implements OnInit {
 
     const tasksArray = this.taskControls.getRawValue() as any[];
     const tasks = tasksArray.map(raw => {
-      const staffIds = this.parseStaffIds(raw.staffIdsText as string | undefined);
+      const rawStaff = raw.staffIds as string[] | undefined;
+      const staffIds = Array.isArray(rawStaff) && rawStaff.length
+        ? rawStaff
+        : undefined;
       return {
         id: raw.id ?? undefined,
         type: (raw.type as string)?.trim(),
@@ -582,16 +624,5 @@ export class OemOperationPlansComponent implements OnInit {
       status: value.status,
       tasks,
     };
-  }
-
-  private parseStaffIds(value?: string): string[] | undefined {
-    if (!value) {
-      return undefined;
-    }
-    const parts = value
-      .split(',')
-      .map(v => v.trim())
-      .filter(v => v.length > 0);
-    return parts.length ? parts : undefined;
   }
 }
