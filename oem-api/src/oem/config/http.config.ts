@@ -1,6 +1,12 @@
+const todoApiBaseUrl =
+  process.env.TODO_API_BASE_URL ||
+  process.env.VESSEL_VISIT_NOTIFICATIONS_URL ||
+  'https://localhost:7167/api';
+
 export const ExternalServicesConfig = {
-  vesselVisitNotificationsUrl: process.env.VESSEL_VISIT_NOTIFICATIONS_URL ?? 'http://vvn.local/api',
-  resourcesUrl: process.env.RESOURCES_URL ?? 'http://resources.local/api',
-  staffUrl: process.env.STAFF_URL ?? 'http://staff.local/api',
-  storageAreasUrl: process.env.STORAGE_URL ?? 'http://storage.local/api',
+  vesselVisitNotificationsUrl:
+    process.env.VESSEL_VISIT_NOTIFICATIONS_URL || todoApiBaseUrl,
+  resourcesUrl: process.env.RESOURCES_URL || todoApiBaseUrl,
+  staffUrl: process.env.STAFF_URL || todoApiBaseUrl,
+  storageAreasUrl: process.env.STORAGE_URL || todoApiBaseUrl,
 };

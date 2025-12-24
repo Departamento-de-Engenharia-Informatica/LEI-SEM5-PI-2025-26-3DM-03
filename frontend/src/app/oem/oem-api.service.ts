@@ -30,6 +30,7 @@ export interface OperationTaskPreviewDto {
   storageAreaId: string;
   startTime: string;
   endTime: string;
+  staffIds?: string[];
 }
 
 export interface OperationPlanPreviewDto {
@@ -161,6 +162,11 @@ export class OemApiService {
   ) {
     const url = `${this.operationPlanBase}/${id}`;
     return this.http.patch<OperationPlanUpdateResponse>(url, payload, { withCredentials: true });
+  }
+
+  deleteOperationPlan(id: number) {
+    const url = `${this.operationPlanBase}/${id}`;
+    return this.http.delete<OperationPlanDto>(url, { withCredentials: true });
   }
 
   getMissingOperationPlans(date: string) {

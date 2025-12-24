@@ -494,6 +494,48 @@
     }
   }
 
+  .actions-cell {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-start;
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid #cfd8dc;
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 0;
+    transition: background-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+
+    &:hover:not(:disabled) {
+      background-color: #f1f5f9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.12);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    &.danger {
+      border-color: #fecaca;
+      color: #b91c1c;
+
+      &:hover:not(:disabled) {
+        background-color: #fee2e2;
+      }
+    }
+  }
+
   .link-btn {
     background: none;
     border: none;

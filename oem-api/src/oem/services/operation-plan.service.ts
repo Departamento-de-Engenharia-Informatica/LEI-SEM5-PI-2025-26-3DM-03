@@ -31,6 +31,35 @@ export type OperationPlanUpdateResult = {
   logEntry?: OperationPlanChangeLogEntity;
 };
 
+type ExternalResourceDto = {
+  code: string;
+  description?: string;
+  type: string;
+  status: string;
+  operationalCapacity?: number;
+  assignedArea?: string | null;
+  requiredQualifications?: string[];
+};
+
+type ExternalStorageAreaDto = {
+  id: number;
+  type?: string | null;
+  location?: string | null;
+};
+
+type ExternalStaffDto = {
+  mecanographicNumber: string;
+  shortName?: string;
+  status?: string;
+  active: boolean;
+};
+
+type PlanningResources = {
+  craneIds: string[];
+  storageAreaIds: string[];
+  staffIds: string[];
+};
+
 @Injectable()
 export class OperationPlanService {
   constructor(
@@ -291,6 +320,8 @@ export class OperationPlanService {
       return [];
     }
 
+    const planningResources = await this.loadPlanningResources();
+
     const grouped = this.groupByDock(vvns);
     const previews: OperationPlanPreviewDto[] = [];
 
@@ -300,7 +331,12 @@ export class OperationPlanService {
 
       for (const vvn of dockVvns) {
         const plannedStart = this.computePlannedStart(vvn.eta, currentDockTime);
-        const schedule = this.buildScheduleForVvn(vvn, plannedStart, algorithm);
+        const schedule = this.buildScheduleForVvn(
+          vvn,
+          plannedStart,
+          algorithm,
+          planningResources,
+        );
         currentDockTime = new Date(schedule.plannedEnd.getTime());
 
         const expectedDelayMinutes = this.computeDelayMinutes(schedule.plannedEnd, vvn.etd);
@@ -928,6 +964,7 @@ export class OperationPlanService {
               type: operation.type,
               craneId: operation.craneId,
               storageAreaId: operation.storageAreaId,
+              staffIds: operation.staffIds && operation.staffIds.length ? operation.staffIds : undefined,
               startTime: new Date(operation.startTime),
               endTime: new Date(operation.endTime),
             }),
@@ -986,15 +1023,97 @@ export class OperationPlanService {
     return Math.round(diffMs / 60_000);
   }
 
+  private async loadPlanningResources(): Promise<PlanningResources> {
+    try {
+      const [resourcesResp, storageResp, staffResp] = await Promise.all([
+        firstValueFrom(this.externalClients.callResources('/Resources', { timeout: 2_000 })),
+        firstValueFrom(this.externalClients.callStorageAreas('/StorageAreas', { timeout: 2_000 })),
+        firstValueFrom(this.externalClients.callStaff('/Staff', { timeout: 2_000 })),
+      ]);
+
+      const resources = (resourcesResp.data as ExternalResourceDto[]) ?? [];
+      const storageAreas = (storageResp.data as ExternalStorageAreaDto[]) ?? [];
+      const staff = (staffResp.data as ExternalStaffDto[]) ?? [];
+
+      const craneIds = resources
+        .filter(
+          (r) =>
+            r.type &&
+            r.code &&
+            r.status &&
+            r.type.toLowerCase() === 'crane' &&
+            r.status.toLowerCase() === 'active',
+        )
+        .map((r) => r.code.trim())
+        .filter(Boolean);
+
+      const storageAreaIds = storageAreas
+        .map((a) => a.location?.trim() || String(a.id))
+        .filter(Boolean);
+
+      const staffIds = staff
+        .filter(
+          (s) =>
+            s.active &&
+            s.mecanographicNumber &&
+            (!s.status || s.status.toLowerCase() === 'active'),
+        )
+        .map((s) => s.mecanographicNumber.trim())
+        .filter(Boolean);
+
+      return {
+        craneIds,
+        storageAreaIds,
+        staffIds,
+      };
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        'Failed to load external resources for planning, falling back to default placeholders.',
+        error,
+      );
+      return {
+        craneIds: [],
+        storageAreaIds: [],
+        staffIds: [],
+      };
+    }
+  }
+
+  private pickCraneId(resources: PlanningResources): string | undefined {
+    return resources.craneIds[0];
+  }
+
+  private pickMultiCraneIds(resources: PlanningResources): [string, string] {
+    const first = resources.craneIds[0] ?? 'CRANE-A';
+    const second = resources.craneIds[1] ?? first;
+    return [first, second];
+  }
+
+  private pickStorageAreaId(resources: PlanningResources): string | undefined {
+    return resources.storageAreaIds[0];
+  }
+
+  private pickStaffIds(resources: PlanningResources): string[] | undefined {
+    if (!resources.staffIds.length) {
+      return undefined;
+    }
+    return resources.staffIds.slice(0, 2);
+  }
+
   private buildScheduleForVvn(
     vvn: OemVvn,
     plannedStart: Date,
     algorithm: string,
+    planningResources: PlanningResources,
   ): { plannedStart: Date; plannedEnd: Date; operations: OperationTaskPreviewDto[] } {
     const baseDurationMinutes = Math.max(vvn.containers * 2, 60); // hardcoded rate: 2 min/container, min 1h
-    const storageArea = `YARD-${vvn.dockId ?? 'GEN'}`;
+    const storageArea =
+      this.pickStorageAreaId(planningResources) ?? `YARD-${vvn.dockId ?? 'GEN'}`;
+    const staffIds = this.pickStaffIds(planningResources) ?? [];
 
     if (algorithm === 'multi-crane') {
+      const [craneA, craneB] = this.pickMultiCraneIds(planningResources);
       const effectiveMinutes = Math.ceil(baseDurationMinutes / 2); // two cranes to cut duration
       const plannedEnd = new Date(plannedStart.getTime() + effectiveMinutes * 60_000);
       const totalMs = Math.max(plannedEnd.getTime() - plannedStart.getTime(), 0);
@@ -1006,15 +1125,17 @@ export class OperationPlanService {
         operations: [
           {
             type: 'UNLOAD',
-            craneId: 'CRANE-A',
+            craneId: craneA,
             storageAreaId: storageArea,
+            staffIds,
             startTime: plannedStart.toISOString(),
             endTime: mid.toISOString(),
           },
           {
             type: 'LOAD',
-            craneId: 'CRANE-B',
+            craneId: craneB,
             storageAreaId: storageArea,
+            staffIds,
             startTime: mid.toISOString(),
             endTime: plannedEnd.toISOString(),
           },
@@ -1023,6 +1144,7 @@ export class OperationPlanService {
     }
 
     // default: single-crane sequential (optimal placeholder)
+    const craneId = this.pickCraneId(planningResources) ?? 'CRANE-1';
     const plannedEnd = new Date(plannedStart.getTime() + baseDurationMinutes * 60_000);
     const totalMs = Math.max(plannedEnd.getTime() - plannedStart.getTime(), 0);
     const halfMs = Math.round(totalMs / 2);
@@ -1036,15 +1158,17 @@ export class OperationPlanService {
       operations: [
         {
           type: 'UNLOAD',
-          craneId: 'CRANE-1',
+          craneId,
           storageAreaId: storageArea,
+          staffIds,
           startTime: plannedStart.toISOString(),
           endTime: unloadEnd.toISOString(),
         },
         {
           type: 'LOAD',
-          craneId: 'CRANE-1',
+          craneId,
           storageAreaId: storageArea,
+          staffIds,
           startTime: loadStart.toISOString(),
           endTime: plannedEnd.toISOString(),
         },

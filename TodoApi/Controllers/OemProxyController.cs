@@ -75,6 +75,15 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpDelete("operation-plans/{id:int}")]
+    public async Task<IActionResult> DeleteOperationPlan(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteOperationPlanAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpGet("vessel-visit-executions")]
     public async Task<IActionResult> GetVesselVisitExecutions(
         [FromQuery] string? from,

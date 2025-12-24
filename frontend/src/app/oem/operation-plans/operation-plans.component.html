@@ -264,6 +264,7 @@
 
     <div *ngIf="loading" class="info">A carregar planos guardados...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
+    <div *ngIf="deleteError" class="error">{{ deleteError }}</div>
 
     <div class="table-wrapper" *ngIf="!loading && !error && sortedPlans.length > 0">
       <table>
@@ -304,9 +305,23 @@
             <td>{{ plan.vesselVisitId || '-' }}</td>
             <td>{{ plan.plannedStartTime | date: 'short' }}</td>
             <td>{{ plan.createdAt | date: 'short' }}</td>
-            <td>
-              <button type="button" class="link-btn" (click)="startEdit(plan)">
-                {{ editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar' }}
+            <td class="actions-cell">
+              <button
+                type="button"
+                class="icon-btn"
+                (click)="startEdit(plan)"
+                [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
+              >
+                ✏️
+              </button>
+              <button
+                type="button"
+                class="icon-btn danger"
+                (click)="onDeletePlan(plan)"
+                [disabled]="deleteLoadingId === plan.id"
+                [title]="deleteLoadingId === plan.id ? 'A apagar...' : 'Apagar plano'"
+              >
+                🗑️
               </button>
             </td>
           </tr>

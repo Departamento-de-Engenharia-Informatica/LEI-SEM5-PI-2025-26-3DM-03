@@ -58,6 +58,9 @@ export class OemOperationPlansComponent implements OnInit {
   editWarnings: string[] = [];
   editSuccess: string | null = null;
 
+  deleteLoadingId: number | null = null;
+  deleteError: string | null = null;
+
   missingForm: FormGroup;
   missingPlans: MissingOperationPlanDto[] = [];
   missingLoading = false;
@@ -367,6 +370,41 @@ export class OemOperationPlansComponent implements OnInit {
     this.editWarnings = [];
     this.editSuccess = null;
     this.editError = null;
+  }
+
+  onDeletePlan(plan: OperationPlanDto): void {
+    if (!plan) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Tem a certeza que pretende apagar o plano "${plan.name}"? Esta acao nao pode ser desfeita.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.deleteLoadingId = plan.id;
+    this.deleteError = null;
+
+    this.api
+      .deleteOperationPlan(plan.id)
+      .pipe(finalize(() => (this.deleteLoadingId = null)))
+      .subscribe({
+        next: () => {
+          this.plans = this.plans.filter(p => p.id !== plan.id);
+          if (this.editingPlan?.id === plan.id) {
+            this.cancelEdit();
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.deleteError = this.normalizeError(
+            err,
+            'Falha ao apagar o plano de operacao.',
+          );
+        },
+      });
   }
 
   onSaveEdit(): void {

@@ -206,6 +206,18 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> DeleteOperationPlanAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/operation-plans/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     private static string BuildQueryString(IDictionary<string, string?> values)
     {
         var items = new List<string>();
