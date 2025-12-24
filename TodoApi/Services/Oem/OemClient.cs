@@ -75,6 +75,54 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetMissingOperationPlansAsync(
+        string date,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(date))
+        {
+            throw new ArgumentException("Date is required", nameof(date));
+        }
+
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["date"] = date
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/operation-plans/missing"
+            : $"oem/operation-plans/missing?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> RegenerateMissingOperationPlansAsync(
+        string date,
+        string? algorithm,
+        bool confirmOverwrite,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/operation-plans/regenerate-missing")
+        {
+            Content = JsonContent.Create(new
+            {
+                date,
+                algorithm,
+                confirmOverwrite
+            })
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> GenerateOperationPlansAsync(string date, string? algorithm, CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "oem/operation-plans/generate")

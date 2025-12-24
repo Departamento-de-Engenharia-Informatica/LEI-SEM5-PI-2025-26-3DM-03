@@ -120,7 +120,7 @@
       </article>
     </div>
 
-    <div class="regenerate-panel" *ngIf="hasMissingPlans">
+    <div class="regenerate-panel" [formGroup]="missingForm" *ngIf="hasMissingPlans">
       <div>
         <h3>Regenerar planos do dia</h3>
         <p class="muted">
@@ -346,6 +346,45 @@
             Motivo da alteracao
             <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
           </label>
+        </div>
+        <div class="tasks-editor" formArrayName="tasks">
+          <h4>Tarefas do plano</h4>
+          <div
+            class="task-row"
+            *ngFor="let taskGroup of taskControls.controls; let i = index"
+            [formGroupName]="i"
+          >
+            <label>
+              Tipo
+              <input type="text" formControlName="type" />
+            </label>
+            <label>
+              Grua
+              <input type="text" formControlName="craneId" />
+            </label>
+            <label>
+              Armazem
+              <input type="text" formControlName="storageAreaId" />
+            </label>
+            <label>
+              Staff (IDs separados por virgula)
+              <input type="text" formControlName="staffIdsText" />
+            </label>
+            <label>
+              Inicio (ISO)
+              <input type="text" formControlName="startTime" />
+            </label>
+            <label>
+              Fim (ISO)
+              <input type="text" formControlName="endTime" />
+            </label>
+            <button type="button" class="ghost-btn small" (click)="removeTask(i)">
+              Remover
+            </button>
+          </div>
+          <button type="button" class="ghost-btn" (click)="addTask()">
+            Adicionar tarefa
+          </button>
         </div>
         <div class="edit-actions">
           <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">

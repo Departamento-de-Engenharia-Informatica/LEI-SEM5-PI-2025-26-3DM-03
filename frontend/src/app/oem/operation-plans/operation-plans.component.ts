@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import {
+  FormArray,
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
@@ -13,6 +14,7 @@ import {
   OperationPlanDto,
   OperationPlanPreviewDto,
   MissingOperationPlanDto,
+  OperationPlanTaskDto,
 } from '../oem-api.service';
 
 type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
@@ -485,19 +487,73 @@ export class OemOperationPlansComponent implements OnInit {
       dockId: [plan?.dockId ?? ''],
       status: [plan?.status ?? 'planned', Validators.required],
       reason: ['', Validators.required],
+      tasks: this.fb.array(
+        (plan?.tasks ?? []).map(task => this.buildTaskGroup(task)),
+      ),
+    });
+  }
+
+  get taskControls(): FormArray {
+    return this.editForm.get('tasks') as FormArray;
+  }
+
+  addTask(): void {
+    this.taskControls.push(this.buildTaskGroup());
+  }
+
+  removeTask(index: number): void {
+    this.taskControls.removeAt(index);
+  }
+
+  private buildTaskGroup(task?: OperationPlanTaskDto) {
+    const staff = (task?.staffIds ?? []).join(', ');
+    return this.fb.group({
+      id: [task?.id ?? null],
+      type: [task?.type ?? '', Validators.required],
+      craneId: [task?.craneId ?? ''],
+      storageAreaId: [task?.storageAreaId ?? ''],
+      staffIdsText: [staff],
+      startTime: [task?.startTime ?? '', Validators.required],
+      endTime: [task?.endTime ?? '', Validators.required],
     });
   }
 
   /**
-   * Backend expects: { reason, dockId?, status? }
+   * Backend expects: { reason, dockId?, status?, tasks? }
    */
   private buildUpdatePayload(): { reason: string } & Partial<OperationPlanDto> {
     const value = this.editForm.value as any;
+
+    const tasksArray = this.taskControls.getRawValue() as any[];
+    const tasks = tasksArray.map(raw => {
+      const staffIds = this.parseStaffIds(raw.staffIdsText as string | undefined);
+      return {
+        id: raw.id ?? undefined,
+        type: (raw.type as string)?.trim(),
+        craneId: raw.craneId || undefined,
+        storageAreaId: raw.storageAreaId || undefined,
+        staffIds,
+        startTime: raw.startTime,
+        endTime: raw.endTime,
+      };
+    });
 
     return {
       reason: (value.reason as string)?.trim(),
       dockId: value.dockId || undefined,
       status: value.status,
+      tasks,
     };
+  }
+
+  private parseStaffIds(value?: string): string[] | undefined {
+    if (!value) {
+      return undefined;
+    }
+    const parts = value
+      .split(',')
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+    return parts.length ? parts : undefined;
   }
 }

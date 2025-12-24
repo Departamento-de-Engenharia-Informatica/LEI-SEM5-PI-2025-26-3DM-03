@@ -43,6 +43,28 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("operation-plans/missing")]
+    public async Task<IActionResult> GetMissingOperationPlans(
+        [FromQuery] string date,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetMissingOperationPlansAsync(date, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("operation-plans/regenerate-missing")]
+    public async Task<IActionResult> RegenerateMissingOperationPlans(
+        [FromBody] RegenerateOperationPlansRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.RegenerateMissingOperationPlansAsync(
+            request.Date,
+            request.Algorithm,
+            request.ConfirmOverwrite,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPatch("operation-plans/{id:int}")]
     public async Task<IActionResult> UpdateOperationPlan(
         [FromRoute] int id,
@@ -106,3 +128,4 @@ public class OemProxyController : ControllerBase
 
 public record OperationPlanRequest(string Date, string? Algorithm);
 public record CompleteVesselVisitExecutionRequest(string ActualUnberthTime, string ActualPortDepartureTime);
+public record RegenerateOperationPlansRequest(string Date, string? Algorithm, bool ConfirmOverwrite);
