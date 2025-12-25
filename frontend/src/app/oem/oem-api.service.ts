@@ -244,6 +244,11 @@ export class OemApiService {
     return this.http.get<VesselVisitExecutionListItem[]>(this.vesselVisitExecutionBase, opts);
   }
 
+	createVesselVisitExecution(payload: { vvnId: number; actualArrivalTime: string; }) {
+		const url = this.vesselVisitExecutionBase;
+		return this.http.post<VesselVisitExecutionListItem>(url, payload, { withCredentials: true });
+	}
+
   completeVesselVisitExecution(id: number, payload: {
     actualUnberthTime: string;
     actualPortDepartureTime: string;

@@ -2,7 +2,8 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+import { finalize, switchMap } from 'rxjs/operators';
 import { OemApiService, VesselVisitExecutionListItem } from '../oem-api.service';
 
 @Component({
@@ -17,6 +18,10 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
 
   completeForm: FormGroup | null = null;
   completing: VesselVisitExecutionListItem | null = null;
+
+  createForm: FormGroup;
+  creating = false;
+  createError: string | null = null;
 
   executions: VesselVisitExecutionListItem[] = [];
   loading = false;
@@ -42,6 +47,11 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
       vesselVisitId: ['', [Validators.pattern(/^\d*$/)]],
       vesselName: [''],
       status: [''],
+    });
+
+    this.createForm = this.fb.group({
+      vvnId: ['', [Validators.required, Validators.pattern(/^\d+$/)]],
+      actualArrivalTime: ['', [Validators.required]],
     });
   }
 
@@ -79,6 +89,67 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   cancelComplete(): void {
     this.completing = null;
     this.completeForm = null;
+  }
+
+  submitCreate(): void {
+    if (this.createForm.invalid) {
+      this.createForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.createForm.value as {
+      vvnId: string | number;
+      actualArrivalTime: string;
+    };
+
+    const parsedId = Number(raw.vvnId);
+    const arrival = new Date(raw.actualArrivalTime);
+
+    if (!raw.vvnId || Number.isNaN(parsedId)) {
+      this.createError = 'VVN (ID) invalido.';
+      return;
+    }
+
+    if (Number.isNaN(arrival.getTime())) {
+      this.createError = 'Data/hora de chegada invalida.';
+      return;
+    }
+
+    const payload = {
+      vvnId: parsedId,
+      actualArrivalTime: arrival.toISOString(),
+    };
+
+    this.creating = true;
+    this.createError = null;
+
+    this.api
+      .getVesselVisitExecutions({ vesselVisitId: parsedId })
+      .pipe(
+        switchMap((existing) => {
+          const list = existing ?? [];
+          const hasActive = list.some((e) => e.status !== 'completed' && e.status !== 'cancelled');
+
+          if (hasActive) {
+            this.createError = 'Ja existe uma execucao ativa para esse VVN.';
+            return EMPTY;
+          }
+
+          return this.api.createVesselVisitExecution(payload);
+        }),
+        finalize(() => (this.creating = false)),
+      )
+      .subscribe({
+        next: () => {
+          if (!this.createError) {
+            this.createForm.reset({ vvnId: '', actualArrivalTime: '' });
+            this.fetchExecutions();
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.createError = this.normalizeError(err, 'Falha ao criar a execucao.');
+        },
+      });
   }
 
   submitComplete(): void {

@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -29,7 +29,7 @@ type AllocationRow = ResourceAllocationSummaryDto;
   templateUrl: './resource-allocation.component.html',
   styleUrls: ['./resource-allocation.component.scss'],
 })
-export class ResourceAllocationComponent {
+export class ResourceAllocationComponent implements OnInit {
   form: FormGroup;
   results: AllocationRow[] = [];
   loading = false;
@@ -69,6 +69,11 @@ export class ResourceAllocationComponent {
     if (this.form.value.resourceType === 'crane') {
       this.ensureCranesLoaded();
     }
+  }
+
+  ngOnInit(): void {
+    // Carrega resultados iniciais para o intervalo por defeito
+    this.onSearch();
   }
 
   get fromControl() {

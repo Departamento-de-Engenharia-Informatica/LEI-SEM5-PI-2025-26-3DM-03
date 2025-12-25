@@ -124,6 +124,8 @@ export class OemOperationPlansComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.fetchPlans();
     await this.loadReferenceData();
+    // Gera automaticamente um preview inicial para a data por defeito
+    this.onPreview();
   }
 
   get dateControl() {

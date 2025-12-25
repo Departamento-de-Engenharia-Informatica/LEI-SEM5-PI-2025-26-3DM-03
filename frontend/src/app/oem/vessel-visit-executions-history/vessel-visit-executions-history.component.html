@@ -45,6 +45,31 @@
     </div>
   </form>
 
+  <section class="create-panel" [formGroup]="createForm">
+    <h2>Criar nova Execucao de Visita</h2>
+    <p class="subtitle">
+      Indique o ID da Vessel Visit Notification aprovada e a data/hora real de chegada ao porto.
+    </p>
+    <div class="form-grid">
+      <label>
+        VVN (ID)
+        <input type="number" formControlName="vvnId" placeholder="ex: 101" />
+      </label>
+      <label>
+        Chegada real ao porto
+        <input type="datetime-local" formControlName="actualArrivalTime" />
+      </label>
+    </div>
+    <div class="status-row" *ngIf="createError">
+      <div class="error">{{ createError }}</div>
+    </div>
+    <div class="filter-actions">
+      <button type="button" (click)="submitCreate()" [disabled]="creating">
+        {{ creating ? 'A criar...' : 'Criar Execucao' }}
+      </button>
+    </div>
+  </section>
+
   <div class="status-row">
     <div *ngIf="loading" class="info">A carregar execucoes...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
