@@ -4,13 +4,14 @@ import { Injectable } from '@angular/core';
 import { AuthUser } from '../../models/auth-user';
 import { Router } from '@angular/router';
 import { BehaviorSubject, firstValueFrom, timeout } from 'rxjs';
+import { API_BASE_URL } from '../../config/api.config';
 //import { BehaviorSubject, Observable } from 'rxjs';
 //import { map } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService  {
   private readonly TOKEN_KEY = 'auth_token';
-  private readonly apiBase = 'https://localhost:7167';
+private readonly apiBase = API_BASE_URL;
 
   private _user: AuthUser | null = null;
   public authDeniedReason: string | null = null;  

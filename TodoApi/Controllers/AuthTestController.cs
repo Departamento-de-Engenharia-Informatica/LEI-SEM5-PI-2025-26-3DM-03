@@ -20,23 +20,21 @@ namespace TodoApi.Controllers
         }
         // GET /authtest/login -> initiate login flow
         [HttpGet("login")]
+        [AllowAnonymous]
         public IActionResult Login()
         {
             Console.WriteLine("[AuthTestController] /authtest/login called");
-                        // In development redirect to the frontend app so SPA can pick up the session automatically.
-                        // In production prefer https frontend root. This keeps behavior consistent with the OIDC
-                        // events elsewhere which also redirect to the SPA after successful authentication.
-                        // Signal success back to the SPA so it can detect the successful signin
-                        var redirectUri = _env.IsDevelopment()
-                            ? "https://localhost:4200/?auth=ok"
-                            : "https://localhost:4200/?auth=ok";
 
-                        var props = new AuthenticationProperties
-                        {
-                                RedirectUri = redirectUri
-                        };
+            var redirectUri = _env.IsDevelopment()
+                ? "https://localhost:4200/?auth=ok"
+                : "https://lei-sem5-g87.duckdns.org:8081/?auth=ok";
 
-                        return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
+            var props = new AuthenticationProperties
+            {
+                RedirectUri = redirectUri
+            };
+
+            return Challenge(props, OpenIdConnectDefaults.AuthenticationScheme);
         }
 
         // GET /authtest/me -> return name and email of authenticated user
@@ -69,7 +67,9 @@ namespace TodoApi.Controllers
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
             // Redirect back to the frontend root after sign-out. Use http in development to match common `ng serve`.
-            var frontendRoot = _env.IsDevelopment() ? "http://localhost:4200/" : "https://localhost:4200/";
+            var frontendRoot = _env.IsDevelopment()
+                ? "http://localhost:4200/"
+                : "https://lei-sem5-g87.duckdns.org:8081/";
 
             // Trigger OpenID Connect sign-out (if supported) and redirect to frontend root
             var props = new AuthenticationProperties { RedirectUri = frontendRoot };

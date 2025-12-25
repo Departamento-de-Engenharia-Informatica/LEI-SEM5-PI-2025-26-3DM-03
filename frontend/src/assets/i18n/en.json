@@ -56,6 +56,9 @@
       "capacity": "Capacity",
       "capacityUnit": "TEU",
       "occupancy": "Occupancy",
+      "servedDocks": "Served docks",
+      "servedDocksHint": "Select which docks this warehouse handles cargo for.",
+      "noDocks": "No docks available yet. Create a dock first.",
       "create": "Create"
     },
     "list": {
@@ -81,6 +84,8 @@
       "type": "Type",
       "capacity": "Capacity",
       "occupancy": "Occupancy",
+      "servedDocks": "Served docks",
+      "noDocks": "No docks available to assign.",
       "cancel": "Cancel",
       "save": "Save",
       "close": "Close"
@@ -276,4 +281,3 @@
   }
 }
 }
-

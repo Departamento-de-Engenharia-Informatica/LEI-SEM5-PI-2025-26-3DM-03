@@ -11,6 +11,7 @@ import {
   ProceduralTextureDescriptor,
   WarehouseLayout,
   DockedVesselPlacement,
+  CraneLayout,
 } from '../../../services/visualization/port-layout.service';
 import { firstValueFrom } from 'rxjs';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -111,6 +112,8 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       roughness: 0.6,
     }),
   };
+  private layoutCranes: CraneLayout[] = [];
+  private readonly craneModelBaseHeight = 90;
   private readonly randomBaseSeed = 947;
   private readonly yardStripeMaterial = new THREE.MeshBasicMaterial({
     color: 0xffffff,
@@ -264,12 +267,16 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private warehousePrototype?: THREE.Group;
   private warehouseModelLoading?: Promise<THREE.Group>;
   private warehouseBaseDimensions?: THREE.Vector3;
+  private readonly uniformWarehouseLayoutSize = { width: 280, depth: 180, height: 45 } as const;
   private baseSceneBuilt = false;
   private pointerEventsAttached = false;
   private readonly pointerMoveHandler = (event: PointerEvent) => this.onPointerMove(event);
   private readonly pointerClickHandler = (event: MouseEvent) => this.onPointerClick(event);
   private dockLabelSprites: THREE.Sprite[] = [];
   private vesselLabelSprites: THREE.Sprite[] = [];
+  private selectionSpotlight?: THREE.SpotLight;
+  private readonly selectionSpotlightTarget = new THREE.Object3D();
+  private readonly minSpotlightGroupSize = 4;
 
   constructor(private layoutApi: PortLayoutService, private zone: NgZone) {}
 
@@ -325,6 +332,10 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.truckGlassMaterial.dispose();
     this.clearLabelSprites();
     this.resetGeneratedAssets();
+    if (this.selectionSpotlight) {
+      this.scene.remove(this.selectionSpotlight);
+      this.scene.remove(this.selectionSpotlight.target);
+    }
   }
 
   // Cena simplificada: plataforma plana e alguns stacks GLB em cima
@@ -466,6 +477,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   const fill = new THREE.DirectionalLight(0xffffff, 0.25);
   fill.position.set(1200, 700, -800);
   this.scene.add(fill);
+  this.setupSelectionSpotlight();
 
     // Orbit controls (helps 3.3.6 later)
     this.controls = new OrbitControls(this.camera, this.canvas);
@@ -480,12 +492,33 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.controls.target.set(0, 0, 0);
   }
 
+  private setupSelectionSpotlight() {
+    this.selectionSpotlightTarget.name = 'SelectionSpotTarget';
+    this.scene.add(this.selectionSpotlightTarget);
+
+    const spot = new THREE.SpotLight(
+      0xffffff,
+      1.35,
+      1800,
+      THREE.MathUtils.degToRad(44),
+      0.6,
+      1.4
+    );
+    spot.visible = false;
+    spot.penumbra = 0.6;
+    spot.castShadow = false;
+    spot.target = this.selectionSpotlightTarget;
+    this.scene.add(spot);
+    this.selectionSpotlight = spot;
+  }
+
   private buildFromLayout(layout: PortLayoutDTO) {
     console.log('[PortScene] layout recebido', layout);
     const sceneLayout = this.hasSceneContent(layout) ? layout : this.createDemoLayout();
     if (sceneLayout !== layout) {
       console.info('[PortScene] usando layout demonstrativo enquanto não existem dados reais');
     }
+    this.layoutCranes = sceneLayout.cranes ?? [];
     this.resetGeneratedAssets();
     this.resetContainerTracking();
     this.clearLabelSprites();
@@ -677,6 +710,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private setSelectedContainer(container?: ContainerHotspot) {
     this.selectedContainer = container;
     this.updateSelectionOutline(container?.object);
+    this.updateSelectionSpotlightTarget(container);
     if (container) {
       this.focusCameraOn(container);
     }
@@ -751,6 +785,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private updateSelectionSpotlightTarget(target?: ContainerHotspot) {
+    if (!this.selectionSpotlight) return;
+    const hasGroup = this.containerHotspots.length >= this.minSpotlightGroupSize;
+    if (!target || !hasGroup) {
+      this.selectionSpotlight.visible = false;
+      return;
+    }
+    const center = this.getObjectCenter(target.object, target.worldPosition);
+    this.selectionSpotlightTarget.position.copy(center);
+    this.selectionSpotlightTarget.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
+  }
+
   private finalizeContainerTracking(clearExisting = false) {
     this.scene.updateMatrixWorld(true);
     if (clearExisting) {
@@ -763,6 +810,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.selectedContainer = undefined;
       this.updateHoverOutline(undefined);
       this.updateSelectionOutline(undefined);
+      this.updateSelectionSpotlightTarget(undefined);
     }
     let index = this.containerHotspots.length + 1;
     const tempBox = new THREE.Box3();
@@ -807,6 +855,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.totalContainers = this.containerHotspots.length;
     this.featuredContainers = this.containerHotspots.slice(0, 4);
     this.stagedContainers = [];
+    this.updateSelectionSpotlightTarget(this.selectedContainer);
   }
 
   private loadReferenceModel() {
@@ -1027,7 +1076,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   private addGlbContainerStacksForDock(dock: DockLayout) {
     const bands = this.computeDockBands(dock);
     const groundY = dock.size.height + 0.2;
-    const stacksCount = Math.max(3, Math.floor(dock.size.length / 180)); // ~um stack por 180 de comprimento
+    const stacksCount = Math.max(3, Math.floor(dock.size.length / 260)); // ajustar densidade
     const usableLength = dock.size.length * 0.8; // evita extremos
     const startX = -usableLength / 2;
     const stepX = usableLength / Math.max(1, stacksCount - 1);
@@ -1041,9 +1090,9 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           const jitterZ = (i % 2 === 0 ? -1 : 1) * Math.min(4, bands.bufferWidth * 0.2);
           const localZ = bands.bufferZ + jitterZ;
 
-          const columns = 2 + ((i + 1) % 2);
-          const rows = 1 + (i % 2);
-          const maxLevels = 2 + ((i + 2) % 2);
+          const columns = 2; // um pouco mais largos
+          const rows = 1 + (i % 2); // alternar entre 1 e 2 filas
+          const maxLevels = 2; // até dois níveis
           const { group, nodes } = this.buildContainerStackFromPrototype(proto, columns, rows, maxLevels, i * 17);
           const position = this.relativeToDock(dock, new THREE.Vector3(localX, groundY, localZ));
           group.position.copy(position);
@@ -1128,6 +1177,28 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
           position: { x: 420, y: 0, z: 980 },
           size: { width: 360, depth: 180, height: 58 },
           rotationY: 0,
+        },
+      ],
+      cranes: [
+        {
+          code: 'CRANE_DEMO_W',
+          name: 'Demo Crane Oeste',
+          dockId: 1,
+          position: { x: -600, y: 35, z: -185 },
+          rotationY: Math.PI,
+          height: 95,
+          gauge: 74,
+          clearance: 68,
+        },
+        {
+          code: 'CRANE_DEMO_E',
+          name: 'Demo Crane Este',
+          dockId: 1,
+          position: { x: 600, y: 35, z: -185 },
+          rotationY: Math.PI,
+          height: 95,
+          gauge: 74,
+          clearance: 68,
         },
       ],
       activeVessels: [],
@@ -1262,9 +1333,9 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     const warehouse = prototype.clone(true);
     const dims = this.warehouseBaseDimensions ?? new THREE.Vector3(1, 1, 1);
     warehouse.scale.set(
-      layout.size.width / dims.x,
-      layout.size.height / dims.y,
-      layout.size.depth / dims.z
+      this.uniformWarehouseLayoutSize.width / dims.x,
+      this.uniformWarehouseLayoutSize.height / dims.y,
+      this.uniformWarehouseLayoutSize.depth / dims.z
     );
     warehouse.position.set(layout.position.x, layout.position.y, layout.position.z);
     warehouse.rotation.y = layout.rotationY || 0;
@@ -1281,7 +1352,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     w: WarehouseLayout,
     mats: { wall: THREE.Material; roof: THREE.Material; base: THREE.Material }
   ) {
-    const geo = new THREE.BoxGeometry(w.size.width, w.size.height, w.size.depth);
+    const geo = new THREE.BoxGeometry(
+      this.uniformWarehouseLayoutSize.width,
+      this.uniformWarehouseLayoutSize.height,
+      this.uniformWarehouseLayoutSize.depth
+    );
     const materials: THREE.Material[] = [
       mats.wall,
       mats.wall,
@@ -1291,7 +1366,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       mats.wall,
     ];
     const mesh = new THREE.Mesh(geo, materials);
-    mesh.position.set(w.position.x, w.position.y + w.size.height / 2, w.position.z);
+    mesh.position.set(
+      w.position.x,
+      w.position.y + this.uniformWarehouseLayoutSize.height / 2,
+      w.position.z
+    );
     mesh.rotation.y = w.rotationY || 0;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -1354,6 +1433,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     this.selectedContainer = undefined;
     this.updateHoverOutline(undefined);
     this.updateSelectionOutline(undefined);
+    this.updateSelectionSpotlightTarget(undefined);
   }
 
   private clearLabelSprites() {
@@ -2412,6 +2492,26 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private addCranesForDock(dock: DockLayout) {
+    const assigned = this.layoutCranes.filter((crane) => crane.dockId === dock.dockId);
+    if (assigned.length) {
+      assigned.forEach((layout) => this.spawnCraneFromLayout(layout, dock));
+    } else if (this.layoutCranes.length === 0) {
+      this.addFallbackCranes(dock);
+    }
+  }
+
+  private spawnCraneFromLayout(layout: CraneLayout, dock: DockLayout) {
+    const crane = this.createCrane(layout);
+    const position = layout.position
+      ? new THREE.Vector3(layout.position.x, layout.position.y, layout.position.z)
+      : this.relativeToDock(dock, new THREE.Vector3(0, dock.size.height + 30, -dock.size.width / 2 + 8));
+    crane.position.copy(position);
+    const rotation = typeof layout.rotationY === 'number' ? layout.rotationY : dock.rotationY;
+    crane.rotation.y = rotation;
+    this.scene.add(crane);
+  }
+
+  private addFallbackCranes(dock: DockLayout) {
     const length = dock.size.length;
     const craneCount = Math.max(3, Math.round(length / 260));
     const spacing = length / (craneCount + 1);
@@ -2429,7 +2529,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  private createCrane(): THREE.Group {
+  private createCrane(layout?: CraneLayout): THREE.Group {
     const group = new THREE.Group();
     const column = new THREE.Mesh(new THREE.BoxGeometry(20, 90, 24), this.craneMaterials.boom);
     column.position.y = 45;
@@ -2451,6 +2551,11 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       group.add(mesh);
     });
 
+    if (layout?.height && layout.height > 0 && this.craneModelBaseHeight > 0) {
+      const scale = layout.height / this.craneModelBaseHeight;
+      group.scale.setScalar(scale);
+    }
+
     return group;
   }
 
@@ -2470,6 +2575,19 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
 
   private buildFallback() {
     this.buildFromLayout(this.createDemoLayout());
+  }
+
+  private updateSelectionSpotlight() {
+    if (!this.selectionSpotlight || !this.camera) return;
+    const active = !!this.selectedContainer && this.containerHotspots.length >= this.minSpotlightGroupSize;
+    if (!active) {
+      this.selectionSpotlight.visible = false;
+      return;
+    }
+    this.selectionSpotlight.position.copy(this.camera.position);
+    this.selectionSpotlight.target.position.copy(this.selectionSpotlightTarget.position);
+    this.selectionSpotlight.target.updateMatrixWorld(true);
+    this.selectionSpotlight.visible = true;
   }
 
   private animate = () => {
@@ -2493,6 +2611,7 @@ export class PortSceneComponent implements AfterViewInit, OnDestroy {
       this.waterGeom.computeVertexNormals();
     }
 
+    this.updateSelectionSpotlight();
     this.controls?.update();
     this.renderer.render(this.scene, this.camera);
     this.animationId = requestAnimationFrame(this.animate);

@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using TodoApi.Domain.Repositories;
 using TodoApi.Models.Docks;
 using TodoApi.Models.StorageAreas;
 using TodoApi.Models.Vessels;
+using TodoApi.Models.Resources;
 
 namespace TodoApi.Application.Services.Visualization
 {
@@ -15,28 +17,36 @@ namespace TodoApi.Application.Services.Visualization
         private readonly IStorageAreaRepository _storageAreaRepository;
         private readonly IVesselVisitNotificationRepository _notificationRepository;
         private readonly IVesselRepository _vesselRepository;
+        private readonly IResourceRepository _resourceRepository;
+        private readonly ILogger<PortLayoutService>? _logger;
 
         public PortLayoutService(
             IDockRepository dockRepository,
             IStorageAreaRepository storageAreaRepository,
             IVesselVisitNotificationRepository notificationRepository,
-            IVesselRepository vesselRepository)
+            IVesselRepository vesselRepository,
+            IResourceRepository resourceRepository,
+            ILogger<PortLayoutService>? logger = null)
         {
             _dockRepository = dockRepository;
             _storageAreaRepository = storageAreaRepository;
             _notificationRepository = notificationRepository;
             _vesselRepository = vesselRepository;
+            _resourceRepository = resourceRepository;
+            _logger = logger;
         }
 
         public async Task<PortLayoutDto> BuildLayoutAsync()
         {
             var docks = (await _dockRepository.GetAllAsync()).ToList();
-            var storageAreas = (await _storageAreaRepository.GetAllAsync()).ToList();
+            var storageAreas = await SafeGetStorageAreasAsync();
 
             var dockLayouts = BuildDockLayouts(docks);
             var yardLayouts = BuildYardLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Yard), dockLayouts);
             var warehouseLayouts = BuildWarehouseLayouts(storageAreas.Where(sa => sa.Type == StorageAreaType.Warehouse), dockLayouts, yardLayouts);
-            var activeVessels = await BuildActiveVesselsAsync(dockLayouts);
+            var resources = await SafeGetResourcesAsync();
+            var craneLayouts = BuildCraneLayouts(resources, dockLayouts);
+            var activeVessels = await SafeBuildActiveVesselsAsync(dockLayouts);
 
             double docksSpan = dockLayouts.Count == 0
                 ? 2000
@@ -53,6 +63,7 @@ namespace TodoApi.Application.Services.Visualization
                 LandAreas = yardLayouts,
                 Docks = dockLayouts,
                 Warehouses = warehouseLayouts,
+                Cranes = craneLayouts,
                 Materials = BuildMaterialLibrary(),
                 ActiveVessels = activeVessels
             };
@@ -60,6 +71,11 @@ namespace TodoApi.Application.Services.Visualization
 
         private const double DockSpacing = 140;
         private const double BaseDockHeight = 8;
+        private const double DefaultCraneHeight = 90;
+        private const double DefaultCraneGauge = 70;
+        private const double DefaultCraneClearance = 60;
+        private const double CraneElevationOffset = 24;
+        private const double DefaultDockVisualWidth = 200;
 
         private static List<DockLayoutDto> BuildDockLayouts(IEnumerable<Dock> docks)
         {
@@ -67,7 +83,7 @@ namespace TodoApi.Application.Services.Visualization
             {
                 Entity = d,
                 Length = Math.Max(120, d.Length <= 0 ? 120 : d.Length),
-                Width = Math.Clamp(d.Depth <= 0 ? 60 : d.Depth * 4, 40, 160)
+                Width = DefaultDockVisualWidth
             }).ToList();
 
             if (normalized.Count == 0)
@@ -86,6 +102,7 @@ namespace TodoApi.Application.Services.Visualization
                 {
                     DockId = item.Entity.Id,
                     Name = item.Entity.Name,
+                    Location = item.Entity.Location ?? string.Empty,
                     Size = new DockSizeDto
                     {
                         Length = item.Length,
@@ -131,7 +148,8 @@ namespace TodoApi.Application.Services.Visualization
                     Z = zBand,
                     Width = width,
                     Depth = depth,
-                    Y = 0
+                    Y = 0,
+                    ServedDockIds = yard.ServedDockIds?.ToList() ?? new List<int>()
                 });
 
                 index++;
@@ -142,9 +160,11 @@ namespace TodoApi.Application.Services.Visualization
 
         private static List<WarehouseLayoutDto> BuildWarehouseLayouts(IEnumerable<StorageArea> warehouses, IReadOnlyList<DockLayoutDto> docks, IReadOnlyList<LandAreaLayoutDto> yards)
         {
-            var anchors = yards.Any()
-                ? yards.Select(y => y.X).ToArray()
-                : docks.Select(d => d.Position.X).ToArray();
+            var dockAnchors = docks.ToDictionary(d => d.DockId, d => d.Position.X);
+            var yardAnchors = yards.Select(y => y.X).ToArray();
+            var fallbackAnchors = yardAnchors.Length > 0
+                ? yardAnchors
+                : dockAnchors.Values.ToArray();
 
             var result = new List<WarehouseLayoutDto>();
             var index = 0;
@@ -155,7 +175,11 @@ namespace TodoApi.Application.Services.Visualization
                 var depth = Math.Clamp(warehouse.MaxCapacityTEU * 0.25, 100, 320);
                 var height = Math.Clamp(warehouse.MaxCapacityTEU * 0.05, 25, 70);
 
-                var anchorX = anchors.Length > 0 ? anchors[index % anchors.Length] : index * 200;
+                var anchorX = ResolveAnchorX(
+                    warehouse,
+                    dockAnchors,
+                    fallbackAnchors.Length > 0 ? fallbackAnchors : new[] { index * 200.0 },
+                    index);
                 var z = 600 + (index % 2) * 230;
 
                 result.Add(new WarehouseLayoutDto
@@ -174,13 +198,69 @@ namespace TodoApi.Application.Services.Visualization
                         Depth = depth,
                         Height = height
                     },
-                    RotationY = 0
+                    RotationY = 0,
+                    ServedDockIds = warehouse.ServedDockIds?.ToList() ?? new List<int>()
                 });
 
                 index++;
             }
 
             return result;
+        }
+
+        private List<CraneLayoutDto> BuildCraneLayouts(IEnumerable<Resource> resources, IReadOnlyList<DockLayoutDto> docks)
+        {
+            if (docks == null || docks.Count == 0 || resources == null)
+            {
+                return new List<CraneLayoutDto>();
+            }
+
+            var cranes = resources
+                .Where(r =>
+                    r != null &&
+                    !string.IsNullOrWhiteSpace(r.Type) &&
+                    r.Type.IndexOf("crane", StringComparison.OrdinalIgnoreCase) >= 0)
+                .ToList();
+
+            if (cranes.Count == 0)
+            {
+                return new List<CraneLayoutDto>();
+            }
+
+            var dockLookup = docks.ToDictionary(d => d.DockId, d => d);
+            var assignments = new List<CraneLayoutDto>();
+
+            foreach (var group in cranes.GroupBy(crane => ResolveDockId(crane, dockLookup)))
+            {
+                if (!group.Key.HasValue)
+                {
+                    continue;
+                }
+
+                if (!dockLookup.TryGetValue(group.Key.Value, out var dock))
+                {
+                    continue;
+                }
+
+                var ordered = group
+                    .Where(r => r != null)
+                    .OrderBy(r => r.Code, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (ordered.Count == 0)
+                {
+                    continue;
+                }
+
+                var spacing = dock.Size.Length / (ordered.Count + 1);
+                for (var index = 0; index < ordered.Count; index++)
+                {
+                    var localX = -dock.Size.Length / 2 + spacing * (index + 1);
+                    assignments.Add(CreateCraneLayout(ordered[index], dock, localX));
+                }
+            }
+
+            return assignments;
         }
 
         private async Task<List<ActiveDockedVesselDto>> BuildActiveVesselsAsync(IReadOnlyList<DockLayoutDto> dockLayouts)
@@ -205,8 +285,14 @@ namespace TodoApi.Application.Services.Visualization
             var vesselLookup = vessels.ToDictionary(v => v.Imo, v => v, StringComparer.OrdinalIgnoreCase);
 
             var result = new List<ActiveDockedVesselDto>();
+            var fallbackDockId = dockLayouts[0].DockId;
+            var groupedByResolvedDock = approved.GroupBy(visit =>
+            {
+                var requestedDockId = visit.ApprovedDockId ?? fallbackDockId;
+                return dockLookup.ContainsKey(requestedDockId) ? requestedDockId : fallbackDockId;
+            });
 
-            foreach (var group in approved.GroupBy(v => v.ApprovedDockId!.Value))
+            foreach (var group in groupedByResolvedDock)
             {
                 if (!dockLookup.TryGetValue(group.Key, out var dock))
                 {
@@ -223,8 +309,14 @@ namespace TodoApi.Application.Services.Visualization
                     var visit = orderedByArrival[index];
                     vesselLookup.TryGetValue(visit.VesselId, out var vessel);
 
-                    var displayLength = Math.Clamp(dock.Size.Length * 0.7, 120, dock.Size.Length - 12);
-                    var estimatedBeam = Math.Clamp(dock.Size.Width * 0.65, 32, dock.Size.Width);
+                    var dockLength = dock.Size.Length;
+                    var dockWidth = dock.Size.Width;
+                    var lengthMin = Math.Min(120, dockLength - 12);
+                    var lengthMax = Math.Max(lengthMin, dockLength - 12);
+                    var displayLength = Math.Clamp(dockLength * 0.7, lengthMin, lengthMax);
+                    var beamMin = Math.Min(32, dockWidth);
+                    var beamMax = Math.Max(beamMin, dockWidth);
+                    var estimatedBeam = Math.Clamp(dockWidth * 0.65, beamMin, beamMax);
 
                     result.Add(new ActiveDockedVesselDto
                     {
@@ -245,6 +337,151 @@ namespace TodoApi.Application.Services.Visualization
 
             return result;
         }
+
+        private CraneLayoutDto CreateCraneLayout(Resource resource, DockLayoutDto dock, double localX)
+        {
+            var bands = ComputeDockBands(dock);
+            var position = new PositionDto
+            {
+                X = dock.Position.X + localX,
+                Y = dock.Position.Y + dock.Size.Height + CraneElevationOffset,
+                Z = dock.Position.Z + bands.QuayZ,
+            };
+
+            return new CraneLayoutDto
+            {
+                Code = resource.Code ?? string.Empty,
+                Name = string.IsNullOrWhiteSpace(resource.Description) ? resource.Code ?? "Crane" : resource.Description,
+                DockId = dock.DockId,
+                Position = position,
+                RotationY = dock.RotationY + Math.PI,
+                Height = ComputeCraneHeight(resource),
+                Gauge = ComputeCraneGauge(resource),
+                Clearance = ComputeCraneClearance(resource)
+            };
+        }
+
+        private static DockBandInfo ComputeDockBands(DockLayoutDto dock)
+        {
+            const double minBuffer = 6;
+            var quayWidth = Math.Clamp(dock.Size.Width * 0.32, 16, 52);
+            var roadWidth = Math.Clamp(dock.Size.Width * 0.45, 26, 95);
+            var maxUsable = Math.Max(minBuffer, dock.Size.Width - minBuffer);
+            var used = quayWidth + roadWidth;
+            if (used > maxUsable)
+            {
+                var shrink = maxUsable / used;
+                quayWidth *= shrink;
+                roadWidth *= shrink;
+            }
+
+            var bufferWidth = Math.Max(minBuffer, dock.Size.Width - (quayWidth + roadWidth));
+            var quayZ = -dock.Size.Width / 2 + quayWidth / 2 + 2;
+            var bufferZ = quayZ + quayWidth / 2 + bufferWidth / 2;
+            var roadZ = dock.Size.Width / 2 - roadWidth / 2 - 2;
+
+            return new DockBandInfo(quayWidth, roadWidth, bufferWidth, quayZ, bufferZ, roadZ);
+        }
+
+        private static long? ResolveDockId(Resource resource, IReadOnlyDictionary<long, DockLayoutDto> dockLookup)
+        {
+            if (resource == null || string.IsNullOrWhiteSpace(resource.AssignedArea))
+            {
+                return null;
+            }
+
+            var hint = resource.AssignedArea.Trim();
+
+            foreach (var dock in dockLookup.Values)
+            {
+                if (dock.Name != null && string.Equals(dock.Name.Trim(), hint, StringComparison.OrdinalIgnoreCase))
+                {
+                    return dock.DockId;
+                }
+                if (dock.Location != null && string.Equals(dock.Location.Trim(), hint, StringComparison.OrdinalIgnoreCase))
+                {
+                    return dock.DockId;
+                }
+            }
+
+            if (long.TryParse(hint, out var directId) && dockLookup.ContainsKey(directId))
+            {
+                return directId;
+            }
+
+            if (hint.StartsWith("dock", StringComparison.OrdinalIgnoreCase))
+            {
+                var digits = new string(hint.Where(char.IsDigit).ToArray());
+                if (long.TryParse(digits, out var dockId) && dockLookup.ContainsKey(dockId))
+                {
+                    return dockId;
+                }
+            }
+
+            foreach (var dock in dockLookup.Values)
+            {
+                if (!string.IsNullOrWhiteSpace(dock.Name) && dock.Name.Contains(hint, StringComparison.OrdinalIgnoreCase))
+                {
+                    return dock.DockId;
+                }
+                if (!string.IsNullOrWhiteSpace(dock.Location) && dock.Location.Contains(hint, StringComparison.OrdinalIgnoreCase))
+                {
+                    return dock.DockId;
+                }
+            }
+
+            return null;
+        }
+
+        private static double ComputeCraneHeight(Resource resource)
+        {
+            if (resource == null)
+            {
+                return DefaultCraneHeight;
+            }
+
+            var capacity = (double)resource.OperationalCapacity;
+            if (capacity <= 0)
+            {
+                return DefaultCraneHeight;
+            }
+
+            return Math.Clamp(60 + capacity * 1.2, 70, 160);
+        }
+
+        private static double ComputeCraneGauge(Resource resource)
+        {
+            if (resource == null)
+            {
+                return DefaultCraneGauge;
+            }
+
+            var capacity = (double)resource.OperationalCapacity;
+            if (capacity <= 0)
+            {
+                return DefaultCraneGauge;
+            }
+
+            return Math.Clamp(40 + capacity * 0.6, 50, 120);
+        }
+
+        private static double ComputeCraneClearance(Resource resource)
+        {
+            if (resource == null)
+            {
+                return DefaultCraneClearance;
+            }
+
+            var capacity = (double)resource.OperationalCapacity;
+            if (capacity <= 0)
+            {
+                return DefaultCraneClearance;
+            }
+
+            return Math.Clamp(45 + capacity * 0.35, 50, 110);
+        }
+
+        private sealed record DockBandInfo(double QuayWidth, double RoadWidth, double BufferWidth, double QuayZ, double BufferZ, double RoadZ);
 
         private static double ResolveAnchorX(
             StorageArea area,
@@ -283,5 +520,47 @@ namespace TodoApi.Application.Services.Visualization
                 }
             };
         }
+
+        private async Task<List<StorageArea>> SafeGetStorageAreasAsync()
+        {
+            try
+            {
+                var areas = await _storageAreaRepository.GetAllAsync();
+                return areas?.ToList() ?? new List<StorageArea>();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter storage areas. Layout será gerado sem áreas de apoio.");
+                return new List<StorageArea>();
+            }
+        }
+
+        private async Task<List<Resource>> SafeGetResourcesAsync()
+        {
+            try
+            {
+                var resources = await _resourceRepository.GetAllAsync();
+                return resources?.ToList() ?? new List<Resource>();
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter recursos. Layout será gerado sem gruas dinâmicas.");
+                return new List<Resource>();
+            }
+        }
+
+        private async Task<List<ActiveDockedVesselDto>> SafeBuildActiveVesselsAsync(IReadOnlyList<DockLayoutDto> dockLayouts)
+        {
+            try
+            {
+                return await BuildActiveVesselsAsync(dockLayouts);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "[PortLayout] Falha ao obter Vessel Visit Notifications. Layout será gerado sem navios ativos.");
+                return new List<ActiveDockedVesselDto>();
+            }
+        }
+
     }
 }

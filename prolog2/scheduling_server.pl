@@ -62,7 +62,13 @@ start_scheduling_server :-
         format('  POST /api/scheduling/generate~n'),
         format('  POST /api/scheduling/daily~n'),
         format('==============================================~n~n')
-    ).
+    ),
+    load_vessel_data,
+    load_resources_data.
+
+% Legacy hooks for preloading data; currently no-op (data is fetched on demand)
+load_vessel_data.
+load_resources_data.
 
 stop_scheduling_server :-
     server_port(Port),
@@ -112,12 +118,12 @@ process_daily(Request) :-
     ->  true
     ;   throw(error(missing_date_field, RequestBody))
     ),
-    (   get_dict(algorithm, RequestBody, Algorithm)
+    (   get_dict(algorithm, RequestBody, AlgorithmIn)
     ->  true
-    ;   Algorithm = "optimal"
+    ;   AlgorithmIn = "auto"
     ),
     (   config:log_api_calls(true)
-    ->  format(user_error, 'Computing daily schedule for: ~w using algorithm: ~w~n', [DateStr, Algorithm])
+    ->  format(user_error, 'Computing daily schedule for: ~w using algorithm: ~w~n', [DateStr, AlgorithmIn])
     ;   true
     ),
     retractall(scheduling_algorithms:user:vessel(_, _, _, _, _, _)),
@@ -132,21 +138,21 @@ process_daily(Request) :-
             vessel_count: 0
         })
     ;   length(Vessels, VesselCount),
-        select_algorithm(Algorithm, Vessels, BaselineResult, AlgoResult),
+        select_algorithm(AlgorithmIn, Vessels, BaselineResult, AlgoResult, ResponseAlgorithm),
         data_service:fetch_available_resources(Resources),
         Schedule        = AlgoResult.get(schedule),
         ComputationTime = AlgoResult.get(computation_time_ms),
         scheduling_algorithms:assign_resources_to_schedule(
             Schedule, Resources, EnrichedScheduleBase
         ),
-        (   Algorithm == "multi_crane"
+        (   member(ResponseAlgorithm, ["multi_crane", "multi_crane_auto"])
         ->  CranesAlloc = AlgoResult.get(cranes_allocation, []),
             enrich_multi_crane_operations(EnrichedScheduleBase, CranesAlloc, Resources, EnrichedSchedule)
         ;   EnrichedSchedule = EnrichedScheduleBase
         ),
         scheduling_algorithms:calculate_valid_delay(EnrichedSchedule, ValidDelay),
         build_daily_response(
-            Algorithm,
+            ResponseAlgorithm,
             DateStr,
             VesselCount,
             BaselineResult,
@@ -159,13 +165,25 @@ process_daily(Request) :-
         reply_json_dict(ResponseJson)
     ).
 
-select_algorithm("heuristic", Vessels, none, AlgoResult) :-
+select_algorithm("heuristic", Vessels, BaselineResult, AlgoResult, "heuristic") :-
+    scheduling_algorithms:compute_optimal_schedule(Vessels, BaselineResult),
     scheduling_algorithms:compute_heuristic_schedule(Vessels, AlgoResult).
-select_algorithm("multi_crane", Vessels, BaselineResult, AlgoResult) :-
+select_algorithm("multi_crane", Vessels, BaselineResult, AlgoResult, "multi_crane") :-
     scheduling_algorithms:compute_optimal_schedule(Vessels, BaselineResult),
     scheduling_algorithms:compute_multi_crane_schedule(Vessels, BaselineResult, AlgoResult).
-select_algorithm(_, Vessels, none, AlgoResult) :-
-    scheduling_algorithms:compute_optimal_schedule(Vessels, AlgoResult).
+select_algorithm("auto", Vessels, BaselineResult, AlgoResult, ResponseAlg) :-
+    scheduling_algorithms:compute_optimal_schedule(Vessels, BaselineResult),
+    BaselineDelay = BaselineResult.get(total_delay, 0),
+    (   BaselineDelay =:= 0
+    ->  AlgoResult = BaselineResult,
+        ResponseAlg = "optimal_auto"
+    ;   scheduling_algorithms:compute_multi_crane_schedule(Vessels, BaselineResult, MultiResult),
+        AlgoResult = MultiResult,
+        ResponseAlg = "multi_crane_auto"
+    ).
+select_algorithm(_, Vessels, BaselineResult, AlgoResult, ResponseAlg) :-
+    % default behavior mirrors auto
+    select_algorithm("auto", Vessels, BaselineResult, AlgoResult, ResponseAlg).
 
 handle_aggregate_data(Request) :-
     cors_enable(Request, [methods([post, options])]),
@@ -291,6 +309,7 @@ build_daily_response("multi_crane",
     CraneHoursSingle = MultiResult.get(crane_hours_single, 0),
     CraneHoursMulti  = MultiResult.get(crane_hours_multi,  0),
     CranesAlloc      = MultiResult.get(cranes_allocation,  []),
+    BaselineTimeMs   = BaselineResult.get(computation_time_ms, 0),
     Response = _{
         success:             true,
         date:                DateStr,
@@ -299,6 +318,7 @@ build_daily_response("multi_crane",
         total_delay:         ValidDelay,
         strategy:            Strategy,
         baseline_delay:      BaselineDelay,
+        baseline_computation_time_ms: BaselineTimeMs,
         crane_hours_single:  CraneHoursSingle,
         crane_hours_multi:   CraneHoursMulti,
         cranes_allocation:   CranesAlloc,
@@ -310,12 +330,20 @@ build_daily_response("multi_crane",
 build_daily_response(Algorithm,
                      DateStr,
                      VesselCount,
-                     _BaselineResult,
+                     BaselineResult,
                      _AlgoResult,
                      ValidDelay,
                      ComputationTime,
                      EnrichedSchedule,
                      Response) :-
+    (   BaselineResult == none
+    ->  BaselineDelay = 0
+    ;   BaselineDelay = BaselineResult.get(total_delay, 0)
+    ),
+    (   BaselineResult == none
+    ->  BaselineTimeMs = 0
+    ;   BaselineTimeMs = BaselineResult.get(computation_time_ms, 0)
+    ),
     Response = _{
         success:             true,
         date:                DateStr,
@@ -323,6 +351,8 @@ build_daily_response(Algorithm,
         vessel_count:        VesselCount,
         total_delay:         ValidDelay,
         computation_time_ms: ComputationTime,
+        baseline_delay:      BaselineDelay,
+        baseline_computation_time_ms: BaselineTimeMs,
         schedule:            EnrichedSchedule,
         warnings:            []
     }.

@@ -25,7 +25,11 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets"
+              },
               {
                 "glob": "**/*",
                 "input": "src/app/assets",
@@ -38,20 +42,39 @@
           },
           "configurations": {
             "production": {
-              "budgets": [
-                {
-                  "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
-                },
-                {
-                  "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
-                }
-              ],
-              "outputHashing": "all"
-            },
+                "budgets": [
+                  {
+                    "type": "initial",
+                    "maximumWarning": "2MB",
+                    "maximumError": "3MB"
+                  },
+                  {
+                    "type": "anyComponentStyle",
+                    "maximumWarning": "12kB",
+                    "maximumError": "15kB"
+                  }
+                ],
+                "outputHashing": "all",
+                "assets": [
+                  {
+                    "glob": "**/*",
+                    "input": "public"
+                  },
+                  {
+                    "glob": "**/*",
+                    "input": "src/assets",
+                    "output": "assets",
+                    "ignore": [
+                      "models/**/*.glb"
+                    ]
+                  },
+                  {
+                    "glob": "**/*",
+                    "input": "src/app/assets",
+                    "output": "assets/app"
+                  }
+                ]
+              },
             "development": {
               "optimization": false,
               "extractLicenses": false,
@@ -91,7 +114,14 @@
                 "glob": "**/*",
                 "input": "public"
               },
-              "src/assets",
+              {
+                "glob": "**/*",
+                "input": "src/assets",
+                "output": "assets",
+                "ignore": [
+                  "models/**/*.glb"
+                ]
+              },
               {
                 "glob": "**/*",
                 "input": "src/app/assets",

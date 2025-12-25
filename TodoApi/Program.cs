@@ -296,7 +296,12 @@ else
         await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         
         // Force the redirect_uri to match exactly what is registered in Google Cloud
-        context.ProtocolMessage.RedirectUri = "https://localhost:7167/signin-oidc";
+        var request = context.HttpContext.Request;
+
+        var redirectUri =
+            request.Scheme + "://" + request.Host + "/signin-oidc";
+
+        context.ProtocolMessage.RedirectUri = redirectUri;
 
         // Always show the Google account picker to avoid auto-login with the last account
         context.ProtocolMessage.Prompt = "select_account";

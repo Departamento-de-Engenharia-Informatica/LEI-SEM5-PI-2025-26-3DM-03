@@ -1,9 +1,9 @@
-<section class="page-heading">
+﻿<section class="page-heading">
   <div>
-    <h1>Planeamento diário de operações</h1>
+    <h1>Planeamento diÃ¡rio de operaÃ§Ãµes</h1>
     <p>
-      Gere a sequência de carga/descarga para o dia pretendido, respeitando a disponibilidade de cais, grua e equipas.
-      O backend consolida os dados e devolve a escala com a soma mínima de atrasos.
+      Gere a sequÃªncia de carga/descarga para o dia pretendido, respeitando a disponibilidade de cais, grua e equipas.
+      O backend consolida os dados e devolve a escala com a soma mÃ­nima de atrasos.
     </p>
   </div>
   <button type="button" class="ghost" (click)="useSampleData()">Repor dados de amostra</button>
@@ -19,26 +19,24 @@
     <label>
       Algoritmo
       <select formControlName="algorithm">
-        <option value="heuristic">Heurística rápida (Prolog)</option>
-        <option value="prolog">Motor externo (Prolog)</option>
-      </select>
-    </label>
-
-    <label>
-      Estratégia
-      <select formControlName="strategy">
-        <option value="auto">Auto (CLPFD + fallback)</option>
-        <option value="clpfd">CLPFD (otimização)</option>
-        <option value="multi_crane">Heurística multi_crane</option>
+        <option value="auto">Auto (backend decide)</option>
+        <option value="optimal">Ótimo (CLPFD)</option>
+        <option value="heuristic">Heurística rápida</option>
+        <option value="multi_crane">Multi-crane</option>
       </select>
     </label>
   </div>
+
+  <p class="helper warn">
+    Apenas data + algoritmo são enviados ao backend. Os dados de navios/gruas/equipas abaixo são ignorados quando se usa o backend real;
+    mantenha-os apenas para referência visual.
+  </p>
 
   <section class="panel" formArrayName="vessels">
     <header>
       <div>
         <h2>Navios</h2>
-        <p>Defina a chegada, partida desejada e duração das operações (horas).</p>
+        <p>Defina a chegada, partida desejada e duraÃ§Ã£o das operaÃ§Ãµes (horas).</p>
       </div>
       <button type="button" (click)="addVesselRow()">Adicionar navio</button>
     </header>
@@ -61,7 +59,7 @@
           <td><input type="number" min="0" formControlName="departureHour" /></td>
           <td><input type="number" min="1" formControlName="unloadDuration" /></td>
           <td><input type="number" min="0" formControlName="loadDuration" /></td>
-          <td><button type="button" class="icon" (click)="removeVessel(i)">✖</button></td>
+          <td><button type="button" class="icon" (click)="removeVessel(i)">âœ–</button></td>
         </tr>
       </tbody>
     </table>
@@ -72,7 +70,7 @@
       <header>
         <div>
           <h2>Gruas</h2>
-          <p>Disponibilidade diária da infraestrutura.</p>
+          <p>Disponibilidade diÃ¡ria da infraestrutura.</p>
         </div>
         <button type="button" (click)="addCraneRow()">Adicionar grua</button>
       </header>
@@ -80,7 +78,7 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Início</th>
+            <th>InÃ­cio</th>
             <th>Fim</th>
             <th>Cap.</th>
             <th></th>
@@ -92,7 +90,7 @@
             <td><input type="time" formControlName="availableFrom" /></td>
             <td><input type="time" formControlName="availableTo" /></td>
             <td><input type="number" min="1" formControlName="capacity" /></td>
-            <td><button type="button" class="icon" (click)="removeCrane(i)">✖</button></td>
+            <td><button type="button" class="icon" (click)="removeCrane(i)">âœ–</button></td>
           </tr>
         </tbody>
       </table>
@@ -102,7 +100,7 @@
       <header>
         <div>
           <h2>Equipas</h2>
-          <p>Turnos ativos e qualificações necessárias.</p>
+          <p>Turnos ativos e qualificaÃ§Ãµes necessÃ¡rias.</p>
         </div>
         <button type="button" (click)="addStaffRow()">Adicionar equipa</button>
       </header>
@@ -111,7 +109,7 @@
           <tr>
             <th>ID</th>
             <th>Skills</th>
-            <th>Início</th>
+            <th>InÃ­cio</th>
             <th>Fim</th>
             <th></th>
           </tr>
@@ -122,7 +120,7 @@
             <td><input formControlName="skills" placeholder="crane,logistics" /></td>
             <td><input type="time" formControlName="shiftStart" /></td>
             <td><input type="time" formControlName="shiftEnd" /></td>
-            <td><button type="button" class="icon" (click)="removeStaff(i)">✖</button></td>
+            <td><button type="button" class="icon" (click)="removeStaff(i)">âœ–</button></td>
           </tr>
         </tbody>
       </table>
@@ -131,14 +129,14 @@
 
   <footer class="form-actions">
     <button type="submit" [disabled]="status === 'computing'">
-      {{ status === 'computing' ? 'A gerar...' : 'Calcular escala diária' }}
+      {{ status === 'computing' ? 'A gerar...' : 'Calcular escala diaria' }}
     </button>
-    <span class="helper">Serão enviados todos os dados acima para o módulo Planning & Scheduling.</span>
+    <span class="helper">So a data e o algoritmo sao enviados; o backend Prolog obtem os dados reais.</span>
   </footer>
 </form>
 
 <section class="status-card" [class.loading]="status === 'computing'" [class.error]="status === 'error'">
-  <h3>Estado do cálculo</h3>
+  <h3>Estado do cÃ¡lculo</h3>
   <p>{{ statusMessage }}</p>
   <p *ngIf="errorMessage" class="error-text">{{ errorMessage }}</p>
   <p *ngIf="computationMs && status === 'success'">Tempo de resposta: {{ computationMs }} ms</p>
@@ -148,7 +146,7 @@
   <header>
     <h2>Resultado para {{ result.date }}</h2>
     <span class="chip">{{ result.algorithm || result.strategy || 'auto' }}</span>
-    <span class="chip subtle" *ngIf="result.strategy">Estratégia: {{ result.strategy }}</span>
+    <span class="chip subtle" *ngIf="result.strategy">EstratÃ©gia: {{ result.strategy }}</span>
     <span class="chip warn" *ngIf="warnings.includes('fallback_to_multi_crane')">Fallback multi_crane</span>
     <span class="pill" *ngIf="comparisonLabel">{{ comparisonLabel }}</span>
   </header>
@@ -163,23 +161,23 @@
       <strong>{{ result.craneHoursUsed }}</strong>
     </article>
     <article>
-      <h3>Operações</h3>
+      <h3>OperaÃ§Ãµes</h3>
       <strong>{{ result.schedule.length }}</strong>
     </article>
     <article>
-      <h3>Tempo de cálculo (API)</h3>
+      <h3>Tempo de cÃ¡lculo (API)</h3>
       <strong>{{ result.computationMilliseconds || result.summary.computationMilliseconds }} ms</strong>
       <small *ngIf="computationMs">Browser: {{ computationMs }} ms</small>
     </article>
     <article>
       <h3>Intensidade multi-crane</h3>
       <strong>{{ result.multi_crane_intensity ?? '-' }}</strong>
-      <small *ngIf="warnings.includes('fallback_to_multi_crane')">Gerado pela heurística</small>
+      <small *ngIf="warnings.includes('fallback_to_multi_crane')">Gerado pela heurÃ­stica</small>
     </article>
   </div>
 
   <div class="comparison" *ngIf="result.comparison as comparison">
-    <h3>Comparação com {{ comparison.baseline.algorithm }}</h3>
+    <h3>ComparaÃ§Ã£o com {{ comparison.baseline.algorithm }}</h3>
     <div class="comparison-grid">
       <div>
         <p>Algoritmo atual</p>
@@ -192,7 +190,7 @@
         <small>{{ comparison.baseline.computationMilliseconds }} ms</small>
       </div>
       <div>
-        <p>Diferença</p>
+        <p>DiferenÃ§a</p>
         <strong [class.delayed]="(comparison.delayDeltaMinutes || 0) > 0">
           {{ comparison.delayDeltaMinutes }} min
         </strong>
@@ -232,16 +230,16 @@
     </div>
   </div>
   <ng-template #noPlan>
-    <p class="empty-state">Sem operações para a data especificada.</p>
+    <p class="empty-state">Sem operaÃ§Ãµes para a data especificada.</p>
   </ng-template>
 
   <table class="result-table" *ngIf="result.schedule.length">
     <thead>
       <tr>
         <th>Navio</th>
-        <th>Início</th>
+        <th>InÃ­cio</th>
         <th>Fim</th>
-        <th>Duração</th>
+        <th>DuraÃ§Ã£o</th>
         <th>Atraso</th>
         <th>Gruas</th>
         <th>Equipa</th>
@@ -264,3 +262,12 @@
     </tbody>
   </table>
 </section>
+
+
+
+
+
+
+
+
+

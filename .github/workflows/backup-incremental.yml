@@ -1,9 +1,10 @@
 name: Backup Database (Incremental)
 
 on:
-  schedule:
-    # Incremental a cada 15 minutos (RPO <= 15m)
-    - cron: '*/15 * * * *'
+  # schedule:
+  #   # Incremental a cada 15 minutos (RPO <= 15m)
+  #   - cron: '*/15 * * * *'
+  # Desativado o agendamento automático; só pode ser corrido manualmente.
   workflow_dispatch: {}
 
 permissions:

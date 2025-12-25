@@ -59,11 +59,10 @@ type StaffFormValue = {
   shiftEnd: string;
 };
 
-type AlgorithmOption = 'prolog' | 'heuristic';
+type AlgorithmOption = 'auto' | 'optimal' | 'heuristic' | 'multi_crane';
 type SchedulingFormShape = {
   date: FormControl<string>;
   algorithm: FormControl<AlgorithmOption>;
-  strategy: FormControl<string>;
   vessels: FormArray<FormGroup<VesselFormShape>>;
   cranes: FormArray<FormGroup<CraneFormShape>>;
   staff: FormArray<FormGroup<StaffFormShape>>;
@@ -99,7 +98,7 @@ export class SchedulingComponent {
   readonly form: FormGroup<SchedulingFormShape>;
 
   status: 'idle' | 'computing' | 'success' | 'error' = 'idle';
-  statusMessage = 'Configure os dados e clique em "Calcular escala diÃ¡ria".';
+  statusMessage = 'Configure os dados e clique em "Calcular escala diária".';
   errorMessage: string | null = null;
   result: DailyScheduleResponse | null = null;
   warnings: string[] = [];
@@ -229,7 +228,6 @@ export class SchedulingComponent {
 
     const payload: DailyScheduleRequestPayload = {
       date,
-      strategy: this.form.controls.strategy.value || undefined,
       vessels: this.vessels.controls
         .map(ctrl => ({
           id: ctrl.controls.id.value.trim(),
@@ -321,8 +319,7 @@ export class SchedulingComponent {
   private createForm(): FormGroup<SchedulingFormShape> {
     return this.fb.group({
       date: this.fb.control(this.todayIso(), { validators: [Validators.required] }),
-      algorithm: this.fb.control<AlgorithmOption>('heuristic', { validators: [Validators.required] }),
-      strategy: this.fb.control('auto'),
+      algorithm: this.fb.control<AlgorithmOption>('auto', { validators: [Validators.required] }),
       vessels: this.fb.array<FormGroup<VesselFormShape>>([]),
       cranes: this.fb.array<FormGroup<CraneFormShape>>([]),
       staff: this.fb.array<FormGroup<StaffFormShape>>([])

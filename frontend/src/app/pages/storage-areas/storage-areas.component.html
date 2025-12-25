@@ -77,11 +77,33 @@
 
         <label>
           <span>{{ i18n.t('storageAreas.form.type') }}</span>
-          <select [(ngModel)]="newArea.type" name="type">
+          <select [(ngModel)]="newArea.type" name="type" (change)="onTypeChange(newArea)">
             <option value="Yard">Yard</option>
             <option value="Warehouse">Warehouse</option>
           </select>
         </label>
+
+        <div class="dock-picker" *ngIf="shouldEnableDockSelection(newArea)">
+          <div class="dock-picker__header">
+            <span>{{ i18n.t('storageAreas.form.servedDocks') }}</span>
+            <small>{{ i18n.t('storageAreas.form.servedDocksHint') }}</small>
+          </div>
+          <ng-container *ngIf="availableDocks.length; else noDocksCreate">
+            <div class="dock-options">
+              <label *ngFor="let dock of availableDocks">
+                <input
+                  type="checkbox"
+                  [checked]="newArea.servedDockIds?.includes(dock.id)"
+                  (change)="toggleDockSelection(newArea, dock.id, $any($event.target).checked)"
+                />
+                <span>{{ dock.name || ('Dock ' + dock.id) }}</span>
+              </label>
+            </div>
+          </ng-container>
+        </div>
+        <ng-template #noDocksCreate>
+          <p class="dock-info">{{ i18n.t('storageAreas.form.noDocks') }}</p>
+        </ng-template>
 
         <div class="row metrics-grid">
           <label class="metric-field">
@@ -128,6 +150,11 @@
               <div class="cell-main">
                 <span class="cell-title">{{ area.location }}</span>
                 <span class="cell-sub">{{ area.type }}</span>
+                <div class="dock-chips" *ngIf="getDockNames(area).length">
+                  <span class="dock-chip" *ngFor="let dockName of getDockNames(area)">
+                    {{ dockName }}
+                  </span>
+                </div>
               </div>
             </td>
             <td>
@@ -193,11 +220,33 @@
         </label>
         <label>
           <span>{{ i18n.t('storageAreas.modal.type') }}</span>
-          <select [(ngModel)]="editing!.type" name="edit_type">
+          <select [(ngModel)]="editing!.type" name="edit_type" (change)="onTypeChange(editing!)">
             <option value="Yard">Yard</option>
             <option value="Warehouse">Warehouse</option>
           </select>
         </label>
+
+        <div class="dock-picker" *ngIf="shouldEnableDockSelection(editing)">
+          <div class="dock-picker__header">
+            <span>{{ i18n.t('storageAreas.modal.servedDocks') }}</span>
+            <small>{{ i18n.t('storageAreas.form.servedDocksHint') }}</small>
+          </div>
+          <ng-container *ngIf="availableDocks.length; else noDocksEdit">
+            <div class="dock-options">
+              <label *ngFor="let dock of availableDocks">
+                <input
+                  type="checkbox"
+                  [checked]="editing!.servedDockIds?.includes(dock.id)"
+                  (change)="toggleDockSelection(editing!, dock.id, $any($event.target).checked)"
+                />
+                <span>{{ dock.name || ('Dock ' + dock.id) }}</span>
+              </label>
+            </div>
+          </ng-container>
+        </div>
+        <ng-template #noDocksEdit>
+          <p class="dock-info">{{ i18n.t('storageAreas.modal.noDocks') }}</p>
+        </ng-template>
         <div class="row metrics-grid">
           <label class="metric-field">
             <span>{{ i18n.t('storageAreas.modal.capacity') }}</span>

@@ -42,6 +42,14 @@
 .form label span{font-size:.78rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .form input,.form select{padding:.55rem .65rem;border-radius:.65rem;border:1px solid #cbd5f5;font-size:.9rem;outline:none;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;width:100%;background:#f8fafc}
 .form input:focus,.form select:focus{border-color:#2563eb;background:#fff;box-shadow:0 0 0 1px rgba(37,99,235,.18)}
+.dock-picker{display:flex;flex-direction:column;gap:.45rem;padding:.65rem .75rem;border:1px solid #cbd5f5;border-radius:.75rem;background:#f8fafc}
+.dock-picker__header{display:flex;flex-direction:column;gap:.15rem}
+.dock-picker__header span{font-size:.78rem;color:#475569;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.dock-picker__header small{font-size:.72rem;color:#94a3b8}
+.dock-options{display:flex;flex-direction:column;gap:.3rem;max-height:180px;overflow:auto;padding-right:.25rem}
+.dock-options label{display:flex;align-items:center;gap:.45rem;font-size:.85rem;color:#334155}
+.dock-options input{width:auto;accent-color:#2563eb}
+.dock-info{margin:0;font-size:.78rem;color:#94a3b8;padding:.2rem 0 0}
 .metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.65rem;align-items:flex-end}
 .metric-field span{display:flex;align-items:center;gap:.35rem}
 .input-with-unit{display:flex;align-items:center;background:#f1f5f9;border:1px solid #cbd5f5;border-radius:.65rem;padding:0 .55rem 0 .6rem;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease}
@@ -73,6 +81,8 @@
 .cell-main{display:flex;flex-direction:column;gap:.15rem}
 .cell-title{font-weight:600;color:#0f172a}
 .cell-sub{font-size:.78rem;color:#64748b}
+.dock-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.3rem}
+.dock-chip{font-size:.72rem;font-weight:600;color:#0f172a;background:#e0f2fe;border-radius:999px;padding:.1rem .45rem}
 .badge{display:inline-flex;align-items:center;padding:.2rem .55rem;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:.75rem;font-weight:600}
 .badge.badge-alt{background:#ede9fe;color:#5b21b6}
 .stat{display:flex;flex-direction:column;align-items:flex-start;gap:.1rem}

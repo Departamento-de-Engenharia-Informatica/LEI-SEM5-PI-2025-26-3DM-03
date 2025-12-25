@@ -5,22 +5,94 @@
     aria-label="Cena 3D final com plataforma, agua, armazens, contentores e gruas"
   ></canvas>
 
-  <section class="final-scene__panel">
+  <div class="info-overlay" *ngIf="infoOverlayVisible">
+    <ng-container *ngIf="facilityInfoCard as info; else emptyInfo">
+      <div class="info-overlay__header">
+        <div>
+          <p class="info-overlay__eyebrow">{{ facilityTypeLabels[info.type] }}</p>
+          <h3>{{ info.title }}</h3>
+        </div>
+        <div class="info-overlay__actions">
+          <span class="info-overlay__timestamp">{{ info.updatedAt | date: 'short' }}</span>
+          <button type="button" class="info-overlay__close" (click)="closeInfoOverlay()" aria-label="Fechar">×</button>
+        </div>
+      </div>
+      <p class="info-overlay__description">{{ info.description || 'Sem descrição disponível.' }}</p>
+      <ul class="info-overlay__stats">
+        <li *ngFor="let stat of info.generalStats">
+          <span>{{ stat.label }}</span>
+          <strong>{{ stat.value }}</strong>
+        </li>
+      </ul>
+      <section class="info-overlay__restricted" *ngIf="info.restrictedStats?.length">
+        <p class="info-overlay__section-title">Dados Operacionais</p>
+        <ul>
+          <li *ngFor="let stat of info.restrictedStats">
+            <span>{{ stat.label }}</span>
+            <strong>{{ stat.value }}</strong>
+          </li>
+        </ul>
+      </section>
+      <section *ngIf="info.operations?.length" class="info-overlay__operations">
+        <p class="info-overlay__section-title">Operações</p>
+        <ul>
+          <li *ngFor="let op of info.operations">{{ op }}</li>
+        </ul>
+      </section>
+      <p class="info-overlay__note" *ngIf="info.note">{{ info.note }}</p>
+    </ng-container>
+    <ng-template #emptyInfo>
+      <p class="info-overlay__placeholder">Selecione um elemento e prima "I" para focar a informação.</p>
+    </ng-template>
+  </div>
+
+  <div class="vessel-status-legend" *ngIf="canViewVesselStatuses">
+    <button type="button" class="vessel-status-legend__trigger">Estados dos navios</button>
+    <div class="vessel-status-legend__tooltip">
+      <div *ngFor="let legend of vesselStatusLegend" class="vessel-status-legend__item">
+        <span class="vessel-status-legend__dot" [style.background]="legend.color"></span>
+        <span class="vessel-status-legend__icon" aria-hidden="true">{{ legend.icon }}</span>
+        <div>
+          <strong>{{ legend.label }}</strong>
+          <p>{{ legend.description }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="final-scene__info-card" [class.final-scene__info-card--open]="panelInfoVisible">
     <button
       type="button"
-      class="final-scene__fullscreen"
-      (click)="toggleFullscreen()"
-      [attr.aria-pressed]="fullscreenActive"
+      class="final-scene__info-trigger"
+      (click)="panelInfoVisible = !panelInfoVisible"
+      [attr.aria-expanded]="panelInfoVisible"
     >
-      {{ fullscreenActive ? 'Sair de ecrã inteiro' : 'Ver em ecrã inteiro' }}
+      Terminal Atlântico
     </button>
-    <p class="panel-eyebrow">3D Final</p>
-    <h2>Terminal Atlantico</h2>
-    <p>Use o rato para orbitar, a roda para zoom e arraste com o botao direito para mover.</p>
-    <ul>
-      <li>Plataforma elevada sobre um mar animado</li>
-      <li>Armazens volumetricos e zonas de contentores</li>
-      <li>Alinhamento de gruas STS prontas para operar</li>
-    </ul>
-  </section>
+    <div class="final-scene__info-tooltip" *ngIf="panelInfoVisible">
+      <button
+        type="button"
+        class="final-scene__fullscreen"
+        (click)="toggleFullscreen()"
+        [attr.aria-pressed]="fullscreenActive"
+      >
+        {{ fullscreenActive ? 'Sair de ecrã inteiro' : 'Ver em ecrã inteiro' }}
+      </button>
+      <p class="panel-eyebrow">3D Final</p>
+      <h2>Terminal Atlântico</h2>
+      <p>Use o rato para orbitar, a roda para zoom e arraste com o botão direito para mover.</p>
+      <p class="panel-hint">Prima a tecla "I" para mostrar/ocultar detalhes do elemento selecionado.</p>
+      <ul>
+        <li>Plataforma elevada sobre um mar animado</li>
+        <li>Armazéns volumétricos e zonas de contentores</li>
+        <li>Alinhamento de gruas STS prontas para operar</li>
+      </ul>
+      <div class="final-scene__selection" *ngIf="selectedFacility as facility">
+        <p class="selection-eyebrow">Instalação selecionada</p>
+        <h3 class="selection-name">{{ facility.name }}</h3>
+        <span class="selection-type">{{ facilityTypeLabels[facility.type] }}</span>
+        <p class="selection-hint">A câmara está centrada neste elemento.</p>
+      </div>
+    </div>
+  </div>
 </div>

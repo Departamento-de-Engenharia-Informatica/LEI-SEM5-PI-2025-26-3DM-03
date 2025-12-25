@@ -35,7 +35,7 @@ public sealed class HeuristicPrologSchedulingEngine : ISchedulingEngine
         if (_httpClient.BaseAddress is null || !_httpClient.BaseAddress.IsAbsoluteUri)
         {
             // Fallback to local default instead of failing hard
-            _httpClient.BaseAddress = new Uri("http://localhost:3050/");
+            _httpClient.BaseAddress = new Uri("http://localhost:5003/");
         }
 
         if (context.Vessels.Count == 0)
@@ -60,34 +60,22 @@ public sealed class HeuristicPrologSchedulingEngine : ISchedulingEngine
             return hours;
         }
 
-        var payload = new PrologSchedule4Request
+        var payload = new Prolog2Request
         {
             Date = context.Date.ToString("yyyy-MM-dd"),
-            Strategy = "heuristic",
-            Vessels = context.Vessels.Select(v => new PrologVesselDto
-            {
-                Id = v.Id,
-                ArrivalHour = v.ArrivalHour,
-                DepartureHour = v.DepartureHour,
-                UnloadDuration = v.UnloadDuration,
-                LoadDuration = v.LoadDuration
-            }).ToList(),
-            Docks = context.Docks.Select(d => new PrologWindowDto { Id = d.Id, StartHour = 0, EndHour = 240 }).ToList(),
-            Cranes = context.Cranes.Select(c => new PrologWindowDto { Id = c.Id, StartHour = ToHour(c.AvailableFrom, 0), EndHour = ToHour(c.AvailableTo, 240) }).ToList(),
-            StorageLocations = context.StorageAreas.Select(s => new PrologWindowDto { Id = s.Id, StartHour = 0, EndHour = 240 }).ToList(),
-            Staff = context.Staff.Select(s => new PrologStaffDto { Id = s.Id, Role = "operator", StartHour = ToHour(s.ShiftStart, 0), EndHour = ToHour(s.ShiftEnd, 240) }).ToList()
+            Algorithm = "heuristic"
         };
 
-        PrologSchedule4Response prologResponse;
+        Prolog2Response prologResponse;
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("schedule4", payload, linkedCts.Token);
+            var response = await _httpClient.PostAsJsonAsync("api/scheduling/daily", payload, linkedCts.Token);
             var rawBody = await response.Content.ReadAsStringAsync(linkedCts.Token);
             if (!response.IsSuccessStatusCode)
             {
                 throw new HttpRequestException($"Status {(int)response.StatusCode} {response.ReasonPhrase}. Body: {rawBody}");
             }
-            prologResponse = await response.Content.ReadFromJsonAsync<PrologSchedule4Response>(cancellationToken: linkedCts.Token)
+            prologResponse = await response.Content.ReadFromJsonAsync<Prolog2Response>(cancellationToken: linkedCts.Token)
                 ?? throw new InvalidOperationException("Prolog scheduling service returned an empty response.");
         }
         catch (Exception ex)
@@ -106,107 +94,83 @@ public sealed class HeuristicPrologSchedulingEngine : ISchedulingEngine
 
         var operations = prologResponse.Schedule.Select(step =>
         {
-            var startTime = dayStart.AddHours(step.StartHour);
-            var endTime = dayStart.AddHours(step.EndHour);
-            var durationHours = Math.Max(0, step.EndHour - step.StartHour);
-            var craneIds = step.CraneIds?.Where(id => !string.IsNullOrWhiteSpace(id)).ToList()
-                           ?? (string.IsNullOrWhiteSpace(step.Crane) ? new List<string>() : new List<string> { step.Crane });
-            var multi = step.MultiCrane || craneIds.Count > 1;
+            var startDecimal = step.StartTimeDecimal ?? step.StartHour ?? 0;
+            var endDecimal = step.EndTimeDecimal ?? step.EndHour ?? startDecimal;
+            var startTime = dayStart.AddHours(startDecimal);
+            var endTime = dayStart.AddHours(endDecimal);
+            var craneIds = step.AssignedCranes ?? (string.IsNullOrWhiteSpace(step.AssignedCrane) ? new List<string>() : new List<string> { step.AssignedCrane });
+            var staffIds = string.IsNullOrWhiteSpace(step.AssignedStaff) ? new List<string>() : new List<string> { step.AssignedStaff };
+            var multi = (craneIds?.Count ?? 0) > 1;
 
             return new ScheduledOperationDto
             {
-                VesselId = step.Vessel,
-                DockId = string.IsNullOrWhiteSpace(step.Dock) ? null : step.Dock,
+                VesselId = step.VesselId ?? step.Vessel ?? string.Empty,
+                DockId = string.IsNullOrWhiteSpace(step.AssignedDock) ? null : step.AssignedDock,
                 CraneIds = craneIds,
-                StaffIds = string.IsNullOrWhiteSpace(step.Staff) ? new List<string>() : new List<string> { step.Staff },
-                StorageId = string.IsNullOrWhiteSpace(step.StorageLocation) ? step.StorageArea : step.StorageLocation,
+                StaffIds = staffIds,
+                StorageId = string.IsNullOrWhiteSpace(step.AssignedStorage) ? step.StorageLocation ?? step.StorageArea : step.AssignedStorage,
                 StartTime = startTime,
                 EndTime = endTime,
-                DelayMinutes = step.DelayHours * 60,
+                DelayMinutes = 0,
                 MultiCrane = multi
             };
         }).ToList();
 
         var craneHoursUsed = prologResponse.Schedule.Sum(step =>
         {
-            var duration = Math.Max(0, step.EndHour - step.StartHour);
-            var count = (step.CraneIds?.Count ?? 0) > 0 ? step.CraneIds!.Count : 1;
+            var start = step.StartTimeDecimal ?? step.StartHour ?? 0;
+            var end = step.EndTimeDecimal ?? step.EndHour ?? start;
+            var duration = Math.Max(0, end - start);
+            var count = (step.AssignedCranes?.Count ?? 0) > 0 ? step.AssignedCranes!.Count : 1;
             return duration * count;
         });
 
-        var totalDelayHours = prologResponse.TotalDelayHours
-                              ?? prologResponse.Schedule.Sum(step => step.DelayHours);
+        var totalDelayHours = prologResponse.TotalDelay ?? 0;
 
         return new SchedulingComputationResult
         {
             Date = context.Date,
             Algorithm = AlgorithmName,
-            TotalDelayMinutes = totalDelayHours * 60,
-            CraneHoursUsed = craneHoursUsed,
+            TotalDelayMinutes = (int)Math.Round(totalDelayHours * 60),
+            CraneHoursUsed = (int)Math.Round(craneHoursUsed),
             Schedule = operations,
             Warnings = (prologResponse.Warnings ?? Array.Empty<string>()).ToArray()
         };
     }
 
-    private sealed class PrologSchedule4Request
+    private sealed class Prolog2Request
     {
-        public IList<PrologVesselDto> Vessels { get; set; } = new List<PrologVesselDto>();
         public string? Date { get; set; }
-        public string? Strategy { get; set; }
-        public IList<PrologWindowDto> Docks { get; set; } = new List<PrologWindowDto>();
-        public IList<PrologWindowDto> Cranes { get; set; } = new List<PrologWindowDto>();
-        public IList<PrologWindowDto> StorageLocations { get; set; } = new List<PrologWindowDto>();
-        public IList<PrologStaffDto> Staff { get; set; } = new List<PrologStaffDto>();
+        public string? Algorithm { get; set; }
     }
 
-    private sealed class PrologVesselDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public int ArrivalHour { get; set; }
-        public int DepartureHour { get; set; }
-        public int UnloadDuration { get; set; }
-        public int LoadDuration { get; set; }
-    }
-
-    private sealed class PrologWindowDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public int StartHour { get; set; }
-        public int EndHour { get; set; }
-    }
-
-    private sealed class PrologStaffDto
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Role { get; set; } = "operator";
-        public int StartHour { get; set; }
-        public int EndHour { get; set; }
-    }
-
-    private sealed class PrologSchedule4Response
+    private sealed class Prolog2Response
     {
         [JsonPropertyName("schedule")]
-        public IList<PrologSchedule4Op> Schedule { get; set; } = new List<PrologSchedule4Op>();
+        public IList<Prolog2Op> Schedule { get; set; } = new List<Prolog2Op>();
 
-        [JsonPropertyName("totalDelayHours")]
-        public int? TotalDelayHours { get; set; }
+        [JsonPropertyName("total_delay")]
+        public double? TotalDelay { get; set; }
 
         [JsonPropertyName("warnings")]
         public IList<string>? Warnings { get; set; }
     }
 
-    private sealed class PrologSchedule4Op
+    private sealed class Prolog2Op
     {
-        public string Vessel { get; set; } = string.Empty;
-        public string? Dock { get; set; }
-        public string? Crane { get; set; }
-        public List<string>? CraneIds { get; set; }
+        [JsonPropertyName("vessel_id")]
+        public string? VesselId { get; set; }
+        public string? Vessel { get; set; }
+        public string? AssignedDock { get; set; }
+        public string? AssignedCrane { get; set; }
+        public List<string>? AssignedCranes { get; set; }
+        public string? AssignedStorage { get; set; }
         public string? StorageLocation { get; set; }
         public string? StorageArea { get; set; }
-        public string? Staff { get; set; }
-        public int StartHour { get; set; }
-        public int EndHour { get; set; }
-        public int DelayHours { get; set; }
-        public bool MultiCrane { get; set; }
+        public string? AssignedStaff { get; set; }
+        public double? StartTimeDecimal { get; set; }
+        public double? EndTimeDecimal { get; set; }
+        public double? StartHour { get; set; }
+        public double? EndHour { get; set; }
     }
 }
