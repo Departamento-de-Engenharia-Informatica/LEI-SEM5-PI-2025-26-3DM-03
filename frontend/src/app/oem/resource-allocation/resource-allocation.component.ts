@@ -15,6 +15,10 @@ import {
 } from '../oem-api.service';
 import { DocksService } from '../../services/docks/docks.service';
 import { DockDTO } from '../../models/dock';
+import { ResourcesService } from '../../services/resources/resources.service';
+import { ResourceDTO } from '../../models/resource';
+import { StaffService } from '../../services/staff/staff.service';
+import { StaffDTO } from '../../models/staff';
 
 type AllocationRow = ResourceAllocationSummaryDto;
 
@@ -34,6 +38,12 @@ export class ResourceAllocationComponent {
   docks: DockDTO[] = [];
   docksLoading = false;
   docksError: string | null = null;
+  cranes: ResourceDTO[] = [];
+  cranesLoading = false;
+  cranesError: string | null = null;
+  staff: StaffDTO[] = [];
+  staffLoading = false;
+  staffError: string | null = null;
 
   readonly resourceTypes: { id: ResourceAllocationResourceType; label: string }[] = [
     { id: 'crane', label: 'Crane' },
@@ -45,6 +55,8 @@ export class ResourceAllocationComponent {
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
     private readonly docksService: DocksService,
+    private readonly resourcesService: ResourcesService,
+    private readonly staffService: StaffService,
   ) {
     this.form = this.fb.group({
       from: [this.defaultFrom(), Validators.required],
@@ -52,6 +64,11 @@ export class ResourceAllocationComponent {
       resourceType: ['crane', Validators.required],
       resourceId: [''],
     });
+
+    // Ao abrir a página, se o tipo for grua, carrega logo as gruas
+    if (this.form.value.resourceType === 'crane') {
+      this.ensureCranesLoaded();
+    }
   }
 
   get fromControl() {
@@ -110,6 +127,10 @@ export class ResourceAllocationComponent {
     this.form.patchValue({ resourceId: '' });
     if (this.form.value.resourceType === 'dock') {
       this.ensureDocksLoaded();
+    } else if (this.form.value.resourceType === 'crane') {
+      this.ensureCranesLoaded();
+    } else if (this.form.value.resourceType === 'staff') {
+      this.ensureStaffLoaded();
     }
   }
 
@@ -184,6 +205,47 @@ export class ResourceAllocationComponent {
       })
       .finally(() => {
         this.docksLoading = false;
+      });
+  }
+
+  private ensureCranesLoaded(): void {
+    if (this.cranesLoading || this.cranes.length > 0) {
+      return;
+    }
+    this.cranesLoading = true;
+    this.cranesError = null;
+    this.resourcesService
+      .getAll()
+      .then((all) => {
+        const list = Array.isArray(all) ? all : [];
+        this.cranes = list.filter(r => (r.type ?? '').toLowerCase().includes('crane'));
+      })
+      .catch(() => {
+        this.cranesError = 'Falha ao carregar gruas.';
+        this.cranes = [];
+      })
+      .finally(() => {
+        this.cranesLoading = false;
+      });
+  }
+
+  private ensureStaffLoaded(): void {
+    if (this.staffLoading || this.staff.length > 0) {
+      return;
+    }
+    this.staffLoading = true;
+    this.staffError = null;
+    this.staffService
+      .getAll()
+      .then((all) => {
+        this.staff = all ?? [];
+      })
+      .catch(() => {
+        this.staffError = 'Falha ao carregar staff.';
+        this.staff = [];
+      })
+      .finally(() => {
+        this.staffLoading = false;
       });
   }
 }

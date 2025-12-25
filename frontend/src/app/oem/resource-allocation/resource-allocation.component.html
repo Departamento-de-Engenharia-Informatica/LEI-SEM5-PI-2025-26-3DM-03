@@ -27,7 +27,7 @@
           </option>
         </select>
       </label>
-      <label *ngIf="form.value.resourceType === 'dock'; else manualResourceId">
+      <label *ngIf="form.value.resourceType === 'dock'; else craneOrStaff">
         Doca (opcional)
         <select formControlName="resourceId" [disabled]="docksLoading || docks.length === 0">
           <option value="">Todas as docas</option>
@@ -36,11 +36,27 @@
           </option>
         </select>
       </label>
-      <ng-template #manualResourceId>
-        <label>
-          Identificador (opcional)
-          <input type="text" formControlName="resourceId" placeholder="ex: CR-01" />
+      <ng-template #craneOrStaff>
+        <label *ngIf="form.value.resourceType === 'crane'; else staffSelect">
+          Grua (opcional)
+          <select formControlName="resourceId" [disabled]="cranesLoading || cranes.length === 0">
+            <option value="">Todas as gruas</option>
+            <option *ngFor="let c of cranes" [value]="c.code">
+              {{ c.code }} - {{ c.description }}
+            </option>
+          </select>
         </label>
+        <ng-template #staffSelect>
+          <label>
+            Staff (opcional)
+            <select formControlName="resourceId" [disabled]="staffLoading || staff.length === 0">
+              <option value="">Todo o staff</option>
+              <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
+                {{ s.mecanographicNumber }} - {{ s.shortName }}
+              </option>
+            </select>
+          </label>
+        </ng-template>
       </ng-template>
     </div>
     <div class="filter-actions">
@@ -51,6 +67,12 @@
     </div>
     <div class="info" *ngIf="form.value.resourceType === 'dock' && docksError">
       {{ docksError }}
+    </div>
+    <div class="info" *ngIf="form.value.resourceType === 'crane' && cranesError">
+      {{ cranesError }}
+    </div>
+    <div class="info" *ngIf="form.value.resourceType === 'staff' && staffError">
+      {{ staffError }}
     </div>
     <div class="validation" *ngIf="(fromControl?.touched && fromControl?.invalid) || (toControl?.touched && toControl?.invalid)">
       Selecione um intervalo valido.

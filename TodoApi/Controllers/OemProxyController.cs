@@ -43,6 +43,18 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("operation-plans/resource-allocation")]
+    public async Task<IActionResult> GetResourceAllocation(
+        [FromQuery] string from,
+        [FromQuery] string to,
+        [FromQuery] string resourceType,
+        [FromQuery] string? resourceId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetResourceAllocationAsync(from, to, resourceType, resourceId, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpGet("operation-plans/missing")]
     public async Task<IActionResult> GetMissingOperationPlans(
         [FromQuery] string date,

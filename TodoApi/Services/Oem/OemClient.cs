@@ -101,6 +101,33 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetResourceAllocationAsync(
+        string from,
+        string to,
+        string resourceType,
+        string? resourceId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["from"] = from,
+            ["to"] = to,
+            ["resourceType"] = resourceType,
+            ["resourceId"] = resourceId
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/operation-plans/resource-allocation"
+            : $"oem/operation-plans/resource-allocation?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> RegenerateMissingOperationPlansAsync(
         string date,
         string? algorithm,

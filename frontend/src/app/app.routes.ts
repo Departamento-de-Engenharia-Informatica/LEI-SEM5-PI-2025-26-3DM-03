@@ -30,6 +30,7 @@ export const routes: Routes = [
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   { path: 'oem/operation-plans', component: OemOperationPlansComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions', component: VesselVisitExecutionsHistoryComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
+  { path: 'oem/resource-allocation', loadComponent: () => import('./oem/resource-allocation/resource-allocation.component').then(m => m.ResourceAllocationComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
 
   // Vessel Visit Notifications
   { path: 'vessel-visit-notifications', loadComponent: () => import('./pages/vessel-visit-notifications/vessel-visit-notifications.component').then(m => m.VesselVisitNotificationsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority','agent'] } },
