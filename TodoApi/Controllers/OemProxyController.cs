@@ -127,6 +127,20 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpPatch("vessel-visit-executions/{id:int}")]
+    public async Task<IActionResult> UpdateVesselVisitExecution(
+        [FromRoute] int id,
+        [FromBody] UpdateVesselVisitExecutionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateVesselVisitExecutionAsync(
+            id,
+            request.ActualBerthTime,
+            request.DockId,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPatch("vessel-visit-executions/{id:int}/complete")]
     public async Task<IActionResult> CompleteVesselVisitExecution(
         [FromRoute] int id,
@@ -163,3 +177,4 @@ public record OperationPlanRequest(string Date, string? Algorithm);
 public record CompleteVesselVisitExecutionRequest(string ActualUnberthTime, string ActualPortDepartureTime);
 public record RegenerateOperationPlansRequest(string Date, string? Algorithm, bool ConfirmOverwrite);
 public record CreateVesselVisitExecutionRequest(int VvnId, string ActualArrivalTime);
+public record UpdateVesselVisitExecutionRequest(string? ActualBerthTime, string? DockId);

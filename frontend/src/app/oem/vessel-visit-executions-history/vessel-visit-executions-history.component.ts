@@ -19,6 +19,10 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   completeForm: FormGroup | null = null;
   completing: VesselVisitExecutionListItem | null = null;
 
+  berthForm: FormGroup | null = null;
+  updatingBerth: VesselVisitExecutionListItem | null = null;
+  berthError: string | null = null;
+
   createForm: FormGroup;
   creating = false;
   createError: string | null = null;
@@ -89,6 +93,26 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   cancelComplete(): void {
     this.completing = null;
     this.completeForm = null;
+  }
+
+  startUpdateBerth(exec: VesselVisitExecutionListItem): void {
+    if (exec.status !== 'in-progress') {
+      return;
+    }
+
+    this.updatingBerth = exec;
+    this.berthError = null;
+
+    this.berthForm = this.fb.group({
+      actualBerthTime: [exec.actualBerthTime || ''],
+      dockId: [exec.berthId || ''],
+    });
+  }
+
+  cancelUpdateBerth(): void {
+    this.updatingBerth = null;
+    this.berthForm = null;
+    this.berthError = null;
   }
 
   submitCreate(): void {
@@ -192,6 +216,63 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
         },
         error: (err: HttpErrorResponse) => {
           this.error = this.normalizeError(err, 'Falha ao concluir a execucao.');
+        },
+      });
+  }
+
+  submitBerthUpdate(): void {
+    if (!this.updatingBerth || !this.berthForm) return;
+
+    if (this.berthForm.invalid) {
+      this.berthForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.berthForm.value as {
+      actualBerthTime?: string;
+      dockId?: string;
+    };
+
+    const toIso = (value?: string) => {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    };
+
+    const payload: { actualBerthTime?: string; dockId?: string } = {};
+
+    if (raw.actualBerthTime) {
+      const iso = toIso(raw.actualBerthTime);
+      if (!iso) {
+        this.berthError = 'Hora de atracacao invalida.';
+        return;
+      }
+      payload.actualBerthTime = iso;
+    }
+
+    if (raw.dockId && raw.dockId.trim()) {
+      payload.dockId = raw.dockId.trim();
+    }
+
+    if (!payload.actualBerthTime && !payload.dockId) {
+      this.berthError = 'Indique pelo menos a hora de atracacao ou o dock usado.';
+      return;
+    }
+
+    this.loading = true;
+    this.error = null;
+    this.berthError = null;
+
+    this.api
+      .updateVesselVisitExecution(this.updatingBerth.id, payload)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: () => {
+          this.cancelUpdateBerth();
+          this.fetchExecutions();
+        },
+        error: (err: HttpErrorResponse) => {
+          this.berthError = this.normalizeError(err, 'Falha ao atualizar berth/dock.');
         },
       });
   }

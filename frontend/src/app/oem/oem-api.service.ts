@@ -256,4 +256,14 @@ export class OemApiService {
     const url = `${this.vesselVisitExecutionBase}/${id}/complete`;
     return this.http.patch<VesselVisitExecutionListItem>(url, payload, { withCredentials: true });
   }
+
+  updateVesselVisitExecution(
+    id: number,
+    payload: { actualBerthTime?: string; dockId?: string },
+  ): Observable<VesselVisitExecutionListItem> {
+    const url = `${this.vesselVisitExecutionBase}/${id}`;
+    return this.http.patch<VesselVisitExecutionListItem>(url, payload, {
+      withCredentials: true,
+    });
+  }
 }

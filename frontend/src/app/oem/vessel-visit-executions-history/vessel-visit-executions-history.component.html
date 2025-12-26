@@ -117,6 +117,14 @@
             <button
               type="button"
               class="link-btn"
+              *ngIf="exec.status === 'in-progress'"
+              (click)="startUpdateBerth(exec)"
+            >
+              Atualizar berth/dock
+            </button>
+            <button
+              type="button"
+              class="link-btn"
               *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'"
               (click)="startComplete(exec)"
             >
@@ -144,6 +152,39 @@
           {{ loading ? 'A concluir...' : 'Concluir execucao' }}
         </button>
         <button type="button" class="ghost" (click)="cancelComplete()" [disabled]="loading">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="complete-panel" *ngIf="updatingBerth && berthForm">
+    <h2>
+      Atualizar berth/dock para VVN {{ updatingBerth.vesselVisitId }}
+      ({{ updatingBerth.vesselName }})
+    </h2>
+    <p class="subtitle">
+      Registe a hora real de atracacao e/ou o dock utilizado. Se o dock
+      introduzido diferir do planeado, sera registado automaticamente um aviso
+      no historico da execucao.
+    </p>
+    <form [formGroup]="berthForm" (ngSubmit)="submitBerthUpdate()" class="complete-form">
+      <label>
+        Atracacao (real)
+        <input type="datetime-local" formControlName="actualBerthTime" />
+      </label>
+      <label>
+        Dock utilizado
+        <input type="text" formControlName="dockId" placeholder="ex: DOCK-1" />
+      </label>
+      <div class="status-row" *ngIf="berthError">
+        <div class="error">{{ berthError }}</div>
+      </div>
+      <div class="actions">
+        <button type="submit" [disabled]="loading">
+          {{ loading ? 'A guardar...' : 'Guardar alteracoes' }}
+        </button>
+        <button type="button" class="ghost" (click)="cancelUpdateBerth()" [disabled]="loading">
           Cancelar
         </button>
       </div>
