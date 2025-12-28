@@ -204,8 +204,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private hoveredFacility?: FacilityHotspot;
   selectedFacility?: FacilityHotspot;
   private facilitySelectionOutline?: THREE.BoxHelper;
+  private pendingSelectedFacilityId?: string;
   private selectionSpotlight?: THREE.SpotLight;
   private readonly selectionSpotTarget = new THREE.Object3D();
+  private readonly selectionSpotCurrent = new THREE.Vector3();
+  private readonly selectionSpotDesired = new THREE.Vector3();
+  private readonly selectionSpotLerp = 0.1;
   private selectionFillLights: THREE.SpotLight[] = [];
   private readonly minSpotlightGroupSize = 1;
   private ambientLight?: THREE.AmbientLight;
@@ -2175,6 +2179,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private resetFacilityHotspots() {
     this.facilityLookup.clear();
+    this.pendingSelectedFacilityId = this.selectedFacility?.id;
     if (this.persistentFacilityHotspots.length) {
       this.facilityHotspots = [...this.persistentFacilityHotspots];
       this.persistentFacilityHotspots.forEach((hotspot) => this.facilityLookup.set(hotspot.object, hotspot));
@@ -3111,6 +3116,17 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (options?.persistent !== false) {
       this.persistentFacilityHotspots.push(hotspot);
     }
+    if (this.pendingSelectedFacilityId && hotspot.id === this.pendingSelectedFacilityId) {
+      if (this.canInteractWithFacility(hotspot)) {
+        this.selectedFacility = hotspot;
+        this.highlightFacility(hotspot);
+        this.updateSelectionSpotlightTarget(hotspot);
+        if (this.infoOverlayVisible) {
+          this.refreshFacilityInfo(hotspot);
+        }
+      }
+      this.pendingSelectedFacilityId = undefined;
+    }
   }
 
   private getObjectCenter(object: THREE.Object3D): THREE.Vector3 {
@@ -3143,7 +3159,11 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const center = facility.focus ?? this.getObjectCenter(facility.object);
-    this.selectionSpotTarget.position.copy(center);
+    this.selectionSpotDesired.copy(center);
+    if (!this.selectionSpotlight.visible) {
+      this.selectionSpotCurrent.copy(center);
+    }
+    this.selectionSpotTarget.position.copy(this.selectionSpotCurrent);
     this.selectionSpotTarget.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
     this.selectionFillLights.forEach((fill) => {
@@ -3180,6 +3200,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.background = this.backgroundBaseColor;
       return;
     }
+    this.selectionSpotCurrent.lerp(this.selectionSpotDesired, this.selectionSpotLerp);
+    this.selectionSpotTarget.position.copy(this.selectionSpotCurrent);
     const targetPos = this.selectionSpotTarget.position;
     this.selectionSpotlight.position.set(targetPos.x, targetPos.y + 520, targetPos.z);
     this.selectionSpotlight.target.position.copy(this.selectionSpotTarget.position);
