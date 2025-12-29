@@ -111,6 +111,36 @@ export interface VesselVisitExecutionListItem {
   operationsDelayMinutes?: number | null;
 }
 
+export type OperationExecutionStatus = 'PLANNED' | 'STARTED' | 'COMPLETED' | 'DELAYED';
+
+export interface PlannedOperationWithExecution {
+  id: number;
+  type: string;
+  craneId?: string | null;
+  storageAreaId?: string | null;
+  staffIds?: string[] | null;
+  plannedStartTime: string;
+  plannedEndTime: string;
+  executionStatus: OperationExecutionStatus;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  actualResourcesUsed?: Record<string, unknown> | null;
+}
+
+export interface ExecutedOperationDto {
+  plannedOperationId: number;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  resourcesUsed?: Record<string, unknown> | null;
+  executionStatus: OperationExecutionStatus;
+}
+
+export interface UpsertExecutedOperationPayload {
+  actualStartTime?: string;
+  actualEndTime?: string;
+  resourcesUsed?: Record<string, unknown>;
+}
+
 const OEM_API_BASE = 'https://localhost:7167/api/oem';
 
 @Injectable({ providedIn: 'root' })
@@ -265,5 +295,19 @@ export class OemApiService {
     return this.http.patch<VesselVisitExecutionListItem>(url, payload, {
       withCredentials: true,
     });
+  }
+
+  getPlannedOperationsForExecution(id: number): Observable<PlannedOperationWithExecution[]> {
+    const url = `${this.vesselVisitExecutionBase}/${id}/planned-operations`;
+    return this.http.get<PlannedOperationWithExecution[]>(url, { withCredentials: true });
+  }
+
+  upsertExecutedOperation(
+    executionId: number,
+    plannedOperationId: number,
+    payload: UpsertExecutedOperationPayload,
+  ): Observable<ExecutedOperationDto> {
+    const url = `${this.vesselVisitExecutionBase}/${executionId}/executed-operations/${plannedOperationId}`;
+    return this.http.put<ExecutedOperationDto>(url, payload, { withCredentials: true });
   }
 }

@@ -1,10 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
-import { OemApiService, VesselVisitExecutionListItem } from '../oem-api.service';
+import {
+  ExecutedOperationDto,
+  OemApiService,
+  OperationExecutionStatus,
+  PlannedOperationWithExecution,
+  UpsertExecutedOperationPayload,
+  VesselVisitExecutionListItem,
+} from '../oem-api.service';
 
 @Component({
   selector: 'app-vessel-visit-executions-history',
@@ -22,6 +29,15 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   berthForm: FormGroup | null = null;
   updatingBerth: VesselVisitExecutionListItem | null = null;
   berthError: string | null = null;
+
+  operationsTarget: VesselVisitExecutionListItem | null = null;
+  operationsForm: FormGroup | null = null;
+  operations: PlannedOperationWithExecution[] = [];
+  operationsLoading = false;
+  operationsError: string | null = null;
+  savingOperations = new Set<number>();
+  private operationErrors = new Map<number, string>();
+  private operationSuccess = new Map<number, string>();
 
   createForm: FormGroup;
   creating = false;
@@ -113,6 +129,50 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
     this.updatingBerth = null;
     this.berthForm = null;
     this.berthError = null;
+  }
+
+  startRecordOperations(exec: VesselVisitExecutionListItem): void {
+    if (exec.status !== 'in-progress') {
+      return;
+    }
+
+    if (this.operationsTarget && this.operationsTarget.id === exec.id && this.operationsForm) {
+      return;
+    }
+
+    this.operationsTarget = exec;
+    this.operationsLoading = true;
+    this.operationsError = null;
+    this.operations = [];
+    this.operationsForm = null;
+    this.operationErrors.clear();
+    this.operationSuccess.clear();
+
+    this.api
+      .getPlannedOperationsForExecution(exec.id)
+      .pipe(finalize(() => (this.operationsLoading = false)))
+      .subscribe({
+        next: (items) => {
+          this.operations = items ?? [];
+          this.operationsForm = this.buildOperationsForm(this.operations);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.operationsError = this.normalizeError(
+            err,
+            'Falha ao carregar as operacoes planeadas.',
+          );
+        },
+      });
+  }
+
+  cancelRecordOperations(): void {
+    this.operationsTarget = null;
+    this.operationsForm = null;
+    this.operations = [];
+    this.operationsLoading = false;
+    this.operationsError = null;
+    this.operationErrors.clear();
+    this.operationSuccess.clear();
   }
 
   submitCreate(): void {
@@ -277,6 +337,149 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
       });
   }
 
+  applyPlannedTimes(index: number): void {
+    if (!this.operationsForm) return;
+    const opsArray = this.operationsArray();
+    const group = opsArray.at(index) as FormGroup | undefined;
+    const op = this.operations[index];
+    if (!group || !op) return;
+
+    group.patchValue(
+      {
+        actualStartTime: this.isoToInput(op.plannedStartTime),
+        actualEndTime: this.isoToInput(op.plannedEndTime),
+      },
+      { emitEvent: false },
+    );
+  }
+
+  submitExecutedOperation(index: number): void {
+    if (!this.operationsTarget || !this.operationsForm) return;
+
+    const opsArray = this.operationsArray();
+    const group = opsArray.at(index) as FormGroup | undefined;
+    const operation = this.operations[index];
+
+    if (!group || !operation) return;
+
+    const raw = group.value as {
+      actualStartTime?: string;
+      actualEndTime?: string;
+      resourcesUsed?: string;
+    };
+
+    const payload: UpsertExecutedOperationPayload = {};
+
+    if (raw.actualStartTime) {
+      const iso = this.inputToIso(raw.actualStartTime);
+      if (!iso) {
+        this.operationErrors.set(operation.id, 'Hora de inicio invalida.');
+        this.operationSuccess.delete(operation.id);
+        return;
+      }
+      payload.actualStartTime = iso;
+    }
+
+    if (raw.actualEndTime) {
+      const iso = this.inputToIso(raw.actualEndTime);
+      if (!iso) {
+        this.operationErrors.set(operation.id, 'Hora de fim invalida.');
+        this.operationSuccess.delete(operation.id);
+        return;
+      }
+      payload.actualEndTime = iso;
+    }
+
+    if (raw.resourcesUsed && raw.resourcesUsed.trim()) {
+      try {
+        const parsed = JSON.parse(raw.resourcesUsed.trim());
+        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          this.operationErrors.set(operation.id, 'Recursos devem ser um objeto JSON.');
+          this.operationSuccess.delete(operation.id);
+          return;
+        }
+        payload.resourcesUsed = parsed as Record<string, unknown>;
+      } catch (error) {
+        this.operationErrors.set(operation.id, 'JSON de recursos invalido.');
+        this.operationSuccess.delete(operation.id);
+        return;
+      }
+    }
+
+    if (
+      payload.actualStartTime === undefined &&
+      payload.actualEndTime === undefined &&
+      payload.resourcesUsed === undefined
+    ) {
+      this.operationErrors.set(operation.id, 'Indique pelo menos um campo para atualizar.');
+      this.operationSuccess.delete(operation.id);
+      return;
+    }
+
+    this.operationErrors.delete(operation.id);
+    this.operationSuccess.delete(operation.id);
+    this.savingOperations.add(operation.id);
+
+    this.api
+      .upsertExecutedOperation(this.operationsTarget.id, operation.id, payload)
+      .pipe(
+        finalize(() => {
+          this.savingOperations.delete(operation.id);
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.operationErrors.delete(operation.id);
+          this.operationSuccess.set(operation.id, 'Operacao registada.');
+          this.refreshOperationRow(index, response);
+        },
+        error: (err: HttpErrorResponse) => {
+          this.operationErrors.set(
+            operation.id,
+            this.normalizeError(err, 'Falha ao atualizar a operacao.'),
+          );
+        },
+      });
+  }
+
+  operationStatusLabel(status: OperationExecutionStatus | null | undefined): string {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Concluida';
+      case 'STARTED':
+        return 'Iniciada';
+      case 'DELAYED':
+        return 'Atrasada';
+      default:
+        return 'Planeada';
+    }
+  }
+
+  operationStatusClass(status: OperationExecutionStatus | null | undefined): string {
+    switch (status) {
+      case 'COMPLETED':
+        return 'status-pill success';
+      case 'STARTED':
+        return 'status-pill warning';
+      case 'DELAYED':
+        return 'status-pill danger';
+      default:
+        return 'status-pill neutral';
+    }
+  }
+
+  isSavingOperation(operationId: number): boolean {
+    return this.savingOperations.has(operationId);
+  }
+
+  getOperationError(operationId: number): string | null {
+    return this.operationErrors.get(operationId) ?? null;
+  }
+
+  getOperationSuccess(operationId: number): string | null {
+    return this.operationSuccess.get(operationId) ?? null;
+  }
+
   displayMinutes(value?: number | null): string {
     if (value === null || value === undefined) return '-';
     return `${value} min`;
@@ -321,6 +524,57 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
       });
   }
 
+  private buildOperationsForm(operations: PlannedOperationWithExecution[]): FormGroup {
+    const groups = operations.map((operation) =>
+      this.fb.group({
+        actualStartTime: [this.isoToInput(operation.actualStartTime)],
+        actualEndTime: [this.isoToInput(operation.actualEndTime)],
+        resourcesUsed: [this.resourcesToText(operation)],
+      }),
+    );
+
+    return this.fb.group({
+      operations: this.fb.array(groups),
+    });
+  }
+
+  operationsArray(): FormArray {
+    if (!this.operationsForm) {
+      return this.fb.array([]);
+    }
+    return this.operationsForm.get('operations') as FormArray;
+  }
+
+  private refreshOperationRow(index: number, dto: ExecutedOperationDto): void {
+    const current = this.operations[index];
+    if (!current) return;
+
+    const updated: PlannedOperationWithExecution = {
+      ...current,
+      actualStartTime: dto.actualStartTime ?? current.actualStartTime ?? null,
+      actualEndTime: dto.actualEndTime ?? current.actualEndTime ?? null,
+      actualResourcesUsed: dto.resourcesUsed ?? current.actualResourcesUsed ?? null,
+      executionStatus: dto.executionStatus ?? current.executionStatus,
+    };
+
+    this.operations[index] = updated;
+
+    const array = this.operationsArray();
+    const group = array.at(index) as FormGroup | undefined;
+    if (!group) return;
+
+    group.patchValue(
+      {
+        actualStartTime: this.isoToInput(updated.actualStartTime),
+        actualEndTime: this.isoToInput(updated.actualEndTime),
+        resourcesUsed: this.resourcesToText(updated),
+      },
+      { emitEvent: false },
+    );
+
+    group.markAsPristine();
+  }
+
   private buildFilters(): {
     from?: string;
     to?: string;
@@ -362,6 +616,51 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
     if (status) filters.status = status;
 
     return filters;
+  }
+
+  private resourcesToText(operation: PlannedOperationWithExecution): string {
+    const source =
+      operation.actualResourcesUsed ?? this.buildSuggestedResources(operation) ?? null;
+    if (!source) return '';
+    try {
+      return JSON.stringify(source, null, 2);
+    } catch {
+      return '';
+    }
+  }
+
+  private buildSuggestedResources(
+    operation: PlannedOperationWithExecution,
+  ): Record<string, unknown> | null {
+    const resources: Record<string, unknown> = {};
+    if (operation.craneId) resources['craneId'] = operation.craneId;
+    if (operation.storageAreaId) resources['storageAreaId'] = operation.storageAreaId;
+    if (operation.staffIds && operation.staffIds.length > 0) {
+      resources['staffIds'] = operation.staffIds;
+    }
+    return Object.keys(resources).length ? resources : null;
+  }
+
+  private isoToInput(value?: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = (num: number) => num.toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  private inputToIso(value?: string | null): string | null {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toISOString();
   }
 
   private normalizeError(err: HttpErrorResponse, fallback: string): string {
