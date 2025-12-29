@@ -118,6 +118,14 @@
               type="button"
               class="link-btn"
               *ngIf="exec.status === 'in-progress'"
+              (click)="startRecordOperations(exec)"
+            >
+              Registar operacoes
+            </button>
+            <button
+              type="button"
+              class="link-btn"
+              *ngIf="exec.status === 'in-progress'"
               (click)="startUpdateBerth(exec)"
             >
               Atualizar berth/dock
@@ -187,6 +195,120 @@
         <button type="button" class="ghost" (click)="cancelUpdateBerth()" [disabled]="loading">
           Cancelar
         </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="operations-panel" *ngIf="operationsTarget">
+    <header class="operations-header">
+      <div>
+        <h2>
+          Operacoes executadas para VVN {{ operationsTarget.vesselVisitId }}
+          ({{ operationsTarget.vesselName }})
+        </h2>
+        <p class="subtitle">
+          Confirme ou ajuste horas e recursos usados. Os estados sao atualizados automaticamente
+          de acordo com os dados guardados.
+        </p>
+      </div>
+      <button type="button" class="ghost" (click)="cancelRecordOperations()">
+        Fechar painel
+      </button>
+    </header>
+
+    <div class="status-row">
+      <div *ngIf="operationsLoading" class="info">A carregar operacoes planeadas...</div>
+      <div *ngIf="operationsError && !operationsLoading" class="error">
+        {{ operationsError }}
+      </div>
+      <div
+        *ngIf="!operationsLoading && !operationsError && operations.length === 0"
+        class="muted"
+      >
+        Sem operacoes planeadas associadas ao plano selecionado.
+      </div>
+    </div>
+
+    <form
+      *ngIf="operationsForm && !operationsLoading && operations.length"
+      [formGroup]="operationsForm"
+      class="operations-form"
+    >
+      <div formArrayName="operations" class="operations-grid">
+        <article
+          class="operation-card"
+          *ngFor="let group of operationsArray().controls; let i = index"
+          [formGroupName]="i"
+        >
+          <ng-container *ngIf="operations[i] as operation">
+            <header>
+              <h3>{{ operation.type || 'Operacao' }} #{{ operation.id }}</h3>
+              <span [ngClass]="operationStatusClass(operation.executionStatus)">
+                {{ operationStatusLabel(operation.executionStatus) }}
+              </span>
+            </header>
+
+            <dl class="planned-details">
+              <div>
+                <dt>Inicio planeado</dt>
+                <dd>{{ operation.plannedStartTime | date: 'short' }}</dd>
+              </div>
+              <div>
+                <dt>Fim planeado</dt>
+                <dd>{{ operation.plannedEndTime | date: 'short' }}</dd>
+              </div>
+              <div *ngIf="operation.craneId">
+                <dt>Guindaste planeado</dt>
+                <dd>{{ operation.craneId }}</dd>
+              </div>
+              <div *ngIf="operation.storageAreaId">
+                <dt>Area de armazenagem</dt>
+                <dd>{{ operation.storageAreaId }}</dd>
+              </div>
+              <div *ngIf="operation.staffIds?.length">
+                <dt>Equipa planeada</dt>
+                <dd>{{ operation.staffIds?.join(', ') }}</dd>
+              </div>
+            </dl>
+
+            <div class="inputs">
+              <label>
+                Inicio executado
+                <input type="datetime-local" formControlName="actualStartTime" />
+              </label>
+              <label>
+                Fim executado
+                <input type="datetime-local" formControlName="actualEndTime" />
+              </label>
+              <label class="resources">
+                Recursos usados (JSON)
+                <textarea rows="4" formControlName="resourcesUsed"></textarea>
+              </label>
+            </div>
+
+            <div class="status-row">
+              <div class="info" *ngIf="getOperationSuccess(operation.id)">
+                {{ getOperationSuccess(operation.id) }}
+              </div>
+              <div class="error" *ngIf="getOperationError(operation.id)">
+                {{ getOperationError(operation.id) }}
+              </div>
+            </div>
+
+            <div class="operation-actions">
+              <button type="button" class="ghost" (click)="applyPlannedTimes(i)">
+                Usar horas planeadas
+              </button>
+              <button
+                type="button"
+                (click)="submitExecutedOperation(i)"
+                [disabled]="isSavingOperation(operation.id)"
+              >
+                {{ isSavingOperation(operation.id) ? 'A guardar...' : 'Guardar' }}
+              </button>
+            </div>
+          </ng-container>
+        </article>
       </div>
     </form>
   </section>
