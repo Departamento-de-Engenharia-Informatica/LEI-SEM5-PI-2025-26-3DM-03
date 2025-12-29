@@ -6,7 +6,6 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { OperationPlanStatus } from '../domain/operation-plan.entity';
-import { ComplementaryTaskEntity } from './complementary-task.entity';
 import { VesselVisitExecutionEntity } from './vessel-visit-execution.entity';
 import { OperationPlanTaskEntity } from './operation-plan-task.entity';
 import { OperationPlanChangeLogEntity } from './operation-plan-change-log.entity';
@@ -77,9 +76,6 @@ export class OperationPlanEntity {
 
   @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
   createdAt!: Date;
-
-  @OneToMany(() => ComplementaryTaskEntity, (task) => task.operationPlan)
-  complementaryTasks?: ComplementaryTaskEntity[];
 
   @OneToMany(() => VesselVisitExecutionEntity, (execution) => execution.operationPlan)
   vesselVisitExecutions?: VesselVisitExecutionEntity[];

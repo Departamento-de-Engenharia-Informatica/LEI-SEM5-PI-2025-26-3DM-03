@@ -140,7 +140,7 @@ export class VesselVisitExecutionController {
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<ExecutedOperationDto> {
     return this.service.upsertExecutedOperation(id, plannedOperationId, payload, req.user ?? null);
-  }
+      }
 
   @Delete(':id')
   @Roles('oem:vessel:write')

@@ -3,6 +3,7 @@ import { OperationPlanEntity } from './oem/persistence/operation-plan.entity';
 import { OperationPlanTaskEntity } from './oem/persistence/operation-plan-task.entity';
 import { OperationPlanChangeLogEntity } from './oem/persistence/operation-plan-change-log.entity';
 import { ComplementaryTaskEntity } from './oem/persistence/complementary-task.entity';
+import { ComplementaryTaskAuditEntity } from './oem/persistence/complementary-task-audit.entity';
 import { ComplementaryTaskCategoryEntity } from './oem/persistence/complementary-task-category.entity';
 import { IncidentEntity } from './oem/persistence/incident.entity';
 import { IncidentAffectedVveEntity } from './oem/persistence/incident-affected-vve.entity';
@@ -22,6 +23,7 @@ export default new DataSource({
     OperationPlanTaskEntity,
     OperationPlanChangeLogEntity,
     ComplementaryTaskEntity,
+    ComplementaryTaskAuditEntity,
     ComplementaryTaskCategoryEntity,
     IncidentEntity,
     IncidentAffectedVveEntity,

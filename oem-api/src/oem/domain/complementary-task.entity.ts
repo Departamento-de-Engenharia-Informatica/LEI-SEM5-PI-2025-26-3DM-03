@@ -1,46 +1,69 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BaseDomainEntity } from './base-domain.entity';
 
+export enum ComplementaryTaskMode {
+  PARALLEL = 'PARALLEL',
+  SUSPENDS = 'SUSPENDS',
+}
+
 export enum ComplementaryTaskStatus {
-  Pending = 'pending',
-  InProgress = 'in-progress',
-  Done = 'done',
-  Blocked = 'blocked',
+  ONGOING = 'ONGOING',
+  COMPLETED = 'COMPLETED',
 }
 
 /**
- * Represents an auxiliary task associated with an operation execution.
+ * Represents a non-cargo task executed during a vessel visit.
  */
 export class ComplementaryTask extends BaseDomainEntity {
-  @ApiProperty({ description: 'Task title' })
-  title: string;
+  @ApiProperty({ description: 'Business identifier (e.g. CT-2025-0001)' })
+  identifier: string;
 
-  @ApiPropertyOptional({ description: 'Task details' })
-  description?: string;
-
-  @ApiProperty({ description: 'Category identifier' })
+  @ApiProperty({ description: 'Complementary task category id' })
   categoryId: number;
 
-  @ApiPropertyOptional({ description: 'Related operation plan id' })
-  operationPlanId?: number;
+  @ApiProperty({ description: 'Vessel visit execution id' })
+  vveId: number;
 
-  @ApiProperty({ enum: ComplementaryTaskStatus })
+  @ApiProperty({ description: 'Responsible team or service' })
+  team: string;
+
+  @ApiProperty({ enum: ComplementaryTaskMode, description: 'Execution mode' })
+  mode: ComplementaryTaskMode;
+
+  @ApiProperty({ description: 'Task start time' })
+  startTime: Date;
+
+  @ApiPropertyOptional({ description: 'Task completion time' })
+  endTime?: Date | null;
+
+  @ApiPropertyOptional({ description: 'Duration in minutes once completed' })
+  durationMinutes?: number | null;
+
+  @ApiProperty({ enum: ComplementaryTaskStatus, description: 'Derived status' })
   status: ComplementaryTaskStatus;
 
-  @ApiPropertyOptional({ description: 'User assigned to the task' })
-  assigneeId?: string;
+  @ApiProperty({ description: 'Indicates if task currently impacts operations' })
+  isImpactingNow: boolean;
 
-  @ApiPropertyOptional({ description: 'Due date' })
-  dueDate?: Date;
+  @ApiProperty({ description: 'User responsible for creation' })
+  createdBy: string;
+
+  @ApiProperty({ description: 'Last update timestamp' })
+  updatedAt: Date;
 
   constructor(init?: Partial<ComplementaryTask>) {
     super(init);
-    this.title = init?.title ?? '';
-    this.description = init?.description;
+    this.identifier = init?.identifier ?? '';
     this.categoryId = init?.categoryId ?? 0;
-    this.operationPlanId = init?.operationPlanId;
-    this.status = init?.status ?? ComplementaryTaskStatus.Pending;
-    this.assigneeId = init?.assigneeId;
-    this.dueDate = init?.dueDate;
+    this.vveId = init?.vveId ?? 0;
+    this.team = init?.team ?? '';
+    this.mode = init?.mode ?? ComplementaryTaskMode.PARALLEL;
+    this.startTime = init?.startTime ?? new Date();
+    this.endTime = init?.endTime ?? null;
+    this.durationMinutes = init?.durationMinutes ?? null;
+    this.status = init?.status ?? ComplementaryTaskStatus.ONGOING;
+    this.isImpactingNow = init?.isImpactingNow ?? false;
+    this.createdBy = init?.createdBy ?? 'system';
+    this.updatedAt = init?.updatedAt ?? new Date();
   }
 }

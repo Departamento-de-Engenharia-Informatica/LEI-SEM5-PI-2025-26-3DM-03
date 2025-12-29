@@ -1,48 +1,46 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ComplementaryTaskStatus } from '../domain/complementary-task.entity';
+import {
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
+import { ComplementaryTaskMode } from '../domain/complementary-task.entity';
 
 export class CreateComplementaryTaskDto {
-  @ApiProperty({ description: 'Task title' })
-  @IsString()
-  @IsNotEmpty()
-  title!: string;
-
-  @ApiPropertyOptional({ description: 'Task details' })
-  @IsString()
-  @IsOptional()
-  description?: string;
-
-  @ApiProperty({ description: 'Category identifier' })
+  @ApiProperty({ description: 'Category identifier', type: Number })
   @IsInt()
   @Type(() => Number)
   @IsNotEmpty()
   categoryId!: number;
 
-  @ApiPropertyOptional({ description: 'Related operation plan id' })
+  @ApiProperty({ description: 'Vessel visit execution identifier', type: Number })
   @IsInt()
   @Type(() => Number)
-  @IsOptional()
-  operationPlanId?: number;
+  @IsNotEmpty()
+  vveId!: number;
 
-  @ApiPropertyOptional({ description: 'User responsible for the task' })
+  @ApiProperty({ description: 'Responsible team or service' })
   @IsString()
-  @IsOptional()
-  assigneeId?: string;
+  @MaxLength(256)
+  @IsNotEmpty()
+  team!: string;
 
-  @ApiPropertyOptional({
-    description: 'Due date (ISO-8601)',
-    example: '2025-12-10',
-  })
+  @ApiProperty({ enum: ComplementaryTaskMode })
+  @IsEnum(ComplementaryTaskMode)
+  mode!: ComplementaryTaskMode;
+
+  @ApiProperty({ description: 'Task start time (ISO-8601)' })
+  @IsISO8601()
+  @IsNotEmpty()
+  startTime!: string;
+
+  @ApiPropertyOptional({ description: 'Task completion time (ISO-8601)' })
   @IsISO8601()
   @IsOptional()
-  dueDate?: string;
-
-  @ApiProperty({
-    enum: ComplementaryTaskStatus,
-    default: ComplementaryTaskStatus.Pending,
-  })
-  @IsEnum(ComplementaryTaskStatus)
-  status: ComplementaryTaskStatus = ComplementaryTaskStatus.Pending;
+  endTime?: string;
 }

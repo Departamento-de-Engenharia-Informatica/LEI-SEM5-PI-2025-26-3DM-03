@@ -5,11 +5,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { VesselExecutionStatus } from '../domain/vessel-visit-execution.entity';
 import { OperationPlanEntity } from './operation-plan.entity';
+import { ComplementaryTaskEntity } from './complementary-task.entity';
 
 @Entity({ name: 'vessel_visit_executions' })
 @Index(['operationPlanId', 'status'])
@@ -89,4 +91,7 @@ export class VesselVisitExecutionEntity {
 
   @CreateDateColumn({ type: 'datetime' })
   createdAt!: Date;
+
+  @OneToMany(() => ComplementaryTaskEntity, (task) => task.vve)
+  complementaryTasks?: ComplementaryTaskEntity[];
 }

@@ -5,53 +5,73 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { ComplementaryTaskStatus } from '../domain/complementary-task.entity';
+import { ComplementaryTaskMode } from '../domain/complementary-task.entity';
 import { ComplementaryTaskCategoryEntity } from './complementary-task-category.entity';
-import { OperationPlanEntity } from './operation-plan.entity';
+import { VesselVisitExecutionEntity } from './vessel-visit-execution.entity';
+import { ComplementaryTaskAuditEntity } from './complementary-task-audit.entity';
 
-@Entity({ name: 'complementary_tasks' })
-@Index(['operationPlanId', 'status'])
+@Entity({ name: 'complementary_task' })
+@Index('IDX_complementary_task_vve_id', ['vveId'])
+@Index('IDX_complementary_task_category_id', ['categoryId'])
+@Index('IDX_complementary_task_start_time', ['startTime'])
+@Index('IDX_complementary_task_end_time', ['endTime'])
+@Index('IDX_complementary_task_mode', ['mode'])
 export class ComplementaryTaskEntity {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  @Index('UQ_complementary_task_identifier', { unique: true })
   @Column({ type: 'text' })
-  title!: string;
+  identifier!: string;
 
-  @Column({ type: 'text', nullable: true })
-  description?: string;
-
-  @Column({ type: 'integer', nullable: true, name: 'category_id' })
-  categoryId?: number;
+  @Column({ name: 'category_id', type: 'integer' })
+  categoryId!: number;
 
   @ManyToOne(() => ComplementaryTaskCategoryEntity, (category) => category.tasks, {
-    nullable: true,
-    onDelete: 'SET NULL',
+    nullable: false,
+    onDelete: 'RESTRICT',
   })
   @JoinColumn({ name: 'category_id' })
-  category?: ComplementaryTaskCategoryEntity;
+  category!: ComplementaryTaskCategoryEntity;
 
-  @Column({ type: 'integer', nullable: true, name: 'operation_plan_id' })
-  operationPlanId?: number;
+  @Column({ name: 'vve_id', type: 'integer' })
+  vveId!: number;
 
-  @ManyToOne(() => OperationPlanEntity, (plan) => plan.complementaryTasks, {
-    nullable: true,
-    onDelete: 'SET NULL',
+  @ManyToOne(() => VesselVisitExecutionEntity, (vve) => vve.complementaryTasks, {
+    nullable: false,
+    onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'operation_plan_id' })
-  operationPlan?: OperationPlanEntity;
-
-  @Column({ type: 'text', nullable: true, name: 'assignee_id' })
-  assigneeId?: string;
-
-  @Column({ type: 'datetime', nullable: true, name: 'due_date' })
-  dueDate?: Date;
+  @JoinColumn({ name: 'vve_id' })
+  vve!: VesselVisitExecutionEntity;
 
   @Column({ type: 'text' })
-  status!: ComplementaryTaskStatus;
+  team!: string;
 
-  @CreateDateColumn({ type: 'datetime' })
+  @Column({ type: 'text' })
+  mode!: ComplementaryTaskMode;
+
+  @Column({ name: 'start_time', type: 'datetime' })
+  startTime!: Date;
+
+  @Column({ name: 'end_time', type: 'datetime', nullable: true })
+  endTime?: Date | null;
+
+  @Column({ name: 'duration_minutes', type: 'integer', nullable: true })
+  durationMinutes?: number | null;
+
+  @Column({ name: 'created_by', type: 'text' })
+  createdBy!: string;
+
+  @CreateDateColumn({ name: 'created_at', type: 'datetime' })
   createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at', type: 'datetime' })
+  updatedAt!: Date;
+
+  @OneToMany(() => ComplementaryTaskAuditEntity, (audit) => audit.task)
+  auditTrail?: ComplementaryTaskAuditEntity[];
 }

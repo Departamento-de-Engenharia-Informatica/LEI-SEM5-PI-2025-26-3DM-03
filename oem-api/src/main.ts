@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { OperationPlanService } from './oem/services';
+import { ComplementaryTaskCategoryService, OperationPlanService } from './oem/services';
 import { readFileSync } from 'fs';
 
 const logger = new Logger('Bootstrap');
@@ -52,7 +52,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
+  const categoryService = app.get(ComplementaryTaskCategoryService);
   const planService = app.get(OperationPlanService);
+  try {
+    await categoryService.ensureDevSeed();
+  } catch (error) {
+    logger.warn(`Dev seed skipped for complementary task categories: ${(error as Error).message}`);
+  }
   try {
     await planService.ensureDevSeed();
   } catch (error) {

@@ -25,6 +25,7 @@ import {
 import { OperationPlanEntity } from './persistence/operation-plan.entity';
 import { ComplementaryTaskCategoryEntity } from './persistence/complementary-task-category.entity';
 import { ComplementaryTaskEntity } from './persistence/complementary-task.entity';
+import { ComplementaryTaskAuditEntity } from './persistence/complementary-task-audit.entity';
 import { IncidentTypeEntity } from './persistence/incident-type.entity';
 import { IncidentEntity } from './persistence/incident.entity';
 import { IncidentAffectedVveEntity } from './persistence/incident-affected-vve.entity';
@@ -46,6 +47,7 @@ import { ExecutedOperationAuditEntity } from './persistence/executed-operation-a
       OperationPlanEntity,
       ComplementaryTaskCategoryEntity,
       ComplementaryTaskEntity,
+      ComplementaryTaskAuditEntity,
       IncidentTypeEntity,
       IncidentEntity,
       IncidentAffectedVveEntity,

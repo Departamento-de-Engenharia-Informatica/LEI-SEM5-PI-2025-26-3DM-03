@@ -13,6 +13,8 @@ export * from './incident-query.dto';
 export * from './set-incident-affected-vves.dto';
 export * from './create-complementary-task.dto';
 export * from './update-complementary-task.dto';
+export * from './complementary-task-query.dto';
+export * from './complementary-task-response.dto';
 export * from './create-complementary-task-category.dto';
 export * from './update-complementary-task-category.dto';
 export * from './complementary-task-category-query.dto';

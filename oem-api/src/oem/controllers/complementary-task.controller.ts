@@ -1,15 +1,38 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
 import { IamAuthGuard, Roles, RolesGuard } from '../auth';
-import { CreateComplementaryTaskDto, UpdateComplementaryTaskDto } from '../dto';
+import {
+  ComplementaryTaskQueryDto,
+  ComplementaryTaskResponseDto,
+  CreateComplementaryTaskDto,
+  UpdateComplementaryTaskDto,
+} from '../dto';
 import { ComplementaryTaskService } from '../services';
-import { ComplementaryTaskEntity } from '../persistence/complementary-task.entity';
+import { Request } from 'express';
+import { AuthenticatedUser } from '../auth/types';
+import { ComplementaryTaskStatus } from '../domain/complementary-task.entity';
 
 @ApiTags('Complementary Tasks')
 @ApiBearerAuth()
@@ -19,47 +42,58 @@ export class ComplementaryTaskController {
   constructor(private readonly service: ComplementaryTaskService) {}
 
   @Get()
-  @Roles('oem:tasks:read')
-  @ApiOperation({ summary: 'List complementary tasks' })
-  @ApiOkResponse({ type: ComplementaryTaskEntity, isArray: true })
-  findAll(): Promise<ComplementaryTaskEntity[]> {
-    return this.service.findAll();
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List complementary tasks for vessel visits' })
+  @ApiQuery({ name: 'vveId', required: false, type: Number })
+  @ApiQuery({ name: 'vesselIdentifier', required: false, type: String })
+  @ApiQuery({ name: 'status', required: false, enum: ComplementaryTaskStatus })
+  @ApiQuery({ name: 'from', required: false, type: String })
+  @ApiQuery({ name: 'to', required: false, type: String })
+  @ApiOkResponse({ type: ComplementaryTaskResponseDto, isArray: true })
+  findAll(@Query() filters: ComplementaryTaskQueryDto): Promise<ComplementaryTaskResponseDto[]> {
+    return this.service.findAll(filters);
   }
 
   @Get(':id')
-  @Roles('oem:tasks:read')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get complementary task by id' })
-  @ApiOkResponse({ type: ComplementaryTaskEntity })
-  findOne(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskEntity> {
+  @ApiOkResponse({ type: ComplementaryTaskResponseDto })
+  findOne(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskResponseDto> {
     return this.service.findOne(id);
   }
 
   @Post()
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Create complementary task' })
-  @ApiCreatedResponse({ type: ComplementaryTaskEntity })
+  @ApiCreatedResponse({ type: ComplementaryTaskResponseDto })
   create(
     @Body() payload: CreateComplementaryTaskDto,
-  ): Promise<ComplementaryTaskEntity> {
-    return this.service.createTask(payload);
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<ComplementaryTaskResponseDto> {
+    return this.service.create(payload, req.user ?? null);
   }
 
   @Patch(':id')
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Update complementary task' })
-  @ApiOkResponse({ type: ComplementaryTaskEntity })
+  @ApiOkResponse({ type: ComplementaryTaskResponseDto })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() payload: UpdateComplementaryTaskDto,
-  ): Promise<ComplementaryTaskEntity> {
-    return this.service.updateTask(id, payload);
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<ComplementaryTaskResponseDto> {
+    return this.service.update(id, payload, req.user ?? null);
   }
 
   @Delete(':id')
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Delete complementary task' })
-  @ApiOkResponse({ type: ComplementaryTaskEntity })
-  remove(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskEntity> {
-    return this.service.remove(id);
+  @ApiNoContentResponse({ description: 'Task removed successfully' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: Request & { user?: AuthenticatedUser },
+  ): Promise<void> {
+    return this.service.remove(id, req.user ?? null);
   }
 }
