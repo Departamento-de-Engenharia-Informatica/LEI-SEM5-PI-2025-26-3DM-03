@@ -29,6 +29,15 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("operation-plans/{id:int}")]
+    public async Task<IActionResult> GetOperationPlan(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetOperationPlanAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPost("operation-plans/preview")]
     public async Task<IActionResult> PreviewOperationPlans([FromBody] OperationPlanRequest request, CancellationToken cancellationToken)
     {

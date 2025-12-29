@@ -225,9 +225,9 @@
       [disabled]="persistLoading || !previewPlans.length"
       (click)="onPersist()"
     >
-      {{ persistLoading ? 'A guardar...' : 'Guardar planos selecionados' }}
+      {{ persistLoading ? 'A guardar planos selecionados...' : 'Guardar planos selecionados' }}
     </button>
-    <p class="hint">Selecione as VVNs que pretende guardar antes de confirmar.</p>
+    <p class="hint">Selecione os planos que pretende guardar.</p>
   </div>
 
   <section class="saved-section">
@@ -243,11 +243,11 @@
           <input id="saved-from" type="date" formControlName="from" />
         </div>
         <div class="form-field">
-          <label for="saved-to">Ate</label>
+          <label for="saved-to">Até</label>
           <input id="saved-to" type="date" formControlName="to" />
         </div>
         <div class="form-field">
-          <label for="saved-vessel">VVN (ID)</label>
+          <label for="saved-vessel">VVN</label>
           <input
             id="saved-vessel"
             type="text"
@@ -284,7 +284,7 @@
               </span>
             </th>
             <th (click)="changeSort('plannedStartTime')">
-              Inicio
+              Início
               <span class="sort-icon" [class.active]="sortKey === 'plannedStartTime'">
                 {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
@@ -295,17 +295,30 @@
                 {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
-            <th>Acoes</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let plan of sortedPlans">
+          <tr *ngFor="let plan of sortedPlans" [class.selected-row]="selectedPlan?.id === plan.id">
             <td>{{ plan.name }}</td>
             <td>{{ plan.status }}</td>
             <td>{{ plan.vesselVisitId || '-' }}</td>
             <td>{{ plan.plannedStartTime | date: 'short' }}</td>
             <td>{{ plan.createdAt | date: 'short' }}</td>
             <td class="actions-cell">
+              <button
+                type="button"
+                class="action-btn"
+                (click)="togglePlanDetails(plan)"
+                [title]="selectedPlan?.id === plan.id ? 'Fechar detalhes' : 'Ver detalhes'"
+              >
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 5c5 0 9 5 9 7s-4 7-9 7-9-5-9-7 4-7 9-7zm0 2c-3.3 0-6 3.4-6 5s2.7 5 6 5 6-3.4 6-5-2.7-5-6-5zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"
+                  />
+                </svg>
+                <span>{{ selectedPlan?.id === plan.id ? 'Fechar' : 'Detalhes' }}</span>
+              </button>
               <button
                 type="button"
                 class="action-btn edit"
@@ -338,121 +351,260 @@
         </tbody>
       </table>
     </div>
-    <section class="edit-panel" *ngIf="editingPlan">
-      <div class="edit-header">
-        <div>
-          <p class="eyebrow">Edicao do plano</p>
-          <h3>{{ editingPlan.name }}</h3>
-          <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} -> Dock {{ editingPlan.dockId || '-' }}</p>
-          <p class="muted small">
-            Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por
-            {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason">
-              ({{ editingPlan.lastChangeReason }})
-            </ng-container>
-          </p>
-        </div>
-        <button type="button" class="ghost-btn" (click)="cancelEdit()">Fechar</button>
-      </div>
-      <div class="edit-messages">
-        <p class="info" *ngIf="editLoading">A carregar detalhes do plano...</p>
-        <p class="error" *ngIf="editError">{{ editError }}</p>
-        <p class="success" *ngIf="editSuccess">{{ editSuccess }}</p>
-        <ul class="warning-list" *ngIf="editWarnings.length">
-          <li *ngFor="let warning of editWarnings">{{ warning }}</li>
-        </ul>
-      </div>
-      <form class="edit-form" [formGroup]="editForm" (ngSubmit)="onSaveEdit()">
-        <div class="edit-grid">
-          <label>
-            <span class="field-label">Dock</span>
-            <select formControlName="dockId">
-              <option value="">Selecionar dock</option>
-              <option *ngFor="let d of docks" [value]="d.id.toString()">
-                {{ d.name }} ({{ d.location }})
-              </option>
-            </select>
-          </label>
-          <label>
-            <span class="field-label">Estado</span>
-            <select formControlName="status">
-              <option *ngFor="let status of planStatuses" [value]="status">{{ status }}</option>
-            </select>
-          </label>
-          <label class="wide">
-            <span class="field-label">Motivo da alteracao</span>
-            <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
-          </label>
-        </div>
-        <div class="tasks-editor" formArrayName="tasks">
-          <div class="tasks-header">
-            <div>
-              <h4>Tarefas do plano</h4>
-              <p class="muted small">Associe grua, armazem e intervalos de tempo a cada tarefa.</p>
-            </div>
-            <button type="button" class="ghost-btn" (click)="addTask()">
-              + Adicionar tarefa
-            </button>
+
+    <div class="modal-backdrop" *ngIf="selectedPlan">
+      <section class="modal-sheet details-panel" #detailsSheet id="details-sheet">
+        <div class="details-header">
+          <div>
+            <p class="eyebrow">Detalhes do plano</p>
+            <h3>{{ selectedPlan.name }}</h3>
+            <p class="muted small">
+              VVN {{ selectedPlan.vesselVisitId || selectedPlan.sourceVvnId || '-' }} -> Dock
+              {{ selectedPlan.dockId || '-' }}
+            </p>
           </div>
-          <div
-            class="task-row"
-            *ngFor="let taskGroup of taskControls.controls; let i = index"
-            [formGroupName]="i"
-          >
-            <div class="task-row-header">
-              <span class="task-title">Tarefa {{ i + 1 }}</span>
-              <button type="button" class="ghost-btn small" (click)="removeTask(i)">
-                Remover
-              </button>
-            </div>
-            <div class="task-row-fields">
-              <label>
-                <span class="field-label">Tipo</span>
-                <input type="text" formControlName="type" />
-              </label>
-              <label>
-                <span class="field-label">Grua</span>
-                <select formControlName="craneId">
-                  <option value="">Selecionar grua</option>
-                  <option *ngFor="let r of craneResources" [value]="r.code">
-                    {{ r.code }} - {{ r.description }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                <span class="field-label">Armazem</span>
-                <select formControlName="storageAreaId">
-                  <option value="">Selecionar armazem</option>
-                  <option *ngFor="let a of storageAreas" [value]="a.id.toString()">
-                    {{ a.location }} ({{ a.type }})
-                  </option>
-                </select>
-              </label>
-              <label>
-                <span class="field-label">Staff</span>
-                <select formControlName="staffIds" multiple>
-                  <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
-                    {{ s.mecanographicNumber }} - {{ s.shortName }}
-                  </option>
-                </select>
-              </label>
-              <label>
-                <span class="field-label">Inicio (ISO)</span>
-                <input type="text" formControlName="startTime" />
-              </label>
-              <label>
-                <span class="field-label">Fim (ISO)</span>
-                <input type="text" formControlName="endTime" />
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="edit-actions">
-          <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">
-            {{ editSaving ? 'A guardar...' : 'Guardar alteracoes' }}
+          <button type="button" class="ghost-btn" (click)="closeDetails()">
+            Fechar
           </button>
         </div>
-      </form>
-    </section>
+        <div class="details-messages">
+          <p class="info" *ngIf="detailsLoadingId === selectedPlan.id">A carregar detalhes...</p>
+          <p class="error" *ngIf="detailsError">{{ detailsError }}</p>
+        </div>
+        <div class="details-grid">
+          <div>
+            <span>Estado</span>
+            <strong>{{ selectedPlan.status || '-' }}</strong>
+          </div>
+          <div>
+            <span>Dia alvo</span>
+            <strong>{{ selectedPlan.targetDay || '-' }}</strong>
+          </div>
+          <div>
+            <span>Inicio planeado</span>
+            <strong>{{ selectedPlan.plannedStartTime | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Fim planeado</span>
+            <strong>{{ selectedPlan.plannedEndTime | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Algoritmo</span>
+            <strong>{{ selectedPlan.algorithmUsed || '-' }}</strong>
+          </div>
+          <div>
+            <span>Criado por</span>
+            <strong>{{ selectedPlan.createdBy || '-' }}</strong>
+          </div>
+          <div>
+            <span>Criado em</span>
+            <strong>{{ selectedPlan.createdAt | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Ultima alteracao</span>
+            <strong>{{ selectedPlan.updatedAt | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Ultimo motivo</span>
+            <strong>{{ selectedPlan.lastChangeReason || '-' }}</strong>
+          </div>
+        </div>
+
+        <div class="details-block">
+          <h4>Tarefas</h4>
+          <div *ngIf="selectedPlan.tasks?.length; else emptyTasks">
+            <table class="details-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Grua</th>
+                  <th>Armazem</th>
+                  <th>Staff</th>
+                  <th>Inicio</th>
+                  <th>Fim</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let task of selectedPlan.tasks">
+                  <td>{{ task.type }}</td>
+                  <td>{{ task.craneId || '-' }}</td>
+                  <td>{{ task.storageAreaId || '-' }}</td>
+                  <td>{{ formatStaffIds(task.staffIds) }}</td>
+                  <td>{{ task.startTime | date: 'short' }}</td>
+                  <td>{{ task.endTime | date: 'short' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #emptyTasks>
+            <p class="info">Sem tarefas associadas.</p>
+          </ng-template>
+        </div>
+
+        <div class="details-block" *ngIf="selectedPlan.changeLogs?.length">
+          <h4>Historico</h4>
+          <div class="history-list">
+            <div class="history-item" *ngFor="let log of selectedPlan.changeLogs">
+              <div>
+                <strong>{{ log.changedBy || 'desconhecido' }}</strong>
+                <span class="muted small">{{ log.createdAt | date: 'short' }}</span>
+              </div>
+              <p class="muted small">{{ log.reason || '-' }}</p>
+              <p class="warning" *ngIf="log.warnings?.length">
+                Avisos: {{ formatWarnings(log.warnings) }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="editingPlan">
+      <section class="modal-sheet edit-panel" #editSheet id="edit-sheet">
+        <div class="edit-header">
+          <div>
+            <p class="eyebrow">Edicao do plano</p>
+            <h3>{{ editingPlan.name }}</h3>
+            <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} -> Dock {{ editingPlan.dockId || '-' }}</p>
+            <p class="muted small">
+              Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por
+              {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason">
+                ({{ editingPlan.lastChangeReason }})
+              </ng-container>
+            </p>
+          </div>
+          <button type="button" class="ghost-btn" (click)="cancelEdit()">Fechar</button>
+        </div>
+        <div class="edit-messages">
+          <p class="info" *ngIf="editLoading">A carregar detalhes do plano...</p>
+          <p class="error" *ngIf="editError">{{ editError }}</p>
+          <p class="success" *ngIf="editSuccess">{{ editSuccess }}</p>
+          <ul class="warning-list" *ngIf="editWarnings.length">
+            <li *ngFor="let warning of editWarnings">{{ warning }}</li>
+          </ul>
+        </div>
+        <div class="edit-menu">
+          <button type="button" [class.active]="editSection === 'summary'" (click)="setEditSection('summary')">
+            Dados principais
+          </button>
+          <button type="button" [class.active]="editSection === 'tasks'" (click)="setEditSection('tasks')">
+            Tarefas
+          </button>
+          <button type="button" [class.active]="editSection === 'history'" (click)="setEditSection('history')">
+            Historico
+          </button>
+        </div>
+        <form class="edit-form" [formGroup]="editForm" (ngSubmit)="onSaveEdit()">
+          <div class="edit-grid" *ngIf="editSection === 'summary'">
+            <label>
+              <span class="field-label">Dock</span>
+              <select formControlName="dockId">
+                <option value="">Selecionar dock</option>
+                <option *ngFor="let d of docks" [value]="d.id.toString()">
+                  {{ d.name }} ({{ d.location }})
+                </option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Estado</span>
+              <select formControlName="status">
+                <option *ngFor="let status of planStatuses" [value]="status">{{ status }}</option>
+              </select>
+            </label>
+            <label class="wide">
+              <span class="field-label">Motivo da alteracao</span>
+              <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
+            </label>
+          </div>
+          <div class="tasks-editor" formArrayName="tasks" *ngIf="editSection === 'tasks'">
+            <div class="tasks-header">
+              <div>
+                <h4>Tarefas do plano</h4>
+                <p class="muted small">Associe grua, armazem e intervalos de tempo a cada tarefa.</p>
+              </div>
+              <button type="button" class="ghost-btn" (click)="addTask()">
+                + Adicionar tarefa
+              </button>
+            </div>
+            <div
+              class="task-row"
+              *ngFor="let taskGroup of taskControls.controls; let i = index"
+              [formGroupName]="i"
+            >
+              <div class="task-row-header">
+                <span class="task-title">Tarefa {{ i + 1 }}</span>
+                <button type="button" class="ghost-btn small" (click)="removeTask(i)">
+                  Remover
+                </button>
+              </div>
+              <div class="task-row-fields">
+                <label>
+                  <span class="field-label">Tipo</span>
+                  <input type="text" formControlName="type" />
+                </label>
+                <label>
+                  <span class="field-label">Grua</span>
+                  <select formControlName="craneId">
+                    <option value="">Selecionar grua</option>
+                    <option *ngFor="let r of craneResources" [value]="r.code">
+                      {{ r.code }} - {{ r.description }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Armazem</span>
+                  <select formControlName="storageAreaId">
+                    <option value="">Selecionar armazem</option>
+                    <option *ngFor="let a of storageAreas" [value]="a.id.toString()">
+                      {{ a.location }} ({{ a.type }})
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Staff</span>
+                  <select formControlName="staffIds" multiple>
+                    <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
+                      {{ s.mecanographicNumber }} - {{ s.shortName }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Inicio (ISO)</span>
+                  <input type="text" formControlName="startTime" />
+                </label>
+                <label>
+                  <span class="field-label">Fim (ISO)</span>
+                  <input type="text" formControlName="endTime" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="edit-history" *ngIf="editSection === 'history'">
+            <h4>Historico de alteracoes</h4>
+            <div *ngIf="editingPlan.changeLogs?.length; else noHistory" class="history-list">
+              <div class="history-item" *ngFor="let log of editingPlan.changeLogs">
+                <div>
+                  <strong>{{ log.changedBy || 'desconhecido' }}</strong>
+                  <span class="muted small">{{ log.createdAt | date: 'short' }}</span>
+                </div>
+                <p class="muted small">{{ log.reason || '-' }}</p>
+                <p class="warning" *ngIf="log.warnings?.length">
+                  Avisos: {{ formatWarnings(log.warnings) }}
+                </p>
+              </div>
+            </div>
+            <ng-template #noHistory>
+              <p class="info">Sem historico disponivel.</p>
+            </ng-template>
+          </div>
+          <div class="edit-actions">
+            <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">
+              {{ editSaving ? 'A guardar...' : 'Guardar alteracoes' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
 
     <p *ngIf="!loading && !error && sortedPlans.length === 0" class="info">
       {{ savedEmptyMessage || 'Sem planos de operacao disponiveis.' }}

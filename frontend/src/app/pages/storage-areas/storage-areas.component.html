@@ -175,7 +175,7 @@
                   ></div>
                 </div>
                 <div class="progress-meta">
-                  <span>{{ area.currentOccupancyTEU ?? 0 }} / {{ area.maxCapacityTEU }} {{ i18n.t('storageAreas.table.occupancySuffix') }}</span>
+                  <span>{{ area.currentOccupancyTEU }} / {{ area.maxCapacityTEU }} {{ i18n.t('storageAreas.table.occupancySuffix') }}</span>
                   <span class="percent" *ngIf="getOccupancyPercent(area) !== null">
                     {{ percentFormatter.format(getOccupancyPercent(area)!) }}%
                   </span>

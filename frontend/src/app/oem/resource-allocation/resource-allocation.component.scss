@@ -52,6 +52,12 @@
         font-weight: 500;
       }
     }
+      .date-range-label {
+        input {
+          cursor: pointer;
+          background-color: #f9fafb;
+        }
+      }
   }
 
   .filter-actions {

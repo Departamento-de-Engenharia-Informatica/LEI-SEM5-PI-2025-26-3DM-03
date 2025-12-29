@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
@@ -8,7 +8,7 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
+import { finalize, debounceTime } from 'rxjs/operators';
 import {
   OemApiService,
   OperationPlanDto,
@@ -35,6 +35,8 @@ type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
   styleUrls: ['./operation-plans.component.scss'],
 })
 export class OemOperationPlansComponent implements OnInit {
+  @ViewChild('detailsSheet') detailsSheet?: ElementRef<HTMLElement>;
+  @ViewChild('editSheet') editSheet?: ElementRef<HTMLElement>;
   form: FormGroup;
   savedFilterForm: FormGroup;
 
@@ -65,6 +67,11 @@ export class OemOperationPlansComponent implements OnInit {
   editError: string | null = null;
   editWarnings: string[] = [];
   editSuccess: string | null = null;
+  editSection: 'summary' | 'tasks' | 'history' = 'summary';
+
+  selectedPlan: OperationPlanDto | null = null;
+  detailsLoadingId: number | null = null;
+  detailsError: string | null = null;
 
   deleteLoadingId: number | null = null;
   deleteError: string | null = null;
@@ -123,6 +130,12 @@ export class OemOperationPlansComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.fetchPlans();
+
+    // Sempre que o utilizador altera os filtros de "Planos guardados",
+    // recarregar automaticamente a lista.
+    this.savedFilterForm.valueChanges
+      .pipe(debounceTime(300))
+      .subscribe(() => this.fetchPlans());
     await this.loadReferenceData();
     // Gera automaticamente um preview inicial para a data por defeito
     this.onPreview();
@@ -379,10 +392,31 @@ export class OemOperationPlansComponent implements OnInit {
   startEdit(plan: OperationPlanDto): void {
     this.editingPlan = plan;
     this.editForm = this.createEditForm(plan);
-    this.editLoading = false;
+    this.editLoading = true;
     this.editError = null;
     this.editWarnings = [];
     this.editSuccess = null;
+    this.editSection = 'summary';
+    this.resetModalScroll(this.editSheet, 'edit-sheet');
+
+    this.api
+      .getOperationPlan(plan.id)
+      .pipe(finalize(() => (this.editLoading = false)))
+      .subscribe({
+        next: response => {
+          this.editingPlan = response;
+          this.editForm = this.createEditForm(response);
+          if (this.selectedPlan?.id === response.id) {
+            this.selectedPlan = response;
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.editError = this.normalizeError(
+            err,
+            'Falha ao carregar detalhes do plano.',
+          );
+        },
+      });
   }
 
   cancelEdit(): void {
@@ -391,6 +425,7 @@ export class OemOperationPlansComponent implements OnInit {
     this.editWarnings = [];
     this.editSuccess = null;
     this.editError = null;
+    this.editSection = 'summary';
   }
 
   onDeletePlan(plan: OperationPlanDto): void {
@@ -417,6 +452,10 @@ export class OemOperationPlansComponent implements OnInit {
           this.plans = this.plans.filter(p => p.id !== plan.id);
           if (this.editingPlan?.id === plan.id) {
             this.cancelEdit();
+          }
+          if (this.selectedPlan?.id === plan.id) {
+            this.selectedPlan = null;
+            this.detailsError = null;
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -458,6 +497,9 @@ export class OemOperationPlansComponent implements OnInit {
           this.plans = this.plans.map(p =>
             p.id === response.plan.id ? response.plan : p,
           );
+          if (this.selectedPlan?.id === response.plan.id) {
+            this.selectedPlan = response.plan;
+          }
         },
         error: (err: HttpErrorResponse) => {
           this.editError = this.normalizeError(err, 'Falha ao atualizar o plano.');
@@ -480,6 +522,70 @@ export class OemOperationPlansComponent implements OnInit {
     } else {
       this.expandedRows.add(vvnId);
     }
+  }
+
+  togglePlanDetails(plan: OperationPlanDto): void {
+    if (!plan) {
+      return;
+    }
+
+    if (this.selectedPlan?.id === plan.id) {
+      this.selectedPlan = null;
+      this.detailsError = null;
+      return;
+    }
+
+    this.selectedPlan = plan;
+    this.detailsLoadingId = plan.id;
+    this.detailsError = null;
+    this.resetModalScroll(this.detailsSheet, 'details-sheet');
+
+    this.api
+      .getOperationPlan(plan.id)
+      .pipe(finalize(() => (this.detailsLoadingId = null)))
+      .subscribe({
+        next: response => {
+          this.selectedPlan = response;
+        },
+        error: (err: HttpErrorResponse) => {
+          this.detailsError = this.normalizeError(
+            err,
+            'Falha ao carregar detalhes do plano.',
+          );
+        },
+      });
+  }
+
+  setEditSection(section: 'summary' | 'tasks' | 'history'): void {
+    this.editSection = section;
+  }
+
+  closeDetails(): void {
+    this.selectedPlan = null;
+    this.detailsError = null;
+  }
+
+  formatStaffIds(staffIds?: string[] | null): string {
+    return staffIds && staffIds.length ? staffIds.join(', ') : '-';
+  }
+
+  formatWarnings(warnings?: string[] | null): string {
+    return warnings && warnings.length ? warnings.join(', ') : '-';
+  }
+
+  private resetModalScroll(
+    target?: ElementRef<HTMLElement>,
+    fallbackId?: string,
+  ): void {
+    setTimeout(() => {
+      const element = target?.nativeElement ?? (fallbackId
+        ? (document.getElementById(fallbackId) as HTMLElement | null)
+        : null);
+      if (element) {
+        element.scrollTop = 0;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }, 0);
   }
 
   isExpanded(vvnId: number): boolean {

@@ -11,13 +11,14 @@
 
   <form class="filter-card" [formGroup]="form" (ngSubmit)="onSearch()">
     <div class="filter-grid">
-      <label>
-        De
-        <input type="datetime-local" formControlName="from" />
-      </label>
-      <label>
-        Ate
-        <input type="datetime-local" formControlName="to" />
+      <label class="date-range-label">
+        Datas
+        <input
+          #dateRangeInput
+          type="text"
+          [value]="displayRange || 'Selecionar datas'"
+          readonly
+        />
       </label>
       <label>
         Tipo de recurso

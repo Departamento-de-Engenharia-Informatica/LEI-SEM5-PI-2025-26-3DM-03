@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -21,6 +21,8 @@ import { StaffService } from '../../services/staff/staff.service';
 import { StaffDTO } from '../../models/staff';
 
 type AllocationRow = ResourceAllocationSummaryDto;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import flatpickr from 'flatpickr';
 
 @Component({
   selector: 'app-oem-resource-allocation',
@@ -29,7 +31,10 @@ type AllocationRow = ResourceAllocationSummaryDto;
   templateUrl: './resource-allocation.component.html',
   styleUrls: ['./resource-allocation.component.scss'],
 })
-export class ResourceAllocationComponent implements OnInit {
+export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('dateRangeInput', { static: false })
+  dateRangeInput?: ElementRef<HTMLInputElement>;
+
   form: FormGroup;
   results: AllocationRow[] = [];
   loading = false;
@@ -44,6 +49,9 @@ export class ResourceAllocationComponent implements OnInit {
   staff: StaffDTO[] = [];
   staffLoading = false;
   staffError: string | null = null;
+
+  private dateRangePicker: flatpickr.Instance | null = null;
+  displayRange = '';
 
   readonly resourceTypes: { id: ResourceAllocationResourceType; label: string }[] = [
     { id: 'crane', label: 'Crane' },
@@ -73,7 +81,32 @@ export class ResourceAllocationComponent implements OnInit {
 
   ngOnInit(): void {
     // Carrega resultados iniciais para o intervalo por defeito
+    this.updateDisplayRangeFromForm();
     this.onSearch();
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.dateRangeInput) {
+      return;
+    }
+
+    const dates = this.getDatesFromForm();
+
+    this.dateRangePicker = flatpickr(this.dateRangeInput.nativeElement, {
+      mode: 'range',
+      dateFormat: 'Y-m-d',
+      defaultDate: dates as Date[],
+      onChange: (selectedDates: Date[]) => {
+        if (selectedDates.length === 2) {
+          this.applySelectedRange(selectedDates[0], selectedDates[1]);
+        }
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.dateRangePicker?.destroy();
+    this.dateRangePicker = null;
   }
 
   get fromControl() {
@@ -149,6 +182,11 @@ export class ResourceAllocationComponent implements OnInit {
     this.results = [];
     this.error = null;
     this.emptyMessage = null;
+    this.updateDisplayRangeFromForm();
+    const dates = this.getDatesFromForm();
+    if (this.dateRangePicker && dates.length === 2) {
+      this.dateRangePicker.setDate(dates as Date[], true);
+    }
   }
 
   private toIsoString(value: string): string | null {
@@ -178,6 +216,53 @@ export class ResourceAllocationComponent implements OnInit {
     const hh = pad(date.getHours());
     const mi = pad(date.getMinutes());
     return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  }
+
+  private getDatesFromForm(): Date[] {
+    const { from, to } = this.form.value;
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const result: Date[] = [];
+    if (fromDate && !Number.isNaN(fromDate.getTime())) {
+      result.push(fromDate);
+    }
+    if (toDate && !Number.isNaN(toDate.getTime())) {
+      result.push(toDate);
+    }
+    return result;
+  }
+
+  private applySelectedRange(start: Date, end: Date): void {
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0);
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 0);
+
+    this.form.patchValue(
+      {
+        from: this.toLocalInput(startDay),
+        to: this.toLocalInput(endDay),
+      },
+      { emitEvent: false },
+    );
+
+    this.updateDisplayRange(startDay, endDay);
+  }
+
+  private updateDisplayRangeFromForm(): void {
+    const dates = this.getDatesFromForm();
+    if (dates.length === 2) {
+      this.updateDisplayRange(dates[0], dates[1]);
+    } else {
+      this.displayRange = '';
+    }
+  }
+
+  private updateDisplayRange(from: Date, to: Date): void {
+    const formatter = new Intl.DateTimeFormat('pt-PT', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    this.displayRange = `${formatter.format(from)} · ${formatter.format(to)}`;
   }
 
   private normalizeError(err: HttpErrorResponse, fallback: string): string {

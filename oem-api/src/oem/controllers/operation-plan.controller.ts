@@ -96,7 +96,7 @@ export class OperationPlanController {
     @Body() payload: GenerateOperationPlansRequestDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<OperationPlanEntity[]> {
-    const createdBy = req.user?.userId ?? req.user?.email ?? 'system';
+    const createdBy = req.user?.name ?? req.user?.email ?? req.user?.userId ?? 'system';
     return this.service.generateAndPersistForDay(
       payload.date,
       payload.algorithm,
@@ -114,7 +114,7 @@ export class OperationPlanController {
     @Body() payload: UpdateOperationPlanDto,
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<OperationPlanUpdateResult> {
-    const updatedBy = req.user?.userId ?? req.user?.email ?? 'unknown';
+    const updatedBy = req.user?.name ?? req.user?.email ?? req.user?.userId ?? 'unknown';
     return this.service.updatePlan(id, payload, updatedBy);
   }
 
