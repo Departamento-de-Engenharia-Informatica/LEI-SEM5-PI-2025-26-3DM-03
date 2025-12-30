@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY, forkJoin, of } from 'rxjs';
-import { catchError, finalize, switchMap } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import {
   ExecutedOperationDto,
   OemApiService,
@@ -205,66 +205,49 @@ export class VesselVisitExecutionsHistoryComponent
     this.operationSuccess.clear();
 
     this.api
-      .getVesselVisitExecution(exec.id)
+      .getPlannedOperationsForExecution(exec.id)
       .pipe(
-        switchMap((detail) => {
-          if (!detail?.operationPlanId) {
-            this.operationsError =
-              'Esta execucao nao tem um plano de operacoes associado. Registos indisponiveis.';
-            return forkJoin({
-              planned: of<PlannedOperationWithExecution[]>([]),
-              executed: of<ExecutedOperationDto[]>([]),
-            });
-          }
+        catchError((error: HttpErrorResponse) => {
+          this.zone.run(() => {
+            if (error.status === 404) {
+              this.operationsError =
+                'Esta execucao nao tem um plano de operacoes associado. Registos indisponiveis.';
+            } else {
+              this.operationsError = this.normalizeError(
+                error,
+                'Falha ao carregar as operacoes planeadas.',
+              );
+            }
+          });
+          return of<PlannedOperationWithExecution[]>([]);
+        }),
+        switchMap((planned: PlannedOperationWithExecution[] | unknown) => {
+          const plannedSafe = Array.isArray(planned) ? planned : [];
 
-          return forkJoin({
-            planned: this.api.getPlannedOperationsByPlan(detail.operationPlanId).pipe(
-              catchError((error: HttpErrorResponse) => {
-                this.operationsError = this.normalizeError(
-                  error,
-                  'Falha ao carregar as operacoes planeadas.',
-                );
-                return of<PlannedOperationWithExecution[]>([]);
-              }),
-            ),
-            executed: this.api.getExecutedOperationsForExecution(exec.id).pipe(
-              catchError((error: HttpErrorResponse) => {
+          return this.api.getExecutedOperationsForExecution(exec.id).pipe(
+            catchError((error: HttpErrorResponse) => {
+              this.zone.run(() => {
                 this.operationsError = this.normalizeError(
                   error,
                   'Falha ao carregar operacoes executadas.',
                 );
-                return of<ExecutedOperationDto[]>([]);
-              }),
-            ),
-          });
-        }),
-        finalize(() => (this.operationsLoading = false)),
-      )
-      .subscribe({
-        next: ({ planned, executed }: { planned: PlannedOperationWithExecution[]; executed: ExecutedOperationDto[] }) => {
-          const executedMap = new Map<number, ExecutedOperationDto>();
-          executed.forEach((op) => executedMap.set(op.plannedOperationId, op));
-
-          this.operations = planned.map((plan) => {
-            const execData = executedMap.get(plan.id) ?? null;
-            const status = execData?.executionStatus ?? plan.executionStatus ?? 'PLANNED';
-            return {
-              ...plan,
-              executionStatus: status,
-              actualStartTime: execData?.actualStartTime ?? plan.actualStartTime ?? null,
-              actualEndTime: execData?.actualEndTime ?? plan.actualEndTime ?? null,
-              actualResourcesUsed: execData?.resourcesUsed ?? plan.actualResourcesUsed ?? null,
-            };
-          });
-
-          this.operationsForm = this.buildOperationsForm(this.operations);
-        },
-        error: (err: HttpErrorResponse) => {
-          this.operationsError = this.normalizeError(
-            err,
-            'Falha ao carregar as operacoes planeadas.',
+              });
+              return of<ExecutedOperationDto[]>([]);
+            }),
+            map((executed: ExecutedOperationDto[]) => ({ planned: plannedSafe, executed })),
           );
-        },
+        }),
+      )
+      .subscribe(({ planned, executed }) => {
+        this.zone.run(() => {
+          this.buildOperationsFromResult(
+            planned as PlannedOperationWithExecution[],
+            executed as ExecutedOperationDto[],
+          );
+          this.operationsLoading = false;
+          this.cdr.detectChanges();
+          this.appRef.tick();
+        });
       });
   }
 
@@ -276,6 +259,28 @@ export class VesselVisitExecutionsHistoryComponent
     this.operationsError = null;
     this.operationErrors.clear();
     this.operationSuccess.clear();
+  }
+
+  private buildOperationsFromResult(
+    planned: PlannedOperationWithExecution[],
+    executed: ExecutedOperationDto[],
+  ): void {
+    const executedMap = new Map<number, ExecutedOperationDto>();
+    (executed ?? []).forEach((op) => executedMap.set(op.plannedOperationId, op));
+
+    this.operations = (planned ?? []).map((plan) => {
+      const execData = executedMap.get(plan.id) ?? null;
+      const status = execData?.executionStatus ?? plan.executionStatus ?? 'PLANNED';
+      return {
+        ...plan,
+        executionStatus: status,
+        actualStartTime: execData?.actualStartTime ?? plan.actualStartTime ?? null,
+        actualEndTime: execData?.actualEndTime ?? plan.actualEndTime ?? null,
+        actualResourcesUsed: execData?.resourcesUsed ?? plan.actualResourcesUsed ?? null,
+      };
+    });
+
+    this.operationsForm = this.buildOperationsForm(this.operations);
   }
 
   submitCreate(): void {
