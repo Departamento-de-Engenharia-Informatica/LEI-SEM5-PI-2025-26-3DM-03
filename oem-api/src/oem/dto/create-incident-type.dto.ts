@@ -1,14 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  IsInt,
-  Min,
-} from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches, IsInt, Min } from 'class-validator';
 import { IncidentSeverity } from '../domain/incident-type.entity';
 
 export class CreateIncidentTypeDto {

@@ -17,7 +17,10 @@ export class OperationPlanPreviewDto {
   @ApiProperty({ description: 'Planned end timestamp in ISO-8601 format' })
   plannedEndTime!: string;
 
-  @ApiProperty({ description: 'Difference between planned end and expected departure in minutes', example: 15 })
+  @ApiProperty({
+    description: 'Difference between planned end and expected departure in minutes',
+    example: 15,
+  })
   expectedDelayMinutes!: number | null;
 
   @ApiProperty({ example: 'single-crane' })

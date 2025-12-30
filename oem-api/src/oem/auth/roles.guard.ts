@@ -29,10 +29,14 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException('User context missing');
     }
     const userRoles = new Set(
-      (user.roles ?? []).map((role) => role.toString().trim().toLowerCase()).filter((role) => role.length > 0),
+      (user.roles ?? [])
+        .map((role) => role.toString().trim().toLowerCase())
+        .filter((role) => role.length > 0),
     );
 
-    const required = requiredRoles.map((role) => role.trim().toLowerCase()).filter((role) => role.length > 0);
+    const required = requiredRoles
+      .map((role) => role.trim().toLowerCase())
+      .filter((role) => role.length > 0);
 
     const hasAnyRequiredRole = required.some((role) => userRoles.has(role));
 

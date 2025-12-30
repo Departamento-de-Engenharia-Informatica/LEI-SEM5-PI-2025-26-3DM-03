@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { ComplementaryTaskEntity } from './complementary-task.entity';
 
 @Entity({ name: 'complementary_task_categories' })

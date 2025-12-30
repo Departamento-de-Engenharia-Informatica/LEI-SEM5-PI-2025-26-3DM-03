@@ -66,7 +66,9 @@ async function bootstrap() {
   }
 
   await app.listen(process.env.PORT ?? 3000);
-  logger.log(`Server listening on ${httpsOptions ? 'https' : 'http'}://localhost:${process.env.PORT ?? 3000}`);
+  logger.log(
+    `Server listening on ${httpsOptions ? 'https' : 'http'}://localhost:${process.env.PORT ?? 3000}`,
+  );
 }
 
 bootstrap();

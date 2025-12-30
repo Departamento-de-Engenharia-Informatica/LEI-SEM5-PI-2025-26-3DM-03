@@ -149,11 +149,9 @@ export class OemVvnService {
   }
 
   private getTodoApiCandidates(): string[] {
-    return [
-      this.todoApiBaseUrl,
-      'http://localhost:8080/api',
-      'https://localhost:7167/api',
-    ].filter((v, idx, arr) => arr.indexOf(v) === idx);
+    return [this.todoApiBaseUrl, 'http://localhost:8080/api', 'https://localhost:7167/api'].filter(
+      (v, idx, arr) => arr.indexOf(v) === idx,
+    );
   }
 
   private async tryFetchFromTodoApi(base: string, dayStart: Date, dayEnd: Date): Promise<OemVvn[]> {
@@ -192,7 +190,7 @@ export class OemVvnService {
     }
 
     return [];
-}
+  }
 
   // Ensures strings without timezone are treated as UTC (e.g., "2025-11-16T00:00:00" -> Z)
   private parseAsUtc(value: string): Date {

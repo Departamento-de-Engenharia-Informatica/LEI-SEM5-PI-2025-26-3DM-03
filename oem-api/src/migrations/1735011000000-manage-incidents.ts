@@ -58,7 +58,11 @@ export class ManageIncidents1735011000000 implements MigrationInterface {
 
     await queryRunner.createIndex(
       'incidents',
-      new TableIndex({ name: 'UQ_incidents_identifier', columnNames: ['identifier'], isUnique: true }),
+      new TableIndex({
+        name: 'UQ_incidents_identifier',
+        columnNames: ['identifier'],
+        isUnique: true,
+      }),
     );
 
     await queryRunner.createIndices('incidents', [

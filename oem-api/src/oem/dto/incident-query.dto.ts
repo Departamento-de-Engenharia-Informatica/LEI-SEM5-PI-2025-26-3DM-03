@@ -1,13 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsISO8601,
-  IsOptional,
-  IsString,
-  MaxLength,
-} from 'class-validator';
+import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
 import { IncidentScope, IncidentStatus } from '../domain/incident.entity';
 import { IncidentSeverity } from '../domain/incident-type.entity';
 

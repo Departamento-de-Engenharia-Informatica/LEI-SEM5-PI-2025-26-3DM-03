@@ -123,9 +123,7 @@ export class VesselVisitExecutionController {
   @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'List executed operations recorded for the vessel visit execution' })
   @ApiOkResponse({ type: ExecutedOperationDto, isArray: true })
-  listExecutedOperations(
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<ExecutedOperationDto[]> {
+  listExecutedOperations(@Param('id', ParseIntPipe) id: number): Promise<ExecutedOperationDto[]> {
     return this.service.listExecutedOperations(id);
   }
 
@@ -140,7 +138,7 @@ export class VesselVisitExecutionController {
     @Req() req: Request & { user?: AuthenticatedUser },
   ): Promise<ExecutedOperationDto> {
     return this.service.upsertExecutedOperation(id, plannedOperationId, payload, req.user ?? null);
-      }
+  }
 
   @Delete(':id')
   @Roles('oem:vessel:write')
@@ -149,5 +147,4 @@ export class VesselVisitExecutionController {
   remove(@Param('id', ParseIntPipe) id: number): Promise<VesselVisitExecutionEntity> {
     return this.service.remove(id);
   }
-  
 }

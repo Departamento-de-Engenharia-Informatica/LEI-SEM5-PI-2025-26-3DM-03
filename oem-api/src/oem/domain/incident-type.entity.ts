@@ -26,7 +26,11 @@ export class IncidentType extends BaseDomainEntity {
   @ApiPropertyOptional({ description: 'Identifier of the parent incident type', nullable: true })
   parentId?: number | null;
 
-  @ApiPropertyOptional({ type: () => IncidentType, description: 'Parent incident type', nullable: true })
+  @ApiPropertyOptional({
+    type: () => IncidentType,
+    description: 'Parent incident type',
+    nullable: true,
+  })
   parent?: IncidentType | null;
 
   @ApiPropertyOptional({

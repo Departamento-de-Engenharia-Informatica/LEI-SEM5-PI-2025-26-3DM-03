@@ -1,10 +1,4 @@
-import {
-  Column,
-  Entity,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { OperationPlanStatus } from '../domain/operation-plan.entity';
 import { VesselVisitExecutionEntity } from './vessel-visit-execution.entity';
 import { OperationPlanTaskEntity } from './operation-plan-task.entity';

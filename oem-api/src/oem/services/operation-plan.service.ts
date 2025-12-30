@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { AxiosResponse } from 'axios';
@@ -184,7 +189,9 @@ export class OperationPlanService {
     );
 
     const planDay =
-      dto.targetDay ?? existing.targetDay?.toISOString().slice(0, 10) ?? dto.plannedStartTime?.slice(0, 10);
+      dto.targetDay ??
+      existing.targetDay?.toISOString().slice(0, 10) ??
+      dto.plannedStartTime?.slice(0, 10);
     const warnings = await this.detectInconsistencies(candidatePlan, normalizedTasks, planDay);
 
     const merged = this.repo.merge(
@@ -331,12 +338,7 @@ export class OperationPlanService {
 
       for (const vvn of dockVvns) {
         const plannedStart = this.computePlannedStart(vvn.eta, currentDockTime);
-        const schedule = this.buildScheduleForVvn(
-          vvn,
-          plannedStart,
-          algorithm,
-          planningResources,
-        );
+        const schedule = this.buildScheduleForVvn(vvn, plannedStart, algorithm, planningResources);
         currentDockTime = new Date(schedule.plannedEnd.getTime());
 
         const expectedDelayMinutes = this.computeDelayMinutes(schedule.plannedEnd, vvn.etd);
@@ -587,7 +589,12 @@ export class OperationPlanService {
         continue;
       }
 
-      const minutes = this.computeOverlapMinutes(task.startTime, task.endTime, rangeStart, rangeEnd);
+      const minutes = this.computeOverlapMinutes(
+        task.startTime,
+        task.endTime,
+        rangeStart,
+        rangeEnd,
+      );
       if (minutes <= 0) {
         continue;
       }
@@ -620,7 +627,12 @@ export class OperationPlanService {
         continue;
       }
 
-      const minutes = this.computeOverlapMinutes(task.startTime, task.endTime, rangeStart, rangeEnd);
+      const minutes = this.computeOverlapMinutes(
+        task.startTime,
+        task.endTime,
+        rangeStart,
+        rangeEnd,
+      );
       if (minutes <= 0) {
         continue;
       }
@@ -817,7 +829,9 @@ export class OperationPlanService {
     }
 
     const dayIso =
-      planDay ?? this.toIsoDate(candidatePlan.plannedStartTime) ?? this.toIsoDate(tasks[0].startTime);
+      planDay ??
+      this.toIsoDate(candidatePlan.plannedStartTime) ??
+      this.toIsoDate(tasks[0].startTime);
 
     let otherPlans: OperationPlanEntity[] = [];
     if (dayIso) {
@@ -910,8 +924,8 @@ export class OperationPlanService {
     ];
     const diff: Record<string, unknown> = {};
     for (const key of watched) {
-      const before = (oldPlan as any)[key];
-      const after = (newPlan as any)[key];
+      const before = oldPlan[key] as unknown;
+      const after = newPlan[key] as unknown;
       const beforeVal = before instanceof Date ? before.toISOString() : before;
       const afterVal = after instanceof Date ? after.toISOString() : after;
       if (beforeVal !== afterVal) {
@@ -964,7 +978,8 @@ export class OperationPlanService {
               type: operation.type,
               craneId: operation.craneId,
               storageAreaId: operation.storageAreaId,
-              staffIds: operation.staffIds && operation.staffIds.length ? operation.staffIds : undefined,
+              staffIds:
+                operation.staffIds && operation.staffIds.length ? operation.staffIds : undefined,
               startTime: new Date(operation.startTime),
               endTime: new Date(operation.endTime),
             }),
@@ -1054,9 +1069,7 @@ export class OperationPlanService {
       const staffIds = staff
         .filter(
           (s) =>
-            s.active &&
-            s.mecanographicNumber &&
-            (!s.status || s.status.toLowerCase() === 'active'),
+            s.active && s.mecanographicNumber && (!s.status || s.status.toLowerCase() === 'active'),
         )
         .map((s) => s.mecanographicNumber.trim())
         .filter(Boolean);
@@ -1111,15 +1124,12 @@ export class OperationPlanService {
     planningResources: PlanningResources,
   ): { plannedStart: Date; plannedEnd: Date; operations: OperationTaskPreviewDto[] } {
     const baseDurationMinutes = Math.max(vvn.containers * 2, 60); // hardcoded rate: 2 min/container, min 1h
-    const storageArea =
-      this.pickStorageAreaId(planningResources) ?? `YARD-${vvn.dockId ?? 'GEN'}`;
+    const storageArea = this.pickStorageAreaId(planningResources) ?? `YARD-${vvn.dockId ?? 'GEN'}`;
     const staffIds = this.pickStaffIds(planningResources) ?? [];
 
     if (algorithm === 'multi-crane') {
       if (planningResources.craneIds.length < 2) {
-        throw new BadRequestException(
-          'Multi-crane requires at least 2 active cranes.',
-        );
+        throw new BadRequestException('Multi-crane requires at least 2 active cranes.');
       }
       const [craneA, craneB] = this.pickMultiCraneIds(planningResources);
       const effectiveMinutes = Math.ceil(baseDurationMinutes / 2); // two cranes to cut duration

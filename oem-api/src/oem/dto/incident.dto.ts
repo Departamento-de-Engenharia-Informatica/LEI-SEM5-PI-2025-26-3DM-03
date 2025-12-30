@@ -23,7 +23,11 @@ export class IncidentDto {
   @ApiProperty({ description: 'Incident type identifier' })
   incidentTypeId!: number;
 
-  @ApiPropertyOptional({ description: 'Incident type metadata', type: IncidentTypeSummaryDto, nullable: true })
+  @ApiPropertyOptional({
+    description: 'Incident type metadata',
+    type: IncidentTypeSummaryDto,
+    nullable: true,
+  })
   incidentType?: IncidentTypeSummaryDto | null;
 
   @ApiProperty({ enum: IncidentSeverity })
@@ -62,9 +66,16 @@ export class IncidentDto {
   @ApiProperty({ enum: IncidentStatus })
   status!: IncidentStatus;
 
-  @ApiPropertyOptional({ description: 'Whether the incident is currently impacting operations', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Whether the incident is currently impacting operations',
+    nullable: true,
+  })
   isImpactingNow?: boolean;
 
-  @ApiPropertyOptional({ description: 'Identifiers of impacted VVEs (SPECIFIC scope)', type: [Number], nullable: true })
+  @ApiPropertyOptional({
+    description: 'Identifiers of impacted VVEs (SPECIFIC scope)',
+    type: [Number],
+    nullable: true,
+  })
   affectedVveIds?: number[] | null;
 }

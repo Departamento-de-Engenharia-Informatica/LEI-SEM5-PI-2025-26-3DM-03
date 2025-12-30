@@ -8,7 +8,11 @@ export class RegenerateMissingOperationPlansRequestDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date!: string;
 
-  @ApiPropertyOptional({ description: 'Algorithm identifier', example: 'single-crane', default: 'single-crane' })
+  @ApiPropertyOptional({
+    description: 'Algorithm identifier',
+    example: 'single-crane',
+    default: 'single-crane',
+  })
   @IsString()
   @IsOptional()
   algorithm?: string;

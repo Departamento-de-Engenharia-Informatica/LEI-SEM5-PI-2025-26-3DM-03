@@ -7,16 +7,16 @@ import {
   CreateComplementaryTaskDto,
   UpdateComplementaryTaskDto,
 } from '../dto';
-import {
-  ComplementaryTaskMode,
-  ComplementaryTaskStatus,
-} from '../domain/complementary-task.entity';
+import { ComplementaryTaskStatus } from '../domain/complementary-task.entity';
 import { ComplementaryTaskEntity } from '../persistence/complementary-task.entity';
 import { ComplementaryTaskCategoryEntity } from '../persistence/complementary-task-category.entity';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
 import { ComplementaryTaskAuditEntity } from '../persistence/complementary-task-audit.entity';
 import { AuthenticatedUser } from '../auth/types';
-import { deriveTaskStatus, isImpactingNow as isImpactingNowHelper } from '../complementary-tasks/complementary-task.utils';
+import {
+  deriveTaskStatus,
+  isImpactingNow as isImpactingNowHelper,
+} from '../complementary-tasks/complementary-task.utils';
 
 type QueryableTask = ComplementaryTaskEntity & { vve?: VesselVisitExecutionEntity | null };
 
@@ -122,7 +122,7 @@ export class ComplementaryTaskService {
         ? dto.endTime
           ? this.parseDate(dto.endTime, 'endTime')
           : null
-        : existing.endTime ?? null;
+        : (existing.endTime ?? null);
 
       this.ensureChronology(nextStartTime, nextEndTime);
 
@@ -166,12 +166,13 @@ export class ComplementaryTaskService {
   }
 
   private buildBaseQuery(): SelectQueryBuilder<QueryableTask> {
-    return this.repo
-      .createQueryBuilder('task')
-      .leftJoinAndSelect('task.vve', 'vve');
+    return this.repo.createQueryBuilder('task').leftJoinAndSelect('task.vve', 'vve');
   }
 
-  private applyFilters(qb: SelectQueryBuilder<QueryableTask>, filters: ComplementaryTaskQueryDto): void {
+  private applyFilters(
+    qb: SelectQueryBuilder<QueryableTask>,
+    filters: ComplementaryTaskQueryDto,
+  ): void {
     if (filters.vveId !== undefined) {
       qb.andWhere('task.vveId = :vveId', { vveId: filters.vveId });
     }
@@ -320,11 +321,6 @@ export class ComplementaryTaskService {
   }
 
   private resolveActor(user: AuthenticatedUser | null | undefined): string {
-    return (
-      user?.email?.trim() ||
-      user?.userId?.trim() ||
-      user?.name?.trim() ||
-      'system'
-    );
+    return user?.email?.trim() || user?.userId?.trim() || user?.name?.trim() || 'system';
   }
 }

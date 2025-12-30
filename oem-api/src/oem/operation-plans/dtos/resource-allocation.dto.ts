@@ -6,11 +6,17 @@ export const resourceAllocationResourceTypes = ['crane', 'dock', 'staff'] as con
 export type ResourceAllocationResourceType = (typeof resourceAllocationResourceTypes)[number];
 
 export class ResourceAllocationQueryDto {
-  @ApiProperty({ description: 'Start of the analysis period (inclusive)', example: '2025-12-01T00:00:00Z' })
+  @ApiProperty({
+    description: 'Start of the analysis period (inclusive)',
+    example: '2025-12-01T00:00:00Z',
+  })
   @IsISO8601()
   from!: string;
 
-  @ApiProperty({ description: 'End of the analysis period (exclusive)', example: '2025-12-02T00:00:00Z' })
+  @ApiProperty({
+    description: 'End of the analysis period (exclusive)',
+    example: '2025-12-02T00:00:00Z',
+  })
   @IsISO8601()
   to!: string;
 

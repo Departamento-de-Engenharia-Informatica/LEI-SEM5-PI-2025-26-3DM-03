@@ -10,8 +10,8 @@ export class OperationTaskPreviewDto {
   @ApiProperty({ example: 'YARD-1' })
   storageAreaId!: string;
 
-    @ApiProperty({ description: 'Assigned staff identifiers', type: [String], required: false })
-    staffIds?: string[];
+  @ApiProperty({ description: 'Assigned staff identifiers', type: [String], required: false })
+  staffIds?: string[];
 
   @ApiProperty({ description: 'ISO-8601 scheduled start time' })
   startTime!: string;

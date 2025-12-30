@@ -51,10 +51,14 @@ export class VesselVisitExecutionListItemDto {
   @ApiPropertyOptional({ description: 'Tempo de espera at\u00e9 atracar (minutos)' })
   waitingForBerthMinutes?: number | null;
 
-  @ApiPropertyOptional({ description: 'Atraso/adiantamento de chegada (minutos, pode ser negativo)' })
+  @ApiPropertyOptional({
+    description: 'Atraso/adiantamento de chegada (minutos, pode ser negativo)',
+  })
   arrivalDelayMinutes?: number | null;
 
-  @ApiPropertyOptional({ description: 'Atraso/adiantamento de partida (minutos, pode ser negativo)' })
+  @ApiPropertyOptional({
+    description: 'Atraso/adiantamento de partida (minutos, pode ser negativo)',
+  })
   departureDelayMinutes?: number | null;
 
   @ApiPropertyOptional({

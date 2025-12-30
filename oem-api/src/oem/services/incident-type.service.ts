@@ -35,10 +35,7 @@ export class IncidentTypeService {
 
     if (filters.q) {
       const like = `%${filters.q.toLowerCase()}%`;
-      qb.andWhere(
-        '(LOWER(type.code) LIKE :like OR LOWER(type.name) LIKE :like)',
-        { like },
-      );
+      qb.andWhere('(LOWER(type.code) LIKE :like OR LOWER(type.name) LIKE :like)', { like });
     }
 
     qb.orderBy('type.code', 'ASC');
@@ -56,10 +53,7 @@ export class IncidentTypeService {
 
     if (filters.q) {
       const like = `%${filters.q.toLowerCase()}%`;
-      qb.andWhere(
-        '(LOWER(type.code) LIKE :like OR LOWER(type.name) LIKE :like)',
-        { like },
-      );
+      qb.andWhere('(LOWER(type.code) LIKE :like OR LOWER(type.name) LIKE :like)', { like });
     }
 
     qb.orderBy('type.code', 'ASC');

@@ -21,7 +21,10 @@ export class IncidentTypeQueryDto {
   @IsString()
   q?: string;
 
-  @ApiPropertyOptional({ description: 'Return hierarchical tree instead of flat list', type: Boolean })
+  @ApiPropertyOptional({
+    description: 'Return hierarchical tree instead of flat list',
+    type: Boolean,
+  })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()

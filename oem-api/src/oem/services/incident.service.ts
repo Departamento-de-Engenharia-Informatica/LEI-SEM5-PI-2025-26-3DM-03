@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import {
@@ -119,7 +115,10 @@ export class IncidentService {
     return this.buildDto(incident, impactedVves, context.now);
   }
 
-  async createIncident(dto: CreateIncidentDto, user: AuthenticatedUser | null): Promise<IncidentDto> {
+  async createIncident(
+    dto: CreateIncidentDto,
+    user: AuthenticatedUser | null,
+  ): Promise<IncidentDto> {
     await this.incidentTypes.findOne(dto.incidentTypeId);
 
     const startTime = this.parseDate(dto.startTime, 'startTime');
@@ -154,7 +153,15 @@ export class IncidentService {
       if (dto.scope === IncidentScope.SPECIFIC) {
         const diff = await this.syncAffectedVves(manager, saved.id, dto.affectedVveIds ?? []);
         if (diff.added.length) {
-          await this.writeAudit(manager, saved.id, 'ATTACH_VVE', null, null, createdBy, this.buildAffectedNote('Added', diff.added));
+          await this.writeAudit(
+            manager,
+            saved.id,
+            'ATTACH_VVE',
+            null,
+            null,
+            createdBy,
+            this.buildAffectedNote('Added', diff.added),
+          );
         }
       }
 
@@ -226,16 +233,18 @@ export class IncidentService {
       }
 
       if (incident.scope === IncidentScope.UPCOMING) {
-        const impactFrom = dto.impactFrom !== undefined
-          ? dto.impactFrom
-            ? this.parseDate(dto.impactFrom, 'impactFrom')
-            : null
-          : incident.impactFrom ?? null;
-        const impactTo = dto.impactTo !== undefined
-          ? dto.impactTo
-            ? this.parseDate(dto.impactTo, 'impactTo')
-            : null
-          : incident.impactTo ?? null;
+        const impactFrom =
+          dto.impactFrom !== undefined
+            ? dto.impactFrom
+              ? this.parseDate(dto.impactFrom, 'impactFrom')
+              : null
+            : (incident.impactFrom ?? null);
+        const impactTo =
+          dto.impactTo !== undefined
+            ? dto.impactTo
+              ? this.parseDate(dto.impactTo, 'impactTo')
+              : null
+            : (incident.impactTo ?? null);
         this.validateUpcomingWindow(impactFrom, impactTo);
         incident.impactFrom = impactFrom;
         incident.impactTo = impactTo;
@@ -258,7 +267,15 @@ export class IncidentService {
       if (previousScope === IncidentScope.SPECIFIC && saved.scope !== IncidentScope.SPECIFIC) {
         const diff = await this.syncAffectedVves(manager, saved.id, []);
         if (diff.removed.length) {
-          await this.writeAudit(manager, saved.id, 'DETACH_VVE', null, null, actor, this.buildAffectedNote('Removed', diff.removed));
+          await this.writeAudit(
+            manager,
+            saved.id,
+            'DETACH_VVE',
+            null,
+            null,
+            actor,
+            this.buildAffectedNote('Removed', diff.removed),
+          );
         }
       }
 
@@ -312,18 +329,38 @@ export class IncidentService {
       const diff = await this.syncAffectedVves(manager, id, dto.vveIds);
 
       if (diff.added.length) {
-        await this.writeAudit(manager, id, 'ATTACH_VVE', null, null, actor, this.buildAffectedNote('Added', diff.added));
+        await this.writeAudit(
+          manager,
+          id,
+          'ATTACH_VVE',
+          null,
+          null,
+          actor,
+          this.buildAffectedNote('Added', diff.added),
+        );
       }
 
       if (diff.removed.length) {
-        await this.writeAudit(manager, id, 'DETACH_VVE', null, null, actor, this.buildAffectedNote('Removed', diff.removed));
+        await this.writeAudit(
+          manager,
+          id,
+          'DETACH_VVE',
+          null,
+          null,
+          actor,
+          this.buildAffectedNote('Removed', diff.removed),
+        );
       }
     });
 
     return this.findOne(id);
   }
 
-  async addAffectedVve(id: number, vveId: number, user: AuthenticatedUser | null): Promise<IncidentDto> {
+  async addAffectedVve(
+    id: number,
+    vveId: number,
+    user: AuthenticatedUser | null,
+  ): Promise<IncidentDto> {
     const actor = this.resolveActor(user);
 
     await this.dataSource.transaction(async (manager) => {
@@ -348,14 +385,26 @@ export class IncidentService {
       const diff = await this.syncAffectedVves(manager, id, [...currentIds, vveId]);
 
       if (diff.added.length) {
-        await this.writeAudit(manager, id, 'ATTACH_VVE', null, null, actor, this.buildAffectedNote('Added', diff.added));
+        await this.writeAudit(
+          manager,
+          id,
+          'ATTACH_VVE',
+          null,
+          null,
+          actor,
+          this.buildAffectedNote('Added', diff.added),
+        );
       }
     });
 
     return this.findOne(id);
   }
 
-  async removeAffectedVve(id: number, vveId: number, user: AuthenticatedUser | null): Promise<IncidentDto> {
+  async removeAffectedVve(
+    id: number,
+    vveId: number,
+    user: AuthenticatedUser | null,
+  ): Promise<IncidentDto> {
     const actor = this.resolveActor(user);
 
     await this.dataSource.transaction(async (manager) => {
@@ -372,7 +421,9 @@ export class IncidentService {
         throw new BadRequestException('Incident scope must be SPECIFIC to manage affected VVEs.');
       }
 
-      const remainingIds = (incident.affectedVves ?? []).map((item) => item.vveId).filter((existing) => existing !== vveId);
+      const remainingIds = (incident.affectedVves ?? [])
+        .map((item) => item.vveId)
+        .filter((existing) => existing !== vveId);
 
       if (remainingIds.length === (incident.affectedVves ?? []).length) {
         return;
@@ -387,7 +438,15 @@ export class IncidentService {
       const diff = await this.syncAffectedVves(manager, id, remainingIds);
 
       if (diff.removed.length) {
-        await this.writeAudit(manager, id, 'DETACH_VVE', null, null, actor, this.buildAffectedNote('Removed', diff.removed));
+        await this.writeAudit(
+          manager,
+          id,
+          'DETACH_VVE',
+          null,
+          null,
+          actor,
+          this.buildAffectedNote('Removed', diff.removed),
+        );
       }
     });
 
@@ -445,7 +504,9 @@ export class IncidentService {
   ): Promise<VesselVisitExecutionEntity[]> {
     switch (incident.scope) {
       case IncidentScope.SPECIFIC: {
-        return (incident.affectedVves ?? []).map((relation) => relation.vve).filter((vve): vve is VesselVisitExecutionEntity => Boolean(vve));
+        return (incident.affectedVves ?? [])
+          .map((relation) => relation.vve)
+          .filter((vve): vve is VesselVisitExecutionEntity => Boolean(vve));
       }
       case IncidentScope.ALL_ONGOING: {
         if (!context.ongoing) {
@@ -465,13 +526,10 @@ export class IncidentService {
         if (!context.upcomingCache.has(key)) {
           const impacted = await this.vveRepo
             .createQueryBuilder('vve')
-            .where(
-              'COALESCE(vve.planned_arrival_time, vve.eta) BETWEEN :from AND :to',
-              {
-                from: incident.impactFrom,
-                to: incident.impactTo,
-              },
-            )
+            .where('COALESCE(vve.planned_arrival_time, vve.eta) BETWEEN :from AND :to', {
+              from: incident.impactFrom,
+              to: incident.impactTo,
+            })
             .getMany();
           context.upcomingCache.set(key, impacted);
         }
@@ -545,17 +603,23 @@ export class IncidentService {
     }
 
     if (scope !== IncidentScope.UPCOMING && (impactFrom || impactTo)) {
-      throw new BadRequestException('impactFrom and impactTo are only allowed for UPCOMING scope incidents.');
+      throw new BadRequestException(
+        'impactFrom and impactTo are only allowed for UPCOMING scope incidents.',
+      );
     }
 
     if (scope === IncidentScope.SPECIFIC && affectedVveIds.length === 0) {
-      throw new BadRequestException('SPECIFIC scope incidents must reference at least one affected VVE.');
+      throw new BadRequestException(
+        'SPECIFIC scope incidents must reference at least one affected VVE.',
+      );
     }
   }
 
   private validateUpcomingWindow(impactFrom: Date | null, impactTo: Date | null): void {
     if (!impactFrom || !impactTo) {
-      throw new BadRequestException('impactFrom and impactTo are required for UPCOMING scope incidents.');
+      throw new BadRequestException(
+        'impactFrom and impactTo are required for UPCOMING scope incidents.',
+      );
     }
 
     if (impactTo < impactFrom) {
@@ -623,12 +687,7 @@ export class IncidentService {
   }
 
   private resolveActor(user: AuthenticatedUser | null | undefined): string {
-    return (
-      user?.email?.trim() ||
-      user?.userId?.trim() ||
-      user?.name?.trim() ||
-      'system'
-    );
+    return user?.email?.trim() || user?.userId?.trim() || user?.name?.trim() || 'system';
   }
 
   private async syncAffectedVves(
@@ -657,9 +716,7 @@ export class IncidentService {
     const toRemove = existingRelations.filter((relation) => !targetSet.has(relation.vveId));
 
     if (toAdd.length) {
-      await relationRepo.insert(
-        toAdd.map((value) => ({ incidentId, vveId: value })),
-      );
+      await relationRepo.insert(toAdd.map((value) => ({ incidentId, vveId: value })));
     }
 
     if (toRemove.length) {

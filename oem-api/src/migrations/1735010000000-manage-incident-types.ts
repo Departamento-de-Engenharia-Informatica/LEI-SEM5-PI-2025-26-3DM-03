@@ -1,10 +1,4 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  TableColumn,
-  TableForeignKey,
-  TableIndex,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn, TableForeignKey, TableIndex } from 'typeorm';
 
 export class ManageIncidentTypes1735010000000 implements MigrationInterface {
   name = 'ManageIncidentTypes1735010000000';

@@ -7,7 +7,6 @@ import {
   IsEnum,
   IsInt,
   IsISO8601,
-  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,

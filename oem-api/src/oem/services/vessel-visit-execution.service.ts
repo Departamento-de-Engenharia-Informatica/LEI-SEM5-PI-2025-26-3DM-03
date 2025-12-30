@@ -198,9 +198,7 @@ export class VesselVisitExecutionService {
     });
   }
 
-  async getPlannedOperations(
-    vveId: number,
-  ): Promise<PlannedOperationWithExecutionDto[]> {
+  async getPlannedOperations(vveId: number): Promise<PlannedOperationWithExecutionDto[]> {
     const vve = await this.findOne(vveId);
     const plan = await this.resolveOperationPlan(vve);
 
@@ -241,10 +239,9 @@ export class VesselVisitExecutionService {
     const taskMap = new Map<number, OperationPlanTaskEntity>();
     tasks.forEach((task) => taskMap.set(task.id, task));
 
-    return executions.map((execution) => this.mapExecutedOperationDto(
-      execution,
-      taskMap.get(execution.plannedOperationId) ?? null,
-    ));
+    return executions.map((execution) =>
+      this.mapExecutedOperationDto(execution, taskMap.get(execution.plannedOperationId) ?? null),
+    );
   }
 
   /**
@@ -314,20 +311,17 @@ export class VesselVisitExecutionService {
         where: { vveId: vve.id, plannedOperationId },
       });
 
-      const beforeSnapshot = this.buildExecutedOperationSnapshot(
-        existingExecution ?? null,
-        task,
-      );
+      const beforeSnapshot = this.buildExecutedOperationSnapshot(existingExecution ?? null, task);
 
       const nextActualStartTime =
         dto.actualStartTime !== undefined
           ? this.toDate(dto.actualStartTime, 'actualStartTime')
-          : existingExecution?.actualStartTime ?? task.actualStartTime ?? null;
+          : (existingExecution?.actualStartTime ?? task.actualStartTime ?? null);
 
       const nextActualEndTime =
         dto.actualEndTime !== undefined
           ? this.toDate(dto.actualEndTime, 'actualEndTime')
-          : existingExecution?.actualEndTime ?? task.actualEndTime ?? null;
+          : (existingExecution?.actualEndTime ?? task.actualEndTime ?? null);
 
       if (nextActualStartTime && nextActualEndTime) {
         if (nextActualEndTime.getTime() <= nextActualStartTime.getTime()) {
@@ -338,13 +332,9 @@ export class VesselVisitExecutionService {
       const nextResourcesUsed =
         dto.resourcesUsed !== undefined
           ? (dto.resourcesUsed as Record<string, unknown>)
-          : existingExecution?.resourcesUsed ?? task.actualResourcesUsed ?? null;
+          : (existingExecution?.resourcesUsed ?? task.actualResourcesUsed ?? null);
 
-      const nextStatus = this.computeExecutionStatus(
-        task,
-        nextActualStartTime,
-        nextActualEndTime,
-      );
+      const nextStatus = this.computeExecutionStatus(task, nextActualStartTime, nextActualEndTime);
 
       task.actualStartTime = nextActualStartTime ?? null;
       task.actualEndTime = nextActualEndTime ?? null;
@@ -392,7 +382,7 @@ export class VesselVisitExecutionService {
     await this.repo.remove(existing);
     return existing;
   }
-  
+
   async completeExecution(
     id: number,
     dto: CompleteVesselVisitExecutionDto,
@@ -542,10 +532,7 @@ export class VesselVisitExecutionService {
     };
   }
 
-  private diffMinutes(
-    start: Date | null | undefined,
-    end: Date | null | undefined,
-  ): number | null {
+  private diffMinutes(start: Date | null | undefined, end: Date | null | undefined): number | null {
     if (!start || !end) {
       return null;
     }
@@ -557,9 +544,7 @@ export class VesselVisitExecutionService {
     return value ? value.toISOString() : null;
   }
 
-  private async ensureAllOperationsFinished(
-    execution: VesselVisitExecutionEntity,
-  ): Promise<void> {
+  private async ensureAllOperationsFinished(execution: VesselVisitExecutionEntity): Promise<void> {
     let plan: OperationPlanEntity | null = null;
     try {
       plan = await this.resolveOperationPlan(execution);
@@ -573,9 +558,10 @@ export class VesselVisitExecutionService {
       return;
     }
 
-    const unfinished = tasks.filter((t) =>
-      t.executionStatus === OperationExecutionStatus.Planned ||
-      t.executionStatus === OperationExecutionStatus.Started,
+    const unfinished = tasks.filter(
+      (t) =>
+        t.executionStatus === OperationExecutionStatus.Planned ||
+        t.executionStatus === OperationExecutionStatus.Started,
     );
 
     if (unfinished.length > 0) {
@@ -606,7 +592,9 @@ export class VesselVisitExecutionService {
     }
   }
 
-  private async resolveOperationPlan(vve: VesselVisitExecutionEntity): Promise<OperationPlanEntity> {
+  private async resolveOperationPlan(
+    vve: VesselVisitExecutionEntity,
+  ): Promise<OperationPlanEntity> {
     if (vve.operationPlanId) {
       const byId = await this.planRepo.findOne({ where: { id: vve.operationPlanId } });
       if (byId) {
@@ -664,8 +652,8 @@ export class VesselVisitExecutionService {
     task: OperationPlanTaskEntity,
   ): Record<string, unknown> {
     return {
-      actualStartTime: (executed?.actualStartTime ?? task.actualStartTime) ?? null,
-      actualEndTime: (executed?.actualEndTime ?? task.actualEndTime) ?? null,
+      actualStartTime: executed?.actualStartTime ?? task.actualStartTime ?? null,
+      actualEndTime: executed?.actualEndTime ?? task.actualEndTime ?? null,
       resourcesUsed: executed?.resourcesUsed ?? task.actualResourcesUsed ?? null,
       executionStatus: task.executionStatus ?? OperationExecutionStatus.Planned,
     };

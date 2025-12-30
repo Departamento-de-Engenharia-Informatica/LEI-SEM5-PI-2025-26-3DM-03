@@ -14,7 +14,9 @@ export class ComplementaryTaskCategoryService {
     private readonly repo: Repository<ComplementaryTaskCategoryEntity>,
   ) {}
 
-  async findAll(filters: ComplementaryTaskCategoryQueryDto = {} as ComplementaryTaskCategoryQueryDto): Promise<ComplementaryTaskCategoryEntity[]> {
+  async findAll(
+    filters: ComplementaryTaskCategoryQueryDto = {} as ComplementaryTaskCategoryQueryDto,
+  ): Promise<ComplementaryTaskCategoryEntity[]> {
     const qb = this.repo.createQueryBuilder('category').orderBy('category.name', 'ASC');
 
     if (filters.q) {

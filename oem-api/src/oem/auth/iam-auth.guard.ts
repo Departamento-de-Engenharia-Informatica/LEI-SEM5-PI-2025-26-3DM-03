@@ -12,7 +12,10 @@ export class IamAuthGuard implements CanActivate {
       ? (candidate?.roles as string[]).filter((role) => !!role?.trim())
       : [];
     const hasRoles = candidateRoles.length > 0;
-    const user = hasIdentity && hasRoles ? { ...candidate!, roles: candidateRoles } : this.buildDevFallbackUser();
+    const user =
+      hasIdentity && hasRoles
+        ? { ...candidate!, roles: candidateRoles }
+        : this.buildDevFallbackUser();
 
     if (!user || (!user.userId && !user.email)) {
       throw new UnauthorizedException('Missing authenticated user context');
@@ -48,7 +51,9 @@ export class IamAuthGuard implements CanActivate {
     const tenantId = header('x-app-tenant-id') ?? body?.tenantId;
 
     const rolesFromHeader = this.normalizeRoles(req.headers['x-app-roles']);
-    const roles = rolesFromHeader.length ? rolesFromHeader : this.normalizeRoles(body?.roles ?? body?.role);
+    const roles = rolesFromHeader.length
+      ? rolesFromHeader
+      : this.normalizeRoles(body?.roles ?? body?.role);
 
     const attributes: Record<string, unknown> = {};
     const audience = header('x-app-audience') ?? body?.audience;
@@ -115,7 +120,8 @@ export class IamAuthGuard implements CanActivate {
     }
 
     if (typeof source === 'object') {
-      const candidate = (source as Record<string, unknown>).roles ?? (source as Record<string, unknown>).role;
+      const candidate =
+        (source as Record<string, unknown>).roles ?? (source as Record<string, unknown>).role;
       return this.normalizeRoles(candidate);
     }
 

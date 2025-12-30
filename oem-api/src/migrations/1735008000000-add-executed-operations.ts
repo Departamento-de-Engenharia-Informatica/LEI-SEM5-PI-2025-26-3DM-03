@@ -17,7 +17,12 @@ export class AddExecutedOperations1735008000000 implements MigrationInterface {
 
     await queryRunner.addColumns('operation_plan_tasks', [
       new TableColumn({ name: 'updated_at', type: dateTimeType, isNullable: true }),
-      new TableColumn({ name: 'execution_status', type: 'text', isNullable: false, default: "'PLANNED'" }),
+      new TableColumn({
+        name: 'execution_status',
+        type: 'text',
+        isNullable: false,
+        default: "'PLANNED'",
+      }),
       new TableColumn({ name: 'actual_start_time', type: dateTimeType, isNullable: true }),
       new TableColumn({ name: 'actual_end_time', type: dateTimeType, isNullable: true }),
       new TableColumn({ name: 'actual_resources_used', type: 'text', isNullable: true }),
@@ -122,7 +127,9 @@ export class AddExecutedOperations1735008000000 implements MigrationInterface {
       for (const fk of executedTable.foreignKeys) {
         await queryRunner.dropForeignKey('executed_operations', fk);
       }
-      const uniqueConstraint = executedTable.uniques.find((uq) => uq.name === 'UQ_executed_operation_vve_planned');
+      const uniqueConstraint = executedTable.uniques.find(
+        (uq) => uq.name === 'UQ_executed_operation_vve_planned',
+      );
       if (uniqueConstraint) {
         await queryRunner.dropUniqueConstraint('executed_operations', uniqueConstraint);
       }

@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -65,9 +77,7 @@ export class OperationPlanController {
     @Query('vesselVisitId') vesselVisitId?: string,
   ): Promise<OperationPlanEntity[]> {
     const vesselVisitIdNum =
-      vesselVisitId != null && vesselVisitId.trim().length > 0
-        ? Number(vesselVisitId)
-        : undefined;
+      vesselVisitId != null && vesselVisitId.trim().length > 0 ? Number(vesselVisitId) : undefined;
     return this.service.findAll({ from, to, vesselVisitId: vesselVisitIdNum });
   }
 
@@ -131,9 +141,7 @@ export class OperationPlanController {
   @ApiOperation({ summary: 'Preview operation plans for a day without persisting' })
   @ApiBody({ type: OperationPlanPreviewRequestDto })
   @ApiOkResponse({ type: OperationPlanPreviewDto, isArray: true })
-  preview(
-    @Body() payload: OperationPlanPreviewRequestDto,
-  ): Promise<OperationPlanPreviewDto[]> {
+  preview(@Body() payload: OperationPlanPreviewRequestDto): Promise<OperationPlanPreviewDto[]> {
     return this.service.generatePreviewForDay(payload.date, payload.algorithm, payload.vvnIds);
   }
 

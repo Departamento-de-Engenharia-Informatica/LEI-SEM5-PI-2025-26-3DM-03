@@ -23,7 +23,11 @@ export class CreateOemVvn1733792000000 implements MigrationInterface {
           { name: 'dock_id', type: 'text', isNullable: false },
           { name: 'eta', type: dateTimeType, isNullable: false },
           { name: 'etd', type: dateTimeType, isNullable: true },
-          { name: 'containers', type: driverType === 'sqlite' ? 'integer' : 'int', isNullable: false },
+          {
+            name: 'containers',
+            type: driverType === 'sqlite' ? 'integer' : 'int',
+            isNullable: false,
+          },
           { name: 'status', type: 'text', isNullable: false, default: "'APPROVED'" },
         ],
       }),

@@ -59,10 +59,17 @@ export class Incident extends BaseDomainEntity {
   @ApiProperty({ enum: IncidentStatus })
   status: IncidentStatus;
 
-  @ApiPropertyOptional({ description: 'Whether the incident is impacting operations right now', nullable: true })
+  @ApiPropertyOptional({
+    description: 'Whether the incident is impacting operations right now',
+    nullable: true,
+  })
   isImpactingNow?: boolean;
 
-  @ApiPropertyOptional({ description: 'Associated vessel visit execution identifiers', type: [Number], nullable: true })
+  @ApiPropertyOptional({
+    description: 'Associated vessel visit execution identifiers',
+    type: [Number],
+    nullable: true,
+  })
   affectedVveIds?: number[] | null;
 
   constructor(init?: Partial<Incident>) {

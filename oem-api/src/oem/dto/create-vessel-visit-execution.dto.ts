@@ -8,7 +8,10 @@ export class CreateVesselVisitExecutionDto {
   @IsInt()
   vvnId!: number;
 
-  @ApiProperty({ description: 'Actual arrival time registered for the vessel', example: '2025-12-01T08:30:00Z' })
+  @ApiProperty({
+    description: 'Actual arrival time registered for the vessel',
+    example: '2025-12-01T08:30:00Z',
+  })
   @IsISO8601()
   actualArrivalTime!: string;
 }

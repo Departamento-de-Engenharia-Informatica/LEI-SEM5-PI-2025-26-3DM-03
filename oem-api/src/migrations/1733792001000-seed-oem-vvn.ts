@@ -49,12 +49,7 @@ export class SeedOemVvn1733792001000 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.manager.delete(OemVvn, {
-      id: In([
-        1111,
-        2222,
-        3333,
-        4444,
-      ]),
+      id: In([1111, 2222, 3333, 4444]),
     });
   }
 }
