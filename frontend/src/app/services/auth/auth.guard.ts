@@ -15,7 +15,6 @@ export class AuthGuard implements CanActivate {
     const requiredRoles: string[] | undefined = route.data?.['roles'];
 
     const user = this.auth.user;
-    const role = user?.role as string | undefined;
     const loggedIn = !!user;
 
     // If not logged in and not going to login, redirect to login
@@ -28,11 +27,8 @@ export class AuthGuard implements CanActivate {
     // No specific roles configured -> allow
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    // Admin has access to everything
-    if (role === 'admin') return true;
-
-    // Role must be one of required
-    const allowed = !!role && requiredRoles.includes(role);
+    // Role must be one of required (check both primary role and roles array)
+    const allowed = this.auth.hasAny(requiredRoles);
     if (!allowed) {
       try { this.toast.error('Acesso negado'); } catch {}
       // Send to a safe default; if already logged in, go to first allowed menu or root

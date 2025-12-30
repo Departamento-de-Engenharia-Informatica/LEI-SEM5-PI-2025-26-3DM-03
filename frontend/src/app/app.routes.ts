@@ -9,6 +9,8 @@ import { CargoVesselComponent } from './components/visualization/vessel/cargo-ve
 import { GroundComponent } from './components/visualization/ground/ground.component';
 import { AuthGuard } from './services/auth/auth.guard';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
+import { OemOperationPlansComponent } from './oem/operation-plans/operation-plans.component';
+import { VesselVisitExecutionsHistoryComponent } from './oem/vessel-visit-executions-history/vessel-visit-executions-history.component';
 
 export const routes: Routes = [
   // Default dashboard for all authenticated profiles
@@ -27,6 +29,9 @@ export const routes: Routes = [
   { path: 'shipping-agents', loadComponent: () => import('./pages/shipping-agents/shipping-agents.component').then(m => m.ShippingAgentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'oem/operation-plans', component: OemOperationPlansComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
+  { path: 'oem/vessel-visit-executions', component: VesselVisitExecutionsHistoryComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
+  { path: 'oem/resource-allocation', loadComponent: () => import('./oem/resource-allocation/resource-allocation.component').then(m => m.ResourceAllocationComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
 
   // Vessel Visit Notifications
   { path: 'vessel-visit-notifications', loadComponent: () => import('./pages/vessel-visit-notifications/vessel-visit-notifications.component').then(m => m.VesselVisitNotificationsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority','agent'] } },

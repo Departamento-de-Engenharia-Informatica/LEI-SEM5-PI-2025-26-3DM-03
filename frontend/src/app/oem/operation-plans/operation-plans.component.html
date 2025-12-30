@@ -1,0 +1,668 @@
+<section class="operation-plans">
+  <header class="page-header">
+    <div>
+      <p class="eyebrow">Home / Dashboard</p>
+      <h1>Planos de Operacao</h1>
+      <p class="subtitle">
+        Planeie, visualize e gere os planos operacionais do porto.
+      </p>
+    </div>
+  </header>
+
+  <div class="top-grid">
+    <article class="hero-card">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Planos de operacao</p>
+          <h2>Gerar plano de operacao</h2>
+          <p class="muted">Escolha a data e gere um preview.</p>
+        </div>
+        <span class="icon-chip">OP</span>
+      </div>
+      <form class="hero-form" [formGroup]="form" (ngSubmit)="onPreview()">
+        <div class="form-field">
+          <label for="plan-date">Data</label>
+          <input id="plan-date" type="date" formControlName="date" />
+        </div>
+        <div class="form-field">
+          <label for="plan-algorithm">Algoritmo</label>
+          <select id="plan-algorithm" formControlName="algorithm" (change)="onPreview()">
+            <option *ngFor="let alg of algorithms" [value]="alg.id">{{ alg.label }}</option>
+          </select>
+        </div>
+        <button type="submit" [disabled]="previewLoading">
+          {{ previewLoading ? 'A gerar...' : 'Gerar Preview' }}
+        </button>
+      </form>
+      <div class="validation" *ngIf="dateControl?.touched && dateControl?.invalid">
+        Selecione uma data para gerar o preview.
+      </div>
+    </article>
+
+  </div>
+
+  <div class="status-row">
+    <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
+    <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
+    <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
+    <div *ngIf="persistError" class="error">{{ persistError }}</div>
+  </div>
+
+  <section class="missing-alert">
+    <div class="alert-content">
+      <div>
+        <strong class="alert-title">Aviso</strong>
+        <span class="alert-message" *ngIf="missingPlans.length; else missingAlertEmpty">
+          {{ missingPlans.length }} VVNs sem plano para
+          {{ missingForm.value?.date ? (missingForm.value.date | date: 'shortDate') : 'a data selecionada' }}.
+        </span>
+        <ng-template #missingAlertEmpty>
+          <span class="alert-message">Ver VVNs sem plano para a data selecionada.</span>
+        </ng-template>
+      </div>
+      <button type="button" class="ghost-btn" (click)="openMissingDetails()" [disabled]="missingLoading">
+        Ver detalhes
+      </button>
+    </div>
+    <p class="error" *ngIf="missingError && !missingLoading">{{ missingError }}</p>
+  </section>
+
+  <section class="missing-section" *ngIf="showMissingDetails">
+    <div class="missing-header">
+      <div>
+        <h3>VVNs sem plano</h3>
+        <p class="muted">
+          Data:
+          {{ missingForm.value?.date ? (missingForm.value.date | date: 'shortDate') : 'selecione uma data' }}
+        </p>
+      </div>
+      <div class="banner-actions">
+        <button type="button" (click)="onSearchMissing()" [disabled]="missingLoading">
+          {{ missingLoading ? 'A procurar...' : 'Atualizar' }}
+        </button>
+        <button type="button" class="ghost-btn" (click)="closeMissingDetails()">Fechar</button>
+      </div>
+    </div>
+
+    <form class="missing-filter" [formGroup]="missingForm" (ngSubmit)="onSearchMissing()">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="missing-date">Data</label>
+          <input id="missing-date" type="date" formControlName="date" />
+        </div>
+        <div class="form-field">
+          <label for="missing-algorithm">Algoritmo</label>
+          <select id="missing-algorithm" formControlName="algorithm">
+            <option *ngFor="let alg of algorithms" [value]="alg.id">{{ alg.label }}</option>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="submit" [disabled]="missingLoading">
+            {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
+          </button>
+        </div>
+      </div>
+      <div class="validation" *ngIf="missingDateControl?.touched && missingDateControl?.invalid">
+        Selecione uma data valida para procurar VVNs sem plano.
+      </div>
+    </form>
+
+    <div class="status-row">
+      <div *ngIf="missingLoading" class="info">A procurar VVNs sem plano...</div>
+      <div *ngIf="missingError && !missingLoading" class="error">{{ missingError }}</div>
+      <div *ngIf="regenerateSuccess" class="success">{{ regenerateSuccess }}</div>
+      <div *ngIf="regenerateError" class="error">{{ regenerateError }}</div>
+    </div>
+
+    <div class="missing-grid" *ngIf="!missingLoading && !missingError && missingPlans.length">
+      <article class="missing-card" *ngFor="let vvn of missingPlans">
+        <div class="missing-card-header">
+          <div>
+            <p class="eyebrow">VVN {{ vvn.id }}</p>
+            <h3>{{ vvn.vesselName }}</h3>
+          </div>
+          <span class="status-pill">{{ vvn.status }}</span>
+        </div>
+        <div class="missing-meta">
+          <div>
+            <span>Dock</span>
+            <strong>{{ vvn.dockId || '-' }}</strong>
+          </div>
+          <div>
+            <span>ETA</span>
+            <strong>{{ vvn.eta | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>ETD</span>
+            <strong>{{ vvn.etd ? (vvn.etd | date: 'short') : '-' }}</strong>
+          </div>
+          <div>
+            <span>Containers</span>
+            <strong>{{ vvn.containers }}</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="regenerate-panel" [formGroup]="missingForm" *ngIf="hasMissingPlans">
+      <div>
+        <h3>Regenerar planos do dia</h3>
+        <p class="muted">
+          Esta acao substitui qualquer plano existente para o dia selecionado quando confirmada.
+        </p>
+      </div>
+      <label class="confirm-box">
+        <input type="checkbox" formControlName="confirmOverwrite" />
+        Confirmo que pretendo substituir os planos existentes.
+      </label>
+      <button
+        type="button"
+        class="danger-btn"
+        [disabled]="regenerateLoading || missingForm.invalid || !missingForm.value.confirmOverwrite"
+        (click)="onRegenerateMissing()"
+      >
+        {{ regenerateLoading ? 'A regenerar...' : 'Regenerar planos' }}
+      </button>
+    </div>
+
+    <p *ngIf="!missingLoading && !missingError && missingPlans.length === 0" class="info">
+      {{ missingEmptyMessage || 'Sem VVNs em falta para esta data.' }}
+    </p>
+  </section>
+
+  <div class="table-wrapper" *ngIf="hasPreview">
+    <table class="preview-table">
+      <thead>
+        <tr>
+          <th class="checkbox-col"></th>
+          <th>Vessel</th>
+          <th>Dock</th>
+          <th>Inicio</th>
+          <th>Fim</th>
+          <th>Delay</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let preview of previewPlans; trackBy: trackByVvn">
+          <tr>
+            <td class="checkbox-col">
+              <input
+                type="checkbox"
+                [checked]="isSelected(preview.vvnId)"
+                (change)="toggleSelected(preview.vvnId)"
+                [title]="'Selecionar VVN ' + preview.vesselName"
+              />
+            </td>
+            <td>
+              <button type="button" class="toggle" (click)="toggleExpanded(preview.vvnId)">
+                {{ isExpanded(preview.vvnId) ? 'v' : '>' }}
+              </button>
+              {{ preview.vesselName }}
+            </td>
+            <td>{{ preview.dockId }}</td>
+            <td>{{ preview.plannedStartTime | date: 'short' }}</td>
+            <td>{{ preview.plannedEndTime | date: 'short' }}</td>
+            <td>
+              {{
+                preview.expectedDelayMinutes !== null
+                  ? (preview.expectedDelayMinutes + ' min')
+                  : '-'
+              }}
+            </td>
+          </tr>
+          <tr *ngIf="isExpanded(preview.vvnId)">
+            <td colspan="6">
+              <table class="operations-table" *ngIf="preview.operations.length > 0; else emptyOperations">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Grua</th>
+                    <th>Armazem</th>
+                    <th>Inicio</th>
+                    <th>Fim</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let operation of preview.operations">
+                    <td>{{ operation.type }}</td>
+                    <td>{{ operation.craneId }}</td>
+                    <td>{{ operation.storageAreaId }}</td>
+                    <td>{{ operation.startTime | date: 'shortTime' }}</td>
+                    <td>{{ operation.endTime | date: 'shortTime' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <ng-template #emptyOperations>
+                <div class="info">Sem operacoes planeadas.</div>
+              </ng-template>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="preview-actions" *ngIf="hasPreview">
+    <button
+      type="button"
+      class="persist-button"
+      [disabled]="persistLoading || !previewPlans.length"
+      (click)="onPersist()"
+    >
+      {{ persistLoading ? 'A guardar planos selecionados...' : 'Guardar planos selecionados' }}
+    </button>
+    <p class="hint">Selecione os planos que pretende guardar.</p>
+  </div>
+
+  <section class="saved-section">
+    <div class="section-header">
+      <h2>Planos guardados</h2>
+      <span class="badge" *ngIf="plans.length">{{ plans.length }}</span>
+    </div>
+
+    <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
+      <div class="form-row">
+        <div class="form-field date-range-label">
+          <label for="saved-range">Datas</label>
+          <input
+            id="saved-range"
+            #savedDateRangeInput
+            type="text"
+            [value]="savedDateRange || 'Selecionar datas'"
+            readonly
+          />
+        </div>
+        <div class="form-field">
+          <label for="saved-vessel">VVN</label>
+          <input
+            id="saved-vessel"
+            type="text"
+            formControlName="vesselVisitId"
+            placeholder="ex: 1"
+          />
+        </div>
+        <div class="form-actions">
+          <button type="submit" [disabled]="loading">Filtrar</button>
+          <button type="button" (click)="resetSavedFilters()" [disabled]="loading">Limpar</button>
+        </div>
+      </div>
+    </form>
+
+    <div *ngIf="loading" class="info">A carregar planos guardados...</div>
+    <div *ngIf="error && !loading" class="error">{{ error }}</div>
+    <div *ngIf="deleteError" class="error">{{ deleteError }}</div>
+
+    <div class="table-wrapper" *ngIf="!loading && !error && sortedPlans.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th (click)="changeSort('name')">
+              Nome
+              <span class="sort-icon" [class.active]="sortKey === 'name'">
+                {{ sortKey === 'name' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
+              </span>
+            </th>
+            <th>Estado</th>
+            <th (click)="changeSort('vesselVisitId')">
+              VVN
+              <span class="sort-icon" [class.active]="sortKey === 'vesselVisitId'">
+                {{ sortKey === 'vesselVisitId' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
+              </span>
+            </th>
+            <th (click)="changeSort('plannedStartTime')">
+              Inicio
+              <span class="sort-icon" [class.active]="sortKey === 'plannedStartTime'">
+                {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
+              </span>
+            </th>
+            <th (click)="changeSort('createdAt')">
+              Criado em
+              <span class="sort-icon" [class.active]="sortKey === 'createdAt'">
+                {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
+              </span>
+            </th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let plan of pagedPlans" [class.selected-row]="selectedPlan?.id === plan.id">
+            <td>{{ plan.name }}</td>
+            <td>{{ plan.status }}</td>
+            <td>{{ plan.vesselVisitId || '-' }}</td>
+            <td>{{ plan.plannedStartTime | date: 'short' }}</td>
+            <td>{{ plan.createdAt | date: 'short' }}</td>
+            <td class="actions-cell">
+              <details class="actions-dropdown">
+                <summary class="action-menu-btn" aria-haspopup="true">
+                  <span class="menu-icon">...</span>
+                  <span>Acoes</span>
+                  <span class="caret">v</span>
+                </summary>
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="togglePlanDetails(plan)"
+                    [title]="selectedPlan?.id === plan.id ? 'Fechar detalhes' : 'Ver detalhes'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M12 5c5 0 9 5 9 7s-4 7-9 7-9-5-9-7 4-7 9-7zm0 2c-3.3 0-6 3.4-6 5s2.7 5 6 5 6-3.4 6-5-2.7-5-6-5zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"
+                      />
+                    </svg>
+                    Ver detalhes
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="startEdit(plan)"
+                    [disabled]="editLoading && editingPlan?.id === plan.id"
+                    [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M4 16.5V20h3.5L18 9.5l-3.5-3.5L4 16.5zm15.4-9.4a1 1 0 0 0 0-1.4L17.3 3.6a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6z"
+                      />
+                    </svg>
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item danger"
+                    (click)="onDeletePlan(plan)"
+                    [disabled]="deleteLoadingId === plan.id"
+                    [title]="deleteLoadingId === plan.id ? 'A apagar...' : 'Apagar plano'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 6h10l-1 14H8L7 6zm3-3h4l1 2H9l1-2zM5 6h14v2H5V6z"
+                      />
+                    </svg>
+                    Apagar
+                  </button>
+                </div>
+              </details>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="pagination" *ngIf="!loading && !error">
+      <button type="button" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+        Anterior
+      </button>
+      <span>Pagina {{ currentPage }} de {{ totalPages }}</span>
+      <button
+        type="button"
+        (click)="goToPage(currentPage + 1)"
+        [disabled]="currentPage === totalPages"
+      >
+        Seguinte
+      </button>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="selectedPlan">
+      <section class="modal-sheet details-panel" #detailsSheet id="details-sheet">
+        <div class="details-header">
+          <div>
+            <p class="eyebrow">Detalhes do plano</p>
+            <h3>{{ selectedPlan.name }}</h3>
+            <p class="muted small">
+              VVN {{ selectedPlan.vesselVisitId || selectedPlan.sourceVvnId || '-' }} -> Dock
+              {{ selectedPlan.dockId || '-' }}
+            </p>
+          </div>
+          <button type="button" class="ghost-btn" (click)="closeDetails()">
+            Fechar
+          </button>
+        </div>
+        <div class="details-messages">
+          <p class="info" *ngIf="detailsLoadingId === selectedPlan.id">A carregar detalhes...</p>
+          <p class="error" *ngIf="detailsError">{{ detailsError }}</p>
+        </div>
+        <div class="details-grid">
+          <div>
+            <span>Estado</span>
+            <strong>{{ selectedPlan.status || '-' }}</strong>
+          </div>
+          <div>
+            <span>Dia alvo</span>
+            <strong>{{ selectedPlan.targetDay || '-' }}</strong>
+          </div>
+          <div>
+            <span>Inicio planeado</span>
+            <strong>{{ selectedPlan.plannedStartTime | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Fim planeado</span>
+            <strong>{{ selectedPlan.plannedEndTime | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Algoritmo</span>
+            <strong>{{ selectedPlan.algorithmUsed || '-' }}</strong>
+          </div>
+          <div>
+            <span>Criado por</span>
+            <strong>{{ selectedPlan.createdBy || '-' }}</strong>
+          </div>
+          <div>
+            <span>Criado em</span>
+            <strong>{{ selectedPlan.createdAt | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Ultima alteracao</span>
+            <strong>{{ selectedPlan.updatedAt | date: 'short' }}</strong>
+          </div>
+          <div>
+            <span>Ultimo motivo</span>
+            <strong>{{ selectedPlan.lastChangeReason || '-' }}</strong>
+          </div>
+        </div>
+
+        <div class="details-block">
+          <h4>Tarefas</h4>
+          <div *ngIf="selectedPlan.tasks?.length; else emptyTasks">
+            <table class="details-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Grua</th>
+                  <th>Armazem</th>
+                  <th>Staff</th>
+                  <th>Inicio</th>
+                  <th>Fim</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let task of selectedPlan.tasks">
+                  <td>{{ task.type }}</td>
+                  <td>{{ task.craneId || '-' }}</td>
+                  <td>{{ task.storageAreaId || '-' }}</td>
+                  <td>{{ formatStaffIds(task.staffIds) }}</td>
+                  <td>{{ task.startTime | date: 'short' }}</td>
+                  <td>{{ task.endTime | date: 'short' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #emptyTasks>
+            <p class="info">Sem tarefas associadas.</p>
+          </ng-template>
+        </div>
+
+        <div class="details-block" *ngIf="selectedPlan.changeLogs?.length">
+          <h4>Historico</h4>
+          <div class="history-list">
+            <div class="history-item" *ngFor="let log of selectedPlan.changeLogs">
+              <div>
+                <strong>{{ log.changedBy || 'desconhecido' }}</strong>
+                <span class="muted small">{{ log.createdAt | date: 'short' }}</span>
+              </div>
+              <p class="muted small">{{ log.reason || '-' }}</p>
+              <p class="warning" *ngIf="log.warnings?.length">
+                Avisos: {{ formatWarnings(log.warnings) }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="editingPlan">
+      <section class="modal-sheet edit-panel" #editSheet id="edit-sheet">
+        <div class="edit-header">
+          <div>
+            <p class="eyebrow">Edicao do plano</p>
+            <h3>{{ editingPlan.name }}</h3>
+            <p class="muted">VVN {{ editingPlan.vesselVisitId || editingPlan.sourceVvnId || '-' }} -> Dock {{ editingPlan.dockId || '-' }}</p>
+            <p class="muted small">
+              Ultima alteracao: {{ editingPlan.updatedAt | date: 'short' }} por
+              {{ editingPlan.lastUpdatedBy || 'desconhecido' }}<ng-container *ngIf="editingPlan.lastChangeReason">
+                ({{ editingPlan.lastChangeReason }})
+              </ng-container>
+            </p>
+          </div>
+          <button type="button" class="ghost-btn" (click)="cancelEdit()">Fechar</button>
+        </div>
+        <div class="edit-messages">
+          <p class="info" *ngIf="editLoading">A carregar detalhes do plano...</p>
+          <p class="error" *ngIf="editError">{{ editError }}</p>
+          <p class="success" *ngIf="editSuccess">{{ editSuccess }}</p>
+          <ul class="warning-list" *ngIf="editWarnings.length">
+            <li *ngFor="let warning of editWarnings">{{ warning }}</li>
+          </ul>
+        </div>
+        <div class="edit-menu">
+          <button type="button" [class.active]="editSection === 'summary'" (click)="setEditSection('summary')">
+            Dados principais
+          </button>
+          <button type="button" [class.active]="editSection === 'tasks'" (click)="setEditSection('tasks')">
+            Tarefas
+          </button>
+          <button type="button" [class.active]="editSection === 'history'" (click)="setEditSection('history')">
+            Historico
+          </button>
+        </div>
+        <form class="edit-form" [formGroup]="editForm" (ngSubmit)="onSaveEdit()">
+          <div class="edit-grid" *ngIf="editSection === 'summary'">
+            <label>
+              <span class="field-label">Dock</span>
+              <select formControlName="dockId">
+                <option value="">Selecionar dock</option>
+                <option *ngFor="let d of docks" [value]="d.id.toString()">
+                  {{ d.name }} ({{ d.location }})
+                </option>
+              </select>
+            </label>
+            <label>
+              <span class="field-label">Estado</span>
+              <select formControlName="status">
+                <option *ngFor="let status of planStatuses" [value]="status">{{ status }}</option>
+              </select>
+            </label>
+            <label class="wide">
+              <span class="field-label">Motivo da alteracao</span>
+              <input type="text" formControlName="reason" placeholder="Registe o motivo" required />
+            </label>
+          </div>
+          <div class="tasks-editor" formArrayName="tasks" *ngIf="editSection === 'tasks'">
+            <div class="tasks-header">
+              <div>
+                <h4>Tarefas do plano</h4>
+                <p class="muted small">Associe grua, armazem e intervalos de tempo a cada tarefa.</p>
+              </div>
+              <button type="button" class="ghost-btn" (click)="addTask()">
+                + Adicionar tarefa
+              </button>
+            </div>
+            <div
+              class="task-row"
+              *ngFor="let taskGroup of taskControls.controls; let i = index"
+              [formGroupName]="i"
+            >
+              <div class="task-row-header">
+                <span class="task-title">Tarefa {{ i + 1 }}</span>
+                <button type="button" class="ghost-btn small" (click)="removeTask(i)">
+                  Remover
+                </button>
+              </div>
+              <div class="task-row-fields">
+                <label>
+                  <span class="field-label">Tipo</span>
+                  <input type="text" formControlName="type" />
+                </label>
+                <label>
+                  <span class="field-label">Grua</span>
+                  <select formControlName="craneId">
+                    <option value="">Selecionar grua</option>
+                    <option *ngFor="let r of craneResources" [value]="r.code">
+                      {{ r.code }} - {{ r.description }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Armazem</span>
+                  <select formControlName="storageAreaId">
+                    <option value="">Selecionar armazem</option>
+                    <option *ngFor="let a of storageAreas" [value]="a.id.toString()">
+                      {{ a.location }} ({{ a.type }})
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Staff</span>
+                  <select formControlName="staffIds" multiple>
+                    <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
+                      {{ s.mecanographicNumber }} - {{ s.shortName }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-label">Inicio (ISO)</span>
+                  <input type="text" formControlName="startTime" />
+                </label>
+                <label>
+                  <span class="field-label">Fim (ISO)</span>
+                  <input type="text" formControlName="endTime" />
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="edit-history" *ngIf="editSection === 'history'">
+            <h4>Historico de alteracoes</h4>
+            <div *ngIf="editingPlan.changeLogs?.length; else noHistory" class="history-list">
+              <div class="history-item" *ngFor="let log of editingPlan.changeLogs">
+                <div>
+                  <strong>{{ log.changedBy || 'desconhecido' }}</strong>
+                  <span class="muted small">{{ log.createdAt | date: 'short' }}</span>
+                </div>
+                <p class="muted small">{{ log.reason || '-' }}</p>
+                <p class="warning" *ngIf="log.warnings?.length">
+                  Avisos: {{ formatWarnings(log.warnings) }}
+                </p>
+              </div>
+            </div>
+            <ng-template #noHistory>
+              <p class="info">Sem historico disponivel.</p>
+            </ng-template>
+          </div>
+          <div class="edit-actions">
+            <button type="submit" [disabled]="editSaving || editLoading || editForm.invalid">
+              {{ editSaving ? 'A guardar...' : 'Guardar alteracoes' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <p *ngIf="!loading && !error && sortedPlans.length === 0" class="info">
+      {{ savedEmptyMessage || 'Sem planos de operacao disponiveis.' }}
+    </p>
+  </section>
+</section>
+
+
+
+
+

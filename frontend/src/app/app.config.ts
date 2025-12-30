@@ -6,7 +6,7 @@ import {
   importProvidersFrom,
 } from '@angular/core';
 import { AuthService } from './services/auth/auth.service';
-import { provideRouter } from '@angular/router';
+import { PreloadAllModules, provideRouter, withPreloading } from '@angular/router';
 import {
   provideClientHydration,
   withEventReplay
@@ -20,12 +20,15 @@ import { routes } from './app.routes';
 // Use local lightweight translate mock (no external dependency required)
 import { TranslateMockModule } from './services/i18n/translate.mock.module';
 import { MockTranslateService } from './services/i18n/translate.mock.impl';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { ErrorInterceptor } from './services/http/error.interceptor';
+import { AuthInterceptor } from './services/auth/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes),
+    provideRouter(routes, withPreloading(PreloadAllModules)),
 
     // ✅ adiciona suporte HTTP global (resolve o erro "No provider for HttpClient")
     provideHttpClient(withInterceptorsFromDi()),
@@ -52,6 +55,18 @@ export const appConfig: ApplicationConfig = {
         return t.use(saved);
       },
       deps: [MockTranslateService],
+      multi: true,
+    },
+
+    // Interceptor global de erros: diferencia TodoAPI vs OEM/Scheduling e evita logout global em qualquer erro
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: AuthInterceptor,
+      multi: true,
+    },
+    {
+      provide: HTTP_INTERCEPTORS,
+      useClass: ErrorInterceptor,
       multi: true,
     },
   ],

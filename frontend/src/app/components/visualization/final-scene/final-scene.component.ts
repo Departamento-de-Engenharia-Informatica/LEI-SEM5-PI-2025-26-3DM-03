@@ -186,6 +186,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private logisticsVehicles: THREE.Object3D[] = [];
   private warehousePlacementRequestId = 0;
   private containerPlacementRequestId = 0;
+  private storageAreaCache = new Map<number, StorageAreaDTO>();
   private readonly pointer = new THREE.Vector2();
   private readonly raycaster = new THREE.Raycaster();
   private pointerEventsAttached = false;
@@ -203,8 +204,12 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private hoveredFacility?: FacilityHotspot;
   selectedFacility?: FacilityHotspot;
   private facilitySelectionOutline?: THREE.BoxHelper;
+  private pendingSelectedFacilityId?: string;
   private selectionSpotlight?: THREE.SpotLight;
   private readonly selectionSpotTarget = new THREE.Object3D();
+  private readonly selectionSpotCurrent = new THREE.Vector3();
+  private readonly selectionSpotDesired = new THREE.Vector3();
+  private readonly selectionSpotLerp = 0.1;
   private selectionFillLights: THREE.SpotLight[] = [];
   private readonly minSpotlightGroupSize = 1;
   private ambientLight?: THREE.AmbientLight;
@@ -255,24 +260,33 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     loading: 'Carga',
     unloading: 'Descarga',
   };
-  readonly vesselStatusLegend: { key: VesselVisualState; label: string; description: string; color: string }[] = [
+  readonly vesselStatusLegend: {
+    key: VesselVisualState;
+    label: string;
+    description: string;
+    color: string;
+    icon: string;
+  }[] = [
     {
       key: 'waiting',
       label: 'Em espera',
       description: 'Navio autorizado e a aguardar janela de cais (10 min antes).',
       color: '#2ecc71',
+      icon: '⏸️',
     },
     {
       key: 'unloading',
       label: 'Descarga',
       description: 'Primeira metade da janela de atracação dedicada a descarregar carga.',
       color: '#ff5c5c',
+      icon: '🪫',
     },
     {
       key: 'loading',
       label: 'Carga',
       description: 'Segunda metade da janela de atracação dedicada a carregar carga.',
       color: '#1f78ff',
+      icon: '🔋',
     },
   ];
   fullscreenActive = false;
@@ -1236,9 +1250,11 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
             size,
             rotation: dock?.rotationY ?? 0,
           };
-          const warehouse = this.instantiateWarehouse(prototype, placement);
+          const warehouse = this.instantiateWarehouse(prototype, { ...placement, storageId: layout.storageAreaId });
           this.scene.add(warehouse);
           this.dynamicWarehouseMeshes.push(warehouse);
+          const storageInfo = this.storageAreaCache.get(layout.storageAreaId);
+          this.addWarehouseFillVisuals({ ...placement, storageId: layout.storageAreaId }, storageInfo);
           this.registerFacilityHotspot(
             {
               id: `warehouse-layout-${layout.storageAreaId}-${index}`,
@@ -1455,7 +1471,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private instantiateWarehouse(
     prototype: THREE.Group,
-    placement: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number }
+    placement: { position: THREE.Vector3; size: THREE.Vector3; rotation?: number; storageId?: number }
   ): THREE.Group {
     const warehouse = prototype.clone(true);
     const dims = this.warehouseBaseDimensions ?? new THREE.Vector3(1, 1, 1);
@@ -1469,6 +1485,53 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       }
     });
     return warehouse;
+  }
+
+  private addWarehouseFillVisuals(
+    placement: { position: THREE.Vector3; size: THREE.Vector3; storageId?: number },
+    storage?: StorageAreaDTO
+  ) {
+    if (!storage || storage.maxCapacityTEU <= 0) {
+      return;
+    }
+    const ratio = THREE.MathUtils.clamp(storage.currentOccupancyTEU / storage.maxCapacityTEU, 0, 1);
+    const footprintScale = 0.7;
+    const fillHeight = Math.max(placement.size.y * 0.05, placement.size.y * ratio);
+    const fillColor = this.getWarehouseFillColor(ratio);
+    const fillGeometry = new THREE.BoxGeometry(
+      placement.size.x * footprintScale,
+      fillHeight,
+      placement.size.z * footprintScale
+    );
+    const fillMaterial = new THREE.MeshStandardMaterial({
+      color: fillColor,
+      transparent: true,
+      opacity: 0.55,
+      roughness: 0.35,
+      metalness: 0.1,
+      emissive: new THREE.Color(fillColor).multiplyScalar(0.5),
+      emissiveIntensity: 0.12,
+    });
+    const fillMesh = new THREE.Mesh(fillGeometry, fillMaterial);
+    fillMesh.position.set(placement.position.x, placement.position.y + fillHeight / 2, placement.position.z);
+    this.scene.add(fillMesh);
+    this.dynamicWarehouseMeshes.push(fillMesh);
+
+    const percent = Math.round(ratio * 100);
+    const capacityLabel = `${this.formatNumber(storage.currentOccupancyTEU)} / ${this.formatNumber(storage.maxCapacityTEU)} TEU`;
+    const label = this.createLabelSprite(`${percent}%\n${capacityLabel}`, {
+      background: 'rgba(4,9,18,0.92)',
+      color: '#f4f7fb',
+      scale: 170,
+    });
+    label.position.set(
+      placement.position.x,
+      placement.position.y + placement.size.y + 90,
+      placement.position.z
+    );
+    label.userData['warehouseLabel'] = placement.storageId ?? storage.id;
+    this.scene.add(label);
+    this.dynamicWarehouseMeshes.push(label);
   }
 
   private getCargoVesselPrototype(): Promise<THREE.Group> {
@@ -1987,8 +2050,20 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   }
 
   private loadPortAssignments() {
-    firstValueFrom(this.layoutApi.getLayout())
-      .then((layout) => this.zone.runOutsideAngular(() => this.applyLayoutAssignments(layout)))
+    const layoutPromise = firstValueFrom(this.layoutApi.getLayout());
+    const storagePromise = this.storageAreas
+      .getAll()
+      .then((areas) => {
+        this.storageAreaCache.clear();
+        areas.forEach((area) => this.storageAreaCache.set(area.id, area));
+      })
+      .catch((err) => {
+        console.warn('[FinalScene] Falha ao carregar storage areas', err);
+        this.storageAreaCache.clear();
+      });
+
+    Promise.all([layoutPromise, storagePromise])
+      .then(([layout]) => this.zone.runOutsideAngular(() => this.applyLayoutAssignments(layout)))
       .catch((err) => console.warn('[FinalScene] Falha ao carregar layout dinâmico', err));
   }
 
@@ -2104,6 +2179,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
 
   private resetFacilityHotspots() {
     this.facilityLookup.clear();
+    this.pendingSelectedFacilityId = this.selectedFacility?.id;
     if (this.persistentFacilityHotspots.length) {
       this.facilityHotspots = [...this.persistentFacilityHotspots];
       this.persistentFacilityHotspots.forEach((hotspot) => this.facilityLookup.set(hotspot.object, hotspot));
@@ -2126,10 +2202,10 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       const label = this.createLabelSprite(dock.name || `Dock ${dock.dockId}`, {
         background: 'rgba(255,255,255,0.9)',
         color: '#0d1b2a',
-        scale: 140,
+        scale: 110,
       });
       const x = this.mapDockToDeckX(dock);
-      label.position.set(x, this.deckHeight + 120, this.quayEdgeZ - 130);
+      label.position.set(x, this.deckHeight + 70, this.quayEdgeZ - 130);
       this.scene.add(label);
       this.dockNameSprites.push(label);
     });
@@ -2335,15 +2411,16 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   ): THREE.Sprite {
     const dockName = dock.name ?? `Dock ${dock.dockId}`;
     let text = `${info.vesselName ?? info.vesselId} — ${dockName}`;
-    if (opts?.status) {
-      text += ` — ${this.vesselStatusText[opts.status]}`;
-    }
+    const statusIcon =
+      opts?.status === 'waiting' ? '⏸️' : opts?.status === 'loading' ? '🔋' : opts?.status === 'unloading' ? '🪫' : '';
     const background = opts?.status ? this.getStatusCssColor(opts.status) : 'rgba(9,25,53,0.92)';
     const textColor = opts?.status === 'waiting' ? '#0f1f32' : '#f4f7fb';
     const label = this.createLabelSprite(text, {
       background,
       color: textColor,
-      scale: 160,
+      scale: 130,
+      footerIcon: statusIcon,
+      layout: 'compact',
     });
     label.position.copy(this.computeLabelPosition(x, z));
     this.scene.add(label);
@@ -2360,9 +2437,25 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     return `#${hex.toString(16).padStart(6, '0')}`;
   }
 
+  private getWarehouseFillColor(ratio: number): number {
+    if (ratio <= 0.33) {
+      return 0x2ecc71;
+    }
+    if (ratio <= 0.66) {
+      return 0xf1c40f;
+    }
+    return 0xe74c3c;
+  }
+
   private createLabelSprite(
     text: string,
-    opts?: { background?: string; color?: string; scale?: number }
+    opts?: {
+      background?: string;
+      color?: string;
+      scale?: number;
+      footerIcon?: string;
+      layout?: 'default' | 'compact';
+    }
   ): THREE.Sprite {
     const canvas = document.createElement('canvas');
     canvas.width = 512;
@@ -2370,20 +2463,80 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const ctx = canvas.getContext('2d');
     if (!ctx) return new THREE.Sprite();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const lines = text.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+    const hasFooter = !!opts?.footerIcon;
+    const compact = opts?.layout === 'compact';
+    const fontColor = opts?.color ?? '#0f1f32';
+    const baseFontSize = 64;
+    const lineHeight = baseFontSize + 8;
+    const textLines = lines.length ? lines : [''];
+    const textBlockHeight = textLines.length * lineHeight;
+    let footerHeight: number;
+    let paddingY: number;
+    if (compact) {
+      footerHeight = hasFooter ? lineHeight : 0;
+      paddingY = hasFooter ? 18 : 24;
+    } else {
+      footerHeight = hasFooter ? lineHeight + 30 : 0;
+      paddingY = 60;
+    }
+    let backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    const maxRectHeight = canvas.height - 40;
+    if (backgroundHeight > maxRectHeight) {
+      const paddingReduction = Math.min(backgroundHeight - maxRectHeight, Math.max(0, paddingY - 20) * 2);
+      paddingY -= paddingReduction / 2;
+      backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    }
+    if (backgroundHeight > maxRectHeight && hasFooter) {
+      const footerReduction = Math.min(
+        backgroundHeight - maxRectHeight,
+        Math.max(0, footerHeight - lineHeight * (compact ? 0.4 : 0.6))
+      );
+      footerHeight -= footerReduction;
+      backgroundHeight = textBlockHeight + paddingY * 2 + footerHeight;
+    }
+    const rectY = canvas.height / 2 - backgroundHeight / 2;
+    const rectHeight = Math.min(canvas.height - 40, backgroundHeight);
     this.paintRoundedRect(
       ctx,
       30,
-      canvas.height / 2 - 70,
+      rectY,
       canvas.width - 60,
-      140,
+      rectHeight,
       36,
       opts?.background ?? 'rgba(255,255,255,0.95)'
     );
-    ctx.fillStyle = opts?.color ?? '#0f1f32';
-    ctx.font = 'bold 64px "Inter", "Segoe UI", sans-serif';
+    ctx.fillStyle = fontColor;
+    let fontSize = baseFontSize;
+    const applyFont = () => {
+      ctx.font = `bold ${fontSize}px "Inter", "Segoe UI", sans-serif`;
+    };
+    applyFont();
+    const usableWidth = canvas.width - 120;
+    let widestLine = 0;
+    textLines.forEach((line) => {
+      widestLine = Math.max(widestLine, ctx.measureText(line).width);
+    });
+    if (widestLine > usableWidth && widestLine > 0) {
+      const shrink = THREE.MathUtils.clamp(usableWidth / widestLine, 0.5, 1);
+      fontSize = Math.max(32, Math.floor(baseFontSize * shrink));
+      applyFont();
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+    const footerGap = hasFooter ? (compact ? lineHeight * 0.12 : lineHeight * 0.5) : 0;
+    const textStartY = rectY + paddingY + lineHeight / 2;
+    textLines.forEach((line, index) => {
+      const y = textStartY + index * lineHeight - footerGap;
+      ctx.fillText(line, canvas.width / 2, y);
+    });
+    if (hasFooter) {
+      ctx.font = `bold ${compact ? 68 : 80}px "Inter", "Segoe UI", sans-serif`;
+      const footerY = compact
+        ? rectY + rectHeight - lineHeight * 0.35
+        : rectY + rectHeight - lineHeight * 0.2;
+      ctx.fillText(opts.footerIcon ?? '', canvas.width / 2, footerY);
+    }
     const texture = new THREE.CanvasTexture(canvas);
     texture.anisotropy = 4;
     texture.needsUpdate = true;
@@ -2397,7 +2550,13 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     this.disposableMaterials.push(material);
     const sprite = new THREE.Sprite(material);
     const scale = opts?.scale ?? 140;
-    sprite.scale.set(scale, Math.max(40, scale * 0.35), 1);
+    const multilineFactor = Math.max(1, textLines.length * (compact ? 0.34 : 0.45));
+    const footerFactor = hasFooter ? (compact ? 0.1 : 0.3) : 0;
+    const baseHeight = compact ? 0.18 : 0.3;
+    const perLine = compact ? 0.1 : 0.2;
+    const heightMultiplier = baseHeight + multilineFactor * perLine + footerFactor;
+    const minHeight = compact ? 35 : 45;
+    sprite.scale.set(scale, Math.max(minHeight, scale * heightMultiplier), 1);
     return sprite;
   }
 
@@ -2957,6 +3116,17 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     if (options?.persistent !== false) {
       this.persistentFacilityHotspots.push(hotspot);
     }
+    if (this.pendingSelectedFacilityId && hotspot.id === this.pendingSelectedFacilityId) {
+      if (this.canInteractWithFacility(hotspot)) {
+        this.selectedFacility = hotspot;
+        this.highlightFacility(hotspot);
+        this.updateSelectionSpotlightTarget(hotspot);
+        if (this.infoOverlayVisible) {
+          this.refreshFacilityInfo(hotspot);
+        }
+      }
+      this.pendingSelectedFacilityId = undefined;
+    }
   }
 
   private getObjectCenter(object: THREE.Object3D): THREE.Vector3 {
@@ -2989,7 +3159,11 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       return;
     }
     const center = facility.focus ?? this.getObjectCenter(facility.object);
-    this.selectionSpotTarget.position.copy(center);
+    this.selectionSpotDesired.copy(center);
+    if (!this.selectionSpotlight.visible) {
+      this.selectionSpotCurrent.copy(center);
+    }
+    this.selectionSpotTarget.position.copy(this.selectionSpotCurrent);
     this.selectionSpotTarget.updateMatrixWorld(true);
     this.selectionSpotlight.visible = true;
     this.selectionFillLights.forEach((fill) => {
@@ -3026,6 +3200,8 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       this.scene.background = this.backgroundBaseColor;
       return;
     }
+    this.selectionSpotCurrent.lerp(this.selectionSpotDesired, this.selectionSpotLerp);
+    this.selectionSpotTarget.position.copy(this.selectionSpotCurrent);
     const targetPos = this.selectionSpotTarget.position;
     this.selectionSpotlight.position.set(targetPos.x, targetPos.y + 520, targetPos.z);
     this.selectionSpotlight.target.position.copy(this.selectionSpotTarget.position);

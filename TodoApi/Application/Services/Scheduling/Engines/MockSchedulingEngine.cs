@@ -21,6 +21,13 @@ public class MockSchedulingEngine : ISchedulingEngine
         var totalDelayHours = 0;
         var craneHours = 0;
 
+        var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
+
+        var docks = context.Docks.Any()
+            ? context.Docks.Select(d => d.Id).ToList()
+            : new List<string> { "dock-1" };
+        var dockIndex = 0;
+
         foreach (var vessel in orderedVessels)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -34,26 +41,50 @@ public class MockSchedulingEngine : ISchedulingEngine
             totalDelayHours += delayHours;
             craneHours += duration;
 
-            var dayStart = context.Date.ToDateTime(TimeOnly.MinValue);
             var startTime = dayStart.AddHours(startHour);
             var endTime = dayStart.AddHours(endHour);
 
-            var craneIds = context.Cranes.Take(1).Select(c => c.Id).ToList();
+            var craneIds = context.Cranes
+                .Where(c => startTime >= c.AvailableFrom && endTime <= c.AvailableTo)
+                .Select(c => c.Id)
+                .Take(1)
+                .ToList();
             if (!craneIds.Any())
             {
-                warnings.Add("No crane availability defined; schedule assigned without crane binding.");
+                if (context.Cranes.Any())
+                {
+                    warnings.Add($"No crane available for vessel {vessel.Id} in the planned window; schedule assigned without crane binding.");
+                }
+                else
+                {
+                    warnings.Add("No crane availability defined; schedule assigned without crane binding.");
+                }
             }
 
-            var staffIds = context.Staff.Take(2).Select(s => s.Id).ToList();
+            var staffIds = context.Staff
+                .Where(s => startTime >= s.ShiftStart && endTime <= s.ShiftEnd)
+                .Select(s => s.Id)
+                .Take(2)
+                .ToList();
             if (!staffIds.Any())
             {
-                warnings.Add("No staff availability defined; schedule assigned without staff binding.");
+                if (context.Staff.Any())
+                {
+                    warnings.Add($"No staff available for vessel {vessel.Id} in the planned window; schedule assigned without staff binding.");
+                }
+                else
+                {
+                    warnings.Add("No staff availability defined; schedule assigned without staff binding.");
+                }
             }
+
+            var dockId = docks[dockIndex % docks.Count];
+            dockIndex++;
 
             operations.Add(new ScheduledOperationDto
             {
                 VesselId = vessel.Id,
-                DockId = $"dock-{operations.Count + 1}",
+                DockId = dockId,
                 CraneIds = craneIds,
                 StaffIds = staffIds,
                 StartTime = startTime,

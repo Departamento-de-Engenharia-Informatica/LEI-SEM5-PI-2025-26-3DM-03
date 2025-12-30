@@ -51,6 +51,7 @@
     <div class="vessel-status-legend__tooltip">
       <div *ngFor="let legend of vesselStatusLegend" class="vessel-status-legend__item">
         <span class="vessel-status-legend__dot" [style.background]="legend.color"></span>
+        <span class="vessel-status-legend__icon" aria-hidden="true">{{ legend.icon }}</span>
         <div>
           <strong>{{ legend.label }}</strong>
           <p>{{ legend.description }}</p>

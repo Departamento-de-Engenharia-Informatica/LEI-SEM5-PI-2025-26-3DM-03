@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
 using TodoApi.Models;
@@ -22,6 +23,8 @@ using TodoApi.Models.Auth;
 using TodoApi.Models.PublicResources;
 using TodoApi.Models.Scheduling;
 using TodoApi.Services.Activation;
+using TodoApi.Models.Oem;
+using TodoApi.Services.Oem;
 
 // =====================================================
 // Application Startup Configuration
@@ -32,6 +35,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Explicitly load environment variables for configuration
 builder.Configuration.AddEnvironmentVariables();
 var configuration = builder.Configuration;
+
+builder.Services.AddHttpContextAccessor();
 
 // Shared resources folder configuration (ensure folder exists on boot)
 var sharedResourcesSetting = configuration["SharedResources:Root"];
@@ -65,6 +70,18 @@ builder.Services.AddHttpClient<HeuristicPrologSchedulingEngine>((sp, client) =>
         ? "http://localhost:5000/"
         : schedulingOptions.PrologBaseUrl;
     client.BaseAddress = new Uri(baseUrl);
+});
+
+builder.Services.Configure<OemOptions>(configuration.GetSection("Oem"));
+builder.Services.AddHttpClient<OemClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<OemOptions>>().Value;
+    if (string.IsNullOrWhiteSpace(options.BaseUrl))
+    {
+        throw new InvalidOperationException("Oem:BaseUrl must be configured.");
+    }
+
+    client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
 });
 
 // Configure Kestrel only for local development. In containers or non-dev
