@@ -207,11 +207,24 @@ jobs:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
       - name: Pull and deploy container
+        env:
+          GOOGLE_OIDC_CLIENT_ID: ${{ secrets.GOOGLE_OIDC_CLIENT_ID }}
+          GOOGLE_OIDC_CLIENT_SECRET: ${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}
         run: |
           IMAGE="${{ steps.prep.outputs.image }}"
           NAME="${{ steps.prep.outputs.cname }}"
           PORT="${{ steps.prep.outputs.hport }}"
           OIDC_DISABLED="${{ steps.prep.outputs.oidc_disabled }}"
+
+          EXTRA_ENV=""
+          if [ "$OIDC_DISABLED" = "false" ]; then
+            if [ -z "$GOOGLE_OIDC_CLIENT_ID" ] || [ -z "$GOOGLE_OIDC_CLIENT_SECRET" ]; then
+              echo "OIDC is enabled but Google credentials are missing."
+              echo "Set repo secrets GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET or enable 'Disable OIDC'."
+              exit 1
+            fi
+            EXTRA_ENV="-e Authentication__Google__ClientId=$GOOGLE_OIDC_CLIENT_ID -e Authentication__Google__ClientSecret=$GOOGLE_OIDC_CLIENT_SECRET"
+          fi
 
           echo "Pulling image: $IMAGE"
           docker pull "$IMAGE" 
@@ -224,6 +237,7 @@ jobs:
             --restart unless-stopped \
             -e DISABLE_OIDC="$OIDC_DISABLED" \
             -e DisableOidc="$OIDC_DISABLED" \
+            $EXTRA_ENV \
             -p "$PORT":8080 \
             "$IMAGE"
 
