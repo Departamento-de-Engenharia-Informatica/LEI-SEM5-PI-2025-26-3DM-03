@@ -159,6 +159,39 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("vessel-visit-executions/{id:int}/planned-operations")]
+    public async Task<IActionResult> GetPlannedOperations(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetPlannedOperationsForExecutionAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("vessel-visit-executions/{id:int}/executed-operations")]
+    public async Task<IActionResult> GetExecutedOperations(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetExecutedOperationsForExecutionAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPut("vessel-visit-executions/{id:int}/executed-operations/{plannedOperationId:int}")]
+    public async Task<IActionResult> UpsertExecutedOperation(
+        [FromRoute] int id,
+        [FromRoute] int plannedOperationId,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpsertExecutedOperationAsync(
+            id,
+            plannedOperationId,
+            payload,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPatch("vessel-visit-executions/{id:int}/complete")]
     public async Task<IActionResult> CompleteVesselVisitExecution(
         [FromRoute] int id,
