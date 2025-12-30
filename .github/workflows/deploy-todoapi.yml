@@ -245,9 +245,11 @@ jobs:
           echo "Starting new container on port $PORT"
           docker run -d --name "$NAME" \
             --restart unless-stopped \
+            --add-host=host.docker.internal:host-gateway \
             -e DISABLE_OIDC="$OIDC_DISABLED" \
             -e DisableOidc="$OIDC_DISABLED" \
             $EXTRA_ENV_ARGS \
+            -v todoapi-data:/data \
             -p "$PORT":8080 \
             "$IMAGE"
 
