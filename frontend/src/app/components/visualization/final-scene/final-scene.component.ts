@@ -612,7 +612,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const offset = this.camera.position.clone().sub(this.controls.target);
     const endTarget = focus.clone();
     const endPos = focus.clone().add(offset);
-    this.startCameraTween(endPos, endTarget, 650);
+    this.startCameraTween(endPos, endTarget, 1200);
   }
 
   private highlightFacility(target?: FacilityHotspot) {
