@@ -29,9 +29,12 @@ services:
       ASPNETCORE_ENVIRONMENT: "Production"
       # SQLite em ficheiro dedicado, dentro do volume /data
       ConnectionStrings__DefaultConnection: "Data Source=/data/todoapi.db"
-      # Desativar OIDC em produção simples / CI
-      DisableOidc: "true"
-      DISABLE_OIDC: "true"
+      # OIDC (Google) - por defeito desligado para arranques simples/CI.
+      # Para ativar login real: exporta DISABLE_OIDC=false e define as credenciais.
+      DisableOidc: "${DISABLE_OIDC:-true}"
+      DISABLE_OIDC: "${DISABLE_OIDC:-true}"
+      Authentication__Google__ClientId: "${Authentication__Google__ClientId:-}"
+      Authentication__Google__ClientSecret: "${Authentication__Google__ClientSecret:-}"
       # A TodoApi fala com a OemApi internamente pela docker network
       Oem__BaseUrl: "http://oemapi:3000/api/"
     volumes:

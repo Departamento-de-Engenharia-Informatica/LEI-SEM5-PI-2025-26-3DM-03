@@ -62,6 +62,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Add(IPAddress.IPv6Loopback);
     options.KnownProxies.Add(IPAddress.Parse("172.17.0.1"));
 
+    // When running Nginx as a container in the same Docker network, the immediate peer
+    // will be another private IP (typically 172.16.0.0/12). Trust forwarded headers
+    // from that range so Request.Scheme/Host are correctly restored as https/<public-host>.
+    options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
+
     // We have at most one proxy hop in front of the app endpoints that matter for auth.
     options.ForwardLimit = 1;
 });
