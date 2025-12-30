@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
+  AfterViewInit,
   ChangeDetectorRef,
   Component,
   ElementRef,
   NgZone,
+  OnDestroy,
   OnInit,
   ViewChild,
 } from '@angular/core';
@@ -32,6 +34,8 @@ import { ResourcesService } from '../../services/resources/resources.service';
 import { ResourceDTO } from '../../models/resource';
 import { StaffService } from '../../services/staff/staff.service';
 import { StaffDTO } from '../../models/staff';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import flatpickr from 'flatpickr';
 
 type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
 
@@ -42,9 +46,11 @@ type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
   templateUrl: './operation-plans.component.html',
   styleUrls: ['./operation-plans.component.scss'],
 })
-export class OemOperationPlansComponent implements OnInit {
+export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('detailsSheet') detailsSheet?: ElementRef<HTMLElement>;
   @ViewChild('editSheet') editSheet?: ElementRef<HTMLElement>;
+  @ViewChild('savedDateRangeInput', { static: false })
+  savedDateRangeInput?: ElementRef<HTMLInputElement>;
   form: FormGroup;
   savedFilterForm: FormGroup;
 
@@ -64,9 +70,13 @@ export class OemOperationPlansComponent implements OnInit {
   expandedRows = new Set<number>();
   selectedVvns = new Set<number>();
   savedEmptyMessage: string | null = null;
+  savedDateRange = '';
+  private savedDatePicker: flatpickr.Instance | null = null;
 
   sortKey: SortKey = 'plannedStartTime';
   sortDir: 'asc' | 'desc' = 'asc';
+  pageSize = 6;
+  currentPage = 1;
 
   editForm: FormGroup;
   editingPlan: OperationPlanDto | null = null;
@@ -92,6 +102,7 @@ export class OemOperationPlansComponent implements OnInit {
   regenerateLoading = false;
   regenerateError: string | null = null;
   regenerateSuccess: string | null = null;
+  showMissingDetails = false;
 
   // Recursos auxiliares para edição (dropdowns)
   docks: DockDTO[] = [];
@@ -99,7 +110,10 @@ export class OemOperationPlansComponent implements OnInit {
   craneResources: ResourceDTO[] = [];
   staff: StaffDTO[] = [];
 
-  readonly algorithms = [{ id: 'single-crane', label: 'Single crane' }];
+  readonly algorithms = [
+    { id: 'single-crane', label: 'Single crane' },
+    { id: 'multi-crane', label: 'Multi crane' },
+  ];
 
   readonly planStatuses = [
     'draft',
@@ -122,6 +136,7 @@ export class OemOperationPlansComponent implements OnInit {
   ) {
     this.form = this.fb.group({
       date: [this.todayIso(), Validators.required],
+      algorithm: ['single-crane', Validators.required],
     });
 
     this.savedFilterForm = this.fb.group({
@@ -140,6 +155,7 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    this.updateSavedDisplayRangeFromForm();
     this.fetchPlans();
 
     // Sempre que o utilizador altera os filtros de "Planos guardados",
@@ -150,6 +166,31 @@ export class OemOperationPlansComponent implements OnInit {
     await this.loadReferenceData();
     // Gera automaticamente um preview inicial para a data por defeito
     this.onPreview();
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.savedDateRangeInput) {
+      return;
+    }
+
+    const dates = this.getSavedDatesFromForm();
+    this.savedDatePicker = flatpickr(this.savedDateRangeInput.nativeElement, {
+      mode: 'range',
+      dateFormat: 'Y-m-d',
+      defaultDate: dates as Date[],
+      onChange: (selectedDates: Date[]) => {
+        this.zone.run(() => {
+          if (selectedDates.length === 2) {
+            this.applySavedRange(selectedDates[0], selectedDates[1]);
+          }
+        });
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.savedDatePicker?.destroy();
+    this.savedDatePicker = null;
   }
 
   get dateControl() {
@@ -180,6 +221,15 @@ export class OemOperationPlansComponent implements OnInit {
     });
   }
 
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.sortedPlans.length / this.pageSize));
+  }
+
+  get pagedPlans(): OperationPlanDto[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.sortedPlans.slice(start, start + this.pageSize);
+  }
+
   onPreview(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
@@ -187,39 +237,49 @@ export class OemOperationPlansComponent implements OnInit {
     }
 
     const date = this.form.value.date;
+    const algorithm = this.form.value.algorithm || 'single-crane';
     this.previewLoading = true;
     this.previewError = null;
     this.persistError = null;
     this.successMessage = null;
 
     this.api
-      .previewOperationPlans(date, 'single-crane', this.selectedAsArray())
-      .pipe(finalize(() => (this.previewLoading = false)))
+      .previewOperationPlans(date, algorithm, this.selectedAsArray())
       .subscribe({
         next: plans => {
-          this.previewPlans = plans ?? [];
-          this.expandedRows.clear();
-          this.selectedVvns = new Set(this.previewPlans.map(p => p.vvnId));
-          if (!this.previewPlans.length) {
-            this.previewError =
-              'Nenhum plano de operacao disponivel para a data selecionada.';
-          }
+          this.zone.run(() => {
+            this.previewPlans = plans ?? [];
+            this.expandedRows.clear();
+            this.selectedVvns = new Set(this.previewPlans.map(p => p.vvnId));
+            if (!this.previewPlans.length) {
+              this.previewError =
+                'Nenhum plano de operacao disponivel para a data selecionada.';
+            }
+            this.previewLoading = false;
+            this.cdr.detectChanges();
+          });
         },
         error: (err: HttpErrorResponse) => {
-          if (Array.isArray(err.error)) {
-            this.previewPlans = err.error as OperationPlanPreviewDto[];
-            this.previewError = this.previewPlans.length
-              ? null
-              : 'Nenhum plano de operacao disponivel para a data selecionada.';
-            return;
-          }
+          this.zone.run(() => {
+            if (Array.isArray(err.error)) {
+              this.previewPlans = err.error as OperationPlanPreviewDto[];
+              this.previewError = this.previewPlans.length
+                ? null
+                : 'Nenhum plano de operacao disponivel para a data selecionada.';
+              this.previewLoading = false;
+              this.cdr.detectChanges();
+              return;
+            }
 
-          this.previewPlans = [];
-          this.selectedVvns.clear();
-          this.previewError = this.normalizeError(
-            err,
-            'Falha ao gerar o preview dos planos de operacao.',
-          );
+            this.previewPlans = [];
+            this.selectedVvns.clear();
+            this.previewError = this.normalizeError(
+              err,
+              'Falha ao gerar o preview dos planos de operacao.',
+            );
+            this.previewLoading = false;
+            this.cdr.detectChanges();
+          });
         },
       });
   }
@@ -231,6 +291,7 @@ export class OemOperationPlansComponent implements OnInit {
     }
 
     const date = this.form.value.date;
+    const algorithm = this.form.value.algorithm || 'single-crane';
     const vvnIds = this.selectedAsArray();
 
     this.persistLoading = true;
@@ -240,7 +301,7 @@ export class OemOperationPlansComponent implements OnInit {
     this.api
       .generateOperationPlans(
         date,
-        'single-crane',
+        algorithm,
         vvnIds.length ? vvnIds : undefined,
       )
       .pipe(finalize(() => (this.persistLoading = false)))
@@ -293,6 +354,7 @@ export class OemOperationPlansComponent implements OnInit {
             this.savedEmptyMessage = this.plans.length
               ? null
               : 'Nenhum plano encontrado para os filtros aplicados.';
+            this.currentPage = 1;
             this.loading = false;
             this.cdr.detectChanges();
             this.appRef.tick();
@@ -314,6 +376,7 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   onSearchSaved(): void {
+    this.currentPage = 1;
     this.fetchPlans();
   }
 
@@ -323,6 +386,10 @@ export class OemOperationPlansComponent implements OnInit {
       to: '',
       vesselVisitId: '',
     });
+    this.updateSavedDisplayRangeFromForm();
+    if (this.savedDatePicker) {
+      this.savedDatePicker.clear();
+    }
     this.fetchPlans();
   }
 
@@ -360,7 +427,17 @@ export class OemOperationPlansComponent implements OnInit {
   }
 
   onSearchMissing(): void {
+    this.showMissingDetails = true;
     this.fetchMissingPlans();
+  }
+
+  openMissingDetails(): void {
+    this.showMissingDetails = true;
+    this.fetchMissingPlans();
+  }
+
+  closeMissingDetails(): void {
+    this.showMissingDetails = false;
   }
 
   onRegenerateMissing(): void {
@@ -532,6 +609,12 @@ export class OemOperationPlansComponent implements OnInit {
       this.sortKey = key;
       this.sortDir = 'asc';
     }
+    this.currentPage = 1;
+  }
+
+  goToPage(page: number): void {
+    const target = Math.min(Math.max(1, page), this.totalPages);
+    this.currentPage = target;
   }
 
   toggleExpanded(vvnId: number): void {
@@ -684,6 +767,61 @@ export class OemOperationPlansComponent implements OnInit {
     const now = new Date();
     const pad = (v: number) => v.toString().padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  }
+
+  private getSavedDatesFromForm(): Date[] {
+    const { from, to } = this.savedFilterForm.value;
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const result: Date[] = [];
+    if (fromDate && !Number.isNaN(fromDate.getTime())) {
+      result.push(fromDate);
+    }
+    if (toDate && !Number.isNaN(toDate.getTime())) {
+      result.push(toDate);
+    }
+    return result;
+  }
+
+  private applySavedRange(start: Date, end: Date): void {
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    this.savedFilterForm.patchValue(
+      {
+        from: this.toDateInput(startDay),
+        to: this.toDateInput(endDay),
+      },
+      { emitEvent: false },
+    );
+
+    this.updateSavedDisplayRange(startDay, endDay);
+  }
+
+  private updateSavedDisplayRangeFromForm(): void {
+    const dates = this.getSavedDatesFromForm();
+    if (dates.length === 2) {
+      this.updateSavedDisplayRange(dates[0], dates[1]);
+    } else {
+      this.savedDateRange = '';
+    }
+  }
+
+  private updateSavedDisplayRange(from: Date, to: Date): void {
+    const formatter = new Intl.DateTimeFormat('pt-PT', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    this.savedDateRange = `${formatter.format(from)} a ${formatter.format(to)}`;
+  }
+
+  private toDateInput(date: Date): string {
+    const pad = (v: number) => v.toString().padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    return `${yyyy}-${mm}-${dd}`;
   }
 
 

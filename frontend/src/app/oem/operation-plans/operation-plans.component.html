@@ -24,6 +24,12 @@
           <label for="plan-date">Data</label>
           <input id="plan-date" type="date" formControlName="date" />
         </div>
+        <div class="form-field">
+          <label for="plan-algorithm">Algoritmo</label>
+          <select id="plan-algorithm" formControlName="algorithm" (change)="onPreview()">
+            <option *ngFor="let alg of algorithms" [value]="alg.id">{{ alg.label }}</option>
+          </select>
+        </div>
         <button type="submit" [disabled]="previewLoading">
           {{ previewLoading ? 'A gerar...' : 'Gerar Preview' }}
         </button>
@@ -33,16 +39,53 @@
       </div>
     </article>
 
-    <article class="hero-card outline">
-      <div class="card-head">
-        <div>
-          <p class="eyebrow">Planos em falta</p>
-          <h2>Procurar VVNs</h2>
-          <p class="muted">Identifique VVNs sem plano e regenere o dia.</p>
-        </div>
-        <span class="icon-chip warn">MP</span>
+  </div>
+
+  <div class="status-row">
+    <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
+    <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
+    <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
+    <div *ngIf="persistError" class="error">{{ persistError }}</div>
+  </div>
+
+  <section class="missing-alert">
+    <div class="alert-content">
+      <div>
+        <strong class="alert-title">Aviso</strong>
+        <span class="alert-message" *ngIf="missingPlans.length; else missingAlertEmpty">
+          {{ missingPlans.length }} VVNs sem plano para
+          {{ missingForm.value?.date ? (missingForm.value.date | date: 'shortDate') : 'a data selecionada' }}.
+        </span>
+        <ng-template #missingAlertEmpty>
+          <span class="alert-message">Ver VVNs sem plano para a data selecionada.</span>
+        </ng-template>
       </div>
-      <form class="hero-form" [formGroup]="missingForm" (ngSubmit)="onSearchMissing()">
+      <button type="button" class="ghost-btn" (click)="openMissingDetails()" [disabled]="missingLoading">
+        Ver detalhes
+      </button>
+    </div>
+    <p class="error" *ngIf="missingError && !missingLoading">{{ missingError }}</p>
+  </section>
+
+  <section class="missing-section" *ngIf="showMissingDetails">
+    <div class="missing-header">
+      <div>
+        <h3>VVNs sem plano</h3>
+        <p class="muted">
+          Data:
+          {{ missingForm.value?.date ? (missingForm.value.date | date: 'shortDate') : 'selecione uma data' }}
+        </p>
+      </div>
+      <div class="banner-actions">
+        <button type="button" (click)="onSearchMissing()" [disabled]="missingLoading">
+          {{ missingLoading ? 'A procurar...' : 'Atualizar' }}
+        </button>
+        <button type="button" class="ghost-btn" (click)="closeMissingDetails()">Fechar</button>
+      </div>
+    </div>
+
+    <form class="missing-filter" [formGroup]="missingForm" (ngSubmit)="onSearchMissing()">
+      <div class="form-row">
         <div class="form-field">
           <label for="missing-date">Data</label>
           <input id="missing-date" type="date" formControlName="date" />
@@ -53,35 +96,16 @@
             <option *ngFor="let alg of algorithms" [value]="alg.id">{{ alg.label }}</option>
           </select>
         </div>
-        <button type="submit" [disabled]="missingLoading">
-          {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
-        </button>
-      </form>
+        <div class="form-actions">
+          <button type="submit" [disabled]="missingLoading">
+            {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
+          </button>
+        </div>
+      </div>
       <div class="validation" *ngIf="missingDateControl?.touched && missingDateControl?.invalid">
         Selecione uma data valida para procurar VVNs sem plano.
       </div>
-    </article>
-  </div>
-
-  <div class="status-row">
-    <div *ngIf="previewLoading && !hasPreview" class="info">A gerar preview...</div>
-    <div *ngIf="previewError && !previewLoading" class="error">{{ previewError }}</div>
-    <div *ngIf="successMessage" class="success">{{ successMessage }}</div>
-    <div *ngIf="persistError" class="error">{{ persistError }}</div>
-  </div>
-
-  <section class="missing-section">
-    <div class="missing-banner">
-      <div>
-        <h3>Planos em falta</h3>
-        <p>Identifique VVNs sem plano e regenere os planos do dia selecionado.</p>
-      </div>
-      <div class="banner-actions">
-        <button type="button" (click)="onSearchMissing()" [disabled]="missingLoading">
-          {{ missingLoading ? 'A procurar...' : 'Procurar VVNs' }}
-        </button>
-      </div>
-    </div>
+    </form>
 
     <div class="status-row">
       <div *ngIf="missingLoading" class="info">A procurar VVNs sem plano...</div>
@@ -238,13 +262,15 @@
 
     <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
       <div class="form-row">
-        <div class="form-field">
-          <label for="saved-from">De</label>
-          <input id="saved-from" type="date" formControlName="from" />
-        </div>
-        <div class="form-field">
-          <label for="saved-to">Até</label>
-          <input id="saved-to" type="date" formControlName="to" />
+        <div class="form-field date-range-label">
+          <label for="saved-range">Datas</label>
+          <input
+            id="saved-range"
+            #savedDateRangeInput
+            type="text"
+            [value]="savedDateRange || 'Selecionar datas'"
+            readonly
+          />
         </div>
         <div class="form-field">
           <label for="saved-vessel">VVN</label>
@@ -284,7 +310,7 @@
               </span>
             </th>
             <th (click)="changeSort('plannedStartTime')">
-              Início
+              Inicio
               <span class="sort-icon" [class.active]="sortKey === 'plannedStartTime'">
                 {{ sortKey === 'plannedStartTime' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
@@ -295,61 +321,85 @@
                 {{ sortKey === 'createdAt' ? (sortDir === 'asc' ? 'v' : '^') : 'o' }}
               </span>
             </th>
-            <th>Ações</th>
+            <th>Acoes</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let plan of sortedPlans" [class.selected-row]="selectedPlan?.id === plan.id">
+          <tr *ngFor="let plan of pagedPlans" [class.selected-row]="selectedPlan?.id === plan.id">
             <td>{{ plan.name }}</td>
             <td>{{ plan.status }}</td>
             <td>{{ plan.vesselVisitId || '-' }}</td>
             <td>{{ plan.plannedStartTime | date: 'short' }}</td>
             <td>{{ plan.createdAt | date: 'short' }}</td>
             <td class="actions-cell">
-              <button
-                type="button"
-                class="action-btn"
-                (click)="togglePlanDetails(plan)"
-                [title]="selectedPlan?.id === plan.id ? 'Fechar detalhes' : 'Ver detalhes'"
-              >
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M12 5c5 0 9 5 9 7s-4 7-9 7-9-5-9-7 4-7 9-7zm0 2c-3.3 0-6 3.4-6 5s2.7 5 6 5 6-3.4 6-5-2.7-5-6-5zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"
-                  />
-                </svg>
-                <span>{{ selectedPlan?.id === plan.id ? 'Fechar' : 'Detalhes' }}</span>
-              </button>
-              <button
-                type="button"
-                class="action-btn edit"
-                (click)="startEdit(plan)"
-                [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
-              >
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M4 16.5V20h3.5L18 9.5l-3.5-3.5L4 16.5zm15.4-9.4a1 1 0 0 0 0-1.4L17.3 3.6a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6z"
-                  />
-                </svg>
-                <span>Editar</span>
-              </button>
-              <button
-                type="button"
-                class="action-btn danger"
-                (click)="onDeletePlan(plan)"
-                [disabled]="deleteLoadingId === plan.id"
-                [title]="deleteLoadingId === plan.id ? 'A apagar...' : 'Apagar plano'"
-              >
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                  <path
-                    d="M7 6h10l-1 14H8L7 6zm3-3h4l1 2H9l1-2zM5 6h14v2H5V6z"
-                  />
-                </svg>
-                <span>Apagar</span>
-              </button>
+              <details class="actions-dropdown">
+                <summary class="action-menu-btn" aria-haspopup="true">
+                  <span class="menu-icon">...</span>
+                  <span>Acoes</span>
+                  <span class="caret">v</span>
+                </summary>
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="togglePlanDetails(plan)"
+                    [title]="selectedPlan?.id === plan.id ? 'Fechar detalhes' : 'Ver detalhes'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M12 5c5 0 9 5 9 7s-4 7-9 7-9-5-9-7 4-7 9-7zm0 2c-3.3 0-6 3.4-6 5s2.7 5 6 5 6-3.4 6-5-2.7-5-6-5zm0 2.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"
+                      />
+                    </svg>
+                    Ver detalhes
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="startEdit(plan)"
+                    [disabled]="editLoading && editingPlan?.id === plan.id"
+                    [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M4 16.5V20h3.5L18 9.5l-3.5-3.5L4 16.5zm15.4-9.4a1 1 0 0 0 0-1.4L17.3 3.6a1 1 0 0 0-1.4 0l-1.6 1.6 3.5 3.5 1.6-1.6z"
+                      />
+                    </svg>
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item danger"
+                    (click)="onDeletePlan(plan)"
+                    [disabled]="deleteLoadingId === plan.id"
+                    [title]="deleteLoadingId === plan.id ? 'A apagar...' : 'Apagar plano'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7 6h10l-1 14H8L7 6zm3-3h4l1 2H9l1-2zM5 6h14v2H5V6z"
+                      />
+                    </svg>
+                    Apagar
+                  </button>
+                </div>
+              </details>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="pagination" *ngIf="!loading && !error">
+      <button type="button" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+        Anterior
+      </button>
+      <span>Pagina {{ currentPage }} de {{ totalPages }}</span>
+      <button
+        type="button"
+        (click)="goToPage(currentPage + 1)"
+        [disabled]="currentPage === totalPages"
+      >
+        Seguinte
+      </button>
     </div>
 
     <div class="modal-backdrop" *ngIf="selectedPlan">
@@ -611,5 +661,8 @@
     </p>
   </section>
 </section>
+
+
+
 
 

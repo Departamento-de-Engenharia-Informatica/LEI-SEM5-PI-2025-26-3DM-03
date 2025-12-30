@@ -1041,7 +1041,7 @@ export class OperationPlanService {
             r.type &&
             r.code &&
             r.status &&
-            r.type.toLowerCase() === 'crane' &&
+            r.type.toLowerCase().includes('crane') &&
             r.status.toLowerCase() === 'active',
         )
         .map((r) => r.code.trim())
@@ -1086,7 +1086,10 @@ export class OperationPlanService {
 
   private pickMultiCraneIds(resources: PlanningResources): [string, string] {
     const first = resources.craneIds[0] ?? 'CRANE-A';
-    const second = resources.craneIds[1] ?? first;
+    let second = resources.craneIds[1];
+    if (!second || second === first) {
+      second = first.endsWith('-B') ? `${first}-2` : `${first}-B`;
+    }
     return [first, second];
   }
 
@@ -1113,6 +1116,11 @@ export class OperationPlanService {
     const staffIds = this.pickStaffIds(planningResources) ?? [];
 
     if (algorithm === 'multi-crane') {
+      if (planningResources.craneIds.length < 2) {
+        throw new BadRequestException(
+          'Multi-crane requires at least 2 active cranes.',
+        );
+      }
       const [craneA, craneB] = this.pickMultiCraneIds(planningResources);
       const effectiveMinutes = Math.ceil(baseDurationMinutes / 2); // two cranes to cut duration
       const plannedEnd = new Date(plannedStart.getTime() + effectiveMinutes * 60_000);
