@@ -10,10 +10,12 @@ using TodoApi.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Claims;
 using System.Linq;
+using System.Net;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
@@ -37,6 +39,32 @@ builder.Configuration.AddEnvironmentVariables();
 var configuration = builder.Configuration;
 
 builder.Services.AddHttpContextAccessor();
+
+// =====================================================
+// Reverse proxy / forwarded headers support
+// =====================================================
+// This app is typically run behind Nginx (TLS terminated at the proxy).
+// Trust forwarded headers only when the immediate peer is a known proxy,
+// otherwise clients could spoof scheme/host.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor |
+        ForwardedHeaders.XForwardedProto |
+        ForwardedHeaders.XForwardedHost;
+
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+
+    // Host Nginx may reach the container through Docker's bridge (commonly 172.17.0.1)
+    // or loopback in non-containerized scenarios.
+    options.KnownProxies.Add(IPAddress.Loopback);
+    options.KnownProxies.Add(IPAddress.IPv6Loopback);
+    options.KnownProxies.Add(IPAddress.Parse("172.17.0.1"));
+
+    // We have at most one proxy hop in front of the app endpoints that matter for auth.
+    options.ForwardLimit = 1;
+});
 
 // Shared resources folder configuration (ensure folder exists on boot)
 var sharedResourcesSetting = configuration["SharedResources:Root"];
@@ -298,10 +326,35 @@ else
         // Force the redirect_uri to match exactly what is registered in Google Cloud
         var request = context.HttpContext.Request;
 
-        var redirectUri =
-            request.Scheme + "://" + request.Host + "/signin-oidc";
+        // Prefer forwarded scheme/host when the request came through a trusted reverse proxy.
+        var remoteIp = context.HttpContext.Connection.RemoteIpAddress;
+        var fromTrustedProxy = remoteIp != null &&
+                               (IPAddress.IsLoopback(remoteIp) || remoteIp.Equals(IPAddress.Parse("172.17.0.1")));
 
-        context.ProtocolMessage.RedirectUri = redirectUri;
+        var scheme = request.Scheme;
+        var host = request.Host.Value;
+
+        if (fromTrustedProxy)
+        {
+            var forwardedProto = request.Headers["X-Forwarded-Proto"].ToString();
+            if (!string.IsNullOrWhiteSpace(forwardedProto))
+            {
+                // If multiple proxies added values, we only want the first hop.
+                scheme = forwardedProto.Split(',')[0].Trim();
+            }
+
+            var forwardedHost = request.Headers["X-Forwarded-Host"].ToString();
+            if (!string.IsNullOrWhiteSpace(forwardedHost))
+            {
+                host = forwardedHost.Split(',')[0].Trim();
+            }
+        }
+
+        var callbackPath = context.Options.CallbackPath.HasValue
+            ? context.Options.CallbackPath.Value
+            : "/signin-oidc";
+
+        context.ProtocolMessage.RedirectUri = $"{scheme}://{host}{callbackPath}";
 
         // Always show the Google account picker to avoid auto-login with the last account
         context.ProtocolMessage.Prompt = "select_account";
@@ -467,6 +520,9 @@ builder.Services.AddAuthorization(options =>
 // =====================================================
 
 var app = builder.Build();
+
+// Must run early so Request.Scheme/Host reflect the original client request when behind Nginx.
+app.UseForwardedHeaders();
 app.UseMiddleware<TodoApi.Security.NetworkRestrictionMiddleware>();
 
 // Enable Swagger in ALL environments (Development + Production)
