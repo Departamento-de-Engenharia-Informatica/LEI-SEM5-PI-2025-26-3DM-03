@@ -16,7 +16,7 @@ on:
       disableOidc:
         description: 'Disable OIDC (DISABLE_OIDC=true)'
         type: boolean
-        default: true
+        default: false
       imageTag:
         description: 'Custom image tag'
         required: false
@@ -192,9 +192,12 @@ jobs:
           IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
           CNAME="${{ inputs.containerName || 'todoapi' }}"
           HPORT="${{ inputs.hostPort || '8080' }}"
+          # Make OIDC toggle explicit (true/false) so we can pass it to the container.
+          OIDC_DISABLED="${{ inputs.disableOidc }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "cname=$CNAME" >> $GITHUB_OUTPUT
           echo "hport=$HPORT" >> $GITHUB_OUTPUT
+          echo "oidc_disabled=$OIDC_DISABLED" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR from VM
         run: |
@@ -208,6 +211,7 @@ jobs:
           IMAGE="${{ steps.prep.outputs.image }}"
           NAME="${{ steps.prep.outputs.cname }}"
           PORT="${{ steps.prep.outputs.hport }}"
+          OIDC_DISABLED="${{ steps.prep.outputs.oidc_disabled }}"
 
           echo "Pulling image: $IMAGE"
           docker pull "$IMAGE" 
@@ -218,7 +222,8 @@ jobs:
           echo "Starting new container on port $PORT"
           docker run -d --name "$NAME" \
             --restart unless-stopped \
-            -e DISABLE_OIDC=true \
+            -e DISABLE_OIDC="$OIDC_DISABLED" \
+            -e DisableOidc="$OIDC_DISABLED" \
             -p "$PORT":8080 \
             "$IMAGE"
 
