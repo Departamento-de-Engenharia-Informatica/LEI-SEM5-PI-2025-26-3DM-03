@@ -32,6 +32,10 @@ on:
         description: 'Host port to expose TodoApi'
         required: false
         default: '8080'
+      oidcEnvFile:
+        description: 'Path on DEI VM to env-file with Authentication__Google__ClientId/Secret (used when OIDC is enabled)'
+        required: false
+        default: '/etc/todoapi/oidc.env'
 
   schedule:
     - cron: '0 2 * * *' # nightly at 02:00 UTC
@@ -192,12 +196,14 @@ jobs:
           IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
           CNAME="${{ inputs.containerName || 'todoapi' }}"
           HPORT="${{ inputs.hostPort || '8080' }}"
+          ENVFILE="${{ inputs.oidcEnvFile || '/etc/todoapi/oidc.env' }}"
           # Make OIDC toggle explicit (true/false) so we can pass it to the container.
           OIDC_DISABLED="${{ inputs.disableOidc }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "cname=$CNAME" >> $GITHUB_OUTPUT
           echo "hport=$HPORT" >> $GITHUB_OUTPUT
           echo "oidc_disabled=$OIDC_DISABLED" >> $GITHUB_OUTPUT
+          echo "oidc_env_file=$ENVFILE" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR from VM
         run: |
@@ -207,23 +213,27 @@ jobs:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
       - name: Pull and deploy container
-        env:
-          GOOGLE_OIDC_CLIENT_ID: ${{ secrets.GOOGLE_OIDC_CLIENT_ID }}
-          GOOGLE_OIDC_CLIENT_SECRET: ${{ secrets.GOOGLE_OIDC_CLIENT_SECRET }}
         run: |
           IMAGE="${{ steps.prep.outputs.image }}"
           NAME="${{ steps.prep.outputs.cname }}"
           PORT="${{ steps.prep.outputs.hport }}"
           OIDC_DISABLED="${{ steps.prep.outputs.oidc_disabled }}"
 
-          EXTRA_ENV=""
+          EXTRA_ENV_ARGS=""
           if [ "$OIDC_DISABLED" = "false" ]; then
-            if [ -z "$GOOGLE_OIDC_CLIENT_ID" ] || [ -z "$GOOGLE_OIDC_CLIENT_SECRET" ]; then
-              echo "OIDC is enabled but Google credentials are missing."
-              echo "Set repo secrets GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET or enable 'Disable OIDC'."
+            ENVFILE="${{ steps.prep.outputs.oidc_env_file }}"
+            if [ -f "$ENVFILE" ]; then
+              # The env-file should contain:
+              #   Authentication__Google__ClientId=...
+              #   Authentication__Google__ClientSecret=...
+              # Keep secrets on the VM; do not echo file contents.
+              EXTRA_ENV_ARGS="--env-file $ENVFILE"
+              echo "Using OIDC env-file: $ENVFILE"
+            else
+              echo "OIDC is enabled but env-file was not found: $ENVFILE"
+              echo "Create it on the DEI VM (self-hosted runner) with Authentication__Google__ClientId/Secret or enable 'Disable OIDC'."
               exit 1
             fi
-            EXTRA_ENV="-e Authentication__Google__ClientId=$GOOGLE_OIDC_CLIENT_ID -e Authentication__Google__ClientSecret=$GOOGLE_OIDC_CLIENT_SECRET"
           fi
 
           echo "Pulling image: $IMAGE"
@@ -237,7 +247,7 @@ jobs:
             --restart unless-stopped \
             -e DISABLE_OIDC="$OIDC_DISABLED" \
             -e DisableOidc="$OIDC_DISABLED" \
-            $EXTRA_ENV \
+            $EXTRA_ENV_ARGS \
             -p "$PORT":8080 \
             "$IMAGE"
 
