@@ -116,108 +116,151 @@
           <td>{{ formatDelay(exec.arrivalDelayMinutes) }}</td>
           <td>{{ formatDelay(exec.departureDelayMinutes) }}</td>
           <td>{{ displayMinutes(exec.operationsDelayMinutes) }}</td>
-          <td>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status === 'in-progress'"
-              (click)="startRecordOperations(exec)"
+          <td class="actions-cell">
+            <ng-container
+              *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'; else noActions"
             >
-              Registar operacoes
-            </button>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status === 'in-progress'"
-              (click)="startUpdateBerth(exec)"
-            >
-              Atualizar berth/dock
-            </button>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'"
-              (click)="startComplete(exec)"
-            >
-              Marcar como concluida
-            </button>
+              <details class="actions-dropdown" #actionsRef>
+                <summary class="action-menu-btn" aria-haspopup="true">
+                  <span class="menu-icon">...</span>
+                  <span>Acoes</span>
+                  <span class="caret">v</span>
+                </summary>
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="menu-item"
+                    *ngIf="exec.status === 'in-progress'"
+                    (click)="startRecordOperations(exec); actionsRef.open = false"
+                  >
+                    Registar operacoes
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    *ngIf="exec.status === 'in-progress'"
+                    (click)="startUpdateBerth(exec); actionsRef.open = false"
+                  >
+                    Atualizar berth/dock
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="startComplete(exec); actionsRef.open = false"
+                  >
+                    Marcar como concluida
+                  </button>
+                </div>
+              </details>
+            </ng-container>
+            <ng-template #noActions>
+              <span class="no-actions">Sem acoes disponiveis</span>
+            </ng-template>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <section class="complete-panel" *ngIf="completing && completeForm">
-    <h2>
-      Concluir execucao VVE {{ completing?.id }} · VVN
-      {{ executionVvn(completing) ?? '-' }} ({{ completing?.vesselName }})
-    </h2>
-    <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="complete-form">
-      <label>
-        Desatracacao (real)
-        <input type="datetime-local" formControlName="actualUnberthTime" />
-      </label>
-      <label>
-        Saida Porto (real)
-        <input type="datetime-local" formControlName="actualPortDepartureTime" />
-      </label>
-      <div class="actions">
+  <section class="action-panel success complete-panel" *ngIf="completing && completeForm">
+    <header class="panel-head">
+      <span class="panel-icon success">✓</span>
+      <div class="panel-copy">
+        <h2>
+          Concluir execucao VVE {{ completing?.id }} · VVN
+          {{ executionVvn(completing) ?? '-' }} ({{ completing?.vesselName }})
+        </h2>
+        <p class="panel-subtitle">
+          Confirme as horas finais para encerrar a execucao de visita e atualizar os indicadores.
+        </p>
+      </div>
+      <button type="button" class="ghost-btn" (click)="cancelComplete()" [disabled]="loading">
+        Fechar
+      </button>
+    </header>
+
+    <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="panel-form">
+      <div class="panel-form-grid">
+        <label class="form-field">
+          <span>Desatracacao (real)</span>
+          <input type="datetime-local" formControlName="actualUnberthTime" />
+        </label>
+        <label class="form-field">
+          <span>Saida Porto (real)</span>
+          <input type="datetime-local" formControlName="actualPortDepartureTime" />
+        </label>
+      </div>
+      <div class="panel-actions">
         <button type="submit" [disabled]="loading">
           {{ loading ? 'A concluir...' : 'Concluir execucao' }}
         </button>
-        <button type="button" class="ghost" (click)="cancelComplete()" [disabled]="loading">
+        <button type="button" class="ghost-btn" (click)="cancelComplete()" [disabled]="loading">
           Cancelar
         </button>
       </div>
     </form>
   </section>
 
-  <section class="complete-panel" *ngIf="updatingBerth && berthForm">
-    <h2>
-      Atualizar berth/dock · VVE {{ updatingBerth?.id }} · VVN
-      {{ executionVvn(updatingBerth) ?? '-' }} ({{ updatingBerth?.vesselName }})
-    </h2>
-    <p class="subtitle">
-      Registe a hora real de atracacao e/ou o dock utilizado. Se o dock
-      introduzido diferir do planeado, sera registado automaticamente um aviso
-      no historico da execucao.
-    </p>
-    <form [formGroup]="berthForm" (ngSubmit)="submitBerthUpdate()" class="complete-form">
-      <label>
-        Atracacao (real)
-        <input type="datetime-local" formControlName="actualBerthTime" />
-      </label>
-      <label>
-        Dock utilizado
-        <input type="text" formControlName="dockId" placeholder="ex: DOCK-1" />
-      </label>
+  <section class="action-panel warning complete-panel" *ngIf="updatingBerth && berthForm">
+    <header class="panel-head">
+      <span class="panel-icon warning">⧗</span>
+      <div class="panel-copy">
+        <h2>
+          Atualizar berth/dock · VVE {{ updatingBerth?.id }} · VVN
+          {{ executionVvn(updatingBerth) ?? '-' }} ({{ updatingBerth?.vesselName }})
+        </h2>
+        <p class="panel-subtitle">
+          Registe a hora real de atracacao e o dock utilizado para manter o plano alinhado com a execucao real.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="ghost-btn"
+        (click)="cancelUpdateBerth()"
+        [disabled]="loading"
+      >
+        Fechar
+      </button>
+    </header>
+
+    <form [formGroup]="berthForm" (ngSubmit)="submitBerthUpdate()" class="panel-form">
+      <div class="panel-form-grid">
+        <label class="form-field">
+          <span>Atracacao (real)</span>
+          <input type="datetime-local" formControlName="actualBerthTime" />
+        </label>
+        <label class="form-field">
+          <span>Dock utilizado</span>
+          <input type="text" formControlName="dockId" placeholder="ex: DOCK-1" />
+        </label>
+      </div>
       <div class="status-row" *ngIf="berthError">
         <div class="error">{{ berthError }}</div>
       </div>
-      <div class="actions">
+      <div class="panel-actions">
         <button type="submit" [disabled]="loading">
           {{ loading ? 'A guardar...' : 'Guardar alteracoes' }}
         </button>
-        <button type="button" class="ghost" (click)="cancelUpdateBerth()" [disabled]="loading">
+        <button type="button" class="ghost-btn" (click)="cancelUpdateBerth()" [disabled]="loading">
           Cancelar
         </button>
       </div>
     </form>
   </section>
 
-  <section class="operations-panel" *ngIf="operationsTarget">
-    <header class="operations-header">
-      <div>
+  <section class="action-panel info operations-panel" *ngIf="operationsTarget">
+    <header class="panel-head">
+      <span class="panel-icon info">OP</span>
+      <div class="panel-copy">
         <h2>
           Operacoes executadas · VVE {{ operationsTarget?.id }} · VVN
           {{ executionVvn(operationsTarget) ?? '-' }} ({{ operationsTarget?.vesselName }})
         </h2>
-        <p class="subtitle">
-          Confirme ou ajuste horas e recursos usados. Os estados sao atualizados automaticamente
-          de acordo com os dados guardados.
+        <p class="panel-subtitle">
+          Revise cada operacao planeada, ajuste tempos reais e registe os recursos utilizados.
         </p>
       </div>
-      <button type="button" class="ghost" (click)="cancelRecordOperations()">
+      <button type="button" class="ghost-btn" (click)="cancelRecordOperations()">
         Fechar painel
       </button>
     </header>
@@ -245,6 +288,11 @@
           class="operation-card"
           *ngFor="let group of operationsArray().controls; let i = index"
           [formGroupName]="i"
+          [ngClass]="{
+            'operation-card--completed': operations[i]?.executionStatus === 'COMPLETED',
+            'operation-card--started': operations[i]?.executionStatus === 'STARTED',
+            'operation-card--delayed': operations[i]?.executionStatus === 'DELAYED'
+          }"
         >
           <ng-container *ngIf="operations[i] as operation">
             <header>
