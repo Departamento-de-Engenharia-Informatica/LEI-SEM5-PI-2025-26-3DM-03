@@ -124,6 +124,33 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("vessel-visit-executions/{id:int}")]
+    public async Task<IActionResult> GetVesselVisitExecution(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetVesselVisitExecutionAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("vessel-visit-executions/{id:int}/planned-operations")]
+    public async Task<IActionResult> GetVesselVisitPlannedOperations(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetPlannedOperationsAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("vessel-visit-executions/{id:int}/executed-operations")]
+    public async Task<IActionResult> GetVesselVisitExecutedOperations(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetExecutedOperationsAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPost("vessel-visit-executions")]
     public async Task<IActionResult> CreateVesselVisitExecution(
         [FromBody] CreateVesselVisitExecutionRequest request,
@@ -133,6 +160,17 @@ public class OemProxyController : ControllerBase
             request.VvnId,
             request.ActualArrivalTime,
             cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPut("vessel-visit-executions/{id:int}/executed-operations/{plannedOperationId:int}")]
+    public async Task<IActionResult> UpsertExecutedOperation(
+        [FromRoute] int id,
+        [FromRoute] int plannedOperationId,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpsertExecutedOperationAsync(id, plannedOperationId, payload, cancellationToken);
         return await ToActionResultAsync(response);
     }
 
