@@ -4,3 +4,4 @@ export * from './incident.controller';
 export * from './incident-type.controller';
 export * from './complementary-task.controller';
 export * from './complementary-task-category.controller';
+export * from './dev-seed.controller';

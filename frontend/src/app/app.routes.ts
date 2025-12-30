@@ -31,6 +31,7 @@ export const routes: Routes = [
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   { path: 'oem/operation-plans', component: OemOperationPlansComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions', component: VesselVisitExecutionsHistoryComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
+  { path: 'oem/vessel-visit-executions/:id', loadComponent: () => import('./oem/vessel-visit-execution-detail/vessel-visit-execution-detail.component').then(m => m.VesselVisitExecutionDetailComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/resource-allocation', loadComponent: () => import('./oem/resource-allocation/resource-allocation.component').then(m => m.ResourceAllocationComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
 
   // Vessel Visit Notifications

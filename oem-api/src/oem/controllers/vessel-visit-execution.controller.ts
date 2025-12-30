@@ -53,7 +53,7 @@ export class VesselVisitExecutionController {
   }
 
   @Get(':id')
-  @Roles('oem:vessel:read')
+  @Roles('admin', 'logistics-operator')
   @ApiOperation({ summary: 'Get vessel visit execution by id' })
   @ApiOkResponse({ type: VesselVisitExecutionEntity })
   findOne(@Param('id', ParseIntPipe) id: number): Promise<VesselVisitExecutionEntity> {

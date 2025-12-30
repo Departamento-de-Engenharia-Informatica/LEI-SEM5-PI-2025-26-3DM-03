@@ -25,6 +25,7 @@ import {
   OperationPlanPreviewDto,
   MissingOperationPlanDto,
   OperationPlanTaskDto,
+  VesselVisitExecutionListItem,
 } from '../oem-api.service';
 import { DocksService } from '../../services/docks/docks.service';
 import { DockDTO } from '../../models/dock';
@@ -38,6 +39,7 @@ import { StaffDTO } from '../../models/staff';
 import flatpickr from 'flatpickr';
 
 type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
+type AssociateCandidate = VesselVisitExecutionListItem & { vvnMatchesPlan: boolean };
 
 @Component({
   selector: 'app-oem-operation-plans',
@@ -49,6 +51,7 @@ type SortKey = 'name' | 'plannedStartTime' | 'vesselVisitId' | 'createdAt';
 export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('detailsSheet') detailsSheet?: ElementRef<HTMLElement>;
   @ViewChild('editSheet') editSheet?: ElementRef<HTMLElement>;
+  @ViewChild('linkSheet') linkSheet?: ElementRef<HTMLElement>;
   @ViewChild('savedDateRangeInput', { static: false })
   savedDateRangeInput?: ElementRef<HTMLInputElement>;
   form: FormGroup;
@@ -93,6 +96,15 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
 
   deleteLoadingId: number | null = null;
   deleteError: string | null = null;
+
+  associatePlan: OperationPlanDto | null = null;
+  associatePlanVvn: number | null = null;
+  associateExecutions: AssociateCandidate[] = [];
+  associateLoading = false;
+  associateLinking = false;
+  associateError: string | null = null;
+  associateSuccess: string | null = null;
+  selectedExecutionId: number | null = null;
 
   missingForm: FormGroup;
   missingPlans: MissingOperationPlanDto[] = [];
@@ -158,13 +170,11 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
     this.updateSavedDisplayRangeFromForm();
     this.fetchPlans();
 
-    // Sempre que o utilizador altera os filtros de "Planos guardados",
-    // recarregar automaticamente a lista.
     this.savedFilterForm.valueChanges
       .pipe(debounceTime(300))
       .subscribe(() => this.fetchPlans());
+
     await this.loadReferenceData();
-    // Gera automaticamente um preview inicial para a data por defeito
     this.onPreview();
   }
 
@@ -562,6 +572,147 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
       });
   }
 
+  openAssociate(plan: OperationPlanDto): void {
+    this.associatePlan = plan;
+    this.associateExecutions = [];
+    this.associateLoading = false;
+    this.associateLinking = false;
+    this.associateError = null;
+    this.associateSuccess = null;
+    this.selectedExecutionId = null;
+    this.associatePlanVvn = this.resolvePlanVvn(plan);
+    this.resetModalScroll(this.linkSheet, 'link-sheet');
+
+    if (this.associatePlanVvn === null) {
+      this.associateError =
+        'Plano sem VVN associado. Nao existem execucoes para associar.';
+      return;
+    }
+
+    this.associateLoading = true;
+
+    // ✅ FIX: filtrar por VVN (vesselVisitNotificationId) e não por vesselVisitId (VVE ID)
+    this.api
+      .getVesselVisitExecutions({
+        vesselVisitNotificationId: this.associatePlanVvn,
+        status: 'in-progress',
+      } as any)
+      .pipe(finalize(() => (this.associateLoading = false)))
+      .subscribe({
+        next: executions => {
+          const allowedStatuses = new Set([
+            'scheduled',
+            'pending',
+            'in-progress',
+            'active',
+          ]);
+
+          const available: AssociateCandidate[] = (executions ?? [])
+            .filter(
+              exec =>
+                !exec.operationPlanId &&
+                (exec.status ? allowedStatuses.has(exec.status) : false),
+            )
+            .map(exec => ({
+              ...exec,
+              vvnMatchesPlan:
+                this.associatePlanVvn !== null &&
+                exec.vesselVisitNotificationId !== null &&
+                exec.vesselVisitNotificationId === this.associatePlanVvn,
+            }));
+
+          this.associateExecutions = available;
+
+          if (!available.length) {
+            this.associateError =
+              'Nenhuma execucao elegivel disponivel para associar a este plano.';
+            return;
+          }
+
+          if (!available.some(exec => exec.vvnMatchesPlan)) {
+            this.associateError =
+              'Nao existem execucoes com a mesma VVN deste plano.';
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.associateError = this.normalizeError(
+            err,
+            'Falha ao carregar execucoes para associar.',
+          );
+        },
+      });
+  }
+
+  closeAssociate(): void {
+    this.associatePlan = null;
+    this.associateExecutions = [];
+    this.associateLoading = false;
+    this.associateLinking = false;
+    this.associateError = null;
+    this.associateSuccess = null;
+    this.selectedExecutionId = null;
+    this.associatePlanVvn = null;
+  }
+
+  selectExecution(executionId: number): void {
+    const candidate = this.associateExecutions.find(exec => exec.id === executionId);
+    if (!candidate) {
+      return;
+    }
+
+    if (!candidate.vvnMatchesPlan) {
+      this.associateError = 'Esta execucao pertence a uma VVN diferente do plano.';
+      this.selectedExecutionId = null;
+      return;
+    }
+
+    this.selectedExecutionId = executionId;
+    this.associateSuccess = null;
+    this.associateError = null;
+  }
+
+  confirmAssociate(): void {
+    if (!this.associatePlan) {
+      return;
+    }
+
+    if (this.selectedExecutionId === null) {
+      this.associateError = 'Selecione uma execucao para associar.';
+      return;
+    }
+
+    if (this.associateLinking) {
+      return;
+    }
+
+    this.associateLinking = true;
+    this.associateError = null;
+    this.associateSuccess = null;
+
+    this.api
+      .linkOperationPlanToVve(this.selectedExecutionId, this.associatePlan.id)
+      .pipe(finalize(() => (this.associateLinking = false)))
+      .subscribe({
+        next: updated => {
+          this.associateSuccess = `Plano associado à execucao VVE ${updated.id}.`;
+          this.associateExecutions = this.associateExecutions.filter(
+            exec => exec.id !== updated.id,
+          );
+          this.selectedExecutionId = null;
+          if (!this.associateExecutions.some(exec => exec.vvnMatchesPlan)) {
+            this.associateError =
+              'Nao existem mais execucoes com a mesma VVN disponiveis para associar.';
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          this.associateError = this.normalizeError(
+            err,
+            'Falha ao associar o plano à execucao.',
+          );
+        },
+      });
+  }
+
   onSaveEdit(): void {
     if (!this.editingPlan) {
       return;
@@ -824,7 +975,6 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
     return `${yyyy}-${mm}-${dd}`;
   }
 
-
   private createEditForm(plan?: OperationPlanDto): FormGroup {
     return this.fb.group({
       dockId: [plan?.dockId ?? ''],
@@ -860,9 +1010,6 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
     });
   }
 
-  /**
-   * Backend expects: { reason, dockId?, status?, tasks? }
-   */
   private buildUpdatePayload(): { reason: string } & Partial<OperationPlanDto> {
     const value = this.editForm.value as any;
 
@@ -890,4 +1037,36 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
       tasks,
     };
   }
+
+  private resolvePlanVvn(plan: OperationPlanDto | null): number | null {
+    if (!plan) {
+      return null;
+    }
+
+    const raw = (plan.vesselVisitId ?? plan.sourceVvnId) as
+      | string
+      | number
+      | null
+      | undefined;
+
+    if (raw === undefined || raw === null) {
+      return null;
+    }
+
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw;
+    }
+
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const parsed = Number(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
+  }
 }
+ 

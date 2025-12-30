@@ -15,6 +15,7 @@ import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-executio
 import { OemVvnService } from '../vvn/oem-vvn.service';
 import { VesselVisitExecutionAuditEntity } from '../persistence/vessel-visit-execution-audit.entity';
 import { OperationPlanEntity } from '../persistence/operation-plan.entity';
+import { OperationPlanStatus } from '../domain/operation-plan.entity';
 import {
   OperationExecutionStatus,
   OperationPlanTaskEntity,
@@ -117,6 +118,9 @@ export class VesselVisitExecutionService {
       createdBy: this.resolveUserId(user),
       status: VesselExecutionStatus.InProgress,
     });
+
+    const latestPlan = await this.findLatestPlannedOperationPlanForVvn(dto.vvnId);
+    entity.operationPlanId = latestPlan?.id ?? undefined;
 
     return this.repo.save(entity);
   }
@@ -260,6 +264,65 @@ export class VesselVisitExecutionService {
 
     vve.operationPlanId = plan.id;
     return this.repo.save(vve);
+  }
+
+  // DEV SEED – temporary, safe to remove before production
+  async seedLinkExistingVveToPlan(vveId: number): Promise<VesselVisitExecutionEntity> {
+    if (process.env.NODE_ENV !== 'development') {
+      throw new NotFoundException('Dev seed helpers are disabled outside development.');
+    }
+
+    const execution = await this.findOne(vveId);
+
+    const candidates: Array<string | number | null | undefined> = [
+      execution.vesselVisitId,
+      execution.vvnId,
+    ];
+
+    let numericVvn: number | null = null;
+    for (const candidate of candidates) {
+      if (candidate == null) continue;
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        numericVvn = parsed;
+        break;
+      }
+    }
+
+    if (numericVvn == null) {
+      throw new BadRequestException(
+        'Vessel visit execution is missing a numeric VVN identifier; cannot link automatically.',
+      );
+    }
+
+    const eligibleStatuses = [OperationPlanStatus.Planned, OperationPlanStatus.InProgress];
+
+    const planBySource = await this.planRepo.findOne({
+      where: { sourceVvnId: numericVvn, status: In(eligibleStatuses) },
+      order: { updatedAt: 'DESC', createdAt: 'DESC' },
+    });
+
+    const plan =
+      planBySource ??
+      (await this.planRepo.findOne({
+        where: { vesselVisitId: numericVvn, status: In(eligibleStatuses) },
+        order: { updatedAt: 'DESC', createdAt: 'DESC' },
+      }));
+
+    if (!plan) {
+      throw new NotFoundException(
+        `No eligible operation plan found for VVN ${numericVvn}. Ensure a planned or in-progress plan exists.`,
+      );
+    }
+
+    if (execution.operationPlanId === plan.id) {
+      return execution;
+    }
+
+    execution.operationPlanId = plan.id;
+    execution.operationPlan = undefined;
+
+    return this.repo.save(execution);
   }
 
   async upsertExecutedOperation(
@@ -618,6 +681,30 @@ export class VesselVisitExecutionService {
     throw new NotFoundException(
       `Operation plan could not be resolved for vessel visit execution ${vve.id}.`,
     );
+  }
+
+  private async findLatestPlannedOperationPlanForVvn(
+    vvnId: number,
+  ): Promise<OperationPlanEntity | null> {
+    if (!Number.isFinite(vvnId)) {
+      return null;
+    }
+
+    const bySource = await this.planRepo.findOne({
+      where: { sourceVvnId: vvnId, status: OperationPlanStatus.Planned },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (bySource) {
+      return bySource;
+    }
+
+    const byVisit = await this.planRepo.findOne({
+      where: { vesselVisitId: vvnId, status: OperationPlanStatus.Planned },
+      order: { createdAt: 'DESC' },
+    });
+
+    return byVisit ?? null;
   }
 
   private computeExecutionStatus(

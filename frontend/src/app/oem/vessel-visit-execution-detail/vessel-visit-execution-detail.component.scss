@@ -1,0 +1,229 @@
+.vve-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.6rem;
+  }
+
+  .subtitle {
+    margin: 0.25rem 0 0;
+    color: #555;
+  }
+}
+
+.status-summary {
+  display: flex;
+  align-items: center;
+}
+
+.readonly-hint {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background-color: #fff7e6;
+  color: #8a6d3b;
+
+  &.warning {
+    background-color: #fef2f2;
+    color: #b91c1c;
+  }
+}
+
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.operations-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 960px;
+
+  th,
+  td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e3e3e3;
+    vertical-align: top;
+    text-align: left;
+  }
+
+  th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  tr.editing {
+    background-color: #f0f7ff;
+  }
+
+  tr.saving {
+    opacity: 0.6;
+  }
+
+  .operation-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+  }
+
+  .operation-meta {
+    font-size: 0.8rem;
+    color: #666;
+  }
+
+  input[type='datetime-local'],
+  textarea {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.4rem;
+    font-size: 0.85rem;
+    background-color: #fff;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 2.6rem;
+  }
+
+  input:disabled,
+  textarea:disabled {
+    background-color: #f5f5f5;
+    color: #666;
+    cursor: not-allowed;
+  }
+
+  .actions-col {
+    width: 160px;
+  }
+
+  .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+
+    button {
+      padding: 0.4rem 0.75rem;
+      border-radius: 0.4rem;
+      border: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background-color: #2563eb;
+      color: #fff;
+      transition: background-color 0.2s ease;
+
+      &:disabled {
+        background-color: #94a3b8;
+        cursor: not-allowed;
+      }
+
+      &:nth-child(2) {
+        background-color: #e2e8f0;
+        color: #1f2937;
+      }
+    }
+
+    .saving-indicator {
+      font-size: 0.75rem;
+      color: #2563eb;
+    }
+  }
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: #e2e8f0;
+  color: #1f2937;
+
+  &.started {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  &.completed {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+
+  &.delayed {
+    background-color: #fee2e2;
+    color: #b91c1c;
+  }
+
+  &.planned {
+    background-color: #e2e8f0;
+    color: #1f2937;
+  }
+
+  &.neutral {
+    background-color: #f1f5f9;
+    color: #475569;
+  }
+}
+
+.field-error {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: #b91c1c;
+}
+
+.row-error td {
+  padding: 0.5rem 0.75rem;
+  background-color: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+
+.loading,
+.error-panel,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+}
+
+.error-panel button,
+.loading button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.4rem;
+  background-color: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 3px solid #dbeafe;
+  border-top-color: #2563eb;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -81,6 +81,7 @@
     <table>
       <thead>
         <tr>
+          <th>VVE ID</th>
           <th>VVN</th>
           <th>Navio</th>
           <th>Berth</th>
@@ -100,7 +101,8 @@
       </thead>
       <tbody>
         <tr *ngFor="let exec of executions; trackBy: trackById">
-          <td>{{ exec.vesselVisitId }}</td>
+          <td>{{ exec.id }}</td>
+          <td>{{ exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? '-' }}</td>
           <td>{{ exec.vesselName }}</td>
           <td>{{ exec.berthId || '-' }}</td>
           <td><span class="status-pill">{{ exec.status }}</span></td>
@@ -146,7 +148,10 @@
   </div>
 
   <section class="complete-panel" *ngIf="completing && completeForm">
-    <h2>Concluir execucao para VVN {{ completing.vesselVisitId }} ({{ completing.vesselName }})</h2>
+    <h2>
+      Concluir execucao VVE {{ completing?.id }} · VVN
+      {{ executionVvn(completing) ?? '-' }} ({{ completing?.vesselName }})
+    </h2>
     <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="complete-form">
       <label>
         Desatracacao (real)
@@ -169,8 +174,8 @@
 
   <section class="complete-panel" *ngIf="updatingBerth && berthForm">
     <h2>
-      Atualizar berth/dock para VVN {{ updatingBerth.vesselVisitId }}
-      ({{ updatingBerth.vesselName }})
+      Atualizar berth/dock · VVE {{ updatingBerth?.id }} · VVN
+      {{ executionVvn(updatingBerth) ?? '-' }} ({{ updatingBerth?.vesselName }})
     </h2>
     <p class="subtitle">
       Registe a hora real de atracacao e/ou o dock utilizado. Se o dock
@@ -204,8 +209,8 @@
     <header class="operations-header">
       <div>
         <h2>
-          Operacoes executadas para VVN {{ operationsTarget.vesselVisitId }}
-          ({{ operationsTarget.vesselName }})
+          Operacoes executadas · VVE {{ operationsTarget?.id }} · VVN
+          {{ executionVvn(operationsTarget) ?? '-' }} ({{ operationsTarget?.vesselName }})
         </h2>
         <p class="subtitle">
           Confirme ou ajuste horas e recursos usados. Os estados sao atualizados automaticamente

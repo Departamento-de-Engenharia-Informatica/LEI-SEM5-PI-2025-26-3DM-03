@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface OperationPlanDto {
   id: number;
@@ -22,6 +23,10 @@ export interface OperationPlanDto {
   lastChangeWarnings?: string[] | null;
   tasks?: OperationPlanTaskDto[];
   changeLogs?: OperationPlanChangeLogDto[];
+}
+
+export interface OperationPlanWithTasksDto extends OperationPlanDto {
+  tasks: OperationPlanTaskDto[];
 }
 
 export interface OperationTaskPreviewDto {
@@ -92,10 +97,12 @@ export interface OperationPlanUpdateResponse {
 
 export interface VesselVisitExecutionListItem {
   id: number;
-  vesselVisitId: number;
+  vesselVisitNotificationId: number | null;
+  vesselVisitId?: number | null;
   vesselName: string;
   berthId?: string | null;
   status: string;
+  operationPlanId?: number | null;
   plannedArrivalTime?: string | null;
   actualArrivalTime?: string | null;
   plannedBerthTime?: string | null;
@@ -109,6 +116,15 @@ export interface VesselVisitExecutionListItem {
   arrivalDelayMinutes?: number | null;
   departureDelayMinutes?: number | null;
   operationsDelayMinutes?: number | null;
+}
+
+export interface VesselVisitExecutionDetail extends VesselVisitExecutionListItem {
+  identifier?: string;
+  vvnId?: string | number | null;
+  eta?: string | null;
+  etd?: string | null;
+  actualBerthTime?: string | null;
+  actualUnberthTime?: string | null;
 }
 
 export type OperationExecutionStatus = 'PLANNED' | 'STARTED' | 'COMPLETED' | 'DELAYED';
@@ -184,6 +200,23 @@ export class OemApiService {
   getOperationPlan(id: number) {
     const url = `${this.operationPlanBase}/${id}`;
     return this.http.get<OperationPlanDto>(url, { withCredentials: true });
+  }
+
+  getOperationPlanWithTasks(id: number) {
+    const url = `${this.operationPlanBase}/${id}`;
+    const params = new HttpParams().set('includeTasks', 'true');
+    return this.http.get<OperationPlanWithTasksDto>(url, {
+      withCredentials: true,
+      params,
+    });
+  }
+
+  getPlannedOperationsByPlan(operationPlanId: number): Observable<PlannedOperationWithExecution[]> {
+    return this.getOperationPlanWithTasks(operationPlanId).pipe(
+      map((plan) =>
+        (plan?.tasks ?? []).map((task) => this.mapTaskToPlannedOperation(task)),
+      ),
+    );
   }
 
   updateOperationPlan(
@@ -271,12 +304,29 @@ export class OemApiService {
       withCredentials: true,
       params: params.keys().length ? params : undefined,
     };
-    return this.http.get<VesselVisitExecutionListItem[]>(this.vesselVisitExecutionBase, opts);
+    return this.http
+      .get<VesselVisitExecutionListItem[]>(this.vesselVisitExecutionBase, opts)
+      .pipe(
+        map((executions) =>
+          Array.isArray(executions)
+            ? executions.map((execution) => this.mapExecutionListItem(execution))
+            : [],
+        ),
+      );
+  }
+
+  getVesselVisitExecution(id: number): Observable<VesselVisitExecutionDetail> {
+    const url = `${this.vesselVisitExecutionBase}/${id}`;
+    return this.http
+      .get<VesselVisitExecutionDetail>(url, { withCredentials: true })
+      .pipe(map((execution) => this.mapExecutionDetail(execution)));
   }
 
 	createVesselVisitExecution(payload: { vvnId: number; actualArrivalTime: string; }) {
 		const url = this.vesselVisitExecutionBase;
-		return this.http.post<VesselVisitExecutionListItem>(url, payload, { withCredentials: true });
+    return this.http
+      .post<VesselVisitExecutionListItem>(url, payload, { withCredentials: true })
+      .pipe(map((execution) => this.mapExecutionListItem(execution)));
 	}
 
   completeVesselVisitExecution(id: number, payload: {
@@ -284,7 +334,9 @@ export class OemApiService {
     actualPortDepartureTime: string;
   }): Observable<VesselVisitExecutionListItem> {
     const url = `${this.vesselVisitExecutionBase}/${id}/complete`;
-    return this.http.patch<VesselVisitExecutionListItem>(url, payload, { withCredentials: true });
+    return this.http
+      .patch<VesselVisitExecutionListItem>(url, payload, { withCredentials: true })
+      .pipe(map((execution) => this.mapExecutionListItem(execution)));
   }
 
   updateVesselVisitExecution(
@@ -292,14 +344,30 @@ export class OemApiService {
     payload: { actualBerthTime?: string; dockId?: string },
   ): Observable<VesselVisitExecutionListItem> {
     const url = `${this.vesselVisitExecutionBase}/${id}`;
-    return this.http.patch<VesselVisitExecutionListItem>(url, payload, {
-      withCredentials: true,
-    });
+    return this.http
+      .patch<VesselVisitExecutionListItem>(url, payload, {
+        withCredentials: true,
+      })
+      .pipe(map((execution) => this.mapExecutionListItem(execution)));
   }
 
-  getPlannedOperationsForExecution(id: number): Observable<PlannedOperationWithExecution[]> {
-    const url = `${this.vesselVisitExecutionBase}/${id}/planned-operations`;
-    return this.http.get<PlannedOperationWithExecution[]>(url, { withCredentials: true });
+  linkOperationPlanToVve(
+    executionId: number,
+    operationPlanId: number,
+  ): Observable<VesselVisitExecutionListItem> {
+    const url = `${this.vesselVisitExecutionBase}/${executionId}/link-operation-plan`;
+    return this.http
+      .patch<VesselVisitExecutionListItem>(
+        url,
+        { operationPlanId },
+        { withCredentials: true },
+      )
+      .pipe(map((execution) => this.mapExecutionListItem(execution)));
+  }
+
+  getExecutedOperationsForExecution(id: number): Observable<ExecutedOperationDto[]> {
+    const url = `${this.vesselVisitExecutionBase}/${id}/executed-operations`;
+    return this.http.get<ExecutedOperationDto[]>(url, { withCredentials: true });
   }
 
   upsertExecutedOperation(
@@ -309,5 +377,96 @@ export class OemApiService {
   ): Observable<ExecutedOperationDto> {
     const url = `${this.vesselVisitExecutionBase}/${executionId}/executed-operations/${plannedOperationId}`;
     return this.http.put<ExecutedOperationDto>(url, payload, { withCredentials: true });
+  }
+
+  private mapTaskToPlannedOperation(task: OperationPlanTaskDto): PlannedOperationWithExecution {
+    return {
+      id: task.id ?? 0,
+      type: task.type,
+      craneId: task.craneId ?? null,
+      storageAreaId: task.storageAreaId ?? null,
+      staffIds: task.staffIds ?? null,
+      plannedStartTime: task.startTime,
+      plannedEndTime: task.endTime,
+      executionStatus: 'PLANNED',
+      actualStartTime: null,
+      actualEndTime: null,
+      actualResourcesUsed: null,
+    };
+  }
+  private mapExecutionListItem(
+    raw: VesselVisitExecutionListItem | VesselVisitExecutionDetail | null | undefined,
+  ): VesselVisitExecutionListItem {
+    if (!raw) {
+      return {
+        id: 0,
+        vesselVisitNotificationId: null,
+        vesselVisitId: null,
+        vesselName: '',
+        status: '',
+      };
+    }
+
+    const base = raw as VesselVisitExecutionListItem;
+    const notificationId = this.normalizeVvn(
+      (raw as VesselVisitExecutionDetail)?.vvnId ??
+        base.vesselVisitNotificationId ??
+        base.vesselVisitId ??
+        null,
+    );
+
+    return {
+      ...base,
+      vesselVisitId: base.vesselVisitId ?? notificationId ?? null,
+      vesselVisitNotificationId: notificationId,
+    };
+  }
+
+  private mapExecutionDetail(
+    raw: VesselVisitExecutionDetail | VesselVisitExecutionListItem | null | undefined,
+  ): VesselVisitExecutionDetail {
+    const listItem = this.mapExecutionListItem(raw);
+
+    if (!raw) {
+      return {
+        ...listItem,
+        vvnId: listItem.vesselVisitNotificationId,
+        eta: null,
+        etd: null,
+        actualBerthTime: listItem.actualBerthTime ?? null,
+        actualUnberthTime: listItem.actualUnberthTime ?? null,
+      } as VesselVisitExecutionDetail;
+    }
+
+    const detail = raw as VesselVisitExecutionDetail;
+    const normalizedVvn = this.normalizeVvn(
+      detail.vvnId ?? listItem.vesselVisitNotificationId,
+    );
+
+    return {
+      ...listItem,
+      vvnId: normalizedVvn ?? detail.vvnId ?? null,
+      eta: detail.eta ?? null,
+      etd: detail.etd ?? null,
+      actualBerthTime: detail.actualBerthTime ?? listItem.actualBerthTime ?? null,
+      actualUnberthTime: detail.actualUnberthTime ?? listItem.actualUnberthTime ?? null,
+    } as VesselVisitExecutionDetail;
+  }
+
+  private normalizeVvn(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      const parsed = Number(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
   }
 }

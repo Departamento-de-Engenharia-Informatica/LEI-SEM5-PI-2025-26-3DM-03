@@ -1128,6 +1128,53 @@
     }
   }
 
+  .associate-option {
+    display: grid;
+    gap: 0.35rem;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid #d0ddf0;
+    padding: 0.7rem 0.8rem;
+    background: #ffffff;
+    transition: border-color 120ms ease, background-color 120ms ease;
+
+    &:hover {
+      border-color: #90caf9;
+      background: #f1f8ff;
+    }
+
+    input[type='radio'] {
+      margin-right: 0.6rem;
+      accent-color: #1d4ed8;
+    }
+
+    strong {
+      display: block;
+      margin-bottom: 0.2rem;
+    }
+
+    &.disabled {
+      cursor: not-allowed;
+      border-color: #facc15;
+      background: #fffbe6;
+
+      &:hover {
+        border-color: #facc15;
+        background: #fffbe6;
+      }
+
+      input[type='radio'] {
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .associate-option-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
   @media (max-width: 768px) {
     padding: 0.5rem;
 

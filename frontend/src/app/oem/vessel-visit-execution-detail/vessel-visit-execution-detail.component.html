@@ -1,0 +1,94 @@
+<section class="vve-detail" *ngIf="!loading && !loadError; else loadingOrError">
+  <header class="detail-header" *ngIf="detail">
+    <div>
+      <h1>Execucao #{{ detail.identifier || detail.id }}</h1>
+      <p class="subtitle">{{ detail.vesselName }}</p>
+    </div>
+    <div class="status-summary">
+      <span [class]="executionStatusClass(detail.status)">
+        {{ executionStatusLabel(detail.status) }}
+      </span>
+    </div>
+  </header>
+
+  <p class="readonly-hint" *ngIf="readonlyRowsHint">{{ readonlyRowsHint }}</p>
+  <p class="readonly-hint warning" *ngIf="missingPlanMessage">{{ missingPlanMessage }}</p>
+
+  <ng-container *ngIf="operations.length; else emptyState">
+    <div class="table-wrapper">
+      <table class="operations-table">
+        <thead>
+          <tr>
+            <th>Operacao</th>
+            <th>Inicio Planeado</th>
+            <th>Fim Planeado</th>
+            <th>Inicio Real</th>
+            <th>Fim Real</th>
+            <th>Recursos Usados</th>
+            <th>Estado</th>
+            <th class="actions-col">Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let row of operations; let i = index; trackBy: trackByOperation">
+            <tr [formGroup]="rows.controls[i]" [class.editing]="isEditing(i)" [class.saving]="isRowSaving(row.planned.id)">
+              <td>
+                <div class="operation-name">{{ row.planned.type }}</div>
+                <div class="operation-meta" *ngIf="row.planned.craneId">Grua: {{ row.planned.craneId }}</div>
+                <div class="operation-meta" *ngIf="row.planned.storageAreaId">Armazem: {{ row.planned.storageAreaId }}</div>
+              </td>
+              <td>{{ displayDateTime(row.planned.plannedStartTime) }}</td>
+              <td>{{ displayDateTime(row.planned.plannedEndTime) }}</td>
+              <td>
+                <input type="datetime-local" formControlName="actualStartTime" />
+              </td>
+              <td>
+                <input type="datetime-local" formControlName="actualEndTime" />
+                <div class="field-error" *ngIf="rows.controls[i].get('actualEndTime')?.touched && rows.controls[i].get('actualEndTime')?.hasError('required')">
+                  Obrigatorio quando a operacao esta concluida
+                </div>
+              </td>
+              <td>
+                <textarea formControlName="resourcesUsed" rows="2" placeholder="{ &quot;resourceId&quot;: &quot;ABC-1&quot; }"></textarea>
+              </td>
+              <td>
+                <span [class]="statusClass(row.status)">{{ statusLabel(row.status) }}</span>
+              </td>
+              <td class="actions">
+                <ng-container *ngIf="!isEditing(i); else editActions">
+                  <button type="button" (click)="startEdit(i)" [disabled]="!canEditRow(i)">Editar</button>
+                </ng-container>
+                <ng-template #editActions>
+                  <button type="button" (click)="saveRow(i)" [disabled]="isRowSaving(row.planned.id)">Guardar</button>
+                  <button type="button" (click)="cancelEdit(i)" [disabled]="isRowSaving(row.planned.id)">Cancelar</button>
+                </ng-template>
+                <div class="saving-indicator" *ngIf="isRowSaving(row.planned.id)">A guardar...</div>
+              </td>
+            </tr>
+            <tr *ngIf="rowErrors.get(row.planned.id)" class="row-error">
+              <td colspan="8">{{ rowErrors.get(row.planned.id) }}</td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+</section>
+
+<ng-template #loadingOrError>
+  <div class="loading" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>A carregar execucao...</p>
+  </div>
+  <div class="error-panel" *ngIf="!loading && loadError">
+    <p>{{ loadError }}</p>
+    <button type="button" (click)="retry()">Tentar novamente</button>
+  </div>
+</ng-template>
+
+<ng-template #emptyState>
+  <div class="empty-state">
+    <p *ngIf="!missingPlanMessage">Sem operacoes planeadas para esta execucao.</p>
+    <p *ngIf="missingPlanMessage">{{ missingPlanMessage }}</p>
+  </div>
+</ng-template>

@@ -7,6 +7,7 @@ import { OemService } from './oem.service';
 import {
   ComplementaryTaskCategoryController,
   ComplementaryTaskController,
+  DevSeedController,
   IncidentController,
   IncidentTypeController,
   OperationPlanController,
@@ -22,6 +23,7 @@ import {
   ExternalClientsService,
   VesselVisitExecutionService,
 } from './services';
+import { OemSeedService } from './seed/oem-seed.service';
 import { OperationPlanEntity } from './persistence/operation-plan.entity';
 import { ComplementaryTaskCategoryEntity } from './persistence/complementary-task-category.entity';
 import { ComplementaryTaskEntity } from './persistence/complementary-task.entity';
@@ -63,6 +65,7 @@ import { ExecutedOperationAuditEntity } from './persistence/executed-operation-a
   ],
   controllers: [
     OemController,
+    DevSeedController,
     OperationPlanController,
     VesselVisitExecutionController,
     IncidentController,
@@ -80,6 +83,7 @@ import { ExecutedOperationAuditEntity } from './persistence/executed-operation-a
     ComplementaryTaskService,
     ComplementaryTaskCategoryService,
     ExternalClientsService,
+    OemSeedService,
     OemVvnService,
     IamAuthGuard,
     RolesGuard,

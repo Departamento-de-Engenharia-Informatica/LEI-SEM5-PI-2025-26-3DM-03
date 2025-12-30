@@ -50,6 +50,7 @@
     "@angular/compiler-cli": "^20.3.0",
     "@cypress/schematic": "^4.1.4",
     "@types/express": "^5.0.1",
+    "@types/flatpickr": "^3.0.2",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.17.19",
     "@types/three": "^0.170.0",

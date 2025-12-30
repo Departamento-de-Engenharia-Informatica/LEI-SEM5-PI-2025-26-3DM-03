@@ -355,6 +355,20 @@
                   <button
                     type="button"
                     class="menu-item"
+                    (click)="openAssociate(plan)"
+                    [title]="'Associar execucao de visita'"
+                  >
+                    <svg class="menu-item-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M7.5 6a4.5 4.5 0 0 1 3.54 7.35l-1.42-1.42a2.5 2.5 0 1 0-3.54-3.54L4.66 9.32A4.5 4.5 0 0 1 7.5 6zm9 12a4.5 4.5 0 0 0-3.54-7.35l1.42 1.42a2.5 2.5 0 1 1 3.54 3.54l-1.42 1.42A4.5 4.5 0 0 0 16.5 18z"
+                      />
+                      <path d="M9.88 12.7 12.7 9.88l1.42 1.42-2.82 2.82z" />
+                    </svg>
+                    Associar execucao de visita
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
                     (click)="startEdit(plan)"
                     [disabled]="editLoading && editingPlan?.id === plan.id"
                     [title]="editLoading && editingPlan?.id === plan.id ? 'A carregar...' : 'Editar plano'"
@@ -653,6 +667,72 @@
             </button>
           </div>
         </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" *ngIf="associatePlan">
+      <section class="modal-sheet edit-panel" #linkSheet id="link-sheet">
+        <div class="edit-header">
+          <div>
+            <p class="eyebrow">Associar execucao</p>
+            <h3>{{ associatePlan?.name }}</h3>
+            <p class="muted small">
+              Plano #{{ associatePlan?.id }} · VVN
+              {{ associatePlan?.vesselVisitId || associatePlan?.sourceVvnId || '-' }}
+              · VVN do plano normalizada: {{ associatePlanVvn ?? '-' }}
+            </p>
+          </div>
+          <button type="button" class="ghost-btn" (click)="closeAssociate()">Fechar</button>
+        </div>
+        <div class="edit-messages">
+          <p class="info" *ngIf="associateLoading">A procurar execucoes em progresso...</p>
+          <p class="error" *ngIf="associateError">{{ associateError }}</p>
+          <p class="success" *ngIf="associateSuccess">{{ associateSuccess }}</p>
+        </div>
+        <div class="history-list" *ngIf="associateExecutions.length">
+          <label
+            class="history-item associate-option"
+            *ngFor="let exec of associateExecutions"
+            [ngClass]="{ disabled: !exec.vvnMatchesPlan }"
+          >
+            <div class="associate-option-header">
+              <input
+                type="radio"
+                name="associate-execution"
+                [value]="exec.id"
+                [checked]="exec.id === selectedExecutionId"
+                (change)="selectExecution(exec.id)"
+                [disabled]="!exec.vvnMatchesPlan"
+              />
+              <div>
+                <strong>Execucao VVE {{ exec.id }} · {{ exec.vesselName || 'Sem nome' }}</strong>
+                <span class="muted small">
+                  VVN {{ exec.vesselVisitNotificationId ?? '—' }} · Estado {{ exec.status }}
+                </span>
+              </div>
+            </div>
+            <p class="muted small">
+              Chegada real:
+              {{ exec.actualArrivalTime ? (exec.actualArrivalTime | date: 'short') : '-' }} · Berco
+              {{ exec.berthId || '-' }}
+            </p>
+            <p class="warning small" *ngIf="!exec.vvnMatchesPlan">
+              Esta execucao pertence a uma VVN diferente do plano.
+            </p>
+          </label>
+        </div>
+        <p class="info" *ngIf="!associateLoading && !associateError && !associateExecutions.length">
+          Nao foram encontradas execucoes elegiveis sem plano para este VVN.
+        </p>
+        <div class="edit-actions">
+          <button
+            type="button"
+            (click)="confirmAssociate()"
+            [disabled]="associateLinking || selectedExecutionId === null"
+          >
+            {{ associateLinking ? 'A associar...' : 'Associar plano' }}
+          </button>
+        </div>
       </section>
     </div>
 
