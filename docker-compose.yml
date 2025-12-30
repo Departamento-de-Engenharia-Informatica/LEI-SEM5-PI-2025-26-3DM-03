@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  # Reverse proxy / gateway único
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx-gateway
+    ports:
+      - "80:80"        # entrada única HTTP
+      # - "443:443"    # opcional se quiseres TLS mais tarde
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    # Em muitos ambientes académicos/legacy, "condition: service_healthy" pode não estar disponível.
+    # Mantemos healthchecks nas APIs mas usamos um depends_on simples para compatibilidade.
+    depends_on:
+      - todoapi
+      - oemapi
+    networks:
+      - app-net
+
+  # ------------ TodoApi (.NET 8) ------------
+  todoapi:
+    build:
+      context: .
+      dockerfile: TodoApi/Dockerfile
+    container_name: todoapi
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      # SQLite em ficheiro dedicado, dentro do volume /data
+      ConnectionStrings__DefaultConnection: "Data Source=/data/todoapi.db"
+      # Desativar OIDC em produção simples / CI
+      DisableOidc: "true"
+      DISABLE_OIDC: "true"
+      # A TodoApi fala com a OemApi internamente pela docker network
+      Oem__BaseUrl: "http://oemapi:3000/api/"
+    volumes:
+      - todoapi-data:/data
+    networks:
+      - app-net
+    healthcheck:
+      # Usa um endpoint real existente; podes trocar depois para /api/health
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/WeatherForecast || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ------------ OemApi (NestJS) ------------
+  oemapi:
+    build:
+      context: .
+      dockerfile: oem-api/Dockerfile
+    container_name: oemapi
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      # SQLite em ficheiro dedicado, dentro do volume /data
+      DATABASE_PATH: "/data/oemapi.db"
+    volumes:
+      - oemapi-data:/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  todoapi-data:
+  oemapi-data:

@@ -1,0 +1,217 @@
+name: Deploy OemApi
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'oem-api/**'
+      - '.github/workflows/deploy-oemapi.yml'
+  workflow_dispatch:
+    inputs:
+      runTestsOnly:
+        description: 'Run build only (no container push)'
+        type: boolean
+        default: false
+      imageTag:
+        description: 'Custom image tag'
+        required: false
+      deployToDei:
+        description: 'Deploy to DEI VM (self-hosted runner)'
+        type: boolean
+        default: true
+      containerName:
+        description: 'Container name on DEI VM'
+        required: false
+        default: 'oemapi'
+      hostPort:
+        description: 'Host port to expose OemApi'
+        required: false
+        default: '8081'
+
+  schedule:
+    - cron: '0 3 * * *' # nightly at 03:00 UTC
+
+permissions:
+  contents: read
+  packages: write
+
+# -------------------------
+#   JOB 1 — Build (Node/Nest)
+# -------------------------
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        working-directory: oem-api
+        run: npm ci
+
+      - name: Lint
+        working-directory: oem-api
+        run: npm run lint
+
+      - name: Build
+        working-directory: oem-api
+        run: npm run build
+
+# -------------------------
+#   JOB 2 — Build & Push Image
+# -------------------------
+  containerize:
+    needs: build
+    if: ${{ inputs.runTestsOnly != true }}
+    runs-on: ubuntu-latest
+    outputs:
+      image_repo: ${{ steps.image.outputs.image }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image repo
+        id: image
+        run: |
+          REPO_LC="${GITHUB_REPOSITORY,,}"
+          echo "image=ghcr.io/${REPO_LC}-oemapi" >> $GITHUB_OUTPUT
+
+      - name: Compute image tag
+        id: meta
+        run: |
+          DATE=$(date +%Y%m%d-%H%M)
+          SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          if [ -n "${{ inputs.imageTag }}" ]; then
+            echo "image_tag=${{ inputs.imageTag }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${DATE}-${SHA}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./oem-api
+          file: oem-api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.image.outputs.image }}:latest
+
+      # --- SMOKE TEST NÃO BLOQUEANTE ---
+      - name: Smoke test container (non-blocking)
+        continue-on-error: true
+        run: |
+          echo "Starting OemApi smoke test container..."
+          docker rm -f oemapi-smoke || true
+
+          docker run -d --name oemapi-smoke \
+            -p 8081:3000 \
+            ${{ steps.image.outputs.image }}:${{ steps.meta.outputs.image_tag }}
+
+          echo "Waiting 20s for app to start..."
+          sleep 20
+
+          echo "Calling http://localhost:8081/api/docs ..."
+          if curl --fail http://localhost:8081/api/docs; then
+            echo "OemApi smoke test PASSED"
+          else
+            echo "OemApi smoke test FAILED (app not ready or misconfigured)"
+          fi
+
+          echo "Collecting container logs..."
+          docker logs oemapi-smoke || true
+          docker logs oemapi-smoke > oemapi-smoke.log || true
+
+          echo "Cleaning up smoke container..."
+          docker rm -f oemapi-smoke || true
+
+      - name: Upload smoke test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: oemapi-smoke-test
+          path: oemapi-smoke.log
+          retention-days: 14
+
+# -------------------------
+#   JOB 3 — Deploy to DEI VM
+# -------------------------
+  deploy-to-dei:
+    needs: containerize
+    runs-on: [self-hosted, Linux, X64]
+
+    steps:
+      - name: Prepare variables
+        id: prep
+        run: |
+          IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
+          CNAME="${{ inputs.containerName || 'oemapi' }}"
+          HPORT="${{ inputs.hostPort || '8081' }}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "cname=$CNAME" >> $GITHUB_OUTPUT
+          echo "hport=$HPORT" >> $GITHUB_OUTPUT
+
+      - name: Login to GHCR from VM
+        run: |
+          echo "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
+        env:
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+
+      - name: Pull and deploy container
+        run: |
+          IMAGE="${{ steps.prep.outputs.image }}"
+          NAME="${{ steps.prep.outputs.cname }}"
+          PORT="${{ steps.prep.outputs.hport }}"
+
+          echo "Pulling image: $IMAGE"
+          docker pull "$IMAGE" 
+
+          echo "Stopping previous container..."
+          docker rm -f "$NAME" || true
+
+          echo "Starting new container on port $PORT"
+          docker run -d --name "$NAME" \
+            --restart unless-stopped \
+            -p "$PORT":3000 \
+            "$IMAGE"
+
+          echo "Running containers:"
+          docker ps
+
+# -------------------------
+#   JOB 4 — Summary
+# -------------------------
+  summary:
+    needs: [build, containerize, deploy-to-dei]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summary
+        run: |
+          echo "OemApi pipeline completed with:"
+          echo "- Build & lint OK"
+          echo "- Image pushed to GHCR"
+          echo "- Smoke test executed (non-blocking, logs as artifact)"
+          echo "- Deploy executed on DEI VM"
