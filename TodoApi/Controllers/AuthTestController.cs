@@ -27,7 +27,7 @@ namespace TodoApi.Controllers
 
             var redirectUri = _env.IsDevelopment()
                 ? "https://localhost:4200/?auth=ok"
-                : "https://lei-sem5-g87.duckdns.org:8081/?auth=ok";
+                : "https://lei-sem5-g87.duckdns.org/?auth=ok";
 
             var props = new AuthenticationProperties
             {
@@ -69,7 +69,7 @@ namespace TodoApi.Controllers
             // Redirect back to the frontend root after sign-out. Use http in development to match common `ng serve`.
             var frontendRoot = _env.IsDevelopment()
                 ? "http://localhost:4200/"
-                : "https://lei-sem5-g87.duckdns.org:8081/";
+                : "https://lei-sem5-g87.duckdns.org/";
 
             // Trigger OpenID Connect sign-out (if supported) and redirect to frontend root
             var props = new AuthenticationProperties { RedirectUri = frontendRoot };
