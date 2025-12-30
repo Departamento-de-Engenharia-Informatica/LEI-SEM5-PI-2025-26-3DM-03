@@ -1,13 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, NgZone } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { finalize } from 'rxjs/operators';
 import {
   OemApiService,
   ResourceAllocationSummaryDto,
@@ -62,6 +61,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly zone: NgZone,
     private readonly docksService: DocksService,
     private readonly resourcesService: ResourcesService,
     private readonly staffService: StaffService,
@@ -97,9 +97,11 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
       dateFormat: 'Y-m-d',
       defaultDate: dates as Date[],
       onChange: (selectedDates: Date[]) => {
-        if (selectedDates.length === 2) {
-          this.applySelectedRange(selectedDates[0], selectedDates[1]);
-        }
+        this.zone.run(() => {
+          if (selectedDates.length === 2) {
+            this.applySelectedRange(selectedDates[0], selectedDates[1]);
+          }
+        });
       },
     });
   }
@@ -143,20 +145,25 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
         resourceType,
         resourceId: resourceId?.trim() || undefined,
       })
-      .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (data: ResourceAllocationSummaryDto[]) => {
-          this.results = data ?? [];
-          this.emptyMessage = this.results.length
-            ? null
-            : 'Sem resultados para o periodo selecionado.';
+          this.zone.run(() => {
+            this.results = data ?? [];
+            this.emptyMessage = this.results.length
+              ? null
+              : 'Sem resultados para o periodo selecionado.';
+            this.loading = false;
+          });
         },
         error: (err: HttpErrorResponse) => {
-          this.results = [];
-          this.error = this.normalizeError(
-            err,
-            'Falha ao carregar a alocacao de recursos.',
-          );
+          this.zone.run(() => {
+            this.results = [];
+            this.error = this.normalizeError(
+              err,
+              'Falha ao carregar a alocacao de recursos.',
+            );
+            this.loading = false;
+          });
         },
       });
   }
@@ -287,14 +294,20 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
     this.docksService
       .getAll()
       .then((data) => {
-        this.docks = data ?? [];
+        this.zone.run(() => {
+          this.docks = data ?? [];
+        });
       })
       .catch(() => {
-        this.docksError = 'Falha ao carregar docas.';
-        this.docks = [];
+        this.zone.run(() => {
+          this.docksError = 'Falha ao carregar docas.';
+          this.docks = [];
+        });
       })
       .finally(() => {
-        this.docksLoading = false;
+        this.zone.run(() => {
+          this.docksLoading = false;
+        });
       });
   }
 
@@ -307,15 +320,21 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
     this.resourcesService
       .getAll()
       .then((all) => {
-        const list = Array.isArray(all) ? all : [];
-        this.cranes = list.filter(r => (r.type ?? '').toLowerCase().includes('crane'));
+        this.zone.run(() => {
+          const list = Array.isArray(all) ? all : [];
+          this.cranes = list.filter(r => (r.type ?? '').toLowerCase().includes('crane'));
+        });
       })
       .catch(() => {
-        this.cranesError = 'Falha ao carregar gruas.';
-        this.cranes = [];
+        this.zone.run(() => {
+          this.cranesError = 'Falha ao carregar gruas.';
+          this.cranes = [];
+        });
       })
       .finally(() => {
-        this.cranesLoading = false;
+        this.zone.run(() => {
+          this.cranesLoading = false;
+        });
       });
   }
 
@@ -328,14 +347,20 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
     this.staffService
       .getAll()
       .then((all) => {
-        this.staff = all ?? [];
+        this.zone.run(() => {
+          this.staff = all ?? [];
+        });
       })
       .catch(() => {
-        this.staffError = 'Falha ao carregar staff.';
-        this.staff = [];
+        this.zone.run(() => {
+          this.staffError = 'Falha ao carregar staff.';
+          this.staff = [];
+        });
       })
       .finally(() => {
-        this.staffLoading = false;
+        this.zone.run(() => {
+          this.staffLoading = false;
+        });
       });
   }
 }

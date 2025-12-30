@@ -1,6 +1,16 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import {
+  ApplicationRef,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  NgZone,
+  OnInit,
+  AfterViewInit,
+  OnDestroy,
+  ViewChild,
+} from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { EMPTY } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
@@ -12,6 +22,8 @@ import {
   UpsertExecutedOperationPayload,
   VesselVisitExecutionListItem,
 } from '../oem-api.service';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+import flatpickr from 'flatpickr';
 
 @Component({
   selector: 'app-vessel-visit-executions-history',
@@ -20,7 +32,12 @@ import {
   templateUrl: './vessel-visit-executions-history.component.html',
   styleUrls: ['./vessel-visit-executions-history.component.scss'],
 })
-export class VesselVisitExecutionsHistoryComponent implements OnInit {
+export class VesselVisitExecutionsHistoryComponent
+  implements OnInit, AfterViewInit, OnDestroy
+{
+  @ViewChild('dateRangeInput', { static: false })
+  dateRangeInput?: ElementRef<HTMLInputElement>;
+
   filterForm: FormGroup;
 
   completeForm: FormGroup | null = null;
@@ -47,6 +64,8 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   loading = false;
   error: string | null = null;
   emptyMessage: string | null = null;
+  displayRange = '';
+  private dateRangePicker: flatpickr.Instance | null = null;
 
   readonly statusOptions = [
     'scheduled',
@@ -60,6 +79,9 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly zone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly appRef: ApplicationRef,
   ) {
     this.filterForm = this.fb.group({
       from: [''],
@@ -76,7 +98,34 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.updateDisplayRangeFromForm();
     this.fetchExecutions();
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.dateRangeInput) {
+      return;
+    }
+
+    const dates = this.getDatesFromForm();
+
+    this.dateRangePicker = flatpickr(this.dateRangeInput.nativeElement, {
+      mode: 'range',
+      dateFormat: 'Y-m-d',
+      defaultDate: dates as Date[],
+      onChange: (selectedDates: Date[]) => {
+        this.zone.run(() => {
+          if (selectedDates.length === 2) {
+            this.applySelectedRange(selectedDates[0], selectedDates[1]);
+          }
+        });
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.dateRangePicker?.destroy();
+    this.dateRangePicker = null;
   }
 
   onSearch(): void {
@@ -91,6 +140,13 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
       vesselName: '',
       status: '',
     });
+    this.updateDisplayRangeFromForm();
+    const dates = this.getDatesFromForm();
+    if (this.dateRangePicker && dates.length === 2) {
+      this.dateRangePicker.setDate(dates as Date[], true);
+    } else if (this.dateRangePicker) {
+      this.dateRangePicker.clear();
+    }
     this.fetchExecutions();
   }
 
@@ -509,17 +565,26 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
 
     this.api
       .getVesselVisitExecutions(filters)
-      .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (items) => {
-          this.executions = items ?? [];
-          this.emptyMessage = this.executions.length
-            ? null
-            : 'Nenhuma execucao encontrada para os filtros aplicados.';
+          this.zone.run(() => {
+            this.executions = items ?? [];
+            this.emptyMessage = this.executions.length
+              ? null
+              : 'Nenhuma execucao encontrada para os filtros aplicados.';
+            this.loading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
         error: (err: HttpErrorResponse) => {
-          this.executions = [];
-          this.error = this.normalizeError(err, 'Falha ao carregar as execucoes.');
+          this.zone.run(() => {
+            this.executions = [];
+            this.error = this.normalizeError(err, 'Falha ao carregar as execucoes.');
+            this.loading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
       });
   }
@@ -618,6 +683,61 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
     return filters;
   }
 
+  private getDatesFromForm(): Date[] {
+    const { from, to } = this.filterForm.value;
+    const fromDate = from ? new Date(from) : null;
+    const toDate = to ? new Date(to) : null;
+    const result: Date[] = [];
+    if (fromDate && !Number.isNaN(fromDate.getTime())) {
+      result.push(fromDate);
+    }
+    if (toDate && !Number.isNaN(toDate.getTime())) {
+      result.push(toDate);
+    }
+    return result;
+  }
+
+  private applySelectedRange(start: Date, end: Date): void {
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    this.filterForm.patchValue(
+      {
+        from: this.toDateInput(startDay),
+        to: this.toDateInput(endDay),
+      },
+      { emitEvent: false },
+    );
+
+    this.updateDisplayRange(startDay, endDay);
+  }
+
+  private updateDisplayRangeFromForm(): void {
+    const dates = this.getDatesFromForm();
+    if (dates.length === 2) {
+      this.updateDisplayRange(dates[0], dates[1]);
+    } else {
+      this.displayRange = '';
+    }
+  }
+
+  private updateDisplayRange(from: Date, to: Date): void {
+    const formatter = new Intl.DateTimeFormat('pt-PT', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    this.displayRange = `${formatter.format(from)} a ${formatter.format(to)}`;
+  }
+
+  private toDateInput(date: Date): string {
+    const pad = (v: number) => v.toString().padStart(2, '0');
+    const yyyy = date.getFullYear();
+    const mm = pad(date.getMonth() + 1);
+    const dd = pad(date.getDate());
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   private resourcesToText(operation: PlannedOperationWithExecution): string {
     const source =
       operation.actualResourcesUsed ?? this.buildSuggestedResources(operation) ?? null;
@@ -669,4 +789,5 @@ export class VesselVisitExecutionsHistoryComponent implements OnInit {
     if (err?.status === 0) return `${fallback} (verifique a rede ou o proxy).`;
     return fallback;
   }
+
 }

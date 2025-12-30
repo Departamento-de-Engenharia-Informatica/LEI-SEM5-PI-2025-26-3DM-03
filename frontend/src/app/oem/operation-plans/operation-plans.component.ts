@@ -1,6 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  NgZone,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
+import { ApplicationRef } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
@@ -104,6 +112,9 @@ export class OemOperationPlansComponent implements OnInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly zone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly appRef: ApplicationRef,
     private readonly docksService: DocksService,
     private readonly storageAreasService: StorageAreasService,
     private readonly resourcesService: ResourcesService,
@@ -274,23 +285,30 @@ export class OemOperationPlansComponent implements OnInit {
         to: to || undefined,
         vesselVisitId: vesselVisitId || undefined,
       })
-      .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: plans => {
-          const data = Array.isArray(plans) ? plans : [];
-          this.plans = data;
-          this.savedEmptyMessage = this.plans.length
-            ? null
-            : 'Nenhum plano encontrado para os filtros aplicados.';
-          this.loading = false;
+          this.zone.run(() => {
+            const data = Array.isArray(plans) ? plans : [];
+            this.plans = data;
+            this.savedEmptyMessage = this.plans.length
+              ? null
+              : 'Nenhum plano encontrado para os filtros aplicados.';
+            this.loading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
         error: (err: HttpErrorResponse) => {
-          this.error = this.normalizeError(
-            err,
-            'Falha ao carregar os planos guardados.',
-          );
-          this.savedEmptyMessage = null;
-          this.loading = false;
+          this.zone.run(() => {
+            this.error = this.normalizeError(
+              err,
+              'Falha ao carregar os planos guardados.',
+            );
+            this.savedEmptyMessage = null;
+            this.loading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
       });
   }
@@ -667,6 +685,7 @@ export class OemOperationPlansComponent implements OnInit {
     const pad = (v: number) => v.toString().padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
+
 
   private createEditForm(plan?: OperationPlanDto): FormGroup {
     return this.fb.group({

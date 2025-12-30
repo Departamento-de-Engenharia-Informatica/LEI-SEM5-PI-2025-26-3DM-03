@@ -11,13 +11,14 @@
 
   <form class="filter-form" [formGroup]="filterForm" (ngSubmit)="onSearch()">
     <div class="form-grid">
-      <label>
-        De
-        <input type="date" formControlName="from" />
-      </label>
-      <label>
-        Ate
-        <input type="date" formControlName="to" />
+      <label class="date-range-label">
+        Datas
+        <input
+          #dateRangeInput
+          type="text"
+          [value]="displayRange || 'Selecionar datas'"
+          readonly
+        />
       </label>
       <label>
         VVN (ID)
