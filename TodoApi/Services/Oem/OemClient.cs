@@ -208,6 +208,7 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+<<<<<<< HEAD
     public async Task<HttpResponseMessage> GetPlannedOperationsForExecutionAsync(
         int executionId,
         CancellationToken cancellationToken = default)
@@ -215,6 +216,13 @@ public class OemClient
         var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"oem/vessel-visit-executions/{executionId}/planned-operations");
+=======
+    public async Task<HttpResponseMessage> GetVesselVisitExecutionAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/vessel-visit-executions/{id}");
+>>>>>>> 4547a08b6b4166f33a18e93e4b885d59ca2a6d6c
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         ApplyIdentityHeaders(request);
@@ -222,6 +230,7 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+<<<<<<< HEAD
     public async Task<HttpResponseMessage> GetExecutedOperationsForExecutionAsync(
         int executionId,
         CancellationToken cancellationToken = default)
@@ -229,6 +238,25 @@ public class OemClient
         var request = new HttpRequestMessage(
             HttpMethod.Get,
             $"oem/vessel-visit-executions/{executionId}/executed-operations");
+=======
+    public async Task<HttpResponseMessage> GetPlannedOperationsAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/vessel-visit-executions/{id}/planned-operations");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetExecutedOperationsAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/vessel-visit-executions/{id}/executed-operations");
+>>>>>>> 4547a08b6b4166f33a18e93e4b885d59ca2a6d6c
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         ApplyIdentityHeaders(request);
@@ -237,14 +265,22 @@ public class OemClient
     }
 
     public async Task<HttpResponseMessage> UpsertExecutedOperationAsync(
+<<<<<<< HEAD
         int executionId,
+=======
+        int id,
+>>>>>>> 4547a08b6b4166f33a18e93e4b885d59ca2a6d6c
         int plannedOperationId,
         JsonElement payload,
         CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(
             HttpMethod.Put,
+<<<<<<< HEAD
             $"oem/vessel-visit-executions/{executionId}/executed-operations/{plannedOperationId}")
+=======
+            $"oem/vessel-visit-executions/{id}/executed-operations/{plannedOperationId}")
+>>>>>>> 4547a08b6b4166f33a18e93e4b885d59ca2a6d6c
         {
             Content = JsonContent.Create(payload)
         };
