@@ -10,6 +10,7 @@ services:
       # - "443:443"    # opcional se quiseres TLS mais tarde
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${FRONTEND_DIST_PATH:-/home/asist/spa-dist/browser}:/usr/share/nginx/html:ro
     # Em muitos ambientes académicos/legacy, "condition: service_healthy" pode não estar disponível.
     # Mantemos healthchecks nas APIs mas usamos um depends_on simples para compatibilidade.
     depends_on:
