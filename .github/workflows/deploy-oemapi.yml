@@ -179,6 +179,20 @@ jobs:
           GHCR_USER: ${{ secrets.GHCR_USER }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
+      - name: Free Docker disk space on VM
+        run: |
+          echo "Docker disk usage BEFORE prune:" || true
+          docker system df || true
+
+          echo "Pruning stopped containers and dangling images..."
+          docker container prune -f || true
+          docker image prune -af || true
+          docker volume prune -f || true
+          docker builder prune -af || true
+
+          echo "Docker disk usage AFTER prune:" || true
+          docker system df || true
+
       - name: Pull and deploy container
         run: |
           IMAGE="${{ steps.prep.outputs.image }}"
