@@ -75,6 +75,7 @@
     <div *ngIf="loading" class="info">A carregar execucoes...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
     <div *ngIf="emptyMessage && !loading && !error" class="muted">{{ emptyMessage }}</div>
+    <div *ngIf="successMessage && !loading" class="success">{{ successMessage }}</div>
   </div>
 
   <div class="table-wrapper" *ngIf="!loading && !error && executions.length">
@@ -210,6 +211,9 @@
           <span>Saida Porto (real)</span>
           <input type="datetime-local" formControlName="actualPortDepartureTime" />
         </label>
+      </div>
+      <div class="status-row" *ngIf="completeError">
+        <div class="error">{{ completeError }}</div>
       </div>
       <div class="panel-actions">
         <button type="submit" [disabled]="loading">

@@ -12,7 +12,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { EMPTY, forkJoin, of, Subject } from 'rxjs';
+import { EMPTY, of, Subject } from 'rxjs';
 import { catchError, finalize, switchMap, map, debounceTime, takeUntil } from 'rxjs/operators';
 import {
   ExecutedOperationDto,
@@ -69,6 +69,8 @@ export class VesselVisitExecutionsHistoryComponent
   createForm: FormGroup;
   creating = false;
   createError: string | null = null;
+  completeError: string | null = null;
+  successMessage: string | null = null;
 
   executions: VesselVisitExecutionListItem[] = [];
   loading = false;
@@ -183,6 +185,7 @@ export class VesselVisitExecutionsHistoryComponent
     }
 
     this.completing = exec;
+    this.completeError = null;
     this.completeForm = this.fb.group({
       actualUnberthTime: [exec.actualUnberthTime || exec.actualDepartureTime || '', Validators.required],
       actualPortDepartureTime: [exec.actualDepartureTime || '', Validators.required],
@@ -192,6 +195,7 @@ export class VesselVisitExecutionsHistoryComponent
   cancelComplete(): void {
     this.completing = null;
     this.completeForm = null;
+    this.completeError = null;
   }
 
   startUpdateBerth(exec: VesselVisitExecutionListItem): void {
@@ -467,8 +471,20 @@ export class VesselVisitExecutionsHistoryComponent
     };
 
     if (!payload.actualUnberthTime || !payload.actualPortDepartureTime) {
+      this.completeError = 'Indique ambas as datas de desatracacao e saida do porto.';
       return;
     }
+
+    const unberthDate = new Date(payload.actualUnberthTime);
+    const departureDate = new Date(payload.actualPortDepartureTime);
+
+    if (departureDate.getTime() < unberthDate.getTime()) {
+      this.completeError = 'A saida do porto tem de ser posterior ou igual a desatracacao.';
+      return;
+    }
+
+    this.completeError = null;
+    this.successMessage = null;
 
     this.loading = true;
     this.error = null;
@@ -478,11 +494,15 @@ export class VesselVisitExecutionsHistoryComponent
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: () => {
+          this.successMessage = 'Execucao concluida com sucesso.';
           this.cancelComplete();
           this.fetchExecutions(true);
         },
         error: (err: HttpErrorResponse) => {
-          this.error = this.normalizeError(err, 'Falha ao concluir a execucao.');
+          this.completeError = this.normalizeError(
+            err,
+            'Falha ao concluir a execucao.',
+          );
         },
       });
   }
@@ -787,6 +807,7 @@ export class VesselVisitExecutionsHistoryComponent
           this.zone.run(() => {
             this.executions = [];
             this.error = this.normalizeError(err, 'Falha ao carregar as execucoes.');
+            this.successMessage = null;
             this.loading = false;
             this.cdr.detectChanges();
             this.appRef.tick();

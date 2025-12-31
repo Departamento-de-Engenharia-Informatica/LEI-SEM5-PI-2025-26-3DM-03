@@ -495,6 +495,12 @@ export class VesselVisitExecutionService {
       'actualPortDepartureTime',
     );
 
+    if (actualPortDepartureTime.getTime() < actualUnberthTime.getTime()) {
+      throw new BadRequestException(
+        'Actual port departure time must be greater than or equal to actual unberth time.',
+      );
+    }
+
     existing.actualUnberthTime = actualUnberthTime;
     existing.actualDepartureTime = actualPortDepartureTime;
     existing.status = VesselExecutionStatus.Completed;
@@ -653,7 +659,7 @@ export class VesselVisitExecutionService {
 
     if (unfinished.length > 0) {
       throw new BadRequestException(
-        `Cannot complete vessel visit execution while there are unfinished cargo operations (${unfinished.length} pending).`,
+        'Cannot complete vessel visit execution while there are unfinished cargo operations.',
       );
     }
   }
