@@ -22,6 +22,8 @@ import {
   UpsertExecutedOperationPayload,
   VesselVisitExecutionListItem,
 } from '../oem-api.service';
+import { DockDTO } from '../../models/dock';
+import { DocksService } from '../../services/docks/docks.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import flatpickr from 'flatpickr';
 
@@ -46,6 +48,9 @@ export class VesselVisitExecutionsHistoryComponent
   berthForm: FormGroup | null = null;
   updatingBerth: VesselVisitExecutionListItem | null = null;
   berthError: string | null = null;
+  savingBerth = false;
+  docks: DockDTO[] = [];
+  docksLoading = false;
 
   operationsTarget: VesselVisitExecutionListItem | null = null;
   operationsForm: FormGroup | null = null;
@@ -79,6 +84,7 @@ export class VesselVisitExecutionsHistoryComponent
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly docksService: DocksService,
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly appRef: ApplicationRef,
@@ -99,6 +105,7 @@ export class VesselVisitExecutionsHistoryComponent
 
   ngOnInit(): void {
     this.updateDisplayRangeFromForm();
+    this.loadDocks();
     this.fetchExecutions();
   }
 
@@ -174,10 +181,19 @@ export class VesselVisitExecutionsHistoryComponent
 
     this.updatingBerth = exec;
     this.berthError = null;
+    const initial = exec.actualBerthTime ? this.isoToInput(exec.actualBerthTime) : '';
+    let datePart = '';
+    let timePart = '';
+    if (initial) {
+      const split = initial.split('T');
+      datePart = split[0] ?? '';
+      timePart = split[1] ?? '';
+    }
 
     this.berthForm = this.fb.group({
-      actualBerthTime: [exec.actualBerthTime || ''],
-      dockId: [exec.berthId || ''],
+      actualBerthDate: [datePart],
+      actualBerthTime: [timePart],
+      dockId: [exec.berthId ? String(exec.berthId) : ''],
     });
   }
 
@@ -310,7 +326,7 @@ export class VesselVisitExecutionsHistoryComponent
       return;
     }
 
-    if (Number.isNaN(arrival.getTime())) {
+    if (!raw.actualArrivalTime || Number.isNaN(arrival.getTime())) {
       this.createError = 'Data/hora de chegada invalida.';
       return;
     }
@@ -405,6 +421,7 @@ export class VesselVisitExecutionsHistoryComponent
     }
 
     const raw = this.berthForm.value as {
+      actualBerthDate?: string;
       actualBerthTime?: string;
       dockId?: string;
     };
@@ -417,8 +434,17 @@ export class VesselVisitExecutionsHistoryComponent
 
     const payload: { actualBerthTime?: string; dockId?: string } = {};
 
-    if (raw.actualBerthTime) {
-      const iso = toIso(raw.actualBerthTime);
+    let combined: string | undefined;
+    if (raw.actualBerthDate || raw.actualBerthTime) {
+      if (!raw.actualBerthDate || !raw.actualBerthTime) {
+        this.berthError = 'Indique a data e a hora de atracacao.';
+        return;
+      }
+      combined = `${raw.actualBerthDate}T${raw.actualBerthTime}`;
+    }
+
+    if (combined) {
+      const iso = toIso(combined);
       if (!iso) {
         this.berthError = 'Hora de atracacao invalida.';
         return;
@@ -426,8 +452,11 @@ export class VesselVisitExecutionsHistoryComponent
       payload.actualBerthTime = iso;
     }
 
-    if (raw.dockId && raw.dockId.trim()) {
-      payload.dockId = raw.dockId.trim();
+    if (raw.dockId !== undefined && raw.dockId !== null) {
+      const dockValue = `${raw.dockId}`.trim();
+      if (dockValue) {
+        payload.dockId = dockValue;
+      }
     }
 
     if (!payload.actualBerthTime && !payload.dockId) {
@@ -435,20 +464,35 @@ export class VesselVisitExecutionsHistoryComponent
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.savingBerth = true;
     this.berthError = null;
 
     this.api
       .updateVesselVisitExecution(this.updatingBerth.id, payload)
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        finalize(() => {
+          this.zone.run(() => {
+            this.savingBerth = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
+        }),
+      )
       .subscribe({
         next: () => {
-          this.cancelUpdateBerth();
-          this.fetchExecutions();
+          this.zone.run(() => {
+            this.cancelUpdateBerth();
+            this.fetchExecutions();
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
         error: (err: HttpErrorResponse) => {
-          this.berthError = this.normalizeError(err, 'Falha ao atualizar berth/dock.');
+          this.zone.run(() => {
+            this.berthError = this.normalizeError(err, 'Falha ao atualizar berth/dock.');
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
       });
   }
@@ -481,7 +525,9 @@ export class VesselVisitExecutionsHistoryComponent
     const raw = group.value as {
       actualStartTime?: string;
       actualEndTime?: string;
-      resourcesUsed?: string;
+      resourcesCraneId?: string;
+      resourcesStorageAreaId?: string;
+      resourcesStaffIds?: string;
     };
 
     const payload: UpsertExecutedOperationPayload = {};
@@ -506,20 +552,9 @@ export class VesselVisitExecutionsHistoryComponent
       payload.actualEndTime = iso;
     }
 
-    if (raw.resourcesUsed && raw.resourcesUsed.trim()) {
-      try {
-        const parsed = JSON.parse(raw.resourcesUsed.trim());
-        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          this.operationErrors.set(operation.id, 'Recursos devem ser um objeto JSON.');
-          this.operationSuccess.delete(operation.id);
-          return;
-        }
-        payload.resourcesUsed = parsed as Record<string, unknown>;
-      } catch (error) {
-        this.operationErrors.set(operation.id, 'JSON de recursos invalido.');
-        this.operationSuccess.delete(operation.id);
-        return;
-      }
+    const resources = this.buildResourcesPayload(raw);
+    if (resources) {
+      payload.resourcesUsed = resources;
     }
 
     if (
@@ -661,7 +696,9 @@ export class VesselVisitExecutionsHistoryComponent
       this.fb.group({
         actualStartTime: [this.isoToInput(operation.actualStartTime)],
         actualEndTime: [this.isoToInput(operation.actualEndTime)],
-        resourcesUsed: [this.resourcesToText(operation)],
+        resourcesCraneId: [this.extractResourceValue(operation, 'craneId')],
+        resourcesStorageAreaId: [this.extractResourceValue(operation, 'storageAreaId')],
+        resourcesStaffIds: [this.extractResourceValue(operation, 'staffIds')],
       }),
     );
 
@@ -699,7 +736,9 @@ export class VesselVisitExecutionsHistoryComponent
       {
         actualStartTime: this.isoToInput(updated.actualStartTime),
         actualEndTime: this.isoToInput(updated.actualEndTime),
-        resourcesUsed: this.resourcesToText(updated),
+        resourcesCraneId: this.extractResourceValue(updated, 'craneId'),
+        resourcesStorageAreaId: this.extractResourceValue(updated, 'storageAreaId'),
+        resourcesStaffIds: this.extractResourceValue(updated, 'staffIds'),
       },
       { emitEvent: false },
     );
@@ -805,27 +844,74 @@ export class VesselVisitExecutionsHistoryComponent
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  private resourcesToText(operation: PlannedOperationWithExecution): string {
-    const source =
-      operation.actualResourcesUsed ?? this.buildSuggestedResources(operation) ?? null;
-    if (!source) return '';
-    try {
-      return JSON.stringify(source, null, 2);
-    } catch {
-      return '';
+  private extractResourceValue(
+    operation: PlannedOperationWithExecution,
+    key: 'craneId' | 'storageAreaId' | 'staffIds',
+  ): string {
+    const raw = operation.actualResourcesUsed;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const value = (raw as Record<string, unknown>)[key];
+      if (key === 'staffIds') {
+        if (Array.isArray(value)) {
+          return value.map((item) => `${item}`).join(', ');
+        }
+        if (typeof value === 'string') {
+          return value;
+        }
+        return '';
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
     }
+
+    if (key === 'staffIds') {
+      return operation.staffIds?.length ? operation.staffIds.join(', ') : '';
+    }
+    return (key === 'craneId' ? operation.craneId : operation.storageAreaId) ?? '';
   }
 
-  private buildSuggestedResources(
-    operation: PlannedOperationWithExecution,
-  ): Record<string, unknown> | null {
-    const resources: Record<string, unknown> = {};
-    if (operation.craneId) resources['craneId'] = operation.craneId;
-    if (operation.storageAreaId) resources['storageAreaId'] = operation.storageAreaId;
-    if (operation.staffIds && operation.staffIds.length > 0) {
-      resources['staffIds'] = operation.staffIds;
-    }
-    return Object.keys(resources).length ? resources : null;
+  private loadDocks(): void {
+    this.docksLoading = true;
+    this.docksService
+      .getAll()
+      .then((items) => {
+        this.zone.run(() => {
+          const sorted = [...(items ?? [])].sort((a, b) => a.id - b.id);
+          this.docks = sorted;
+          this.docksLoading = false;
+          this.cdr.detectChanges();
+          this.appRef.tick();
+        });
+      })
+      .catch(() => {
+        this.zone.run(() => {
+          this.docks = [];
+          this.docksLoading = false;
+          this.cdr.detectChanges();
+          this.appRef.tick();
+        });
+      });
+  }
+
+  private buildResourcesPayload(raw: {
+    resourcesCraneId?: string;
+    resourcesStorageAreaId?: string;
+    resourcesStaffIds?: string;
+  }): Record<string, unknown> | undefined {
+    const craneId = raw.resourcesCraneId?.trim();
+    const storageAreaId = raw.resourcesStorageAreaId?.trim();
+    const staffIds = raw.resourcesStaffIds
+      ?.split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    const payload: Record<string, unknown> = {};
+    if (craneId) payload['craneId'] = craneId;
+    if (storageAreaId) payload['storageAreaId'] = storageAreaId;
+    if (staffIds && staffIds.length) payload['staffIds'] = staffIds;
+
+    return Object.keys(payload).length ? payload : undefined;
   }
 
   private isoToInput(value?: string | null): string {

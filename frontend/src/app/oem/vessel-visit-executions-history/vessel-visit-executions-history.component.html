@@ -58,7 +58,7 @@
       </label>
       <label>
         Chegada real ao porto
-        <input type="datetime-local" formControlName="actualArrivalTime" />
+        <input type="datetime-local" formControlName="actualArrivalTime" required />
       </label>
     </div>
     <div class="status-row" *ngIf="createError">
@@ -217,7 +217,7 @@
         type="button"
         class="ghost-btn"
         (click)="cancelUpdateBerth()"
-        [disabled]="loading"
+        [disabled]="savingBerth"
       >
         Fechar
       </button>
@@ -227,21 +227,44 @@
       <div class="panel-form-grid">
         <label class="form-field">
           <span>Atracacao (real)</span>
-          <input type="datetime-local" formControlName="actualBerthTime" />
+          <div class="datetime-row">
+            <input type="date" formControlName="actualBerthDate" />
+            <input type="time" formControlName="actualBerthTime" />
+          </div>
         </label>
         <label class="form-field">
           <span>Dock utilizado</span>
-          <input type="text" formControlName="dockId" placeholder="ex: DOCK-1" />
+          <select formControlName="dockId" [disabled]="docksLoading || !docks.length">
+            <option value="">Selecionar dock</option>
+            <option *ngFor="let dock of docks" [value]="dock.id">
+              Dock {{ dock.id }} — {{ dock.name }}
+            </option>
+          </select>
+          <div
+            class="warning-text"
+            *ngIf="
+              updatingBerth?.berthId &&
+              berthForm?.get('dockId')?.value &&
+              berthForm?.get('dockId')?.value !== (updatingBerth?.berthId || '').toString()
+            "
+          >
+            Atencao: o dock selecionado difere do dock planeado ({{ updatingBerth?.berthId }}).
+          </div>
         </label>
       </div>
       <div class="status-row" *ngIf="berthError">
         <div class="error">{{ berthError }}</div>
       </div>
       <div class="panel-actions">
-        <button type="submit" [disabled]="loading">
-          {{ loading ? 'A guardar...' : 'Guardar alteracoes' }}
+        <button type="submit" [disabled]="savingBerth">
+          {{ savingBerth ? 'A guardar...' : 'Guardar alteracoes' }}
         </button>
-        <button type="button" class="ghost-btn" (click)="cancelUpdateBerth()" [disabled]="loading">
+        <button
+          type="button"
+          class="ghost-btn"
+          (click)="cancelUpdateBerth()"
+          [disabled]="savingBerth"
+        >
           Cancelar
         </button>
       </div>
@@ -334,9 +357,25 @@
                 Fim executado
                 <input type="datetime-local" formControlName="actualEndTime" />
               </label>
-              <label class="resources">
-                Recursos usados (JSON)
-                <textarea rows="4" formControlName="resourcesUsed"></textarea>
+              <label>
+                Guindaste usado
+                <input type="text" formControlName="resourcesCraneId" placeholder="ex: CRANE_01" />
+              </label>
+              <label>
+                Area usada
+                <input
+                  type="text"
+                  formControlName="resourcesStorageAreaId"
+                  placeholder="ex: North Yard"
+                />
+              </label>
+              <label>
+                Staff usado (IDs)
+                <input
+                  type="text"
+                  formControlName="resourcesStaffIds"
+                  placeholder="ex: 12, 14, 21"
+                />
               </label>
             </div>
 

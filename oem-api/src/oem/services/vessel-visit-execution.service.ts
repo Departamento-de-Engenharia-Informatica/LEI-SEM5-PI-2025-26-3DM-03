@@ -158,6 +158,20 @@ export class VesselVisitExecutionService {
       ? this.toDate(dto.actualBerthTime, 'actualBerthTime')
       : existing.actualBerthTime;
 
+    if (dto.actualBerthTime) {
+      if (!existing.actualArrivalTime) {
+        throw new BadRequestException(
+          'Nao pode registar a atracacao sem ter uma hora de chegada definida.',
+        );
+      }
+
+      if (nextActualBerthTime && nextActualBerthTime < existing.actualArrivalTime) {
+        throw new BadRequestException(
+          'A hora de atracacao nao pode ser anterior a hora de chegada.',
+        );
+      }
+    }
+
     let note: string | undefined;
     let nextBerthId = existing.berthId ?? null;
     let nextLastWarning = existing.lastWarning ?? null;

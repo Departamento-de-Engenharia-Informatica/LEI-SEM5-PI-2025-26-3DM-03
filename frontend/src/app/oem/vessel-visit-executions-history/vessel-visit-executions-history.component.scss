@@ -58,6 +58,17 @@
   }
 }
 
+// Esconde o placeholder "mm/dd/yyyy --:-- --" dos inputs datetime-local
+// quando estao vazios, para um aspeto mais limpo
+input[type='datetime-local']:not(:focus):not(:valid)::-webkit-datetime-edit {
+  color: transparent;
+}
+
+input[type='datetime-local']:focus::-webkit-datetime-edit,
+input[type='datetime-local']:valid::-webkit-datetime-edit {
+  color: inherit;
+}
+
 .filter-actions {
   display: flex;
   gap: 10px;
@@ -108,6 +119,22 @@
   .muted {
     color: #6b7280;
   }
+}
+
+.datetime-row {
+  display: flex;
+  gap: 8px;
+
+  input[type='date'],
+  input[type='time'] {
+    flex: 1;
+  }
+}
+
+.warning-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #c2410c;
 }
 
 .table-wrapper {
@@ -540,10 +567,6 @@ table {
       font-size: 14px;
       font-family: inherit;
     }
-  }
-
-  label.resources {
-    grid-column: 1 / -1;
   }
 }
 
