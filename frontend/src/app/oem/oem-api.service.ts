@@ -219,6 +219,15 @@ export class OemApiService {
     );
   }
 
+  getPlannedOperationsForExecution(
+    executionId: number,
+  ): Observable<PlannedOperationWithExecution[]> {
+    const url = `${this.vesselVisitExecutionBase}/${executionId}/planned-operations`;
+    return this.http.get<PlannedOperationWithExecution[]>(url, {
+      withCredentials: true,
+    });
+  }
+
   updateOperationPlan(
     id: number,
     payload: { reason: string } & Partial<OperationPlanDto>,

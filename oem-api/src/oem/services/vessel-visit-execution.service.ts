@@ -665,14 +665,23 @@ export class VesselVisitExecutionService {
       }
     }
 
-    const numericVvnId = Number(vve.vvnId);
-    if (!Number.isNaN(numericVvnId)) {
-      const bySource = await this.planRepo.findOne({ where: { sourceVvnId: numericVvnId } });
+    const candidates = new Set<number>();
+    const vvnCandidate = Number(vve.vvnId);
+    if (!Number.isNaN(vvnCandidate)) {
+      candidates.add(vvnCandidate);
+    }
+    const visitCandidate = Number(vve.vesselVisitId);
+    if (!Number.isNaN(visitCandidate)) {
+      candidates.add(visitCandidate);
+    }
+
+    for (const candidate of candidates) {
+      const bySource = await this.planRepo.findOne({ where: { sourceVvnId: candidate } });
       if (bySource) {
         return bySource;
       }
 
-      const byVisit = await this.planRepo.findOne({ where: { vesselVisitId: numericVvnId } });
+      const byVisit = await this.planRepo.findOne({ where: { vesselVisitId: candidate } });
       if (byVisit) {
         return byVisit;
       }
