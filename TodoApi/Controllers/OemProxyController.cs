@@ -133,6 +133,15 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("vessel-visit-executions/{id:int}/audit")]
+    public async Task<IActionResult> GetVesselVisitExecutionAudit(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetVesselVisitExecutionAuditAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPost("vessel-visit-executions")]
     public async Task<IActionResult> CreateVesselVisitExecution(
         [FromBody] CreateVesselVisitExecutionRequest request,

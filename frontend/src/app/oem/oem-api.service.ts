@@ -151,6 +151,17 @@ export interface ExecutedOperationDto {
   executionStatus: OperationExecutionStatus;
 }
 
+export interface VesselVisitExecutionAuditEntry {
+  id: number;
+  vveId: number;
+  changedAt: string;
+  changedBy: string;
+  action: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  note?: string | null;
+}
+
 export interface UpsertExecutedOperationPayload {
   actualStartTime?: string;
   actualEndTime?: string;
@@ -377,6 +388,11 @@ export class OemApiService {
   getExecutedOperationsForExecution(id: number): Observable<ExecutedOperationDto[]> {
     const url = `${this.vesselVisitExecutionBase}/${id}/executed-operations`;
     return this.http.get<ExecutedOperationDto[]>(url, { withCredentials: true });
+  }
+
+  getVesselVisitExecutionAudit(id: number): Observable<VesselVisitExecutionAuditEntry[]> {
+    const url = `${this.vesselVisitExecutionBase}/${id}/audit`;
+    return this.http.get<VesselVisitExecutionAuditEntry[]>(url, { withCredentials: true });
   }
 
   upsertExecutedOperation(

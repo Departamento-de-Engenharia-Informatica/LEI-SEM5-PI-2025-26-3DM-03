@@ -280,6 +280,16 @@ export class VesselVisitExecutionService {
     return this.repo.save(vve);
   }
 
+  async listAuditEntries(vveId: number): Promise<VesselVisitExecutionAuditEntity[]> {
+    const vve = await this.findOne(vveId);
+    const auditRepo = this.repo.manager.getRepository(VesselVisitExecutionAuditEntity);
+
+    return auditRepo.find({
+      where: { vveId: vve.id },
+      order: { changedAt: 'DESC' },
+    });
+  }
+
   // DEV SEED – temporary, safe to remove before production
   async seedLinkExistingVveToPlan(vveId: number): Promise<VesselVisitExecutionEntity> {
     if (process.env.NODE_ENV !== 'development') {

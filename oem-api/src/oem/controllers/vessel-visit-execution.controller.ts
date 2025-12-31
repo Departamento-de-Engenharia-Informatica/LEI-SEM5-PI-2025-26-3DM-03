@@ -32,6 +32,7 @@ import {
 } from '../dto';
 import { VesselVisitExecutionService } from '../services';
 import { VesselVisitExecutionEntity } from '../persistence/vessel-visit-execution.entity';
+import { VesselVisitExecutionAuditEntity } from '../persistence/vessel-visit-execution-audit.entity';
 import { Request } from 'express';
 import { AuthenticatedUser } from '../auth/types';
 
@@ -125,6 +126,16 @@ export class VesselVisitExecutionController {
   @ApiOkResponse({ type: ExecutedOperationDto, isArray: true })
   listExecutedOperations(@Param('id', ParseIntPipe) id: number): Promise<ExecutedOperationDto[]> {
     return this.service.listExecutedOperations(id);
+  }
+
+  @Get(':id/audit')
+  @Roles('admin', 'logistics-operator')
+  @ApiOperation({ summary: 'List audit entries for the vessel visit execution' })
+  @ApiOkResponse({ type: VesselVisitExecutionAuditEntity, isArray: true })
+  listAuditEntries(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<VesselVisitExecutionAuditEntity[]> {
+    return this.service.listAuditEntries(id);
   }
 
   @Put(':id/executed-operations/:plannedOperationId')

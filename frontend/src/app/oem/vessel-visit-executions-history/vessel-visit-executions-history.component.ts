@@ -61,6 +61,11 @@ export class VesselVisitExecutionsHistoryComponent
   private operationErrors = new Map<number, string>();
   private operationSuccess = new Map<number, string>();
 
+  auditEntries: import('../oem-api.service').VesselVisitExecutionAuditEntry[] = [];
+  auditLoading = false;
+  auditError: string | null = null;
+  auditTarget: VesselVisitExecutionListItem | null = null;
+
   createForm: FormGroup;
   creating = false;
   createError: string | null = null;
@@ -71,6 +76,9 @@ export class VesselVisitExecutionsHistoryComponent
   emptyMessage: string | null = null;
   displayRange = '';
   private dateRangePicker: flatpickr.Instance | null = null;
+
+  pageSize = 6;
+  currentPage = 1;
 
   readonly statusOptions = [
     'scheduled',
@@ -305,6 +313,61 @@ export class VesselVisitExecutionsHistoryComponent
     this.operationsError = null;
     this.operationErrors.clear();
     this.operationSuccess.clear();
+  }
+
+  openAudit(exec: VesselVisitExecutionListItem): void {
+    this.auditTarget = exec;
+    this.auditEntries = [];
+    this.auditError = null;
+    this.auditLoading = true;
+
+    this.api.getVesselVisitExecutionAudit(exec.id).subscribe({
+      next: (entries) => {
+        this.auditEntries = entries ?? [];
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.auditError = this.normalizeError(
+          err,
+          'Falha ao carregar o historico de auditoria.',
+        );
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  closeAudit(): void {
+    this.auditTarget = null;
+    this.auditEntries = [];
+    this.auditError = null;
+    this.auditLoading = false;
+  }
+
+  getAuditAfterField(
+    entry: import('../oem-api.service').VesselVisitExecutionAuditEntry,
+    key: string,
+  ): unknown {
+    const after: Record<string, unknown> = (entry?.after as Record<string, unknown>) ?? {};
+    return after[key];
+  }
+
+  getAuditBeforeField(
+    entry: import('../oem-api.service').VesselVisitExecutionAuditEntry,
+    key: string,
+  ): unknown {
+    const before: Record<string, unknown> = (entry?.before as Record<string, unknown>) ?? {};
+    return before[key];
+  }
+
+  auditActionLabel(action: string): string {
+    switch (action) {
+      case 'UPDATE_BERTH_DOCK':
+        return 'Atualizacao de berth/dock';
+      default:
+        return action;
+    }
   }
 
   submitCreate(): void {
@@ -654,6 +717,20 @@ export class VesselVisitExecutionsHistoryComponent
     return item.id;
   }
 
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.executions.length / this.pageSize));
+  }
+
+  get pagedExecutions(): VesselVisitExecutionListItem[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.executions.slice(start, start + this.pageSize);
+  }
+
+  goToPage(page: number): void {
+    const target = Math.min(Math.max(1, page), this.totalPages);
+    this.currentPage = target;
+  }
+
   private fetchExecutions(): void {
     if (this.filterForm.invalid) {
       this.filterForm.markAllAsTouched();
@@ -671,6 +748,7 @@ export class VesselVisitExecutionsHistoryComponent
         next: (items) => {
           this.zone.run(() => {
             this.executions = items ?? [];
+            this.currentPage = 1;
             this.emptyMessage = this.executions.length
               ? null
               : 'Nenhuma execucao encontrada para os filtros aplicados.';
