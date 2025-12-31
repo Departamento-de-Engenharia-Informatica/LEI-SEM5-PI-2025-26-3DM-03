@@ -960,8 +960,7 @@
         border-radius: 6px;
         background-color: #ffffff;
         font-weight: 400;
-      }
-    }
+      }    }
 
     .wide {
       grid-column: span 2;
@@ -1102,6 +1101,11 @@
         border-radius: 6px;
         background-color: #ffffff;
         font-weight: 400;
+      }
+
+      select[multiple].multi-select {
+        height: 38px;
+        min-height: 38px;
       }
     }
   }

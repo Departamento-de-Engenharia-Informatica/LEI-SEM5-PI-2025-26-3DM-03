@@ -626,19 +626,19 @@
                 </label>
                 <label>
                   <span class="field-label">Staff</span>
-                  <select formControlName="staffIds" multiple>
+                  <select formControlName="staffIds" multiple size="1" class="multi-select">
                     <option *ngFor="let s of staff" [value]="s.mecanographicNumber">
                       {{ s.mecanographicNumber }} - {{ s.shortName }}
                     </option>
                   </select>
                 </label>
                 <label>
-                  <span class="field-label">Inicio (ISO)</span>
-                  <input type="text" formControlName="startTime" />
+                  <span class="field-label">Inicio</span>
+                  <input type="datetime-local" formControlName="startTime" />
                 </label>
                 <label>
-                  <span class="field-label">Fim (ISO)</span>
-                  <input type="text" formControlName="endTime" />
+                  <span class="field-label">Fim</span>
+                  <input type="datetime-local" formControlName="endTime" />
                 </label>
               </div>
             </div>
@@ -741,7 +741,6 @@
     </p>
   </section>
 </section>
-
 
 
 

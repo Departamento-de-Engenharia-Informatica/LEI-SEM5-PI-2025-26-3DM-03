@@ -1005,8 +1005,8 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
       craneId: [task?.craneId ?? ''],
       storageAreaId: [task?.storageAreaId ?? ''],
       staffIds: [task?.staffIds ?? []],
-      startTime: [task?.startTime ?? '', Validators.required],
-      endTime: [task?.endTime ?? '', Validators.required],
+      startTime: [this.toLocalInput(task?.startTime), Validators.required],
+      endTime: [this.toLocalInput(task?.endTime), Validators.required],
     });
   }
 
@@ -1025,8 +1025,8 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
         craneId: raw.craneId || undefined,
         storageAreaId: raw.storageAreaId || undefined,
         staffIds,
-        startTime: raw.startTime,
-        endTime: raw.endTime,
+        startTime: this.fromLocalInput(raw.startTime),
+        endTime: this.fromLocalInput(raw.endTime),
       };
     });
 
@@ -1036,6 +1036,29 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
       status: value.status,
       tasks,
     };
+  }
+
+  private toLocalInput(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  private fromLocalInput(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toISOString();
   }
 
   private resolvePlanVvn(plan: OperationPlanDto | null): number | null {
