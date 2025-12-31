@@ -12,8 +12,8 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { EMPTY, forkJoin, of } from 'rxjs';
-import { catchError, finalize, switchMap, map } from 'rxjs/operators';
+import { EMPTY, forkJoin, of, Subject } from 'rxjs';
+import { catchError, finalize, switchMap, map, debounceTime, takeUntil } from 'rxjs/operators';
 import {
   ExecutedOperationDto,
   OemApiService,
@@ -76,6 +76,9 @@ export class VesselVisitExecutionsHistoryComponent
   emptyMessage: string | null = null;
   displayRange = '';
   private dateRangePicker: flatpickr.Instance | null = null;
+  private readonly destroy$ = new Subject<void>();
+  private lastRequestedFiltersKey: string | null = null;
+  private lastSuccessfulFiltersKey: string | null = null;
 
   pageSize = 6;
   currentPage = 1;
@@ -114,7 +117,15 @@ export class VesselVisitExecutionsHistoryComponent
   ngOnInit(): void {
     this.updateDisplayRangeFromForm();
     this.loadDocks();
-    this.fetchExecutions();
+
+    this.filterForm.valueChanges
+      .pipe(debounceTime(350), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.updateDisplayRangeFromForm();
+        this.fetchExecutions();
+      });
+
+    this.fetchExecutions(true);
   }
 
   ngAfterViewInit(): void {
@@ -139,12 +150,14 @@ export class VesselVisitExecutionsHistoryComponent
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.dateRangePicker?.destroy();
     this.dateRangePicker = null;
   }
 
   onSearch(): void {
-    this.fetchExecutions();
+    this.fetchExecutions(true);
   }
 
   resetFilters(): void {
@@ -162,7 +175,6 @@ export class VesselVisitExecutionsHistoryComponent
     } else if (this.dateRangePicker) {
       this.dateRangePicker.clear();
     }
-    this.fetchExecutions();
   }
 
   startComplete(exec: VesselVisitExecutionListItem): void {
@@ -422,7 +434,7 @@ export class VesselVisitExecutionsHistoryComponent
         next: () => {
           if (!this.createError) {
             this.createForm.reset({ vvnId: '', actualArrivalTime: '' });
-            this.fetchExecutions();
+            this.fetchExecutions(true);
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -467,7 +479,7 @@ export class VesselVisitExecutionsHistoryComponent
       .subscribe({
         next: () => {
           this.cancelComplete();
-          this.fetchExecutions();
+          this.fetchExecutions(true);
         },
         error: (err: HttpErrorResponse) => {
           this.error = this.normalizeError(err, 'Falha ao concluir a execucao.');
@@ -545,7 +557,7 @@ export class VesselVisitExecutionsHistoryComponent
         next: () => {
           this.zone.run(() => {
             this.cancelUpdateBerth();
-            this.fetchExecutions();
+            this.fetchExecutions(true);
             this.cdr.detectChanges();
             this.appRef.tick();
           });
@@ -731,16 +743,29 @@ export class VesselVisitExecutionsHistoryComponent
     this.currentPage = target;
   }
 
-  private fetchExecutions(): void {
+  private fetchExecutions(force = false): void {
     if (this.filterForm.invalid) {
       this.filterForm.markAllAsTouched();
       return;
     }
 
     const filters = this.buildFilters();
+    const key = JSON.stringify(filters);
+
+    if (!force) {
+      if (this.loading && this.lastRequestedFiltersKey === key) {
+        return;
+      }
+
+      if (!this.loading && this.lastSuccessfulFiltersKey === key) {
+        return;
+      }
+    }
+
     this.loading = true;
     this.error = null;
     this.emptyMessage = null;
+    this.lastRequestedFiltersKey = key;
 
     this.api
       .getVesselVisitExecutions(filters)
@@ -752,6 +777,7 @@ export class VesselVisitExecutionsHistoryComponent
             this.emptyMessage = this.executions.length
               ? null
               : 'Nenhuma execucao encontrada para os filtros aplicados.';
+            this.lastSuccessfulFiltersKey = key;
             this.loading = false;
             this.cdr.detectChanges();
             this.appRef.tick();
@@ -890,7 +916,6 @@ export class VesselVisitExecutionsHistoryComponent
         from: this.toDateInput(startDay),
         to: this.toDateInput(endDay),
       },
-      { emitEvent: false },
     );
 
     this.updateDisplayRange(startDay, endDay);

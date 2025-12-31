@@ -106,10 +106,10 @@
           <td>{{ exec.vesselName }}</td>
           <td>{{ exec.berthId || '-' }}</td>
           <td><span class="status-pill">{{ exec.status }}</span></td>
-          <td>{{ exec.actualArrivalTime | date: 'short' }}</td>
-          <td>{{ exec.actualBerthTime | date: 'short' }}</td>
-          <td>{{ exec.actualUnberthTime | date: 'short' }}</td>
-          <td>{{ exec.actualDepartureTime | date: 'short' }}</td>
+          <td>{{ exec.actualArrivalTime ? (exec.actualArrivalTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualBerthTime ? (exec.actualBerthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualUnberthTime ? (exec.actualUnberthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualDepartureTime ? (exec.actualDepartureTime | date: 'short') : '-' }}</td>
           <td>{{ displayMinutes(exec.totalTurnaroundMinutes) }}</td>
           <td>{{ displayMinutes(exec.berthOccupancyMinutes) }}</td>
           <td>{{ displayMinutes(exec.waitingForBerthMinutes) }}</td>
