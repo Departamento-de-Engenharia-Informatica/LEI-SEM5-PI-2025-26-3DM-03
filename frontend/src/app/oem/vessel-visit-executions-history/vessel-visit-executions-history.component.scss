@@ -119,6 +119,11 @@ input[type='datetime-local']:valid::-webkit-datetime-edit {
   .muted {
     color: #6b7280;
   }
+
+  .success {
+    color: #047857;
+    font-weight: 600;
+  }
 }
 
 .datetime-row {

@@ -75,6 +75,7 @@
     <div *ngIf="loading" class="info">A carregar execucoes...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
     <div *ngIf="emptyMessage && !loading && !error" class="muted">{{ emptyMessage }}</div>
+    <div *ngIf="successMessage && !loading" class="success">{{ successMessage }}</div>
   </div>
 
   <div class="table-wrapper" *ngIf="!loading && !error && executions.length">
@@ -106,10 +107,10 @@
           <td>{{ exec.vesselName }}</td>
           <td>{{ exec.berthId || '-' }}</td>
           <td><span class="status-pill">{{ exec.status }}</span></td>
-          <td>{{ exec.actualArrivalTime | date: 'short' }}</td>
-          <td>{{ exec.actualBerthTime | date: 'short' }}</td>
-          <td>{{ exec.actualUnberthTime | date: 'short' }}</td>
-          <td>{{ exec.actualDepartureTime | date: 'short' }}</td>
+          <td>{{ exec.actualArrivalTime ? (exec.actualArrivalTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualBerthTime ? (exec.actualBerthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualUnberthTime ? (exec.actualUnberthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualDepartureTime ? (exec.actualDepartureTime | date: 'short') : '-' }}</td>
           <td>{{ displayMinutes(exec.totalTurnaroundMinutes) }}</td>
           <td>{{ displayMinutes(exec.berthOccupancyMinutes) }}</td>
           <td>{{ displayMinutes(exec.waitingForBerthMinutes) }}</td>
@@ -210,6 +211,9 @@
           <span>Saida Porto (real)</span>
           <input type="datetime-local" formControlName="actualPortDepartureTime" />
         </label>
+      </div>
+      <div class="status-row" *ngIf="completeError">
+        <div class="error">{{ completeError }}</div>
       </div>
       <div class="panel-actions">
         <button type="submit" [disabled]="loading">
