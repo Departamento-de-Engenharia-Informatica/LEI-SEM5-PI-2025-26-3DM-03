@@ -12,7 +12,7 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { EMPTY, of, Subject } from 'rxjs';
+import { EMPTY, firstValueFrom, of, Subject } from 'rxjs';
 import { catchError, finalize, switchMap, map, debounceTime, takeUntil } from 'rxjs/operators';
 import {
   ExecutedOperationDto,
@@ -24,6 +24,8 @@ import {
 } from '../oem-api.service';
 import { DockDTO } from '../../models/dock';
 import { DocksService } from '../../services/docks/docks.service';
+import { VesselVisitNotificationDTO } from '../../models/vessel-visit-notification';
+import { VesselVisitNotificationsService } from '../../services/vessel-visits/vessel-visit-notifications.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import flatpickr from 'flatpickr';
 
@@ -71,6 +73,9 @@ export class VesselVisitExecutionsHistoryComponent
   createError: string | null = null;
   completeError: string | null = null;
   successMessage: string | null = null;
+  availableVvns: VesselVisitNotificationDTO[] = [];
+  vvnLoading = false;
+  vvnError: string | null = null;
 
   executions: VesselVisitExecutionListItem[] = [];
   loading = false;
@@ -98,6 +103,7 @@ export class VesselVisitExecutionsHistoryComponent
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
     private readonly docksService: DocksService,
+    private readonly vvnService: VesselVisitNotificationsService,
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly appRef: ApplicationRef,
@@ -119,6 +125,7 @@ export class VesselVisitExecutionsHistoryComponent
   ngOnInit(): void {
     this.updateDisplayRangeFromForm();
     this.loadDocks();
+    this.loadAvailableVvns();
 
     this.filterForm.valueChanges
       .pipe(debounceTime(350), takeUntil(this.destroy$))
@@ -439,6 +446,7 @@ export class VesselVisitExecutionsHistoryComponent
           if (!this.createError) {
             this.createForm.reset({ vvnId: '', actualArrivalTime: '' });
             this.fetchExecutions(true);
+            this.loadAvailableVvns();
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -745,6 +753,15 @@ export class VesselVisitExecutionsHistoryComponent
     return exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? null;
   }
 
+  selectedVvn(): VesselVisitNotificationDTO | null {
+    const raw = this.createForm?.get('vvnId')?.value;
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+    return this.availableVvns.find((vvn) => vvn.id === parsed) ?? null;
+  }
+
   trackById(_: number, item: VesselVisitExecutionListItem): number {
     return item.id;
   }
@@ -814,6 +831,43 @@ export class VesselVisitExecutionsHistoryComponent
           });
         },
       });
+  }
+
+  private async loadAvailableVvns(): Promise<void> {
+    this.vvnLoading = true;
+    this.vvnError = null;
+    try {
+      const [vvns, executions] = await Promise.all([
+        this.vvnService.getAll({ status: 'Approved' }),
+        firstValueFrom(this.api.getVesselVisitExecutions()),
+      ]);
+
+      const usedVvns = new Set<number>();
+      (executions ?? []).forEach((exec) => {
+        const used = exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? null;
+        if (used != null && Number.isFinite(used)) {
+          usedVvns.add(Number(used));
+        }
+      });
+
+      const available = (vvns ?? [])
+        .filter((vvn) => !usedVvns.has(vvn.id))
+        .sort((a, b) => new Date(a.arrivalDate).getTime() - new Date(b.arrivalDate).getTime());
+
+      this.availableVvns = available;
+
+      const selected = this.createForm.get('vvnId')?.value;
+      if (selected && !available.some((vvn) => vvn.id === Number(selected))) {
+        this.createForm.patchValue({ vvnId: '' }, { emitEvent: false });
+      }
+    } catch (error) {
+      this.availableVvns = [];
+      this.vvnError = 'Falha ao carregar VVNs disponiveis.';
+    } finally {
+      this.vvnLoading = false;
+      this.cdr.detectChanges();
+      this.appRef.tick();
+    }
   }
 
   private buildOperationsForm(operations: PlannedOperationWithExecution[]): FormGroup {
