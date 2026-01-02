@@ -1,0 +1,190 @@
+<div class="incident-types-page">
+  <header class="page-header">
+    <div>
+      <h1>Incident Types</h1>
+      <p class="subtitle">Gerir catálogo de incidentes OEM (lista e hierarquia).</p>
+    </div>
+    <div class="view-toggle">
+      <button type="button" [class.active]="viewMode === 'flat'" (click)="switchView('flat')">Lista</button>
+      <button type="button" [class.active]="viewMode === 'tree'" (click)="switchView('tree')">Hierarquia</button>
+    </div>
+  </header>
+
+  <section class="filters">
+    <form (ngSubmit)="applyFilters()" class="filters-form" autocomplete="off">
+      <label>
+        <span>Pesquisa</span>
+        <input type="text" name="search" [(ngModel)]="filters.q" placeholder="Código ou nome" />
+      </label>
+
+      <label>
+        <span>Severidade</span>
+        <select name="severity" [(ngModel)]="filters.severity">
+          <option [ngValue]="'ALL'">Todas</option>
+          <option *ngFor="let sev of severities" [ngValue]="sev">{{ sev }}</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Parent</span>
+        <select name="parent" [(ngModel)]="filters.parentId">
+          <option [ngValue]="'ALL'">Qualquer</option>
+          <option *ngFor="let parent of incidentTypes; trackBy: trackById" [ngValue]="parent.id">
+            {{ parent.code }} — {{ parent.name }}
+          </option>
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button type="submit">Aplicar</button>
+        <button type="button" class="secondary" (click)="resetFilters()">Limpar</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="content">
+    <section class="data-panel" *ngIf="viewMode === 'flat'; else treeView">
+      <div *ngIf="listLoading" class="state">A carregar tipos de incidente…</div>
+      <div *ngIf="listError && !listLoading" class="state error">{{ listError }}</div>
+      <div *ngIf="!listLoading && !listError && incidentTypes.length === 0" class="state empty">
+        Nenhum tipo de incidente encontrado.
+      </div>
+
+      <table *ngIf="!listLoading && !listError && incidentTypes.length > 0">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nome</th>
+            <th>Severidade</th>
+            <th>Parent</th>
+            <th>Descrição</th>
+            <th class="actions-col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of incidentTypes; trackBy: trackById">
+            <td>{{ item.code }}</td>
+            <td>{{ item.name }}</td>
+            <td><span class="tag" [class.minor]="item.severity === 'MINOR'" [class.major]="item.severity === 'MAJOR'" [class.critical]="item.severity === 'CRITICAL'">{{ item.severity }}</span></td>
+            <td>{{ parentLabel(item.parentId) }}</td>
+            <td>{{ item.description || '—' }}</td>
+            <td class="actions-col">
+              <button type="button" class="link" (click)="startEdit(item)">Editar</button>
+              <button type="button" class="link danger" (click)="remove(item)">Remover</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <ng-template #treeView>
+      <section class="data-panel">
+        <div *ngIf="treeLoading" class="state">A carregar hierarquia…</div>
+        <div *ngIf="treeError && !treeLoading" class="state error">{{ treeError }}</div>
+        <div *ngIf="!treeLoading && !treeError && tree.length === 0" class="state empty">
+          Nenhuma hierarquia encontrada com os filtros atuais.
+        </div>
+
+        <ul *ngIf="!treeLoading && !treeError && tree.length > 0" class="tree">
+          <ng-container *ngFor="let node of tree; trackBy: trackTree">
+            <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: node, level: 0 }"></ng-container>
+          </ng-container>
+        </ul>
+
+        <ng-template #treeNode let-node let-level="level">
+          <li>
+            <div class="tree-node" [style.paddingLeft.px]="level * 16">
+              <div>
+                <span class="code">{{ node.code }}</span>
+                <span class="name">{{ node.name }}</span>
+              </div>
+              <span class="tag" [class.minor]="node.severity === 'MINOR'" [class.major]="node.severity === 'MAJOR'" [class.critical]="node.severity === 'CRITICAL'">{{ node.severity }}</span>
+            </div>
+            <ul *ngIf="node.children?.length" class="tree">
+              <ng-container *ngFor="let child of node.children; trackBy: trackTree">
+                <ng-container *ngTemplateOutlet="treeNode; context: { $implicit: child, level: level + 1 }"></ng-container>
+              </ng-container>
+            </ul>
+          </li>
+        </ng-template>
+      </section>
+    </ng-template>
+
+    <aside class="forms-panel">
+      <section class="card">
+        <h2>Novo tipo</h2>
+        <form (ngSubmit)="create()" autocomplete="off" class="form-grid">
+          <label>
+            <span>Código *</span>
+            <input type="text" name="code" required [(ngModel)]="newIncident.code" placeholder="T-INC001" />
+          </label>
+          <label>
+            <span>Nome *</span>
+            <input type="text" name="name" required [(ngModel)]="newIncident.name" placeholder="Incidente" />
+          </label>
+          <label>
+            <span>Severidade *</span>
+            <select name="severity" required [(ngModel)]="newIncident.severity">
+              <option *ngFor="let sev of severities" [ngValue]="sev">{{ sev }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Parent</span>
+            <select name="create-parent" [(ngModel)]="newIncident.parentId">
+              <option [ngValue]="null">Nenhum (raiz)</option>
+              <option *ngFor="let parent of availableParents(); trackBy: trackById" [ngValue]="parent.id">
+                {{ parent.code }} — {{ parent.name }}
+              </option>
+            </select>
+          </label>
+          <label class="full">
+            <span>Descrição</span>
+            <textarea name="description" rows="3" [(ngModel)]="newIncident.description" placeholder="Descrição opcional"></textarea>
+          </label>
+          <div class="full error" *ngIf="createError">{{ createError }}</div>
+          <div class="full actions">
+            <button type="submit">Criar</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" *ngIf="editing as edit">
+        <h2>Editar {{ edit.form.name }}</h2>
+        <form (ngSubmit)="saveEdit()" autocomplete="off" class="form-grid">
+          <label>
+            <span>Código *</span>
+            <input type="text" name="edit-code" required [(ngModel)]="edit.form.code" />
+          </label>
+          <label>
+            <span>Nome *</span>
+            <input type="text" name="edit-name" required [(ngModel)]="edit.form.name" />
+          </label>
+          <label>
+            <span>Severidade *</span>
+            <select name="edit-severity" required [(ngModel)]="edit.form.severity">
+              <option *ngFor="let sev of severities" [ngValue]="sev">{{ sev }}</option>
+            </select>
+          </label>
+          <label>
+            <span>Parent</span>
+            <select name="edit-parent" [(ngModel)]="edit.form.parentId">
+              <option [ngValue]="null">Nenhum (raiz)</option>
+              <option *ngFor="let parent of availableParents(edit.id); trackBy: trackById" [ngValue]="parent.id">
+                {{ parent.code }} — {{ parent.name }}
+              </option>
+            </select>
+          </label>
+          <label class="full">
+            <span>Descrição</span>
+            <textarea name="edit-description" rows="3" [(ngModel)]="edit.form.description"></textarea>
+          </label>
+          <div class="full error" *ngIf="editError">{{ editError }}</div>
+          <div class="full actions">
+            <button type="submit">Guardar</button>
+            <button type="button" class="secondary" (click)="cancelEdit()">Cancelar</button>
+          </div>
+        </form>
+      </section>
+    </aside>
+  </div>
+</div>
