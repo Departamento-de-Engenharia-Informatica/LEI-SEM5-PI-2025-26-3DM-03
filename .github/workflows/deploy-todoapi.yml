@@ -35,7 +35,7 @@ on:
       oidcEnvFile:
         description: 'Path on DEI VM to env-file with Authentication__Google__ClientId/Secret (used when OIDC is enabled)'
         required: false
-        default: '/etc/todoapi/oidc.env'
+        default: '/root/todoapi-oidc.env'
 
   schedule:
     - cron: '0 2 * * *' # nightly at 02:00 UTC
@@ -196,7 +196,7 @@ jobs:
           IMAGE="${{ needs.containerize.outputs.image_repo }}:${{ needs.containerize.outputs.image_tag }}"
           CNAME="${{ inputs.containerName || 'todoapi' }}"
           HPORT="${{ inputs.hostPort || '8080' }}"
-          ENVFILE="${{ inputs.oidcEnvFile || '/etc/todoapi/oidc.env' }}"
+          ENVFILE="${{ inputs.oidcEnvFile || '/root/todoapi-oidc.env' }}"
           # Make OIDC toggle explicit (true/false) so we can pass it to the container.
           OIDC_DISABLED="${{ inputs.disableOidc }}"
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
