@@ -47,25 +47,50 @@
   </form>
 
   <section class="create-panel" [formGroup]="createForm">
-    <h2>Criar nova Execucao de Visita</h2>
-    <p class="subtitle">
-      Indique o ID da Vessel Visit Notification aprovada e a data/hora real de chegada ao porto.
-    </p>
-    <div class="form-grid">
+    <div class="create-header">
+      <h2>Criar nova Execucao de Visita</h2>
+      <p class="subtitle">
+        Selecione uma Vessel Visit Notification aprovada sem execucao e registe a hora real de chegada ao porto.
+      </p>
+    </div>
+    <div class="form-grid create-grid">
       <label>
-        VVN (ID)
-        <input type="number" formControlName="vvnId" placeholder="ex: 101" />
+        VVN disponivel
+        <select formControlName="vvnId" [disabled]="vvnLoading || !availableVvns.length">
+          <option value="">Selecionar VVN</option>
+          <option *ngFor="let vvn of availableVvns" [value]="vvn.id">
+            VVN {{ vvn.id }} • {{ vvn.vesselId }} • ETA {{ vvn.arrivalDate | date: 'short' }}
+          </option>
+        </select>
       </label>
       <label>
         Chegada real ao porto
         <input type="datetime-local" formControlName="actualArrivalTime" required />
       </label>
     </div>
+    <div class="status-row">
+      <div *ngIf="vvnLoading" class="info">A carregar VVNs disponiveis...</div>
+      <div *ngIf="vvnError && !vvnLoading" class="error">{{ vvnError }}</div>
+      <div *ngIf="!vvnLoading && !vvnError && !availableVvns.length" class="muted">
+        Sem VVNs disponiveis para criar execucao.
+      </div>
+    </div>
+    <div class="vvn-details" *ngIf="selectedVvn() as vvn">
+      <div><strong>Navio:</strong> {{ vvn.vesselId }}</div>
+      <div><strong>ETA:</strong> {{ vvn.arrivalDate | date: 'short' }}</div>
+      <div *ngIf="vvn.approvedDockId !== null && vvn.approvedDockId !== undefined">
+        <strong>Dock aprovado:</strong> {{ vvn.approvedDockId }}
+      </div>
+    </div>
     <div class="status-row" *ngIf="createError">
       <div class="error">{{ createError }}</div>
     </div>
     <div class="filter-actions">
-      <button type="button" (click)="submitCreate()" [disabled]="creating">
+      <button
+        type="button"
+        (click)="submitCreate()"
+        [disabled]="creating || vvnLoading || !availableVvns.length"
+      >
         {{ creating ? 'A criar...' : 'Criar Execucao' }}
       </button>
     </div>

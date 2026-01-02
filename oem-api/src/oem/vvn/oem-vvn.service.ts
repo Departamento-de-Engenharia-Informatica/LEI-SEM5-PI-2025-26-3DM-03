@@ -128,8 +128,9 @@ export class OemVvnService {
       return [mk(4444, 'CMA Sample', 'C', '06:30:00', '17:15:00', 95)];
     }
 
-    // Generic demo seed for any other day: a single vessel at dock A.
-    return [mk(9001, 'Demo Vessel', 'A', '08:00:00', '18:00:00', 100)];
+    // Para outros dias nao devolvemos nenhum VVN de demo generico,
+    // para evitar que um "Demo Vessel" apareca sempre como candidato.
+    return [];
   }
 
   private parseDayStart(date: string): Date {

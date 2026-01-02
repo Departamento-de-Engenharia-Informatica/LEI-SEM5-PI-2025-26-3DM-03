@@ -1,6 +1,9 @@
 .vve-history {
   padding: 24px;
   color: #0f172a;
+  background: radial-gradient(circle at top left, rgba(14, 116, 144, 0.06), transparent 45%),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 55%),
+    #f8fafc;
 }
 
 .page-header {
@@ -31,7 +34,7 @@
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   margin-bottom: 12px;
 }
 
@@ -54,6 +57,16 @@
       border: 1px solid #cbd5e1;
       border-radius: 8px;
       font-size: 14px;
+      background: #ffffff;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: #0f766e;
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+      outline: none;
+      transform: translateY(-1px);
     }
   }
 }
@@ -78,7 +91,7 @@ input[type='datetime-local']:valid::-webkit-datetime-edit {
     padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid transparent;
-    background: #0f766e;
+    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
     color: #fff;
     font-weight: 700;
     cursor: pointer;
@@ -353,9 +366,48 @@ table {
   margin-top: 16px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.create-header {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: #475569;
+  }
+}
+
+.create-grid {
+  align-items: end;
+}
+
+.create-panel select:disabled,
+.create-panel input:disabled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.vvn-details {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
   border-radius: 10px;
-  padding: 16px;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid #cbd5f5;
+  font-size: 13px;
+  color: #1e293b;
 }
 
 .action-panel {

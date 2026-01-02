@@ -67,7 +67,8 @@
     <p class="error" *ngIf="missingError && !missingLoading">{{ missingError }}</p>
   </section>
 
-  <section class="missing-section" *ngIf="showMissingDetails">
+  <div class="modal-backdrop" *ngIf="showMissingDetails">
+    <section class="modal-sheet missing-panel" id="missing-sheet">
     <div class="missing-header">
       <div>
         <h3>VVNs sem plano</h3>
@@ -115,33 +116,56 @@
     </div>
 
     <div class="missing-grid" *ngIf="!missingLoading && !missingError && missingPlans.length">
-      <article class="missing-card" *ngFor="let vvn of missingPlans">
-        <div class="missing-card-header">
-          <div>
-            <p class="eyebrow">VVN {{ vvn.id }}</p>
-            <h3>{{ vvn.vesselName }}</h3>
-          </div>
-          <span class="status-pill">{{ vvn.status }}</span>
-        </div>
-        <div class="missing-meta">
-          <div>
-            <span>Dock</span>
-            <strong>{{ vvn.dockId || '-' }}</strong>
-          </div>
-          <div>
-            <span>ETA</span>
-            <strong>{{ vvn.eta | date: 'short' }}</strong>
-          </div>
-          <div>
-            <span>ETD</span>
-            <strong>{{ vvn.etd ? (vvn.etd | date: 'short') : '-' }}</strong>
-          </div>
-          <div>
-            <span>Containers</span>
-            <strong>{{ vvn.containers }}</strong>
-          </div>
-        </div>
-      </article>
+      <table class="missing-table">
+        <thead>
+          <tr>
+            <th>VVN</th>
+            <th>Vessel</th>
+            <th>Dock</th>
+            <th>ETA</th>
+            <th>ETD</th>
+            <th>Containers</th>
+            <th>Estado</th>
+            <th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let vvn of pagedMissingPlans">
+            <td>{{ vvn.id }}</td>
+            <td>{{ vvn.vesselName }}</td>
+            <td>{{ vvn.dockId || '-' }}</td>
+            <td>{{ vvn.eta | date: 'short' }}</td>
+            <td>{{ vvn.etd ? (vvn.etd | date: 'short') : '-' }}</td>
+            <td>{{ vvn.containers }}</td>
+            <td>{{ vvn.status }}</td>
+            <td>
+              <button type="button" class="action-btn" (click)="generatePlanForMissing(vvn)">
+                Gerar plano
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div
+        class="pagination"
+        *ngIf="!missingLoading && !missingError && missingPlans.length > missingPageSize"
+      >
+        <button
+          type="button"
+          (click)="goToMissingPage(missingCurrentPage - 1)"
+          [disabled]="missingCurrentPage === 1"
+        >
+          Anterior
+        </button>
+        <span>Pagina {{ missingCurrentPage }} de {{ totalMissingPages }}</span>
+        <button
+          type="button"
+          (click)="goToMissingPage(missingCurrentPage + 1)"
+          [disabled]="missingCurrentPage === totalMissingPages"
+        >
+          Seguinte
+        </button>
+      </div>
     </div>
 
     <div class="regenerate-panel" [formGroup]="missingForm" *ngIf="hasMissingPlans">
@@ -168,7 +192,8 @@
     <p *ngIf="!missingLoading && !missingError && missingPlans.length === 0" class="info">
       {{ missingEmptyMessage || 'Sem VVNs em falta para esta data.' }}
     </p>
-  </section>
+    </section>
+  </div>
 
   <div class="table-wrapper" *ngIf="hasPreview">
     <table class="preview-table">
