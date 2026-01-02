@@ -12,8 +12,8 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { EMPTY, forkJoin, of } from 'rxjs';
-import { catchError, finalize, map, switchMap } from 'rxjs/operators';
+import { EMPTY, firstValueFrom, of, Subject } from 'rxjs';
+import { catchError, finalize, switchMap, map, debounceTime, takeUntil } from 'rxjs/operators';
 import {
   ExecutedOperationDto,
   OemApiService,
@@ -22,6 +22,10 @@ import {
   UpsertExecutedOperationPayload,
   VesselVisitExecutionListItem,
 } from '../oem-api.service';
+import { DockDTO } from '../../models/dock';
+import { DocksService } from '../../services/docks/docks.service';
+import { VesselVisitNotificationDTO } from '../../models/vessel-visit-notification';
+import { VesselVisitNotificationsService } from '../../services/vessel-visits/vessel-visit-notifications.service';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import flatpickr from 'flatpickr';
 
@@ -46,6 +50,9 @@ export class VesselVisitExecutionsHistoryComponent
   berthForm: FormGroup | null = null;
   updatingBerth: VesselVisitExecutionListItem | null = null;
   berthError: string | null = null;
+  savingBerth = false;
+  docks: DockDTO[] = [];
+  docksLoading = false;
 
   operationsTarget: VesselVisitExecutionListItem | null = null;
   operationsForm: FormGroup | null = null;
@@ -56,9 +63,19 @@ export class VesselVisitExecutionsHistoryComponent
   private operationErrors = new Map<number, string>();
   private operationSuccess = new Map<number, string>();
 
+  auditEntries: import('../oem-api.service').VesselVisitExecutionAuditEntry[] = [];
+  auditLoading = false;
+  auditError: string | null = null;
+  auditTarget: VesselVisitExecutionListItem | null = null;
+
   createForm: FormGroup;
   creating = false;
   createError: string | null = null;
+  completeError: string | null = null;
+  successMessage: string | null = null;
+  availableVvns: VesselVisitNotificationDTO[] = [];
+  vvnLoading = false;
+  vvnError: string | null = null;
 
   executions: VesselVisitExecutionListItem[] = [];
   loading = false;
@@ -66,6 +83,12 @@ export class VesselVisitExecutionsHistoryComponent
   emptyMessage: string | null = null;
   displayRange = '';
   private dateRangePicker: flatpickr.Instance | null = null;
+  private readonly destroy$ = new Subject<void>();
+  private lastRequestedFiltersKey: string | null = null;
+  private lastSuccessfulFiltersKey: string | null = null;
+
+  pageSize = 6;
+  currentPage = 1;
 
   readonly statusOptions = [
     'scheduled',
@@ -79,6 +102,8 @@ export class VesselVisitExecutionsHistoryComponent
   constructor(
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
+    private readonly docksService: DocksService,
+    private readonly vvnService: VesselVisitNotificationsService,
     private readonly zone: NgZone,
     private readonly cdr: ChangeDetectorRef,
     private readonly appRef: ApplicationRef,
@@ -99,7 +124,17 @@ export class VesselVisitExecutionsHistoryComponent
 
   ngOnInit(): void {
     this.updateDisplayRangeFromForm();
-    this.fetchExecutions();
+    this.loadDocks();
+    this.loadAvailableVvns();
+
+    this.filterForm.valueChanges
+      .pipe(debounceTime(350), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.updateDisplayRangeFromForm();
+        this.fetchExecutions();
+      });
+
+    this.fetchExecutions(true);
   }
 
   ngAfterViewInit(): void {
@@ -124,12 +159,14 @@ export class VesselVisitExecutionsHistoryComponent
   }
 
   ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
     this.dateRangePicker?.destroy();
     this.dateRangePicker = null;
   }
 
   onSearch(): void {
-    this.fetchExecutions();
+    this.fetchExecutions(true);
   }
 
   resetFilters(): void {
@@ -147,7 +184,6 @@ export class VesselVisitExecutionsHistoryComponent
     } else if (this.dateRangePicker) {
       this.dateRangePicker.clear();
     }
-    this.fetchExecutions();
   }
 
   startComplete(exec: VesselVisitExecutionListItem): void {
@@ -156,6 +192,7 @@ export class VesselVisitExecutionsHistoryComponent
     }
 
     this.completing = exec;
+    this.completeError = null;
     this.completeForm = this.fb.group({
       actualUnberthTime: [exec.actualUnberthTime || exec.actualDepartureTime || '', Validators.required],
       actualPortDepartureTime: [exec.actualDepartureTime || '', Validators.required],
@@ -165,6 +202,7 @@ export class VesselVisitExecutionsHistoryComponent
   cancelComplete(): void {
     this.completing = null;
     this.completeForm = null;
+    this.completeError = null;
   }
 
   startUpdateBerth(exec: VesselVisitExecutionListItem): void {
@@ -174,10 +212,19 @@ export class VesselVisitExecutionsHistoryComponent
 
     this.updatingBerth = exec;
     this.berthError = null;
+    const initial = exec.actualBerthTime ? this.isoToInput(exec.actualBerthTime) : '';
+    let datePart = '';
+    let timePart = '';
+    if (initial) {
+      const split = initial.split('T');
+      datePart = split[0] ?? '';
+      timePart = split[1] ?? '';
+    }
 
     this.berthForm = this.fb.group({
-      actualBerthTime: [exec.actualBerthTime || ''],
-      dockId: [exec.berthId || ''],
+      actualBerthDate: [datePart],
+      actualBerthTime: [timePart],
+      dockId: [exec.berthId ? String(exec.berthId) : ''],
     });
   }
 
@@ -223,7 +270,6 @@ export class VesselVisitExecutionsHistoryComponent
         }),
         switchMap((planned: PlannedOperationWithExecution[] | unknown) => {
           const plannedSafe = Array.isArray(planned) ? planned : [];
-
           return this.api.getExecutedOperationsForExecution(exec.id).pipe(
             catchError((error: HttpErrorResponse) => {
               this.zone.run(() => {
@@ -238,16 +284,47 @@ export class VesselVisitExecutionsHistoryComponent
           );
         }),
       )
-      .subscribe(({ planned, executed }) => {
-        this.zone.run(() => {
-          this.buildOperationsFromResult(
-            planned as PlannedOperationWithExecution[],
-            executed as ExecutedOperationDto[],
-          );
-          this.operationsLoading = false;
-          this.cdr.detectChanges();
-          this.appRef.tick();
-        });
+      .subscribe({
+        next: ({
+          planned,
+          executed,
+        }: {
+          planned: PlannedOperationWithExecution[];
+          executed: ExecutedOperationDto[];
+        }) => {
+          this.zone.run(() => {
+            const executedMap = new Map<number, ExecutedOperationDto>();
+            executed.forEach((op) => executedMap.set(op.plannedOperationId, op));
+
+            this.operations = planned.map((plan) => {
+              const execData = executedMap.get(plan.id) ?? null;
+              const status = execData?.executionStatus ?? plan.executionStatus ?? 'PLANNED';
+              return {
+                ...plan,
+                executionStatus: status,
+                actualStartTime: execData?.actualStartTime ?? plan.actualStartTime ?? null,
+                actualEndTime: execData?.actualEndTime ?? plan.actualEndTime ?? null,
+                actualResourcesUsed: execData?.resourcesUsed ?? plan.actualResourcesUsed ?? null,
+              };
+            });
+
+            this.operationsForm = this.buildOperationsForm(this.operations);
+            this.operationsLoading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
+        },
+        error: (err: HttpErrorResponse) => {
+          this.zone.run(() => {
+            this.operationsError = this.normalizeError(
+              err,
+              'Falha ao carregar as operacoes planeadas.',
+            );
+            this.operationsLoading = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
+        },
       });
   }
 
@@ -261,26 +338,59 @@ export class VesselVisitExecutionsHistoryComponent
     this.operationSuccess.clear();
   }
 
-  private buildOperationsFromResult(
-    planned: PlannedOperationWithExecution[],
-    executed: ExecutedOperationDto[],
-  ): void {
-    const executedMap = new Map<number, ExecutedOperationDto>();
-    (executed ?? []).forEach((op) => executedMap.set(op.plannedOperationId, op));
+  openAudit(exec: VesselVisitExecutionListItem): void {
+    this.auditTarget = exec;
+    this.auditEntries = [];
+    this.auditError = null;
+    this.auditLoading = true;
 
-    this.operations = (planned ?? []).map((plan) => {
-      const execData = executedMap.get(plan.id) ?? null;
-      const status = execData?.executionStatus ?? plan.executionStatus ?? 'PLANNED';
-      return {
-        ...plan,
-        executionStatus: status,
-        actualStartTime: execData?.actualStartTime ?? plan.actualStartTime ?? null,
-        actualEndTime: execData?.actualEndTime ?? plan.actualEndTime ?? null,
-        actualResourcesUsed: execData?.resourcesUsed ?? plan.actualResourcesUsed ?? null,
-      };
+    this.api.getVesselVisitExecutionAudit(exec.id).subscribe({
+      next: (entries) => {
+        this.auditEntries = entries ?? [];
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.auditError = this.normalizeError(
+          err,
+          'Falha ao carregar o historico de auditoria.',
+        );
+        this.auditLoading = false;
+        this.cdr.detectChanges();
+      },
     });
+  }
 
-    this.operationsForm = this.buildOperationsForm(this.operations);
+  closeAudit(): void {
+    this.auditTarget = null;
+    this.auditEntries = [];
+    this.auditError = null;
+    this.auditLoading = false;
+  }
+
+  getAuditAfterField(
+    entry: import('../oem-api.service').VesselVisitExecutionAuditEntry,
+    key: string,
+  ): unknown {
+    const after: Record<string, unknown> = (entry?.after as Record<string, unknown>) ?? {};
+    return after[key];
+  }
+
+  getAuditBeforeField(
+    entry: import('../oem-api.service').VesselVisitExecutionAuditEntry,
+    key: string,
+  ): unknown {
+    const before: Record<string, unknown> = (entry?.before as Record<string, unknown>) ?? {};
+    return before[key];
+  }
+
+  auditActionLabel(action: string): string {
+    switch (action) {
+      case 'UPDATE_BERTH_DOCK':
+        return 'Atualizacao de berth/dock';
+      default:
+        return action;
+    }
   }
 
   submitCreate(): void {
@@ -302,7 +412,7 @@ export class VesselVisitExecutionsHistoryComponent
       return;
     }
 
-    if (Number.isNaN(arrival.getTime())) {
+    if (!raw.actualArrivalTime || Number.isNaN(arrival.getTime())) {
       this.createError = 'Data/hora de chegada invalida.';
       return;
     }
@@ -335,7 +445,8 @@ export class VesselVisitExecutionsHistoryComponent
         next: () => {
           if (!this.createError) {
             this.createForm.reset({ vvnId: '', actualArrivalTime: '' });
-            this.fetchExecutions();
+            this.fetchExecutions(true);
+            this.loadAvailableVvns();
           }
         },
         error: (err: HttpErrorResponse) => {
@@ -368,8 +479,20 @@ export class VesselVisitExecutionsHistoryComponent
     };
 
     if (!payload.actualUnberthTime || !payload.actualPortDepartureTime) {
+      this.completeError = 'Indique ambas as datas de desatracacao e saida do porto.';
       return;
     }
+
+    const unberthDate = new Date(payload.actualUnberthTime);
+    const departureDate = new Date(payload.actualPortDepartureTime);
+
+    if (departureDate.getTime() < unberthDate.getTime()) {
+      this.completeError = 'A saida do porto tem de ser posterior ou igual a desatracacao.';
+      return;
+    }
+
+    this.completeError = null;
+    this.successMessage = null;
 
     this.loading = true;
     this.error = null;
@@ -379,11 +502,15 @@ export class VesselVisitExecutionsHistoryComponent
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: () => {
+          this.successMessage = 'Execucao concluida com sucesso.';
           this.cancelComplete();
-          this.fetchExecutions();
+          this.fetchExecutions(true);
         },
         error: (err: HttpErrorResponse) => {
-          this.error = this.normalizeError(err, 'Falha ao concluir a execucao.');
+          this.completeError = this.normalizeError(
+            err,
+            'Falha ao concluir a execucao.',
+          );
         },
       });
   }
@@ -397,6 +524,7 @@ export class VesselVisitExecutionsHistoryComponent
     }
 
     const raw = this.berthForm.value as {
+      actualBerthDate?: string;
       actualBerthTime?: string;
       dockId?: string;
     };
@@ -409,8 +537,17 @@ export class VesselVisitExecutionsHistoryComponent
 
     const payload: { actualBerthTime?: string; dockId?: string } = {};
 
-    if (raw.actualBerthTime) {
-      const iso = toIso(raw.actualBerthTime);
+    let combined: string | undefined;
+    if (raw.actualBerthDate || raw.actualBerthTime) {
+      if (!raw.actualBerthDate || !raw.actualBerthTime) {
+        this.berthError = 'Indique a data e a hora de atracacao.';
+        return;
+      }
+      combined = `${raw.actualBerthDate}T${raw.actualBerthTime}`;
+    }
+
+    if (combined) {
+      const iso = toIso(combined);
       if (!iso) {
         this.berthError = 'Hora de atracacao invalida.';
         return;
@@ -418,8 +555,11 @@ export class VesselVisitExecutionsHistoryComponent
       payload.actualBerthTime = iso;
     }
 
-    if (raw.dockId && raw.dockId.trim()) {
-      payload.dockId = raw.dockId.trim();
+    if (raw.dockId !== undefined && raw.dockId !== null) {
+      const dockValue = `${raw.dockId}`.trim();
+      if (dockValue) {
+        payload.dockId = dockValue;
+      }
     }
 
     if (!payload.actualBerthTime && !payload.dockId) {
@@ -427,20 +567,35 @@ export class VesselVisitExecutionsHistoryComponent
       return;
     }
 
-    this.loading = true;
-    this.error = null;
+    this.savingBerth = true;
     this.berthError = null;
 
     this.api
       .updateVesselVisitExecution(this.updatingBerth.id, payload)
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        finalize(() => {
+          this.zone.run(() => {
+            this.savingBerth = false;
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
+        }),
+      )
       .subscribe({
         next: () => {
-          this.cancelUpdateBerth();
-          this.fetchExecutions();
+          this.zone.run(() => {
+            this.cancelUpdateBerth();
+            this.fetchExecutions(true);
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
         error: (err: HttpErrorResponse) => {
-          this.berthError = this.normalizeError(err, 'Falha ao atualizar berth/dock.');
+          this.zone.run(() => {
+            this.berthError = this.normalizeError(err, 'Falha ao atualizar berth/dock.');
+            this.cdr.detectChanges();
+            this.appRef.tick();
+          });
         },
       });
   }
@@ -473,7 +628,9 @@ export class VesselVisitExecutionsHistoryComponent
     const raw = group.value as {
       actualStartTime?: string;
       actualEndTime?: string;
-      resourcesUsed?: string;
+      resourcesCraneId?: string;
+      resourcesStorageAreaId?: string;
+      resourcesStaffIds?: string;
     };
 
     const payload: UpsertExecutedOperationPayload = {};
@@ -498,20 +655,9 @@ export class VesselVisitExecutionsHistoryComponent
       payload.actualEndTime = iso;
     }
 
-    if (raw.resourcesUsed && raw.resourcesUsed.trim()) {
-      try {
-        const parsed = JSON.parse(raw.resourcesUsed.trim());
-        if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-          this.operationErrors.set(operation.id, 'Recursos devem ser um objeto JSON.');
-          this.operationSuccess.delete(operation.id);
-          return;
-        }
-        payload.resourcesUsed = parsed as Record<string, unknown>;
-      } catch (error) {
-        this.operationErrors.set(operation.id, 'JSON de recursos invalido.');
-        this.operationSuccess.delete(operation.id);
-        return;
-      }
+    const resources = this.buildResourcesPayload(raw);
+    if (resources) {
+      payload.resourcesUsed = resources;
     }
 
     if (
@@ -607,20 +753,56 @@ export class VesselVisitExecutionsHistoryComponent
     return exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? null;
   }
 
+  selectedVvn(): VesselVisitNotificationDTO | null {
+    const raw = this.createForm?.get('vvnId')?.value;
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+    return this.availableVvns.find((vvn) => vvn.id === parsed) ?? null;
+  }
+
   trackById(_: number, item: VesselVisitExecutionListItem): number {
     return item.id;
   }
 
-  private fetchExecutions(): void {
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.executions.length / this.pageSize));
+  }
+
+  get pagedExecutions(): VesselVisitExecutionListItem[] {
+    const start = (this.currentPage - 1) * this.pageSize;
+    return this.executions.slice(start, start + this.pageSize);
+  }
+
+  goToPage(page: number): void {
+    const target = Math.min(Math.max(1, page), this.totalPages);
+    this.currentPage = target;
+  }
+
+  private fetchExecutions(force = false): void {
     if (this.filterForm.invalid) {
       this.filterForm.markAllAsTouched();
       return;
     }
 
     const filters = this.buildFilters();
+    const key = JSON.stringify(filters);
+
+    if (!force) {
+      if (this.loading && this.lastRequestedFiltersKey === key) {
+        return;
+      }
+
+      if (!this.loading && this.lastSuccessfulFiltersKey === key) {
+        return;
+      }
+    }
+
     this.loading = true;
     this.error = null;
     this.emptyMessage = null;
+    this.lastRequestedFiltersKey = key;
 
     this.api
       .getVesselVisitExecutions(filters)
@@ -628,9 +810,11 @@ export class VesselVisitExecutionsHistoryComponent
         next: (items) => {
           this.zone.run(() => {
             this.executions = items ?? [];
+            this.currentPage = 1;
             this.emptyMessage = this.executions.length
               ? null
               : 'Nenhuma execucao encontrada para os filtros aplicados.';
+            this.lastSuccessfulFiltersKey = key;
             this.loading = false;
             this.cdr.detectChanges();
             this.appRef.tick();
@@ -640,6 +824,7 @@ export class VesselVisitExecutionsHistoryComponent
           this.zone.run(() => {
             this.executions = [];
             this.error = this.normalizeError(err, 'Falha ao carregar as execucoes.');
+            this.successMessage = null;
             this.loading = false;
             this.cdr.detectChanges();
             this.appRef.tick();
@@ -648,12 +833,51 @@ export class VesselVisitExecutionsHistoryComponent
       });
   }
 
+  private async loadAvailableVvns(): Promise<void> {
+    this.vvnLoading = true;
+    this.vvnError = null;
+    try {
+      const [vvns, executions] = await Promise.all([
+        this.vvnService.getAll({ status: 'Approved' }),
+        firstValueFrom(this.api.getVesselVisitExecutions()),
+      ]);
+
+      const usedVvns = new Set<number>();
+      (executions ?? []).forEach((exec) => {
+        const used = exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? null;
+        if (used != null && Number.isFinite(used)) {
+          usedVvns.add(Number(used));
+        }
+      });
+
+      const available = (vvns ?? [])
+        .filter((vvn) => !usedVvns.has(vvn.id))
+        .sort((a, b) => new Date(a.arrivalDate).getTime() - new Date(b.arrivalDate).getTime());
+
+      this.availableVvns = available;
+
+      const selected = this.createForm.get('vvnId')?.value;
+      if (selected && !available.some((vvn) => vvn.id === Number(selected))) {
+        this.createForm.patchValue({ vvnId: '' }, { emitEvent: false });
+      }
+    } catch (error) {
+      this.availableVvns = [];
+      this.vvnError = 'Falha ao carregar VVNs disponiveis.';
+    } finally {
+      this.vvnLoading = false;
+      this.cdr.detectChanges();
+      this.appRef.tick();
+    }
+  }
+
   private buildOperationsForm(operations: PlannedOperationWithExecution[]): FormGroup {
     const groups = operations.map((operation) =>
       this.fb.group({
         actualStartTime: [this.isoToInput(operation.actualStartTime)],
         actualEndTime: [this.isoToInput(operation.actualEndTime)],
-        resourcesUsed: [this.resourcesToText(operation)],
+        resourcesCraneId: [this.extractResourceValue(operation, 'craneId')],
+        resourcesStorageAreaId: [this.extractResourceValue(operation, 'storageAreaId')],
+        resourcesStaffIds: [this.extractResourceValue(operation, 'staffIds')],
       }),
     );
 
@@ -691,7 +915,9 @@ export class VesselVisitExecutionsHistoryComponent
       {
         actualStartTime: this.isoToInput(updated.actualStartTime),
         actualEndTime: this.isoToInput(updated.actualEndTime),
-        resourcesUsed: this.resourcesToText(updated),
+        resourcesCraneId: this.extractResourceValue(updated, 'craneId'),
+        resourcesStorageAreaId: this.extractResourceValue(updated, 'storageAreaId'),
+        resourcesStaffIds: this.extractResourceValue(updated, 'staffIds'),
       },
       { emitEvent: false },
     );
@@ -765,7 +991,6 @@ export class VesselVisitExecutionsHistoryComponent
         from: this.toDateInput(startDay),
         to: this.toDateInput(endDay),
       },
-      { emitEvent: false },
     );
 
     this.updateDisplayRange(startDay, endDay);
@@ -797,27 +1022,74 @@ export class VesselVisitExecutionsHistoryComponent
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  private resourcesToText(operation: PlannedOperationWithExecution): string {
-    const source =
-      operation.actualResourcesUsed ?? this.buildSuggestedResources(operation) ?? null;
-    if (!source) return '';
-    try {
-      return JSON.stringify(source, null, 2);
-    } catch {
-      return '';
+  private extractResourceValue(
+    operation: PlannedOperationWithExecution,
+    key: 'craneId' | 'storageAreaId' | 'staffIds',
+  ): string {
+    const raw = operation.actualResourcesUsed;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const value = (raw as Record<string, unknown>)[key];
+      if (key === 'staffIds') {
+        if (Array.isArray(value)) {
+          return value.map((item) => `${item}`).join(', ');
+        }
+        if (typeof value === 'string') {
+          return value;
+        }
+        return '';
+      }
+      if (typeof value === 'string') {
+        return value;
+      }
     }
+
+    if (key === 'staffIds') {
+      return operation.staffIds?.length ? operation.staffIds.join(', ') : '';
+    }
+    return (key === 'craneId' ? operation.craneId : operation.storageAreaId) ?? '';
   }
 
-  private buildSuggestedResources(
-    operation: PlannedOperationWithExecution,
-  ): Record<string, unknown> | null {
-    const resources: Record<string, unknown> = {};
-    if (operation.craneId) resources['craneId'] = operation.craneId;
-    if (operation.storageAreaId) resources['storageAreaId'] = operation.storageAreaId;
-    if (operation.staffIds && operation.staffIds.length > 0) {
-      resources['staffIds'] = operation.staffIds;
-    }
-    return Object.keys(resources).length ? resources : null;
+  private loadDocks(): void {
+    this.docksLoading = true;
+    this.docksService
+      .getAll()
+      .then((items) => {
+        this.zone.run(() => {
+          const sorted = [...(items ?? [])].sort((a, b) => a.id - b.id);
+          this.docks = sorted;
+          this.docksLoading = false;
+          this.cdr.detectChanges();
+          this.appRef.tick();
+        });
+      })
+      .catch(() => {
+        this.zone.run(() => {
+          this.docks = [];
+          this.docksLoading = false;
+          this.cdr.detectChanges();
+          this.appRef.tick();
+        });
+      });
+  }
+
+  private buildResourcesPayload(raw: {
+    resourcesCraneId?: string;
+    resourcesStorageAreaId?: string;
+    resourcesStaffIds?: string;
+  }): Record<string, unknown> | undefined {
+    const craneId = raw.resourcesCraneId?.trim();
+    const storageAreaId = raw.resourcesStorageAreaId?.trim();
+    const staffIds = raw.resourcesStaffIds
+      ?.split(',')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    const payload: Record<string, unknown> = {};
+    if (craneId) payload['craneId'] = craneId;
+    if (storageAreaId) payload['storageAreaId'] = storageAreaId;
+    if (staffIds && staffIds.length) payload['staffIds'] = staffIds;
+
+    return Object.keys(payload).length ? payload : undefined;
   }
 
   private isoToInput(value?: string | null): string {

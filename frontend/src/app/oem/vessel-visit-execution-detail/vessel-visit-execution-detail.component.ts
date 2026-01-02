@@ -350,16 +350,22 @@ export class VesselVisitExecutionDetailComponent implements OnInit, OnDestroy {
         switchMap((detail) => {
           this.detail = detail ?? null;
           this.setupReadonlyHint();
+
+          if (!detail?.operationPlanId) {
+            this.missingPlanMessage =
+              'Esta execucao nao tem um plano de operacoes associado. Registos nao disponiveis.';
+            return forkJoin({
+              planned: of<PlannedOperationWithExecution[]>([]),
+              executed: this.api.getExecutedOperationsForExecution(id),
+            });
+          }
+
+          this.missingPlanMessage = null;
           return forkJoin({
-            planned: this.api.getPlannedOperationsForExecution(id).pipe(
-              catchError((error: HttpErrorResponse) => {
-                if (error.status === 404) {
-                  this.missingPlanMessage =
-                    'Esta execucao nao tem um plano de operacoes associado. Registos nao disponiveis.';
-                } else {
-                  this.missingPlanMessage =
-                    'Falha ao carregar o plano de operacoes associado. Tente novamente mais tarde.';
-                }
+            planned: this.api.getPlannedOperationsByPlan(detail.operationPlanId).pipe(
+              catchError(() => {
+                this.missingPlanMessage =
+                  'Falha ao carregar o plano de operacoes associado. Tente novamente mais tarde.';
                 return of<PlannedOperationWithExecution[]>([]);
               }),
             ),

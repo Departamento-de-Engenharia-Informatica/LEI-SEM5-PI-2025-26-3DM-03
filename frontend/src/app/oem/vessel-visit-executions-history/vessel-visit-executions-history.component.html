@@ -47,25 +47,50 @@
   </form>
 
   <section class="create-panel" [formGroup]="createForm">
-    <h2>Criar nova Execucao de Visita</h2>
-    <p class="subtitle">
-      Indique o ID da Vessel Visit Notification aprovada e a data/hora real de chegada ao porto.
-    </p>
-    <div class="form-grid">
+    <div class="create-header">
+      <h2>Criar nova Execucao de Visita</h2>
+      <p class="subtitle">
+        Selecione uma Vessel Visit Notification aprovada sem execucao e registe a hora real de chegada ao porto.
+      </p>
+    </div>
+    <div class="form-grid create-grid">
       <label>
-        VVN (ID)
-        <input type="number" formControlName="vvnId" placeholder="ex: 101" />
+        VVN disponivel
+        <select formControlName="vvnId" [disabled]="vvnLoading || !availableVvns.length">
+          <option value="">Selecionar VVN</option>
+          <option *ngFor="let vvn of availableVvns" [value]="vvn.id">
+            VVN {{ vvn.id }} • {{ vvn.vesselId }} • ETA {{ vvn.arrivalDate | date: 'short' }}
+          </option>
+        </select>
       </label>
       <label>
         Chegada real ao porto
-        <input type="datetime-local" formControlName="actualArrivalTime" />
+        <input type="datetime-local" formControlName="actualArrivalTime" required />
       </label>
+    </div>
+    <div class="status-row">
+      <div *ngIf="vvnLoading" class="info">A carregar VVNs disponiveis...</div>
+      <div *ngIf="vvnError && !vvnLoading" class="error">{{ vvnError }}</div>
+      <div *ngIf="!vvnLoading && !vvnError && !availableVvns.length" class="muted">
+        Sem VVNs disponiveis para criar execucao.
+      </div>
+    </div>
+    <div class="vvn-details" *ngIf="selectedVvn() as vvn">
+      <div><strong>Navio:</strong> {{ vvn.vesselId }}</div>
+      <div><strong>ETA:</strong> {{ vvn.arrivalDate | date: 'short' }}</div>
+      <div *ngIf="vvn.approvedDockId !== null && vvn.approvedDockId !== undefined">
+        <strong>Dock aprovado:</strong> {{ vvn.approvedDockId }}
+      </div>
     </div>
     <div class="status-row" *ngIf="createError">
       <div class="error">{{ createError }}</div>
     </div>
     <div class="filter-actions">
-      <button type="button" (click)="submitCreate()" [disabled]="creating">
+      <button
+        type="button"
+        (click)="submitCreate()"
+        [disabled]="creating || vvnLoading || !availableVvns.length"
+      >
         {{ creating ? 'A criar...' : 'Criar Execucao' }}
       </button>
     </div>
@@ -75,6 +100,7 @@
     <div *ngIf="loading" class="info">A carregar execucoes...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
     <div *ngIf="emptyMessage && !loading && !error" class="muted">{{ emptyMessage }}</div>
+    <div *ngIf="successMessage && !loading" class="success">{{ successMessage }}</div>
   </div>
 
   <div class="table-wrapper" *ngIf="!loading && !error && executions.length">
@@ -100,124 +126,214 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let exec of executions; trackBy: trackById">
+        <tr *ngFor="let exec of pagedExecutions; trackBy: trackById">
           <td>{{ exec.id }}</td>
           <td>{{ exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? '-' }}</td>
           <td>{{ exec.vesselName }}</td>
           <td>{{ exec.berthId || '-' }}</td>
           <td><span class="status-pill">{{ exec.status }}</span></td>
-          <td>{{ exec.actualArrivalTime | date: 'short' }}</td>
-          <td>{{ exec.actualBerthTime | date: 'short' }}</td>
-          <td>{{ exec.actualUnberthTime | date: 'short' }}</td>
-          <td>{{ exec.actualDepartureTime | date: 'short' }}</td>
+          <td>{{ exec.actualArrivalTime ? (exec.actualArrivalTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualBerthTime ? (exec.actualBerthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualUnberthTime ? (exec.actualUnberthTime | date: 'short') : '-' }}</td>
+          <td>{{ exec.actualDepartureTime ? (exec.actualDepartureTime | date: 'short') : '-' }}</td>
           <td>{{ displayMinutes(exec.totalTurnaroundMinutes) }}</td>
           <td>{{ displayMinutes(exec.berthOccupancyMinutes) }}</td>
           <td>{{ displayMinutes(exec.waitingForBerthMinutes) }}</td>
           <td>{{ formatDelay(exec.arrivalDelayMinutes) }}</td>
           <td>{{ formatDelay(exec.departureDelayMinutes) }}</td>
           <td>{{ displayMinutes(exec.operationsDelayMinutes) }}</td>
-          <td>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status === 'in-progress'"
-              (click)="startRecordOperations(exec)"
+          <td class="actions-cell">
+            <ng-container
+              *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'; else noActions"
             >
-              Registar operacoes
-            </button>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status === 'in-progress'"
-              (click)="startUpdateBerth(exec)"
-            >
-              Atualizar berth/dock
-            </button>
-            <button
-              type="button"
-              class="link-btn"
-              *ngIf="exec.status !== 'completed' && exec.status !== 'cancelled'"
-              (click)="startComplete(exec)"
-            >
-              Marcar como concluida
-            </button>
+              <details class="actions-dropdown" #actionsRef>
+                <summary class="action-menu-btn" aria-haspopup="true">
+                  <span class="menu-icon">...</span>
+                  <span>Acoes</span>
+                  <span class="caret">v</span>
+                </summary>
+                <div class="action-menu">
+                  <button
+                    type="button"
+                    class="menu-item"
+                    *ngIf="exec.status === 'in-progress'"
+                    (click)="startRecordOperations(exec); actionsRef.open = false"
+                  >
+                    Registar operacoes
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    *ngIf="exec.status === 'in-progress'"
+                    (click)="startUpdateBerth(exec); actionsRef.open = false"
+                  >
+                    Atualizar berth/dock
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="startComplete(exec); actionsRef.open = false"
+                  >
+                    Marcar como concluida
+                  </button>
+                  <button
+                    type="button"
+                    class="menu-item"
+                    (click)="openAudit(exec); actionsRef.open = false"
+                  >
+                    Ver historico (audit)
+                  </button>
+                </div>
+              </details>
+            </ng-container>
+            <ng-template #noActions>
+              <span class="no-actions">Sem acoes disponiveis</span>
+            </ng-template>
           </td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <section class="complete-panel" *ngIf="completing && completeForm">
-    <h2>
-      Concluir execucao VVE {{ completing?.id }} · VVN
-      {{ executionVvn(completing) ?? '-' }} ({{ completing?.vesselName }})
-    </h2>
-    <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="complete-form">
-      <label>
-        Desatracacao (real)
-        <input type="datetime-local" formControlName="actualUnberthTime" />
-      </label>
-      <label>
-        Saida Porto (real)
-        <input type="datetime-local" formControlName="actualPortDepartureTime" />
-      </label>
-      <div class="actions">
+  <div class="pagination" *ngIf="!loading && !error && executions.length">
+    <button type="button" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+      Anterior
+    </button>
+    <span>Pagina {{ currentPage }} de {{ totalPages }}</span>
+    <button
+      type="button"
+      (click)="goToPage(currentPage + 1)"
+      [disabled]="currentPage === totalPages"
+    >
+      Seguinte
+    </button>
+  </div>
+
+  <section class="action-panel success complete-panel" *ngIf="completing && completeForm">
+    <header class="panel-head">
+      <span class="panel-icon success">✓</span>
+      <div class="panel-copy">
+        <h2>
+          Concluir execucao VVE {{ completing?.id }} · VVN
+          {{ executionVvn(completing) ?? '-' }} ({{ completing?.vesselName }})
+        </h2>
+        <p class="panel-subtitle">
+          Confirme as horas finais para encerrar a execucao de visita e atualizar os indicadores.
+        </p>
+      </div>
+      <button type="button" class="ghost-btn" (click)="cancelComplete()" [disabled]="loading">
+        Fechar
+      </button>
+    </header>
+
+    <form [formGroup]="completeForm" (ngSubmit)="submitComplete()" class="panel-form">
+      <div class="panel-form-grid">
+        <label class="form-field">
+          <span>Desatracacao (real)</span>
+          <input type="datetime-local" formControlName="actualUnberthTime" />
+        </label>
+        <label class="form-field">
+          <span>Saida Porto (real)</span>
+          <input type="datetime-local" formControlName="actualPortDepartureTime" />
+        </label>
+      </div>
+      <div class="status-row" *ngIf="completeError">
+        <div class="error">{{ completeError }}</div>
+      </div>
+      <div class="panel-actions">
         <button type="submit" [disabled]="loading">
           {{ loading ? 'A concluir...' : 'Concluir execucao' }}
         </button>
-        <button type="button" class="ghost" (click)="cancelComplete()" [disabled]="loading">
+        <button type="button" class="ghost-btn" (click)="cancelComplete()" [disabled]="loading">
           Cancelar
         </button>
       </div>
     </form>
   </section>
 
-  <section class="complete-panel" *ngIf="updatingBerth && berthForm">
-    <h2>
-      Atualizar berth/dock · VVE {{ updatingBerth?.id }} · VVN
-      {{ executionVvn(updatingBerth) ?? '-' }} ({{ updatingBerth?.vesselName }})
-    </h2>
-    <p class="subtitle">
-      Registe a hora real de atracacao e/ou o dock utilizado. Se o dock
-      introduzido diferir do planeado, sera registado automaticamente um aviso
-      no historico da execucao.
-    </p>
-    <form [formGroup]="berthForm" (ngSubmit)="submitBerthUpdate()" class="complete-form">
-      <label>
-        Atracacao (real)
-        <input type="datetime-local" formControlName="actualBerthTime" />
-      </label>
-      <label>
-        Dock utilizado
-        <input type="text" formControlName="dockId" placeholder="ex: DOCK-1" />
-      </label>
+  <section class="action-panel warning complete-panel" *ngIf="updatingBerth && berthForm">
+    <header class="panel-head">
+      <span class="panel-icon warning">⧗</span>
+      <div class="panel-copy">
+        <h2>
+          Atualizar berth/dock · VVE {{ updatingBerth?.id }} · VVN
+          {{ executionVvn(updatingBerth) ?? '-' }} ({{ updatingBerth?.vesselName }})
+        </h2>
+        <p class="panel-subtitle">
+          Registe a hora real de atracacao e o dock utilizado para manter o plano alinhado com a execucao real.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="ghost-btn"
+        (click)="cancelUpdateBerth()"
+        [disabled]="savingBerth"
+      >
+        Fechar
+      </button>
+    </header>
+
+    <form [formGroup]="berthForm" (ngSubmit)="submitBerthUpdate()" class="panel-form">
+      <div class="panel-form-grid">
+        <label class="form-field">
+          <span>Atracacao (real)</span>
+          <div class="datetime-row">
+            <input type="date" formControlName="actualBerthDate" />
+            <input type="time" formControlName="actualBerthTime" />
+          </div>
+        </label>
+        <label class="form-field">
+          <span>Dock utilizado</span>
+          <select formControlName="dockId" [disabled]="docksLoading || !docks.length">
+            <option value="">Selecionar dock</option>
+            <option *ngFor="let dock of docks" [value]="dock.id">
+              Dock {{ dock.id }} — {{ dock.name }}
+            </option>
+          </select>
+          <div
+            class="warning-text"
+            *ngIf="
+              updatingBerth?.berthId &&
+              berthForm?.get('dockId')?.value &&
+              berthForm?.get('dockId')?.value !== (updatingBerth?.berthId || '').toString()
+            "
+          >
+            Atencao: o dock selecionado difere do dock planeado ({{ updatingBerth?.berthId }}).
+          </div>
+        </label>
+      </div>
       <div class="status-row" *ngIf="berthError">
         <div class="error">{{ berthError }}</div>
       </div>
-      <div class="actions">
-        <button type="submit" [disabled]="loading">
-          {{ loading ? 'A guardar...' : 'Guardar alteracoes' }}
+      <div class="panel-actions">
+        <button type="submit" [disabled]="savingBerth">
+          {{ savingBerth ? 'A guardar...' : 'Guardar alteracoes' }}
         </button>
-        <button type="button" class="ghost" (click)="cancelUpdateBerth()" [disabled]="loading">
+        <button
+          type="button"
+          class="ghost-btn"
+          (click)="cancelUpdateBerth()"
+          [disabled]="savingBerth"
+        >
           Cancelar
         </button>
       </div>
     </form>
   </section>
 
-  <section class="operations-panel" *ngIf="operationsTarget">
-    <header class="operations-header">
-      <div>
+  <section class="action-panel info operations-panel" *ngIf="operationsTarget">
+    <header class="panel-head">
+      <span class="panel-icon info">OP</span>
+      <div class="panel-copy">
         <h2>
           Operacoes executadas · VVE {{ operationsTarget?.id }} · VVN
           {{ executionVvn(operationsTarget) ?? '-' }} ({{ operationsTarget?.vesselName }})
         </h2>
-        <p class="subtitle">
-          Confirme ou ajuste horas e recursos usados. Os estados sao atualizados automaticamente
-          de acordo com os dados guardados.
+        <p class="panel-subtitle">
+          Revise cada operacao planeada, ajuste tempos reais e registe os recursos utilizados.
         </p>
       </div>
-      <button type="button" class="ghost" (click)="cancelRecordOperations()">
+      <button type="button" class="ghost-btn" (click)="cancelRecordOperations()">
         Fechar painel
       </button>
     </header>
@@ -245,6 +361,11 @@
           class="operation-card"
           *ngFor="let group of operationsArray().controls; let i = index"
           [formGroupName]="i"
+          [ngClass]="{
+            'operation-card--completed': operations[i]?.executionStatus === 'COMPLETED',
+            'operation-card--started': operations[i]?.executionStatus === 'STARTED',
+            'operation-card--delayed': operations[i]?.executionStatus === 'DELAYED'
+          }"
         >
           <ng-container *ngIf="operations[i] as operation">
             <header>
@@ -286,9 +407,25 @@
                 Fim executado
                 <input type="datetime-local" formControlName="actualEndTime" />
               </label>
-              <label class="resources">
-                Recursos usados (JSON)
-                <textarea rows="4" formControlName="resourcesUsed"></textarea>
+              <label>
+                Guindaste usado
+                <input type="text" formControlName="resourcesCraneId" placeholder="ex: CRANE_01" />
+              </label>
+              <label>
+                Area usada
+                <input
+                  type="text"
+                  formControlName="resourcesStorageAreaId"
+                  placeholder="ex: North Yard"
+                />
+              </label>
+              <label>
+                Staff usado (IDs)
+                <input
+                  type="text"
+                  formControlName="resourcesStaffIds"
+                  placeholder="ex: 12, 14, 21"
+                />
               </label>
             </div>
 
@@ -317,5 +454,78 @@
         </article>
       </div>
     </form>
+  </section>
+
+  <section class="action-panel info" *ngIf="auditTarget">
+    <header class="panel-head">
+      <span class="panel-icon info">AU</span>
+      <div class="panel-copy">
+        <h2>
+          Historico de auditoria da execucao
+          <ng-container *ngIf="auditTarget">
+            · VVE {{ auditTarget.id }} · VVN {{ executionVvn(auditTarget) ?? '-' }}
+          </ng-container>
+        </h2>
+        <p class="panel-subtitle">
+          Registos de alteracoes de berth/dock e outros updates na execucao selecionada.
+        </p>
+      </div>
+      <button type="button" class="ghost-btn" (click)="closeAudit()">
+        Fechar
+      </button>
+    </header>
+
+    <div class="status-row">
+      <div *ngIf="auditLoading" class="info">A carregar historico...</div>
+      <div *ngIf="auditError && !auditLoading" class="error">{{ auditError }}</div>
+      <div
+        *ngIf="!auditLoading && !auditError && auditEntries.length === 0"
+        class="muted"
+      >
+        Sem registos de auditoria para esta execucao.
+      </div>
+    </div>
+
+    <div class="audit-list" *ngIf="!auditLoading && !auditError && auditEntries.length">
+      <article class="audit-item" *ngFor="let entry of auditEntries">
+        <header>
+          <div>
+            <h3>{{ auditActionLabel(entry.action) }}</h3>
+            <p class="muted small">
+              {{ entry.changedAt | date: 'short' }}  b7 {{ entry.changedBy }}
+            </p>
+          </div>
+          <span class="badge" *ngIf="entry.note">{{ entry.note }}</span>
+        </header>
+        <div class="audit-body">
+          <div class="audit-field">
+            <span class="label">Atracacao (real)</span>
+            <span class="value">
+              <span>
+                Antes:
+                {{ getAuditBeforeField(entry, 'actualBerthTime') || '-' }}
+              </span>
+              <span>
+                Depois:
+                {{ getAuditAfterField(entry, 'actualBerthTime') || '-' }}
+              </span>
+            </span>
+          </div>
+          <div class="audit-field">
+            <span class="label">Dock</span>
+            <span class="value">
+              <span>
+                Antes:
+                {{ getAuditBeforeField(entry, 'berthId') || '-' }}
+              </span>
+              <span>
+                Depois:
+                {{ getAuditAfterField(entry, 'berthId') || '-' }}
+              </span>
+            </span>
+          </div>
+        </div>
+      </article>
+    </div>
   </section>
 </section>

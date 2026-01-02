@@ -248,6 +248,18 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetVesselVisitExecutionAuditAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/vessel-visit-executions/{id}/audit");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> UpsertExecutedOperationAsync(
         int executionId,
         int plannedOperationId,

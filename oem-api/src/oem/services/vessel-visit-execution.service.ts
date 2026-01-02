@@ -158,6 +158,20 @@ export class VesselVisitExecutionService {
       ? this.toDate(dto.actualBerthTime, 'actualBerthTime')
       : existing.actualBerthTime;
 
+    if (dto.actualBerthTime) {
+      if (!existing.actualArrivalTime) {
+        throw new BadRequestException(
+          'Nao pode registar a atracacao sem ter uma hora de chegada definida.',
+        );
+      }
+
+      if (nextActualBerthTime && nextActualBerthTime < existing.actualArrivalTime) {
+        throw new BadRequestException(
+          'A hora de atracacao nao pode ser anterior a hora de chegada.',
+        );
+      }
+    }
+
     let note: string | undefined;
     let nextBerthId = existing.berthId ?? null;
     let nextLastWarning = existing.lastWarning ?? null;
@@ -264,6 +278,16 @@ export class VesselVisitExecutionService {
 
     vve.operationPlanId = plan.id;
     return this.repo.save(vve);
+  }
+
+  async listAuditEntries(vveId: number): Promise<VesselVisitExecutionAuditEntity[]> {
+    const vve = await this.findOne(vveId);
+    const auditRepo = this.repo.manager.getRepository(VesselVisitExecutionAuditEntity);
+
+    return auditRepo.find({
+      where: { vveId: vve.id },
+      order: { changedAt: 'DESC' },
+    });
   }
 
   // DEV SEED – temporary, safe to remove before production
@@ -471,6 +495,12 @@ export class VesselVisitExecutionService {
       'actualPortDepartureTime',
     );
 
+    if (actualPortDepartureTime.getTime() < actualUnberthTime.getTime()) {
+      throw new BadRequestException(
+        'Actual port departure time must be greater than or equal to actual unberth time.',
+      );
+    }
+
     existing.actualUnberthTime = actualUnberthTime;
     existing.actualDepartureTime = actualPortDepartureTime;
     existing.status = VesselExecutionStatus.Completed;
@@ -629,7 +659,7 @@ export class VesselVisitExecutionService {
 
     if (unfinished.length > 0) {
       throw new BadRequestException(
-        `Cannot complete vessel visit execution while there are unfinished cargo operations (${unfinished.length} pending).`,
+        'Cannot complete vessel visit execution while there are unfinished cargo operations.',
       );
     }
   }
@@ -665,14 +695,23 @@ export class VesselVisitExecutionService {
       }
     }
 
-    const numericVvnId = Number(vve.vvnId);
-    if (!Number.isNaN(numericVvnId)) {
-      const bySource = await this.planRepo.findOne({ where: { sourceVvnId: numericVvnId } });
+    const candidates = new Set<number>();
+    const vvnCandidate = Number(vve.vvnId);
+    if (!Number.isNaN(vvnCandidate)) {
+      candidates.add(vvnCandidate);
+    }
+    const visitCandidate = Number(vve.vesselVisitId);
+    if (!Number.isNaN(visitCandidate)) {
+      candidates.add(visitCandidate);
+    }
+
+    for (const candidate of candidates) {
+      const bySource = await this.planRepo.findOne({ where: { sourceVvnId: candidate } });
       if (bySource) {
         return bySource;
       }
 
-      const byVisit = await this.planRepo.findOne({ where: { vesselVisitId: numericVvnId } });
+      const byVisit = await this.planRepo.findOne({ where: { vesselVisitId: candidate } });
       if (byVisit) {
         return byVisit;
       }
