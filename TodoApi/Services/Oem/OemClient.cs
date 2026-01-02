@@ -58,6 +58,76 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetIncidentTypesAsync(
+        int? parentId,
+        string? severity,
+        string? q,
+        bool? tree,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["parentId"] = parentId?.ToString(),
+            ["severity"] = string.IsNullOrWhiteSpace(severity) ? null : severity,
+            ["q"] = string.IsNullOrWhiteSpace(q) ? null : q,
+            ["tree"] = tree.HasValue ? tree.Value.ToString().ToLowerInvariant() : null
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/incident-types"
+            : $"oem/incident-types?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> CreateIncidentTypeAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/incident-types")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> UpdateIncidentTypeAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/incident-types/{id}")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> DeleteIncidentTypeAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/incident-types/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> GetOperationPlanAsync(
         int id,
         CancellationToken cancellationToken = default)

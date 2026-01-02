@@ -76,6 +76,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'public_resources', label_en: 'Shared Resources', label_pt: 'Recursos Partilhados', icon: 'bi-folder2-open', route: '/public-resources', roles: ['admin','operator','agent','authority'] },
     { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
+    { key: 'incident_types', label_en: 'Incident Types', label_pt: 'Tipos de Incidente', icon: 'bi-exclamation-triangle', route: '/incident-types', roles: ['admin','logistics-operator'] },
     { key: 'oem_operation_plans', label_en: 'Operation Plans', label_pt: 'Planos de Operação', icon: 'bi-diagram-3', route: '/oem/operation-plans', roles: ['admin','logistics-operator'] },
     { key: 'oem_resource_allocation', label_en: 'Resource Allocation', label_pt: 'Alocação de Recursos', icon: 'bi-graph-up', route: '/oem/resource-allocation', roles: ['admin','logistics-operator'] },
     { key: 'oem_vve_history', label_en: 'Visit Executions', label_pt: 'Execuções de Visita', icon: 'bi-clock-history', route: '/oem/vessel-visit-executions', roles: ['admin','logistics-operator'] },
