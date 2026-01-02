@@ -30,6 +30,7 @@ export const routes: Routes = [
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
   { path: 'incident-types', loadComponent: () => import('./pages/incident-types/incident-types.component').then(m => m.IncidentTypesComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
+  { path: 'incidents', loadComponent: () => import('./pages/incidents/incidents.component').then(m => m.IncidentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/operation-plans', component: OemOperationPlansComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions', component: VesselVisitExecutionsHistoryComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions/:id', loadComponent: () => import('./oem/vessel-visit-execution-detail/vessel-visit-execution-detail.component').then(m => m.VesselVisitExecutionDetailComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
