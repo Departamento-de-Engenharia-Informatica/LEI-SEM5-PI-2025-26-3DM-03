@@ -80,12 +80,12 @@
     </div>
   </form>
 
-  <div class="status-row">
+  <div class="status-row" *ngIf="hasSearched">
     <div *ngIf="loading" class="info">A carregar alocacao...</div>
     <div *ngIf="error && !loading" class="error">{{ error }}</div>
   </div>
 
-  <div class="table-wrapper" *ngIf="!loading && !error && results.length">
+  <div class="table-wrapper" *ngIf="hasSearched && !loading && !error && results.length">
     <table>
       <thead>
         <tr>
@@ -98,17 +98,17 @@
       </thead>
       <tbody>
         <tr *ngFor="let row of results">
-          <td>{{ row.resourceType }}</td>
-          <td>{{ row.resourceId }}</td>
-          <td>{{ row.totalAllocatedMinutes }}</td>
-          <td>{{ row.totalAllocatedHours }}</td>
-          <td>{{ row.operationCount }}</td>
+          <td data-label="Tipo">{{ row.resourceType }}</td>
+          <td data-label="Recurso">{{ row.resourceId }}</td>
+          <td data-label="Total (min)">{{ row.totalAllocatedMinutes }}</td>
+          <td data-label="Total (h)">{{ row.totalAllocatedHours }}</td>
+          <td data-label="Operacoes">{{ row.operationCount }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <p *ngIf="!loading && !error && results.length === 0" class="info">
+  <p *ngIf="hasSearched && !loading && !error && results.length === 0" class="info">
     {{ emptyMessage || 'Sem resultados para o periodo selecionado.' }}
   </p>
 </section>

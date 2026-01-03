@@ -69,6 +69,7 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
   persistLoading = false;
   persistError: string | null = null;
   successMessage: string | null = null;
+  savedSuccessMessage: string | null = null;
 
   expandedRows = new Set<number>();
   selectedVvns = new Set<number>();
@@ -602,6 +603,7 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
             this.selectedPlan = null;
             this.detailsError = null;
           }
+          this.fetchPlans();
         },
         error: (err: HttpErrorResponse) => {
           this.deleteError = this.normalizeError(
@@ -786,6 +788,11 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
           if (this.selectedPlan?.id === response.plan.id) {
             this.selectedPlan = response.plan;
           }
+
+          // Mostrar mensagem na secao de planos guardados e fechar a janela de edicao
+          this.savedSuccessMessage = 'Plano de operacao atualizado com sucesso.';
+          this.cancelEdit();
+          this.fetchPlans();
         },
         error: (err: HttpErrorResponse) => {
           this.editError = this.normalizeError(err, 'Falha ao atualizar o plano.');
@@ -987,6 +994,10 @@ export class OemOperationPlansComponent implements OnInit, AfterViewInit, OnDest
     );
 
     this.updateSavedDisplayRange(startDay, endDay);
+
+    // Atualiza automaticamente a lista de planos guardados quando o intervalo de datas muda
+    this.currentPage = 1;
+    this.fetchPlans();
   }
 
   private updateSavedDisplayRangeFromForm(): void {

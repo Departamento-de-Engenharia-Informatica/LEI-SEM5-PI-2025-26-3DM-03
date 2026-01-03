@@ -22,7 +22,7 @@
       <form class="hero-form" [formGroup]="form" (ngSubmit)="onPreview()">
         <div class="form-field">
           <label for="plan-date">Data</label>
-          <input id="plan-date" type="date" formControlName="date" />
+          <input id="plan-date" type="date" formControlName="date" (change)="onPreview()" />
         </div>
         <div class="form-field">
           <label for="plan-algorithm">Algoritmo</label>
@@ -284,6 +284,10 @@
       <h2>Planos guardados</h2>
       <span class="badge" *ngIf="plans.length">{{ plans.length }}</span>
     </div>
+
+    <p *ngIf="savedSuccessMessage" class="success">
+      {{ savedSuccessMessage }}
+    </p>
 
     <form class="saved-filter-form" [formGroup]="savedFilterForm" (ngSubmit)="onSearchSaved()">
       <div class="form-row">
