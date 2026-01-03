@@ -17,6 +17,8 @@ Cypress.Commands.add('loginAsAdmin', () => {
     avatarUrl: 'https://lh3.googleusercontent.com/a/ACg8ocKzql...s96-c',
   };
 
+  // Mantem o mesmo estilo dos restantes testes: apenas simula o utilizador
+  // autenticado via localStorage, sem depender de uma janela AUT especifica.
   window.localStorage.setItem('auth_token', JSON.stringify(user));
   window.localStorage.setItem('userAvatar', user.avatarUrl);
 });
