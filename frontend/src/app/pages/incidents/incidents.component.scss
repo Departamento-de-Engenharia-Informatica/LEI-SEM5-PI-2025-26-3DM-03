@@ -26,12 +26,12 @@
 .type-cell .code { font-size:0.75rem; color: rgba(2,6,23,0.5); }
 
 .pill { display:inline-flex; align-items:center; padding:0.2rem 0.5rem; border-radius:999px; font-weight:700; font-size:0.75rem; text-transform:uppercase; }
-.pill.sev-minor { background: rgba(2,132,199,0.1); color:#0369a1; }
-.pill.sev-major { background: rgba(245,158,11,0.15); color:#b45309; }
-.pill.sev-critical { background: rgba(239,68,68,0.15); color:#b91c1c; }
-.pill.status-active { background: rgba(14,116,144,0.12); color:#0e7490; }
-.pill.status-resolved { background: rgba(100,116,139,0.15); color:#475569; }
-.impact-tag { margin-left: 6px; font-size:0.7rem; color:#0e7490; text-transform:uppercase; font-weight:700; }
+.pill.sev-minor { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+.pill.sev-major { background: var(--tag-orange-bg); color: var(--tag-orange-text); }
+.pill.sev-critical { background: var(--tag-red-bg); color: var(--tag-red-text); }
+.pill.status-active { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+.pill.status-resolved { background: var(--tag-grey-bg); color: var(--tag-grey-text); }
+.impact-tag { margin-left: 6px; font-size:0.7rem; color: var(--tag-blue-text); text-transform:uppercase; font-weight:700; }
 
 .actions { display:flex; gap:0.25rem; align-items:center; }
 .btn-primary { background: #02284A; color:#fff; border:none; padding:0.5rem 0.8rem; border-radius:8px; cursor:pointer; font-weight:700; }

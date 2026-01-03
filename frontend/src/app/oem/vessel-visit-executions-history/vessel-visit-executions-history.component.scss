@@ -89,19 +89,23 @@ input[type='datetime-local']:valid::-webkit-datetime-edit {
 
   button {
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: 999px;
     border: 1px solid transparent;
-    background: linear-gradient(135deg, #0f766e 0%, #0d9488 100%);
+    background: #02284a;
     color: #fff;
     font-weight: 700;
     cursor: pointer;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+
+  button:not(:disabled):hover {
+    background: #0a3d6b;
   }
 
   button.ghost {
     background: #fff;
-    border-color: #cbd5e1;
-    color: #0f172a;
+    border-color: rgba(2, 40, 74, 0.2);
+    color: #02284a;
   }
 
   button:disabled {
@@ -231,38 +235,50 @@ table {
 }
 
 .status-pill {
-  display: inline-block;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
   border-radius: 12px;
-  background: #ecfeff;
-  color: #0f766e;
-  border: 1px solid #99f6e4;
   font-weight: 700;
   font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--tag-grey-bg);
+  color: var(--tag-grey-text);
+  border: none;
 }
 
-.status-pill.success {
-  background: #ecfdf5;
-  border-color: #34d399;
-  color: #047857;
+.status-pill.success,
+.status-pill.completed,
+.status-pill.status-completed {
+  background: var(--tag-grey-bg);
+  color: var(--tag-grey-text);
 }
 
-.status-pill.warning {
-  background: #fff7ed;
-  border-color: #fb923c;
-  color: #c2410c;
+.status-pill.warning,
+.status-pill.started,
+.status-pill.status-active {
+  background: var(--tag-blue-bg);
+  color: var(--tag-blue-text);
 }
 
-.status-pill.danger {
-  background: #fef2f2;
-  border-color: #f87171;
-  color: #b91c1c;
+.status-pill.danger,
+.status-pill.delayed,
+.status-pill.status-cancelled {
+  background: var(--tag-red-bg);
+  color: var(--tag-red-text);
 }
 
 .status-pill.neutral {
-  background: #eef2ff;
-  border-color: #818cf8;
-  color: #4338ca;
+  background: var(--tag-grey-bg);
+  color: var(--tag-grey-text);
+}
+
+.status-pill.planned,
+.status-pill.status-planned {
+  background: var(--tag-orange-bg);
+  color: var(--tag-orange-text);
 }
 .actions-cell {
   display: flex;

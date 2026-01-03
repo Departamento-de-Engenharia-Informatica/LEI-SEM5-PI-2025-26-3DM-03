@@ -722,6 +722,22 @@ export class VesselVisitExecutionsHistoryComponent
     }
   }
 
+  executionStatusClass(status: string | null | undefined): string {
+    const normalized = (status ?? '').toLowerCase();
+    switch (normalized) {
+      case 'completed':
+        return 'status-pill status-completed';
+      case 'in-progress':
+      case 'active':
+      case 'pending':
+        return 'status-pill status-active';
+      case 'cancelled':
+        return 'status-pill status-cancelled';
+      default:
+        return 'status-pill status-planned';
+    }
+  }
+
   isSavingOperation(operationId: number): boolean {
     return this.savingOperations.has(operationId);
   }
