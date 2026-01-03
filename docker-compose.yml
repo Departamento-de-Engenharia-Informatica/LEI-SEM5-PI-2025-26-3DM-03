@@ -6,7 +6,7 @@ services:
     image: nginx:1.27-alpine
     container_name: nginx-gateway
     ports:
-      - "80:80"        # entrada única HTTP
+      - "8082:80"      # entrada HTTP (mantém compatibilidade com setups onde 80 já está ocupado)
       # - "443:443"    # opcional se quiseres TLS mais tarde
     volumes:
       - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
@@ -46,6 +46,8 @@ services:
 
   # ------------ TodoApi (.NET 8) ------------
   todoapi:
+    # Permite usar imagem pré-build (ex.: GHCR) com `docker-compose up --no-build`
+    image: ${TODOAPI_IMAGE:-todoapi-local}
     build:
       context: .
       dockerfile: TodoApi/Dockerfile
@@ -76,9 +78,11 @@ services:
 
   # ------------ OemApi (NestJS) ------------
   oemapi:
+    # Permite usar imagem pré-build (ex.: GHCR) com `docker-compose up --no-build`
+    image: ${OEMAPI_IMAGE:-oemapi-local}
     build:
-      context: .
-      dockerfile: oem-api/Dockerfile
+      context: ./oem-api
+      dockerfile: Dockerfile
     container_name: oemapi
     environment:
       NODE_ENV: "production"
