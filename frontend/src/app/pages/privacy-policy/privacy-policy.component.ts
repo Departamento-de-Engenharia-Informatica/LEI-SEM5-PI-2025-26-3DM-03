@@ -43,8 +43,16 @@ export class PrivacyPolicyComponent implements OnInit {
     this.loading = true;
     this.error = null;
     try {
-      this.current = await this.service.getCurrent();
-      this.title = this.current?.title || this.title;
+      try {
+        this.current = await this.service.getCurrent();
+        this.title = this.current?.title || this.title;
+      } catch (err: any) {
+        if (err?.status === 404) {
+          this.current = null;
+        } else {
+          throw err;
+        }
+      }
       if (this.isAdmin) {
         this.history = await this.service.getHistory();
       }
