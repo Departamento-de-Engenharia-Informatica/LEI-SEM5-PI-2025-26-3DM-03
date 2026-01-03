@@ -28,17 +28,36 @@ namespace TodoApi.Controllers
             _localizer = localizer;
         }
 
-        // Helper: verify caller has Admin role
-        private bool CallerIsAdmin()
+        // Helper: verify caller has Admin role (local DB)
+        private async Task<bool> CallerIsAdminAsync()
         {
-            return User.IsInRole("Admin");
+            var sub = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                      ?? User.FindFirst("sub")?.Value;
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                        ?? User.FindFirst("email")?.Value;
+
+            AppUser? user = null;
+            if (!string.IsNullOrEmpty(sub))
+            {
+                user = await _db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.ExternalId == sub);
+            }
+            if (user == null && !string.IsNullOrEmpty(email))
+            {
+                user = await _db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Email == email);
+            }
+
+            return user?.UserRoles?.Any(ur => ur.Role != null && ur.Role.Active && ur.Role.Name == "Admin") == true;
         }
 
         // GET /admin/users
         [HttpGet("users")]
         public async Task<IActionResult> GetUsers()
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
 
             var users = await _db.AppUsers
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
@@ -85,7 +104,7 @@ namespace TodoApi.Controllers
         [HttpGet("roles")]
         public async Task<IActionResult> GetRoles()
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var roles = await _db.Roles.ToListAsync();
             return Ok(roles.Select(r => new { r.Id, r.Name, r.Active }));
         }
@@ -96,7 +115,7 @@ namespace TodoApi.Controllers
         [HttpPost("users")]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             if (string.IsNullOrWhiteSpace(dto.Email)) return BadRequest(new { message = _localizer["EmailIsRequired"] });
 
             var normalizedEmail = dto.Email.Trim();
@@ -153,7 +172,7 @@ namespace TodoApi.Controllers
         [HttpPut("users/{id}/role")]
         public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleDto dto)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
@@ -169,7 +188,7 @@ namespace TodoApi.Controllers
         [HttpPut("users/{id}/roles")]
         public async Task<IActionResult> UpdateUserRoles(int id, [FromBody] UpdateRolesDto dto)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
@@ -188,7 +207,7 @@ namespace TodoApi.Controllers
         [HttpPatch("users/{id}/activate")]
         public async Task<IActionResult> SetActive(int id, [FromBody] ActiveDto dto)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers.Include(u => u.UserRoles).ThenInclude(ur => ur.Role).FirstOrDefaultAsync(u => u.Id == id);
             if (user == null) return NotFound();
 
@@ -215,7 +234,7 @@ namespace TodoApi.Controllers
         [HttpPost("users/{id}/activation-links")]
         public async Task<IActionResult> SendActivationLink(int id)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Id == id);
@@ -238,7 +257,7 @@ namespace TodoApi.Controllers
         [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .Include(u => u.ActivationTokens)
@@ -322,7 +341,7 @@ namespace TodoApi.Controllers
         [HttpPost("users/{id}/role-change-links")]
         public async Task<IActionResult> SendRoleChangeLink(int id)
         {
-            if (!CallerIsAdmin()) return Forbid();
+            if (!await CallerIsAdminAsync()) return Forbid();
             var user = await _db.AppUsers
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .FirstOrDefaultAsync(u => u.Id == id);

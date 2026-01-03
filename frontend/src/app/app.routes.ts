@@ -29,6 +29,7 @@ export const routes: Routes = [
   { path: 'shipping-agents', loadComponent: () => import('./pages/shipping-agents/shipping-agents.component').then(m => m.ShippingAgentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'privacy-policy', loadComponent: () => import('./pages/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent) },
   { path: 'oem/operation-plans', component: OemOperationPlansComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions', component: VesselVisitExecutionsHistoryComponent, canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/vessel-visit-executions/:id', loadComponent: () => import('./oem/vessel-visit-execution-detail/vessel-visit-execution-detail.component').then(m => m.VesselVisitExecutionDetailComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },

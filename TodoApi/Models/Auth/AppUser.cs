@@ -30,6 +30,10 @@ namespace TodoApi.Models.Auth
 
         public DateTime? LastRoleChangeConfirmedUtc { get; set; }
 
+        public int? LastSeenPrivacyPolicyId { get; set; }
+
+        public DateTime? LastSeenPrivacyPolicyUtc { get; set; }
+
         public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
         public ICollection<ActivationToken> ActivationTokens { get; set; } = new List<ActivationToken>();
     }

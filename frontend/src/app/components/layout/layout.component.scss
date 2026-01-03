@@ -67,7 +67,30 @@
 
 .main-content { flex:1; padding:1.5rem; overflow:auto; background: #fff; }
 .breadcrumbs { font-size:0.85rem; color:rgba(2,6,23,0.45); margin-bottom:0.5rem; }
-.app-footer { margin-top:2.2rem; padding-top:1rem; border-top: 1px solid rgba(15,23,42,0.04); color:rgba(2,6,23,0.45); font-size:0.85rem; }
+.app-footer {
+  margin-top: 2.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.04);
+  color: rgba(2, 6, 23, 0.45);
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.footer-link {
+  color: #02284a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
+}
+
+.footer-sep {
+  color: rgba(2, 6, 23, 0.3);
+}
 
 /* Sidebar collapsed/expanded behavior (toggle + hotspot) */
 .sidebar { transition: width 160ms ease, transform 160ms ease, opacity 160ms ease; }

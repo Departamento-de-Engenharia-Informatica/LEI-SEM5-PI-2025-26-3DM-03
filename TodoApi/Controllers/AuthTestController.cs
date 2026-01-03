@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Hosting;
 using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using TodoApi.Models;
 
 namespace TodoApi.Controllers
 {
@@ -13,10 +15,12 @@ namespace TodoApi.Controllers
     public class AuthTestController : ControllerBase
     {
         private readonly IWebHostEnvironment _env;
+        private readonly PortContext _db;
 
-        public AuthTestController(IWebHostEnvironment env)
+        public AuthTestController(IWebHostEnvironment env, PortContext db)
         {
             _env = env;
+            _db = db;
         }
         // GET /authtest/login -> initiate login flow
         [HttpGet("login")]
@@ -52,9 +56,37 @@ namespace TodoApi.Controllers
             // Return access token (if present) so front-end can use it
             var accessToken = await HttpContext.GetTokenAsync("access_token");
 
-            // Include roles present on the ClaimsPrincipal so the frontend can decide which menu to show.
-            var roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
-            var primaryRole = roles.FirstOrDefault();
+            // Prefer roles stored in the local DB when available.
+            string[] roles;
+            string? primaryRole;
+            var sub = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+            TodoApi.Models.Auth.AppUser? localUser = null;
+            if (!string.IsNullOrEmpty(sub))
+            {
+                localUser = await _db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.ExternalId == sub);
+            }
+            if (localUser == null && !string.IsNullOrEmpty(email))
+            {
+                localUser = await _db.AppUsers
+                    .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                    .FirstOrDefaultAsync(u => u.Email == email);
+            }
+
+            if (localUser != null)
+            {
+                roles = localUser.UserRoles
+                    .Where(ur => ur.Role != null && ur.Role.Active)
+                    .Select(ur => ur.Role!.Name)
+                    .ToArray();
+                primaryRole = roles.FirstOrDefault();
+            }
+            else
+            {
+                roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
+                primaryRole = roles.FirstOrDefault();
+            }
 
             return Ok(new { name, email, picture, roles, role = primaryRole, access_token = accessToken });
         }
