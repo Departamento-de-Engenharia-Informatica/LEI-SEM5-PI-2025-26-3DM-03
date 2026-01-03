@@ -270,11 +270,14 @@ else
         // Authority (issuer) for Google OpenID Connect
         options.Authority = "https://accounts.google.com";
 
-        // Read credentials from appsettings.json or environment variables
-        var clientId = configuration["Authentication:Google:ClientId"]
-                       ?? Environment.GetEnvironmentVariable("Authentication__Google__ClientId");
-        var clientSecret = configuration["Authentication:Google:ClientSecret"]
-                           ?? Environment.GetEnvironmentVariable("Authentication__Google__ClientSecret");
+        // Read credentials from appsettings.json or environment variables.
+        // Trim to avoid hidden whitespace/CRLF issues from env-files causing Google to reject the client_id.
+        var clientId = (configuration["Authentication:Google:ClientId"]
+                   ?? Environment.GetEnvironmentVariable("Authentication__Google__ClientId"))
+                   ?.Trim();
+        var clientSecret = (configuration["Authentication:Google:ClientSecret"]
+                   ?? Environment.GetEnvironmentVariable("Authentication__Google__ClientSecret"))
+                   ?.Trim();
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
