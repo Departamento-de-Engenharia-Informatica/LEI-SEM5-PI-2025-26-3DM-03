@@ -1,0 +1,187 @@
+<div class="page complementary-tasks">
+  <div class="page-header">
+    <div>
+      <h2>Complementary Tasks</h2>
+      <p class="muted">Registar tarefas nao-carga associadas a visitas.</p>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="loading" class="loading">A carregar...</div>
+  <div *ngIf="!loading && !error && tasks.length === 0" class="alert">Sem tarefas encontradas.</div>
+
+  <section class="card" *ngIf="viewMode === 'list'">
+    <div class="toolbar">
+      <div class="search-field">
+        <i class="bi bi-search"></i>
+        <input type="text" [(ngModel)]="filterVessel" placeholder="Vessel identifier" />
+      </div>
+      <div class="toolbar-actions">
+        <input type="datetime-local" [(ngModel)]="filterFrom" />
+        <input type="datetime-local" [(ngModel)]="filterTo" />
+        <select [(ngModel)]="filterStatus">
+          <option value="">All status</option>
+          <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
+        </select>
+        <button class="btn-primary" type="button" (click)="loadTasks()">Filtrar</button>
+        <button class="btn-ghost" type="button" (click)="resetFilters()">Limpar</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card list-card" *ngIf="viewMode === 'list'">
+    <div class="table-wrapper" *ngIf="tasks.length">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Categoria</th>
+            <th>VVE</th>
+            <th>Team</th>
+            <th>Mode</th>
+            <th>Status</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Duration</th>
+            <th>Owner</th>
+            <th class="actions-col">Acoes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let task of tasks" [class.impact-row]="task.isImpactingNow">
+            <td>
+              <div class="id-cell">
+                <div class="identifier">{{ task.identifier }}</div>
+                <div class="id-sub">#{{ task.id }}</div>
+              </div>
+            </td>
+            <td>{{ categoryLabel(task.categoryId) }}</td>
+            <td>{{ vveLabel(task.vveId) }}</td>
+            <td>{{ task.team }}</td>
+            <td>
+              <span class="pill" [ngClass]="'mode-' + task.mode.toLowerCase()">
+                {{ modeLabel(task.mode) }}
+              </span>
+            </td>
+            <td>
+              <span class="pill" [ngClass]="'status-' + task.status.toLowerCase()">
+                {{ statusLabel(task.status) }}
+              </span>
+              <span *ngIf="task.isImpactingNow" class="impact-tag">impacting</span>
+            </td>
+            <td>{{ formatDate(task.startTime) }}</td>
+            <td>{{ formatDate(task.endTime) }}</td>
+            <td>{{ task.durationMinutes ? (task.durationMinutes + ' min') : '-' }}</td>
+            <td>{{ task.createdBy }}</td>
+            <td class="actions">
+              <button type="button" class="btn-ghost" (click)="openEdit(task)">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button type="button" class="btn-ghost danger" (click)="deleteTask(task)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card form-card" *ngIf="viewMode === 'list'">
+    <h3>Criar tarefa complementar</h3>
+    <div class="form-grid">
+      <label>
+        Categoria
+        <select [(ngModel)]="newTask.categoryId">
+          <option [ngValue]="0">Selecionar</option>
+          <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.code }} - {{ c.name }}</option>
+        </select>
+      </label>
+
+      <label>
+        VVE
+        <select [(ngModel)]="newTask.vveId">
+          <option [ngValue]="0">Selecionar</option>
+          <option *ngFor="let vve of vves" [ngValue]="vve.id">#{{ vve.id }} {{ vve.vesselName }}</option>
+        </select>
+      </label>
+
+      <label>
+        Equipa / Servico
+        <input type="text" [(ngModel)]="newTask.team" />
+      </label>
+
+      <label>
+        Mode
+        <select [(ngModel)]="newTask.mode">
+          <option *ngFor="let m of modeOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        Start time
+        <input type="datetime-local" [(ngModel)]="newTask.startTime" />
+      </label>
+
+      <label class="inline-toggle">
+        <input type="checkbox" [(ngModel)]="createCompleted" />
+        <span>Marcar como concluida</span>
+      </label>
+
+      <label>
+        End time
+        <input type="datetime-local" [(ngModel)]="newTask.endTime" [disabled]="!createCompleted" />
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-primary" type="button" (click)="createTask()" [disabled]="saving">
+        Criar tarefa
+      </button>
+    </div>
+  </section>
+
+  <section class="card form-card" *ngIf="viewMode === 'edit' && editing && editingPayload">
+    <h3>Editar tarefa {{ editing.identifier }}</h3>
+    <div class="form-grid">
+      <label>
+        Categoria
+        <select [(ngModel)]="editingPayload.categoryId">
+          <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.code }} - {{ c.name }}</option>
+        </select>
+      </label>
+
+      <label>
+        Equipa / Servico
+        <input type="text" [(ngModel)]="editingPayload.team" />
+      </label>
+
+      <label>
+        Mode
+        <select [(ngModel)]="editingPayload.mode">
+          <option *ngFor="let m of modeOptions" [value]="m.value">{{ m.label }}</option>
+        </select>
+      </label>
+
+      <label>
+        Start time
+        <input type="datetime-local" [(ngModel)]="editingPayload.startTime" />
+      </label>
+
+      <label class="inline-toggle">
+        <input type="checkbox" [(ngModel)]="editCompleted" />
+        <span>Marcar como concluida</span>
+      </label>
+
+      <label>
+        End time
+        <input type="datetime-local" [(ngModel)]="editingPayload.endTime" [disabled]="!editCompleted" />
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn-primary" type="button" (click)="saveEdit()" [disabled]="saving">Guardar</button>
+      <button class="btn-ghost" type="button" (click)="closeEdit()">Cancelar</button>
+    </div>
+  </section>
+</div>

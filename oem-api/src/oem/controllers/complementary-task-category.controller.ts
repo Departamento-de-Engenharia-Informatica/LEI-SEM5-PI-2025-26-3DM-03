@@ -35,7 +35,7 @@ export class ComplementaryTaskCategoryController {
   constructor(private readonly service: ComplementaryTaskCategoryService) {}
 
   @Get()
-  @Roles('oem:tasks:read')
+  @Roles('admin', 'logistics-operator', 'oem:tasks:read')
   @ApiOperation({ summary: 'List complementary task categories' })
   @ApiOkResponse({ type: ComplementaryTaskCategoryEntity, isArray: true })
   @ApiQuery({
@@ -50,7 +50,7 @@ export class ComplementaryTaskCategoryController {
   }
 
   @Get(':id')
-  @Roles('oem:tasks:read')
+  @Roles('admin', 'logistics-operator', 'oem:tasks:read')
   @ApiOperation({ summary: 'Get complementary task category by id' })
   @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
   findOne(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskCategoryEntity> {
@@ -58,7 +58,7 @@ export class ComplementaryTaskCategoryController {
   }
 
   @Post()
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator', 'oem:tasks:write')
   @ApiOperation({ summary: 'Create complementary task category' })
   @ApiCreatedResponse({ type: ComplementaryTaskCategoryEntity })
   create(
@@ -68,7 +68,7 @@ export class ComplementaryTaskCategoryController {
   }
 
   @Patch(':id')
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator', 'oem:tasks:write')
   @ApiOperation({ summary: 'Update complementary task category' })
   @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
   update(
@@ -79,7 +79,7 @@ export class ComplementaryTaskCategoryController {
   }
 
   @Delete(':id')
-  @Roles('oem:tasks:write')
+  @Roles('admin', 'logistics-operator', 'oem:tasks:write')
   @ApiOperation({ summary: 'Delete complementary task category' })
   @ApiOkResponse({ type: ComplementaryTaskCategoryEntity })
   remove(@Param('id', ParseIntPipe) id: number): Promise<ComplementaryTaskCategoryEntity> {

@@ -76,8 +76,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'public_resources', label_en: 'Shared Resources', label_pt: 'Recursos Partilhados', icon: 'bi-folder2-open', route: '/public-resources', roles: ['admin','operator','agent','authority'] },
     { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
-    { key: 'incident_types', label_en: 'Incident Types', label_pt: 'Tipos de Incidente', icon: 'bi-exclamation-triangle', route: '/incident-types', roles: ['admin','logistics-operator'] },
-    { key: 'incidents', label_en: 'Incidents', label_pt: 'Incidentes', icon: 'bi-exclamation-octagon', route: '/incidents', roles: ['admin','logistics-operator'] },
+    { key: 'incidents_menu', label_en: 'Incidents', label_pt: 'Incidentes', icon: 'bi-exclamation-triangle', route: '', roles: ['admin','logistics-operator'], children: [
+      { key: 'incident_types', label_en: 'Incident Types', label_pt: 'Tipos de Incidente', route: '/incident-types', icon: 'bi-exclamation-triangle' },
+      { key: 'incidents', label_en: 'Incidents', label_pt: 'Incidentes', route: '/incidents', icon: 'bi-exclamation-octagon' }
+    ] },
+    { key: 'complementary_tasks', label_en: 'Complementary Tasks', label_pt: 'Tarefas Complementares', icon: 'bi-list-check', route: '', roles: ['admin','logistics-operator'], children: [
+      { key: 'complementary_tasks_list', label_en: 'Tasks', label_pt: 'Tarefas', route: '/oem/complementary-tasks', icon: 'bi-list' },
+      { key: 'complementary_task_categories', label_en: 'Categories', label_pt: 'Categorias', route: '/oem/complementary-task-categories', icon: 'bi-tags' }
+    ] },
     { key: 'oem_operation_plans', label_en: 'Operation Plans', label_pt: 'Planos de Operação', icon: 'bi-diagram-3', route: '/oem/operation-plans', roles: ['admin','logistics-operator'] },
     { key: 'oem_resource_allocation', label_en: 'Resource Allocation', label_pt: 'Alocação de Recursos', icon: 'bi-graph-up', route: '/oem/resource-allocation', roles: ['admin','logistics-operator'] },
     { key: 'oem_vve_history', label_en: 'Visit Executions', label_pt: 'Execuções de Visita', icon: 'bi-clock-history', route: '/oem/vessel-visit-executions', roles: ['admin','logistics-operator'] },
