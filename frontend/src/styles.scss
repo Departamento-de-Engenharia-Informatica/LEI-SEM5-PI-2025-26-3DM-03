@@ -1,3 +1,15 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Shared tag palette so operational views stay consistent */
+:root {
+	--tag-blue-bg: rgba(14, 116, 144, 0.12);
+	--tag-blue-text: #0e7490;
+	--tag-grey-bg: rgba(100, 116, 139, 0.15);
+	--tag-grey-text: #475569;
+	--tag-orange-bg: rgba(245, 158, 11, 0.15);
+	--tag-orange-text: #b45309;
+	--tag-red-bg: rgba(239, 68, 68, 0.15);
+	--tag-red-text: #b91c1c;
+}
+
 /* flatpickr global styles included via angular.json */

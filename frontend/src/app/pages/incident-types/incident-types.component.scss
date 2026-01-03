@@ -86,16 +86,22 @@
 
     button {
       padding: 0.55rem 1.1rem;
-      border-radius: 8px;
-      border: none;
+      border-radius: 999px;
+      border: 1px solid transparent;
       cursor: pointer;
       font-weight: 600;
-      background: #2563eb;
+      background: #02284a;
       color: #fff;
+      transition: background 0.2s ease;
+
+      &:not(:disabled):hover {
+        background: #0a3d6b;
+      }
 
       &.secondary {
-        background: #e5e7eb;
-        color: #111827;
+        background: #fff;
+        color: #02284a;
+        border-color: rgba(2, 40, 74, 0.2);
       }
     }
   }
@@ -169,16 +175,22 @@
 
     button {
       padding: 0.55rem 1.25rem;
-      border-radius: 8px;
-      border: none;
+      border-radius: 999px;
+      border: 1px solid transparent;
       cursor: pointer;
       font-weight: 600;
-      background: #2563eb;
+      background: #02284a;
       color: #fff;
+      transition: background 0.2s ease;
+
+      &:not(:disabled):hover {
+        background: #0a3d6b;
+      }
 
       &.secondary {
-        background: #e5e7eb;
-        color: #111827;
+        background: #fff;
+        color: #02284a;
+        border-color: rgba(2, 40, 74, 0.2);
       }
     }
   }

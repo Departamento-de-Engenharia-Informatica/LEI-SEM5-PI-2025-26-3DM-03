@@ -6,6 +6,8 @@ import { AuthService } from '../../services/auth/auth.service';
 import { Subscription } from 'rxjs';
 import { LoginComponent } from '../../pages/login/login.component';
 import { ToastContainerComponent } from '../toast/toast-container.component';
+import { PrivacyPolicyService } from '../../services/privacy-policy/privacy-policy.service';
+import { ToastService } from '../toast/toast.service';
 //import { HttpClientModule } from '@angular/common/http';
 
 type Role = 'admin' | 'operator' | 'logistics-operator' | 'agent' | 'authority';
@@ -76,7 +78,14 @@ export class LayoutComponent implements OnInit, OnDestroy {
     { key: 'public_resources', label_en: 'Shared Resources', label_pt: 'Recursos Partilhados', icon: 'bi-folder2-open', route: '/public-resources', roles: ['admin','operator','agent','authority'] },
     { key: 'scheduling', label_en: 'Scheduling', label_pt: 'Planeamento', icon: 'bi-calendar4-week', route: '/scheduling', roles: ['admin','operator'] },
     { key: 'staff', label_en: 'Staff', label_pt: 'Equipa', icon: 'bi-person-badge', route: '/staff', roles: ['admin','operator'] },
-    { key: 'incident_types', label_en: 'Incident Types', label_pt: 'Tipos de Incidente', icon: 'bi-exclamation-triangle', route: '/incident-types', roles: ['admin','logistics-operator'] },
+    { key: 'incidents_menu', label_en: 'Incidents', label_pt: 'Incidentes', icon: 'bi-exclamation-triangle', route: '', roles: ['admin','logistics-operator'], children: [
+      { key: 'incident_types', label_en: 'Incident Types', label_pt: 'Tipos de Incidente', route: '/incident-types', icon: 'bi-exclamation-triangle' },
+      { key: 'incidents', label_en: 'Incidents', label_pt: 'Incidentes', route: '/incidents', icon: 'bi-exclamation-octagon' }
+    ] },
+    { key: 'complementary_tasks', label_en: 'Complementary Tasks', label_pt: 'Tarefas Complementares', icon: 'bi-list-check', route: '', roles: ['admin','logistics-operator'], children: [
+      { key: 'complementary_tasks_list', label_en: 'Tasks', label_pt: 'Tarefas', route: '/oem/complementary-tasks', icon: 'bi-list' },
+      { key: 'complementary_task_categories', label_en: 'Categories', label_pt: 'Categorias', route: '/oem/complementary-task-categories', icon: 'bi-tags' }
+    ] },
     { key: 'oem_operation_plans', label_en: 'Operation Plans', label_pt: 'Planos de Operação', icon: 'bi-diagram-3', route: '/oem/operation-plans', roles: ['admin','logistics-operator'] },
     { key: 'oem_resource_allocation', label_en: 'Resource Allocation', label_pt: 'Alocação de Recursos', icon: 'bi-graph-up', route: '/oem/resource-allocation', roles: ['admin','logistics-operator'] },
     { key: 'oem_vve_history', label_en: 'Visit Executions', label_pt: 'Execuções de Visita', icon: 'bi-clock-history', route: '/oem/vessel-visit-executions', roles: ['admin','logistics-operator'] },
@@ -99,12 +108,18 @@ export class LayoutComponent implements OnInit, OnDestroy {
   // menu currently shown in the template — updated when auth state changes
   displayedMenu: MenuItem[] = [];
   private subs: Subscription | null = null;
+  private noticeChecked = false;
 
-  constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef, private router: Router) {}
+  constructor(
+    public i18n: TranslationService,
+    public auth: AuthService,
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+    private privacy: PrivacyPolicyService,
+    private toast: ToastService
+  ) {}
 
   avatarUrl: string = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 rx=%2220%22 fill=%22%2302284A%22/><text x=%2250%25%22 y=%2256%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22 fill=%22white%22 font-family=%22Inter,Arial%22>%3F</text></svg>';
-  avatarModalOpen = false;
-
   ngOnInit(): void {
     // initialize displayed menu according to current user (may be null at startup)
     this.updateDisplayedMenu();
@@ -121,6 +136,11 @@ export class LayoutComponent implements OnInit, OnDestroy {
       console.log('[Layout] loggedIn$ emission=', v, 'auth.user=', this.auth.user);
       this.updateDisplayedMenu();
       this.loadAvatar();
+      if (v) {
+        this.checkPrivacyPolicyNotice();
+      } else {
+        this.noticeChecked = false;
+      }
       // force an immediate check so UI updates even if emitted outside Angular (safety)
       try { this.cdr.detectChanges(); } catch {}
     });
@@ -195,10 +215,31 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (e.key === 'userAvatar') { this.loadAvatar(); try { this.cdr.detectChanges(); } catch {} }
   };
 
+  private async checkPrivacyPolicyNotice() {
+    if (this.noticeChecked) return;
+    this.noticeChecked = true;
+    try {
+      const notice = await this.privacy.checkNotice();
+      if (notice?.hasUpdate) {
+        this.toast.info('Política de privacidade atualizada. Consulte no rodapé.');
+      }
+    } catch {
+      // ignore notice failures to avoid blocking UI
+    }
+  }
+
   // Allow a public minimal route for the 3D viewer
   get isViewerRoute(): boolean {
     try {
       return this.router.url.startsWith('/viewer');
+    } catch {
+      return false;
+    }
+  }
+
+  get isPublicRoute(): boolean {
+    try {
+      return this.isViewerRoute || this.router.url.startsWith('/privacy-policy');
     } catch {
       return false;
     }
@@ -225,11 +266,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
 
  
-  logout(){
-    // call auth logout which triggers backend sign-out
-    this.auth.logout();
-  }
-
   // Toggle sidebar (hamburger): open if closed, close if open
   toggleSidebar(){
     this.sidebarCollapsed = !this.sidebarCollapsed;
@@ -246,16 +282,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   closeHotspot(){
     this.hotspotOpen = false;
     try { this.cdr.detectChanges(); } catch {}
-  }
-
-  openAvatarModal(){
-    if (!this.avatarUrl) return;
-    this.avatarModalOpen = true;
-    // focus trap start could be added later
-  }
-
-  closeAvatarModal(){
-    this.avatarModalOpen = false;
   }
 
 }

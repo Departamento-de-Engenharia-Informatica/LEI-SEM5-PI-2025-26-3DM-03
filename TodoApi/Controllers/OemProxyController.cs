@@ -30,12 +30,166 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpGet("complementary-task-categories")]
+    public async Task<IActionResult> GetComplementaryTaskCategories(
+        [FromQuery] string? q,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetComplementaryTaskCategoriesAsync(q, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("complementary-task-categories/{id:int}")]
+    public async Task<IActionResult> GetComplementaryTaskCategory(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetComplementaryTaskCategoryAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("complementary-tasks")]
+    public async Task<IActionResult> GetComplementaryTasks(
+        [FromQuery] string? vesselIdentifier,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? status,
+        [FromQuery] int? vveId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetComplementaryTasksAsync(
+            vesselIdentifier,
+            from,
+            to,
+            status,
+            vveId,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("complementary-tasks/{id:int}")]
+    public async Task<IActionResult> GetComplementaryTask(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetComplementaryTaskAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpPost("incident-types")]
     public async Task<IActionResult> CreateIncidentType(
         [FromBody] JsonElement payload,
         CancellationToken cancellationToken)
     {
         var response = await _oemClient.CreateIncidentTypeAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("complementary-task-categories")]
+    public async Task<IActionResult> CreateComplementaryTaskCategory(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CreateComplementaryTaskCategoryAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("complementary-tasks")]
+    public async Task<IActionResult> CreateComplementaryTask(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CreateComplementaryTaskAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("incidents")]
+    public async Task<IActionResult> GetIncidents(
+        [FromQuery] string? vesselIdentifier,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? severity,
+        [FromQuery] string? status,
+        [FromQuery] int? incidentTypeId,
+        [FromQuery] string? scope,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetIncidentsAsync(
+            vesselIdentifier,
+            from,
+            to,
+            severity,
+            status,
+            incidentTypeId,
+            scope,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("incidents/{id:int}")]
+    public async Task<IActionResult> GetIncident(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetIncidentAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents")]
+    public async Task<IActionResult> CreateIncident(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CreateIncidentAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("incidents/{id:int}")]
+    public async Task<IActionResult> UpdateIncident(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateIncidentAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("incidents/{id:int}")]
+    public async Task<IActionResult> DeleteIncident(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteIncidentAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents/{id:int}/affected-vves")]
+    public async Task<IActionResult> SetIncidentAffectedVves(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.SetIncidentAffectedVvesAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents/{id:int}/affected-vves/{vveId:int}")]
+    public async Task<IActionResult> AddIncidentAffectedVve(
+        [FromRoute] int id,
+        [FromRoute] int vveId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.AddIncidentAffectedVveAsync(id, vveId, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("incidents/{id:int}/affected-vves/{vveId:int}")]
+    public async Task<IActionResult> RemoveIncidentAffectedVve(
+        [FromRoute] int id,
+        [FromRoute] int vveId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.RemoveIncidentAffectedVveAsync(id, vveId, cancellationToken);
         return await ToActionResultAsync(response);
     }
 
@@ -49,12 +203,50 @@ public class OemProxyController : ControllerBase
         return await ToActionResultAsync(response);
     }
 
+    [HttpPatch("complementary-task-categories/{id:int}")]
+    public async Task<IActionResult> UpdateComplementaryTaskCategory(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateComplementaryTaskCategoryAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("complementary-tasks/{id:int}")]
+    public async Task<IActionResult> UpdateComplementaryTask(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateComplementaryTaskAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpDelete("incident-types/{id:int}")]
     public async Task<IActionResult> DeleteIncidentType(
         [FromRoute] int id,
         CancellationToken cancellationToken)
     {
         var response = await _oemClient.DeleteIncidentTypeAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("complementary-task-categories/{id:int}")]
+    public async Task<IActionResult> DeleteComplementaryTaskCategory(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteComplementaryTaskCategoryAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("complementary-tasks/{id:int}")]
+    public async Task<IActionResult> DeleteComplementaryTask(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteComplementaryTaskAsync(id, cancellationToken);
         return await ToActionResultAsync(response);
     }
 

@@ -1,0 +1,237 @@
+<div class="page incidents">
+  <div class="page-header">
+    <div>
+      <h2>Incidents</h2>
+      <p class="muted">Registar e gerir incidentes operacionais.</p>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{error}}</div>
+  <div *ngIf="loading" class="loading">A carregar...</div>
+  <div *ngIf="!loading && !error && filtered.length === 0" class="alert">Sem incidentes encontrados.</div>
+
+  <div class="card" *ngIf="!loading && viewMode === 'list'">
+    <div class="toolbar">
+      <div class="search">
+        <i class="bi bi-search"></i>
+        <input type="text" [(ngModel)]="filterVessel" placeholder="Vessel identifier" />
+      </div>
+      <div class="filters">
+        <input type="datetime-local" [(ngModel)]="filterFrom" />
+        <input type="datetime-local" [(ngModel)]="filterTo" />
+        <select [(ngModel)]="filterSeverity">
+          <option value="">All severities</option>
+          <option *ngFor="let s of severityOptions" [value]="s.value">{{s.label}}</option>
+        </select>
+        <select [(ngModel)]="filterStatus">
+          <option value="">All status</option>
+          <option *ngFor="let s of statusOptions" [value]="s.value">{{s.label}}</option>
+        </select>
+        <select [(ngModel)]="filterTypeId">
+          <option [ngValue]="null">All types</option>
+          <option *ngFor="let t of incidentTypes" [ngValue]="t.id">{{t.name}}</option>
+        </select>
+        <select [(ngModel)]="filterScope">
+          <option value="">All scopes</option>
+          <option *ngFor="let s of scopeOptions" [value]="s.value">{{s.label}}</option>
+        </select>
+        <button class="btn-primary" type="button" (click)="loadIncidents()">Filtrar</button>
+        <button class="btn-ghost" type="button" (click)="resetFilters()">Limpar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" *ngIf="!loading && viewMode === 'list'">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Severity</th>
+          <th>Scope</th>
+          <th>Status</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Duration</th>
+          <th>Owner</th>
+          <th>VVEs</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let incident of filtered" [class.active-row]="incident.isImpactingNow">
+          <td>
+            <div class="id-cell">
+              <div class="identifier">{{incident.identifier}}</div>
+              <div class="id-sub">#{{incident.id}}</div>
+            </div>
+          </td>
+          <td>
+            <div class="type-cell">
+              <div class="name">{{incident.incidentType?.name || incident.incidentTypeId}}</div>
+              <div class="code">{{incident.incidentType?.code || '-'}}</div>
+            </div>
+          </td>
+          <td>
+            <span class="pill" [ngClass]="'sev-' + incident.severity.toLowerCase()">
+              {{severityLabel(incident.severity)}}
+            </span>
+          </td>
+          <td>{{scopeLabel(incident.scope)}}</td>
+          <td>
+            <span class="pill" [ngClass]="'status-' + incident.status.toLowerCase()">
+              {{statusLabel(incident.status)}}
+            </span>
+            <span *ngIf="incident.isImpactingNow" class="impact-tag">impacting</span>
+          </td>
+          <td>{{formatDate(incident.startTime)}}</td>
+          <td>{{formatDate(incident.endTime)}}</td>
+          <td>{{incident.durationMinutes ? (incident.durationMinutes + ' min') : '-'}}</td>
+          <td>{{incident.createdBy}}</td>
+          <td>{{incident.affectedVveIds?.length || 0}}</td>
+          <td class="actions">
+            <button class="btn-ghost" (click)="openEdit(incident)"><i class="bi bi-pencil"></i></button>
+            <button class="btn-ghost" (click)="resolveIncident(incident)" [disabled]="incident.status === 'RESOLVED'">
+              <i class="bi bi-check2-circle"></i>
+            </button>
+            <button class="btn-ghost danger" (click)="deleteIncident(incident)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid" *ngIf="viewMode === 'list'">
+    <section class="card">
+      <h3>Criar incidente</h3>
+      <div class="form-grid">
+        <label>Tipo
+          <select [(ngModel)]="newIncident.incidentTypeId">
+            <option [ngValue]="0">Selecionar</option>
+            <option *ngFor="let t of incidentTypes" [ngValue]="t.id">{{t.name}}</option>
+          </select>
+        </label>
+        <label>Severity
+          <select [(ngModel)]="newIncident.severity">
+            <option *ngFor="let s of severityOptions" [value]="s.value">{{s.label}}</option>
+          </select>
+        </label>
+        <label>Scope
+          <select [(ngModel)]="newIncident.scope">
+            <option *ngFor="let s of scopeOptions" [value]="s.value">{{s.label}}</option>
+          </select>
+        </label>
+        <label>Start time
+          <input type="datetime-local" [(ngModel)]="newIncident.startTime" />
+        </label>
+        <label class="inline-toggle">
+          <input type="checkbox" [(ngModel)]="createResolved" />
+          <span>Marcar como resolvido</span>
+        </label>
+        <label>End time
+          <input type="datetime-local" [(ngModel)]="newIncident.endTime" [disabled]="!createResolved" />
+        </label>
+        <label class="span-2">Description
+          <textarea rows="3" [(ngModel)]="newIncident.description"></textarea>
+        </label>
+      </div>
+
+      <div class="form-grid" *ngIf="newIncident.scope === 'UPCOMING'">
+        <label>Impact from
+          <input type="datetime-local" [(ngModel)]="newIncident.impactFrom" />
+        </label>
+        <label>Impact to
+          <input type="datetime-local" [(ngModel)]="newIncident.impactTo" />
+        </label>
+      </div>
+
+      <div class="vve-block" *ngIf="newIncident.scope === 'SPECIFIC'">
+        <h4>VVEs afetadas</h4>
+        <div class="vve-list">
+          <label *ngFor="let vve of vves">
+            <input
+              type="checkbox"
+              [checked]="isVveSelected(vve.id, newIncident.affectedVveIds)"
+              (change)="toggleVveSelection(vve.id, newIncident.affectedVveIds)"
+            />
+            <span>#{{vve.id}} {{vve.vesselName}}</span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <button type="button" class="btn-primary" (click)="createIncident()" [disabled]="saving">
+          Criar
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid" *ngIf="viewMode === 'edit' && editing && editingPayload">
+    <section class="card">
+      <h3>Editar incidente</h3>
+      <div class="form-grid">
+        <label>Tipo
+          <select [(ngModel)]="editingPayload.incidentTypeId">
+            <option *ngFor="let t of incidentTypes" [ngValue]="t.id">{{t.name}}</option>
+          </select>
+        </label>
+        <label>Severity
+          <select [(ngModel)]="editingPayload.severity">
+            <option *ngFor="let s of severityOptions" [value]="s.value">{{s.label}}</option>
+          </select>
+        </label>
+        <label>Scope
+          <select [(ngModel)]="editingPayload.scope">
+            <option *ngFor="let s of scopeOptions" [value]="s.value">{{s.label}}</option>
+          </select>
+        </label>
+        <label>Start time
+          <input type="datetime-local" [(ngModel)]="editingPayload.startTime" />
+        </label>
+        <label>End time
+          <input type="datetime-local" [(ngModel)]="editingPayload.endTime" />
+        </label>
+        <label class="span-2">Description
+          <textarea rows="3" [(ngModel)]="editingPayload.description"></textarea>
+        </label>
+      </div>
+
+      <div class="form-grid" *ngIf="editingPayload.scope === 'UPCOMING'">
+        <label>Impact from
+          <input type="datetime-local" [(ngModel)]="editingPayload.impactFrom" />
+        </label>
+        <label>Impact to
+          <input type="datetime-local" [(ngModel)]="editingPayload.impactTo" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn-primary" (click)="saveEdit()" [disabled]="saving">Guardar</button>
+        <button type="button" class="btn-ghost" (click)="closeEdit()">Cancelar</button>
+      </div>
+    </section>
+
+    <section class="card" *ngIf="editing.scope === 'SPECIFIC'">
+      <h3>VVEs afetadas</h3>
+      <p class="muted">Atualize rapidamente as VVEs associadas.</p>
+      <div class="vve-list">
+        <label *ngFor="let vve of vves">
+          <input
+            type="checkbox"
+            [checked]="isVveSelected(vve.id, editingAffectedVves)"
+            (change)="toggleVveSelection(vve.id, editingAffectedVves)"
+          />
+          <span>#{{vve.id}} {{vve.vesselName}}</span>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn-primary" type="button" (click)="updateAffectedVves()" [disabled]="vveUpdating">
+          Guardar VVEs
+        </button>
+      </div>
+    </section>
+  </div>
+</div>

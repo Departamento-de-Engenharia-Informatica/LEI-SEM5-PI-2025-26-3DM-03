@@ -131,7 +131,7 @@
           <td>{{ exec.vesselVisitNotificationId ?? exec.vesselVisitId ?? '-' }}</td>
           <td>{{ exec.vesselName }}</td>
           <td>{{ exec.berthId || '-' }}</td>
-          <td><span class="status-pill">{{ exec.status }}</span></td>
+          <td><span [ngClass]="executionStatusClass(exec.status)">{{ exec.status }}</span></td>
           <td>{{ exec.actualArrivalTime ? (exec.actualArrivalTime | date: 'short') : '-' }}</td>
           <td>{{ exec.actualBerthTime ? (exec.actualBerthTime | date: 'short') : '-' }}</td>
           <td>{{ exec.actualUnberthTime ? (exec.actualUnberthTime | date: 'short') : '-' }}</td>

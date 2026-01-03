@@ -1,7 +1,16 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, from, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
+import {
+  CreateIncidentDTO,
+  IncidentDTO,
+  IncidentScope,
+  IncidentSeverity,
+  IncidentStatus,
+  UpdateIncidentDTO,
+} from '../models/incident';
+import { API_BASE_URL } from '../config/api.config';
 
 export interface OperationPlanDto {
   id: number;
@@ -168,12 +177,22 @@ export interface UpsertExecutedOperationPayload {
   resourcesUsed?: Record<string, unknown>;
 }
 
-const OEM_API_BASE = 'https://localhost:7167/api/oem';
+const OEM_API_BASE = `${API_BASE_URL}/api/oem`;
+
+const INCIDENT_ENDPOINTS = (() => {
+  const bases = new Set<string>();
+  bases.add(OEM_API_BASE);
+  if (window.location.hostname === 'localhost') {
+    bases.add('http://localhost:3000/api/oem');
+  }
+  return Array.from(bases).map((base) => `${base}/incidents`);
+})();
 
 @Injectable({ providedIn: 'root' })
 export class OemApiService {
   private readonly operationPlanBase = `${OEM_API_BASE}/operation-plans`;
   private readonly vesselVisitExecutionBase = `${OEM_API_BASE}/vessel-visit-executions`;
+  private readonly incidentEndpoints = INCIDENT_ENDPOINTS;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -335,6 +354,94 @@ export class OemApiService {
       );
   }
 
+  private buildIncidentParams(filters?: {
+    vesselIdentifier?: string;
+    from?: string;
+    to?: string;
+    severity?: IncidentSeverity;
+    status?: IncidentStatus;
+    incidentTypeId?: number;
+    scope?: IncidentScope;
+  }): HttpParams {
+    let params = new HttpParams();
+    if (filters?.vesselIdentifier) params = params.set('vesselIdentifier', filters.vesselIdentifier);
+    if (filters?.from) params = params.set('from', filters.from);
+    if (filters?.to) params = params.set('to', filters.to);
+    if (filters?.severity) params = params.set('severity', filters.severity);
+    if (filters?.status) params = params.set('status', filters.status);
+    if (filters?.incidentTypeId !== undefined && filters?.incidentTypeId !== null) {
+      params = params.set('incidentTypeId', String(filters.incidentTypeId));
+    }
+    if (filters?.scope) params = params.set('scope', filters.scope);
+    return params;
+  }
+
+  getIncidents(filters?: {
+    vesselIdentifier?: string;
+    from?: string;
+    to?: string;
+    severity?: IncidentSeverity;
+    status?: IncidentStatus;
+    incidentTypeId?: number;
+    scope?: IncidentScope;
+  }): Observable<IncidentDTO[]> {
+    const params = this.buildIncidentParams(filters);
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.get<IncidentDTO[]>(endpoint, {
+        withCredentials: true,
+        params: params.keys().length ? params : undefined,
+      }),
+    );
+  }
+
+  getIncident(id: number): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.get<IncidentDTO>(`${endpoint}/${id}`, { withCredentials: true }),
+    );
+  }
+
+  createIncident(payload: CreateIncidentDTO): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.post<IncidentDTO>(endpoint, payload, { withCredentials: true }),
+    );
+  }
+
+  updateIncident(id: number, payload: UpdateIncidentDTO): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.patch<IncidentDTO>(`${endpoint}/${id}`, payload, { withCredentials: true }),
+    );
+  }
+
+  deleteIncident(id: number): Observable<void> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.delete<void>(`${endpoint}/${id}`, { withCredentials: true }),
+    );
+  }
+
+  setIncidentAffectedVves(incidentId: number, vveIds: number[]): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.post<IncidentDTO>(`${endpoint}/${incidentId}/affected-vves`, { vveIds }, {
+        withCredentials: true,
+      }),
+    );
+  }
+
+  addIncidentAffectedVve(incidentId: number, vveId: number): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.post<IncidentDTO>(`${endpoint}/${incidentId}/affected-vves/${vveId}`, {}, {
+        withCredentials: true,
+      }),
+    );
+  }
+
+  removeIncidentAffectedVve(incidentId: number, vveId: number): Observable<IncidentDTO> {
+    return this.invokeIncidentEndpoint((endpoint) =>
+      this.http.delete<IncidentDTO>(`${endpoint}/${incidentId}/affected-vves/${vveId}`, {
+        withCredentials: true,
+      }),
+    );
+  }
+
   getVesselVisitExecution(id: number): Observable<VesselVisitExecutionDetail> {
     const url = `${this.vesselVisitExecutionBase}/${id}`;
     return this.http
@@ -402,6 +509,59 @@ export class OemApiService {
   ): Observable<ExecutedOperationDto> {
     const url = `${this.vesselVisitExecutionBase}/${executionId}/executed-operations/${plannedOperationId}`;
     return this.http.put<ExecutedOperationDto>(url, payload, { withCredentials: true });
+  }
+
+  private invokeIncidentEndpoint<T>(factory: (endpoint: string) => Observable<T>): Observable<T> {
+    return from(this.tryIncidentEndpoints(factory));
+  }
+
+  private async tryIncidentEndpoints<T>(factory: (endpoint: string) => Observable<T>): Promise<T> {
+    let lastError: unknown = null;
+    for (const endpoint of this.incidentEndpoints) {
+      try {
+        return await firstValueFrom(factory(endpoint));
+      } catch (err) {
+        lastError = err;
+        if (!this.shouldRetryIncidentRequest(err)) {
+          throw this.normalizeIncidentError(err);
+        }
+      }
+    }
+    throw this.normalizeIncidentError(lastError);
+  }
+
+  private shouldRetryIncidentRequest(err: unknown): boolean {
+    if (err instanceof HttpErrorResponse) {
+      if (err.status === 0 || err.status === 404 || err.status === 502 || err.status === 503) {
+        return true;
+      }
+      return false;
+    }
+    if (err instanceof Error) {
+      const message = err.message?.toLowerCase?.() ?? '';
+      return (
+        message.includes('not found') ||
+        message.includes('failed to fetch') ||
+        message.includes('network') ||
+        message.includes('timeout')
+      );
+    }
+    return false;
+  }
+
+  private normalizeIncidentError(err: unknown): Error {
+    if (err instanceof HttpErrorResponse) {
+      const detail =
+        err.error?.message ||
+        err.error?.detail ||
+        (typeof err.error === 'string' ? err.error : null) ||
+        err.statusText;
+      return new Error(detail || 'Falha ao contactar OEM API.');
+    }
+    if (err instanceof Error) {
+      return err;
+    }
+    return new Error('Falha ao contactar OEM API.');
   }
 
   private mapTaskToPlannedOperation(task: OperationPlanTaskDto): PlannedOperationWithExecution {

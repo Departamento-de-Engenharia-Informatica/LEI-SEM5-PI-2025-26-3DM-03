@@ -5,15 +5,17 @@ import { TranslatePipe } from '../../services/i18n/translate.mock.module';
 import { AuthService } from '../../services/auth/auth.service';
 import { TranslationService } from '../../services/i18n/translation.service';
 import { ChangeDetectorRef } from '@angular/core';
+import { RouterModule } from '@angular/router';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslatePipe],
+  imports: [CommonModule, FormsModule, TranslatePipe, RouterModule],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],
 })
 export class LoginComponent implements AfterViewInit {
+  currentYear = new Date().getFullYear();
 
   constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef) {}
 

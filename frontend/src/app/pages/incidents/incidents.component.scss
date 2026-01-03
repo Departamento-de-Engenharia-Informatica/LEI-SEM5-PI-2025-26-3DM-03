@@ -1,0 +1,57 @@
+.incidents { padding: 0.5rem 0; }
+.page-header { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom: 1rem; }
+.page-header h2 { margin: 0 0 2px 0; color:#02284A; }
+.page-header .muted { color: rgba(2,6,23,0.55); margin:0; }
+
+.toolbar { display:flex; justify-content:space-between; align-items:center; gap: 0.8rem; flex-wrap: wrap; }
+.search { display:flex; align-items:center; gap:0.45rem; padding:0.4rem 0.6rem; border:1px solid rgba(15,23,42,0.1); border-radius:999px; min-width: 240px; }
+.search input { border:none; outline:none; min-width: 180px; }
+.filters { display:flex; gap:0.4rem; flex-wrap: wrap; align-items:center; }
+.filters input, .filters select { padding:0.45rem 0.6rem; border:1px solid rgba(15,23,42,0.12); border-radius:8px; }
+
+.card { background:#fff; border:1px solid rgba(15,23,42,0.06); border-radius:10px; padding:0.75rem; margin: 0.6rem 0; }
+.grid { display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 1rem; }
+@media (max-width: 1000px){ .grid { grid-template-columns: 1fr; } }
+
+.tbl { width:100%; border-collapse: collapse; }
+.tbl th, .tbl td { padding: 0.55rem 0.5rem; border-bottom: 1px solid rgba(15,23,42,0.06); }
+.tbl thead th { font-weight:700; font-size:0.92rem; color:#0f172a; text-align:left; }
+.tbl tbody tr:hover { background: rgba(2,6,23,0.02); }
+.tbl tbody tr.active-row { background: rgba(14,116,144,0.08); }
+
+.id-cell { display:flex; flex-direction:column; }
+.id-cell .identifier { font-weight:600; color:#0f172a; }
+.id-cell .id-sub { font-size:0.75rem; color: rgba(2,6,23,0.5); }
+.type-cell .name { font-weight:600; }
+.type-cell .code { font-size:0.75rem; color: rgba(2,6,23,0.5); }
+
+.pill { display:inline-flex; align-items:center; padding:0.2rem 0.5rem; border-radius:999px; font-weight:700; font-size:0.75rem; text-transform:uppercase; }
+.pill.sev-minor { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+.pill.sev-major { background: var(--tag-orange-bg); color: var(--tag-orange-text); }
+.pill.sev-critical { background: var(--tag-red-bg); color: var(--tag-red-text); }
+.pill.status-active { background: var(--tag-blue-bg); color: var(--tag-blue-text); }
+.pill.status-resolved { background: var(--tag-grey-bg); color: var(--tag-grey-text); }
+.impact-tag { margin-left: 6px; font-size:0.7rem; color: var(--tag-blue-text); text-transform:uppercase; font-weight:700; }
+
+.actions { display:flex; gap:0.25rem; align-items:center; }
+.btn-primary { background: #02284A; color:#fff; border:none; padding:0.5rem 0.8rem; border-radius:8px; cursor:pointer; font-weight:700; }
+.btn-ghost { background: transparent; border: 1px solid rgba(15,23,42,0.08); color: #0f172a; padding: 0.4rem 0.6rem; border-radius:8px; cursor:pointer; }
+.btn-ghost.danger { border-color: rgba(185,28,28,0.25); color:#991b1b; }
+
+.alert { padding:0.6rem 0.8rem; border-radius:8px; margin: 0.5rem 0; }
+.alert-error { background: rgba(185,28,28,0.08); color:#7f1d1d; border: 1px solid rgba(185,28,28,0.2); }
+.loading { color: rgba(2,6,23,0.6); padding: 0.5rem 0; }
+
+.form-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0.6rem; margin: 0.6rem 0; }
+.form-grid label { display:flex; flex-direction:column; gap:0.25rem; font-weight:600; color: rgba(2,6,23,0.7); }
+.form-grid input, .form-grid select, .form-grid textarea { padding:0.5rem 0.6rem; border:1px solid rgba(15,23,42,0.12); border-radius:8px; font-family: inherit; }
+.form-grid textarea { resize: vertical; }
+.form-grid .span-2 { grid-column: span 2; }
+.form-grid .inline-toggle { flex-direction:row; align-items:center; gap:0.5rem; font-weight:600; }
+.form-grid .inline-toggle input { width: 16px; height: 16px; }
+
+.vve-block { margin-top: 0.75rem; }
+.vve-block h4 { margin: 0 0 0.4rem 0; }
+.vve-list { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0.4rem 0.8rem; max-height: 220px; overflow: auto; padding: 0.4rem; border: 1px solid rgba(15,23,42,0.08); border-radius: 8px; }
+.vve-list label { display:flex; align-items:center; gap: 0.4rem; font-weight:500; color: rgba(2,6,23,0.8); }
+@media (max-width: 900px){ .vve-list { grid-template-columns: 1fr; } }

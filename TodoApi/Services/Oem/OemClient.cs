@@ -85,6 +85,166 @@ public class OemClient
         return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<HttpResponseMessage> GetComplementaryTaskCategoriesAsync(
+        string? queryText,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["q"] = string.IsNullOrWhiteSpace(queryText) ? null : queryText
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/complementary-task-categories"
+            : $"oem/complementary-task-categories?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetComplementaryTaskCategoryAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/complementary-task-categories/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> CreateComplementaryTaskCategoryAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/complementary-task-categories")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> UpdateComplementaryTaskCategoryAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/complementary-task-categories/{id}")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> DeleteComplementaryTaskCategoryAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/complementary-task-categories/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetComplementaryTasksAsync(
+        string? vesselIdentifier,
+        string? from,
+        string? to,
+        string? status,
+        int? vveId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["vesselIdentifier"] = string.IsNullOrWhiteSpace(vesselIdentifier) ? null : vesselIdentifier,
+            ["from"] = string.IsNullOrWhiteSpace(from) ? null : from,
+            ["to"] = string.IsNullOrWhiteSpace(to) ? null : to,
+            ["status"] = string.IsNullOrWhiteSpace(status) ? null : status,
+            ["vveId"] = vveId?.ToString()
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/complementary-tasks"
+            : $"oem/complementary-tasks?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetComplementaryTaskAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/complementary-tasks/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> CreateComplementaryTaskAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/complementary-tasks")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> UpdateComplementaryTaskAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/complementary-tasks/{id}")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> DeleteComplementaryTaskAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/complementary-tasks/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<HttpResponseMessage> CreateIncidentTypeAsync(
         JsonElement payload,
         CancellationToken cancellationToken = default)
@@ -121,6 +281,136 @@ public class OemClient
         CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/incident-types/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetIncidentsAsync(
+        string? vesselIdentifier,
+        string? from,
+        string? to,
+        string? severity,
+        string? status,
+        int? incidentTypeId,
+        string? scope,
+        CancellationToken cancellationToken = default)
+    {
+        var query = BuildQueryString(new Dictionary<string, string?>
+        {
+            ["vesselIdentifier"] = vesselIdentifier,
+            ["from"] = from,
+            ["to"] = to,
+            ["severity"] = severity,
+            ["status"] = status,
+            ["incidentTypeId"] = incidentTypeId?.ToString(),
+            ["scope"] = scope
+        });
+
+        var path = string.IsNullOrWhiteSpace(query)
+            ? "oem/incidents"
+            : $"oem/incidents?{query}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> GetIncidentAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"oem/incidents/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> CreateIncidentAsync(
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "oem/incidents")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> UpdateIncidentAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Patch, $"oem/incidents/{id}")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> DeleteIncidentAsync(
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/incidents/{id}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> SetIncidentAffectedVvesAsync(
+        int id,
+        JsonElement payload,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"oem/incidents/{id}/affected-vves")
+        {
+            Content = JsonContent.Create(payload)
+        };
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> AddIncidentAffectedVveAsync(
+        int id,
+        int vveId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"oem/incidents/{id}/affected-vves/{vveId}");
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        ApplyIdentityHeaders(request);
+
+        return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<HttpResponseMessage> RemoveIncidentAffectedVveAsync(
+        int id,
+        int vveId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Delete, $"oem/incidents/{id}/affected-vves/{vveId}");
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         ApplyIdentityHeaders(request);

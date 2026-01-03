@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, NgZone } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
@@ -18,6 +18,7 @@ import { ResourcesService } from '../../services/resources/resources.service';
 import { ResourceDTO } from '../../models/resource';
 import { StaffService } from '../../services/staff/staff.service';
 import { StaffDTO } from '../../models/staff';
+import { finalize } from 'rxjs/operators';
 
 type AllocationRow = ResourceAllocationSummaryDto;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -39,6 +40,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
   loading = false;
   error: string | null = null;
   emptyMessage: string | null = null;
+  hasSearched = false;
   docks: DockDTO[] = [];
   docksLoading = false;
   docksError: string | null = null;
@@ -62,6 +64,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
     private readonly fb: FormBuilder,
     private readonly api: OemApiService,
     private readonly zone: NgZone,
+    private readonly cdr: ChangeDetectorRef,
     private readonly docksService: DocksService,
     private readonly resourcesService: ResourcesService,
     private readonly staffService: StaffService,
@@ -80,8 +83,9 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
   }
 
   ngOnInit(): void {
-    // Carrega resultados iniciais para o intervalo por defeito
     this.updateDisplayRangeFromForm();
+    // Ao iniciar o componente, carrega de imediato a alocacao
+    // para o intervalo por defeito e tipo de recurso atual.
     this.onSearch();
   }
 
@@ -134,9 +138,11 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
       return;
     }
 
+    this.hasSearched = true;
     this.loading = true;
     this.error = null;
     this.emptyMessage = null;
+    this.results = [];
 
     this.api
       .getResourceAllocation({
@@ -145,6 +151,10 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
         resourceType,
         resourceId: resourceId?.trim() || undefined,
       })
+      .pipe(finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      }))
       .subscribe({
         next: (data: ResourceAllocationSummaryDto[]) => {
           this.zone.run(() => {
@@ -152,7 +162,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
             this.emptyMessage = this.results.length
               ? null
               : 'Sem resultados para o periodo selecionado.';
-            this.loading = false;
+            this.cdr.detectChanges();
           });
         },
         error: (err: HttpErrorResponse) => {
@@ -162,7 +172,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
               err,
               'Falha ao carregar a alocacao de recursos.',
             );
-            this.loading = false;
+            this.cdr.detectChanges();
           });
         },
       });
@@ -189,6 +199,7 @@ export class ResourceAllocationComponent implements OnInit, AfterViewInit, OnDes
     this.results = [];
     this.error = null;
     this.emptyMessage = null;
+    this.hasSearched = false;
     this.updateDisplayRangeFromForm();
     const dates = this.getDatesFromForm();
     if (this.dateRangePicker && dates.length === 2) {

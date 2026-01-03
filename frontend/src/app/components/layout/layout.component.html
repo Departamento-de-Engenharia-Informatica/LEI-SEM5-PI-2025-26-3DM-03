@@ -24,14 +24,13 @@
         <button class="lang-btn" (click)="changeLang('en')" [class.active]="lang==='en'">EN</button>
         <button class="lang-btn" (click)="changeLang('pt')" [class.active]="lang==='pt'">PT</button>
       </div>
-      <div class="user-area">
-  <img class="avatar" [src]="avatarUrl" alt="avatar" aria-hidden="true" (click)="openAvatarModal()" />
+      <a class="user-area" routerLink="/profile">
+        <img class="avatar" [src]="avatarUrl" alt="avatar" aria-hidden="true" />
         <div class="account-info">
           <div class="account-name">{{ auth.user?.name || auth.user?.email }}</div>
           <div class="role">{{ (auth.user?.role || '-') | uppercase }}</div>
         </div>
-        <button class="btn-ghost" (click)="logout()">{{ i18n.t('logout') }}</button>
-      </div>
+      </a>
     </div>
   </header>
 
@@ -96,24 +95,20 @@
     <main class="main-content" role="main"> 
       <div class="breadcrumbs" aria-hidden="true">{{ i18n.t('home') }} / <span class="muted">{{ i18n.t('breadcrumb.dashboard') }}</span></div>
       <router-outlet></router-outlet>
-      <footer class="app-footer"></footer>
+      <footer class="app-footer">
+        <span>© {{ currentYear }} Port Operations</span>
+        <span class="footer-sep">•</span>
+        <a class="footer-link" routerLink="/privacy-policy">Política de Privacidade</a>
+      </footer>
     </main>
-  </div>
-</div>
-
-<!-- Avatar modal overlay -->
-<div class="avatar-modal" *ngIf="avatarModalOpen" (click)="closeAvatarModal()" tabindex="-1" aria-modal="true" role="dialog">
-  <div class="avatar-modal-content" (click)="$event.stopPropagation()">
-    <button class="close-btn" (click)="closeAvatarModal()" aria-label="Close">&times;</button>
-    <img [src]="avatarUrl" alt="profile image large" />
   </div>
 </div>
 
  </ng-container>
 
 <ng-template #unauthArea>
-  <ng-container *ngIf="isViewerRoute; else publicArea">
-    <!-- Public 3D viewer route -->
+  <ng-container *ngIf="isPublicRoute; else publicArea">
+    <!-- Public route -->
     <router-outlet></router-outlet>
   </ng-container>
 </ng-template>

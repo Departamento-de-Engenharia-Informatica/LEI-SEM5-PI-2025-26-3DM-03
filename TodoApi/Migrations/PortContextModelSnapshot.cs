@@ -73,6 +73,12 @@ namespace TodoApi.Migrations
                         .HasMaxLength(400)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("LastSeenPrivacyPolicyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastSeenPrivacyPolicyUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -259,6 +265,82 @@ namespace TodoApi.Migrations
                             MaxDraft = 10.0,
                             Name = "East Dock A"
                         });
+                });
+
+            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResponseNote")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestedByEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("DataRightsRequests", (string)null);
+                });
+
+            modelBuilder.Entity("TodoApi.Models.PrivacyPolicy.PrivacyPolicy", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsCurrent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("PublishedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PublishedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PrivacyPolicies", (string)null);
                 });
 
             modelBuilder.Entity("TodoApi.Models.PublicResources.ResourceAccessLog", b =>
@@ -771,6 +853,17 @@ namespace TodoApi.Migrations
                 {
                     b.HasOne("TodoApi.Models.Auth.AppUser", "AppUser")
                         .WithMany("ActivationTokens")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
+                {
+                    b.HasOne("TodoApi.Models.Auth.AppUser", "AppUser")
+                        .WithMany()
                         .HasForeignKey("AppUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

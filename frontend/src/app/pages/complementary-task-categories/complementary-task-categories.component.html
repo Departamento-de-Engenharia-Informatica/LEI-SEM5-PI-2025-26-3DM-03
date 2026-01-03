@@ -1,0 +1,139 @@
+<div class="page complementary-task-categories">
+  <div class="page-header">
+    <div>
+      <h2>Complementary Task Categories</h2>
+      <p class="muted">Gerir categorias de tarefas complementares disponibilizadas pelo OEM.</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn-ghost"
+        *ngIf="editing"
+        (click)="cancelEdit()"
+        [disabled]="saving"
+      >
+        Cancelar edição
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+
+  <section class="card">
+    <form class="toolbar" [formGroup]="filterForm" (ngSubmit)="onSearch()">
+      <div class="search-field">
+        <i class="bi bi-search"></i>
+        <input
+          type="text"
+          formControlName="q"
+          placeholder="Pesquisar por código, nome ou descrição"
+          [disabled]="loading"
+        />
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn-primary" type="submit" [disabled]="loading">Pesquisar</button>
+        <button class="btn-ghost" type="button" (click)="clearFilters()" [disabled]="loading">Limpar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card list-card">
+    <div class="list-header">
+      <div>
+        <h3>Resultados</h3>
+        <p class="muted">{{ categories.length }} categorias encontradas</p>
+      </div>
+      <button type="button" class="btn-ghost" (click)="startCreate()" [disabled]="saving">Nova categoria</button>
+    </div>
+
+    <div *ngIf="loading" class="loading">A carregar...</div>
+    <div *ngIf="!loading && !error && categories.length === 0" class="empty">Sem categorias registadas.</div>
+
+    <div class="table-wrapper" *ngIf="!loading && categories.length">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Nome</th>
+            <th>Duração padrão</th>
+            <th>Criada em</th>
+            <th class="actions-col">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let category of categories; trackBy: trackById"
+            [class.editing-row]="editing?.id === category.id"
+          >
+            <td class="code-col">{{ category.code }}</td>
+            <td>
+              <div class="name-cell">
+                <span class="name">{{ category.name }}</span>
+                <span class="muted description" *ngIf="category.description">{{ category.description }}</span>
+              </div>
+            </td>
+            <td>{{ durationLabel(category) }}</td>
+            <td>{{ formatDate(category.createdAt) }}</td>
+            <td class="actions">
+              <button type="button" class="btn-ghost" (click)="startEdit(category)">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <button
+                type="button"
+                class="btn-ghost danger"
+                (click)="deleteCategory(category)"
+                [disabled]="deleting.has(category.id) || saving"
+              >
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card form-card">
+    <h3>{{ editing ? 'Editar categoria' : 'Criar categoria' }}</h3>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="form-grid">
+        <label>
+          Código
+          <input type="text" formControlName="code" placeholder="CTC001" [readonly]="!!editing" />
+          <small class="field-hint">Formato esperado: CTC seguido de números (ex.: CTC001)</small>
+          <span class="field-error" *ngIf="form.controls['code'].invalid && form.controls['code'].touched">
+            Código obrigatório no formato correto.
+          </span>
+        </label>
+
+        <label>
+          Nome
+          <input type="text" formControlName="name" />
+          <span class="field-error" *ngIf="form.controls['name'].invalid && form.controls['name'].touched">
+            Nome obrigatório.
+          </span>
+        </label>
+
+        <label class="span-2">
+          Descrição
+          <textarea rows="3" formControlName="description"></textarea>
+        </label>
+
+        <label>
+          Duração padrão (minutos)
+          <input type="number" min="0" formControlName="defaultDurationMinutes" />
+          <span class="field-error" *ngIf="form.controls['defaultDurationMinutes'].invalid && form.controls['defaultDurationMinutes'].touched">
+            Introduza um valor numérico válido.
+          </span>
+        </label>
+      </div>
+
+      <div *ngIf="formError" class="alert alert-error">{{ formError }}</div>
+
+      <div class="form-actions">
+        <button class="btn-primary" type="submit" [disabled]="saving">{{ editing ? 'Guardar alterações' : 'Criar categoria' }}</button>
+        <button class="btn-ghost" type="button" (click)="cancelEdit()" [disabled]="saving">Limpar</button>
+      </div>
+    </form>
+  </section>
+</div>
