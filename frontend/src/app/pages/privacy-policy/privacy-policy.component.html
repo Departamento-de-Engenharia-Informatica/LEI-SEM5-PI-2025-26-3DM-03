@@ -1,0 +1,61 @@
+<div class="privacy-page">
+  <div class="page-head">
+    <div>
+      <h1>Política de Privacidade</h1>
+      <p class="subtitle">Consulta a versão atual e o histórico de alterações.</p>
+    </div>
+    <a class="btn-ghost" routerLink="/login" *ngIf="!(auth.loggedIn$ | async)">Voltar ao login</a>
+  </div>
+
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <section class="policy-card" *ngIf="current; else emptyState">
+    <div class="meta">
+      <span class="tag">Versão {{ current?.version }}</span>
+      <span class="muted">Publicado em {{ formatDate(current?.publishedAtUtc) }}</span>
+      <span class="muted" *ngIf="current?.publishedBy">por {{ current?.publishedBy }}</span>
+    </div>
+    <h2>{{ current?.title }}</h2>
+    <div class="policy-content" [innerText]="current?.content"></div>
+  </section>
+
+  <ng-template #emptyState>
+    <div class="empty">
+      <h2>Sem política publicada</h2>
+      <p>O administrador ainda não publicou uma política de privacidade.</p>
+    </div>
+  </ng-template>
+
+  <section *ngIf="isAdmin" class="admin-panel">
+    <h3>Publicar nova versão</h3>
+    <div class="form-grid">
+      <label>
+        <span>Título</span>
+        <input type="text" [(ngModel)]="title" placeholder="Política de Privacidade" />
+      </label>
+      <label class="full">
+        <span>Conteúdo</span>
+        <textarea rows="8" [(ngModel)]="content" placeholder="Escreve aqui o texto da política..."></textarea>
+      </label>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" type="button" (click)="publish()" [disabled]="saving">Publicar</button>
+    </div>
+  </section>
+
+  <section *ngIf="isAdmin" class="history">
+    <h3>Histórico</h3>
+    <div class="history-list" *ngIf="history?.length; else noHistory">
+      <div class="history-item" *ngFor="let p of history">
+        <div class="row">
+          <span class="tag" [class.current]="p.isCurrent">v{{ p.version }}</span>
+          <span class="muted">{{ formatDate(p.publishedAtUtc) }}</span>
+        </div>
+        <div class="title">{{ p.title }}</div>
+      </div>
+    </div>
+    <ng-template #noHistory>
+      <p class="muted">Ainda não existem versões anteriores.</p>
+    </ng-template>
+  </section>
+</div>

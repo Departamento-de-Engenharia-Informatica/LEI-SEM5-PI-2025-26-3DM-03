@@ -6,6 +6,8 @@ import { AuthService } from '../../services/auth/auth.service';
 import { Subscription } from 'rxjs';
 import { LoginComponent } from '../../pages/login/login.component';
 import { ToastContainerComponent } from '../toast/toast-container.component';
+import { PrivacyPolicyService } from '../../services/privacy-policy/privacy-policy.service';
+import { ToastService } from '../toast/toast.service';
 //import { HttpClientModule } from '@angular/common/http';
 
 type Role = 'admin' | 'operator' | 'logistics-operator' | 'agent' | 'authority';
@@ -106,8 +108,16 @@ export class LayoutComponent implements OnInit, OnDestroy {
   // menu currently shown in the template — updated when auth state changes
   displayedMenu: MenuItem[] = [];
   private subs: Subscription | null = null;
+  private noticeChecked = false;
 
-  constructor(public i18n: TranslationService, public auth: AuthService, private cdr: ChangeDetectorRef, private router: Router) {}
+  constructor(
+    public i18n: TranslationService,
+    public auth: AuthService,
+    private cdr: ChangeDetectorRef,
+    private router: Router,
+    private privacy: PrivacyPolicyService,
+    private toast: ToastService
+  ) {}
 
   avatarUrl: string = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 rx=%2220%22 fill=%22%2302284A%22/><text x=%2250%25%22 y=%2256%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22 fill=%22white%22 font-family=%22Inter,Arial%22>%3F</text></svg>';
   avatarModalOpen = false;
@@ -128,6 +138,11 @@ export class LayoutComponent implements OnInit, OnDestroy {
       console.log('[Layout] loggedIn$ emission=', v, 'auth.user=', this.auth.user);
       this.updateDisplayedMenu();
       this.loadAvatar();
+      if (v) {
+        this.checkPrivacyPolicyNotice();
+      } else {
+        this.noticeChecked = false;
+      }
       // force an immediate check so UI updates even if emitted outside Angular (safety)
       try { this.cdr.detectChanges(); } catch {}
     });
@@ -202,10 +217,31 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (e.key === 'userAvatar') { this.loadAvatar(); try { this.cdr.detectChanges(); } catch {} }
   };
 
+  private async checkPrivacyPolicyNotice() {
+    if (this.noticeChecked) return;
+    this.noticeChecked = true;
+    try {
+      const notice = await this.privacy.checkNotice();
+      if (notice?.hasUpdate) {
+        this.toast.info('Política de privacidade atualizada. Consulte no rodapé.');
+      }
+    } catch {
+      // ignore notice failures to avoid blocking UI
+    }
+  }
+
   // Allow a public minimal route for the 3D viewer
   get isViewerRoute(): boolean {
     try {
       return this.router.url.startsWith('/viewer');
+    } catch {
+      return false;
+    }
+  }
+
+  get isPublicRoute(): boolean {
+    try {
+      return this.isViewerRoute || this.router.url.startsWith('/privacy-policy');
     } catch {
       return false;
     }
@@ -235,6 +271,7 @@ export class LayoutComponent implements OnInit, OnDestroy {
   logout(){
     // call auth logout which triggers backend sign-out
     this.auth.logout();
+    try { this.router.navigate(['/login']); } catch {}
   }
 
   // Toggle sidebar (hamburger): open if closed, close if open

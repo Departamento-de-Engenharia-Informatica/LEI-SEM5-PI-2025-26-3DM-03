@@ -96,7 +96,11 @@
     <main class="main-content" role="main"> 
       <div class="breadcrumbs" aria-hidden="true">{{ i18n.t('home') }} / <span class="muted">{{ i18n.t('breadcrumb.dashboard') }}</span></div>
       <router-outlet></router-outlet>
-      <footer class="app-footer"></footer>
+      <footer class="app-footer">
+        <span>© {{ currentYear }} Port Operations</span>
+        <span class="footer-sep">•</span>
+        <a class="footer-link" routerLink="/privacy-policy">Política de Privacidade</a>
+      </footer>
     </main>
   </div>
 </div>
@@ -112,8 +116,8 @@
  </ng-container>
 
 <ng-template #unauthArea>
-  <ng-container *ngIf="isViewerRoute; else publicArea">
-    <!-- Public 3D viewer route -->
+  <ng-container *ngIf="isPublicRoute; else publicArea">
+    <!-- Public route -->
     <router-outlet></router-outlet>
   </ng-container>
 </ng-template>

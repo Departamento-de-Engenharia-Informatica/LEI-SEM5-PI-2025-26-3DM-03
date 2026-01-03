@@ -14,6 +14,7 @@ using TodoApi.Models.Resources;
 using TodoApi.Models.VesselVisitNotifications;
 using TodoApi.Models.StorageAreas;
 using TodoApi.Models.PublicResources;
+using PrivacyPolicyEntity = TodoApi.Models.PrivacyPolicy.PrivacyPolicy;
 
 namespace TodoApi.Models
 {
@@ -48,6 +49,7 @@ namespace TodoApi.Models
         public DbSet<StorageArea> StorageAreas { get; set; } = null!;
         public DbSet<SharedResource> SharedResources { get; set; } = null!;
         public DbSet<ResourceAccessLog> ResourceAccessLogs { get; set; } = null!;
+        public DbSet<PrivacyPolicyEntity> PrivacyPolicies { get; set; } = null!;
         // Authentication / Authorization tables
         public DbSet<AppUser> AppUsers { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
@@ -165,6 +167,18 @@ namespace TodoApi.Models
                 entity.Property(l => l.IpAddress).HasMaxLength(80);
                 entity.Property(l => l.UserAgent).HasMaxLength(512);
                 entity.Property(l => l.OccurredAt).IsRequired();
+            });
+
+            modelBuilder.Entity<PrivacyPolicyEntity>(entity =>
+            {
+                entity.ToTable("PrivacyPolicies");
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Version).IsRequired();
+                entity.Property(p => p.Title).IsRequired().HasMaxLength(200);
+                entity.Property(p => p.Content).IsRequired();
+                entity.Property(p => p.PublishedAtUtc).IsRequired();
+                entity.Property(p => p.IsCurrent).IsRequired();
+                entity.Property(p => p.PublishedBy).HasMaxLength(200);
             });
 
             modelBuilder.Entity<ActivationToken>(entity =>

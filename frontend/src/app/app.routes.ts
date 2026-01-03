@@ -29,6 +29,7 @@ export const routes: Routes = [
   { path: 'shipping-agents', loadComponent: () => import('./pages/shipping-agents/shipping-agents.component').then(m => m.ShippingAgentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','authority'] } },
   { path: 'settings', loadComponent: () => import('./pages/settings/settings.component').then(m => m.SettingsComponent), canActivate: [AuthGuard], data: { roles: ['admin'] } },
   { path: 'public-resources', loadComponent: () => import('./pages/public-resources/public-resources.component').then(m => m.PublicResourcesComponent), canActivate: [AuthGuard], data: { roles: ['admin','operator','agent','authority'] } },
+  { path: 'privacy-policy', loadComponent: () => import('./pages/privacy-policy/privacy-policy.component').then(m => m.PrivacyPolicyComponent) },
   { path: 'incident-types', loadComponent: () => import('./pages/incident-types/incident-types.component').then(m => m.IncidentTypesComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'incidents', loadComponent: () => import('./pages/incidents/incidents.component').then(m => m.IncidentsComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },
   { path: 'oem/complementary-task-categories', loadComponent: () => import('./pages/complementary-task-categories/complementary-task-categories.component').then(m => m.ComplementaryTaskCategoriesComponent), canActivate: [AuthGuard], data: { roles: ['admin','logistics-operator'] } },

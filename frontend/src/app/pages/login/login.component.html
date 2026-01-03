@@ -40,6 +40,12 @@
     <div *ngIf="auth.authDeniedReason as reason" class="login-error">
       <strong>Access denied:</strong> {{ reason }}
     </div>
+
+    <footer class="login-footer">
+      <span>© {{ currentYear }} Port Operations</span>
+      <span class="footer-sep">•</span>
+      <a class="footer-link" routerLink="/privacy-policy">Política de Privacidade</a>
+    </footer>
   </div>
 
   <!-- Painel lateral com copy simples -->
