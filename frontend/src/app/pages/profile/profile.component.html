@@ -1,0 +1,169 @@
+<div class="profile-page">
+  <div class="page-head">
+    <div>
+      <h1>Perfil</h1>
+      <p class="subtitle">Gerir dados pessoais e direitos GDPR.</p>
+    </div>
+    <button class="btn-ghost" type="button" (click)="logout()">Logout</button>
+  </div>
+
+  <section class="card">
+    <h2>Informação do utilizador</h2>
+    <div class="info-grid">
+      <div>
+        <span class="label">Nome</span>
+        <span class="value">{{ auth.user?.name || '-' }}</span>
+      </div>
+      <div>
+        <span class="label">Email</span>
+        <span class="value">{{ auth.user?.email || '-' }}</span>
+      </div>
+      <div>
+        <span class="label">Perfil</span>
+        <span class="value">{{ (auth.user?.role || '-') | uppercase }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Data Rights</h2>
+    <p class="muted">Pede uma cópia dos teus dados ou submete pedidos de retificação/eliminação.</p>
+
+    <div class="actions" *ngIf="requestType === 'access'">
+      <button class="btn-primary" type="button" (click)="downloadData('json')">Pedir cópia (JSON)</button>
+      <button class="btn-ghost" type="button" (click)="downloadData('pdf')">Pedir cópia (PDF)</button>
+    </div>
+
+    <div class="form">
+      <label>
+        <span>Tipo de pedido</span>
+        <select [(ngModel)]="requestType">
+          <option value="access">Acesso</option>
+          <option value="rectification">Retificação</option>
+          <option value="deletion">Eliminação</option>
+        </select>
+      </label>
+
+      <div class="field-group" *ngIf="requestType === 'access'">
+        <span>Campos específicos</span>
+        <label class="field-option">
+          <input type="checkbox" [(ngModel)]="selectedFields.name" />
+          <span>Nome</span>
+        </label>
+        <label class="field-option">
+          <input type="checkbox" [(ngModel)]="selectedFields.email" />
+          <span>Email</span>
+        </label>
+        <label class="field-option">
+          <input type="checkbox" [(ngModel)]="selectedFields.role" />
+          <span>Cargo</span>
+        </label>
+      </div>
+
+      <div class="field-group" *ngIf="requestType === 'rectification'">
+        <span>Dados atuais e correção pretendida</span>
+        <label class="field-row">
+          <span>Nome atual</span>
+          <input type="text" [value]="auth.user?.name || ''" disabled />
+        </label>
+        <label class="field-row">
+          <span>Novo nome (opcional)</span>
+          <input type="text" [(ngModel)]="rectification.name" placeholder="Novo nome" />
+        </label>
+        <label class="field-row">
+          <span>Email atual</span>
+          <input type="text" [value]="auth.user?.email || ''" disabled />
+        </label>
+        <label class="field-row">
+          <span>Novo email (opcional)</span>
+          <input type="text" [(ngModel)]="rectification.email" placeholder="Novo email" />
+        </label>
+        <label class="field-row">
+          <span>Cargo atual</span>
+          <input type="text" [value]="auth.user?.role || ''" disabled />
+        </label>
+        <label class="field-row">
+          <span>Novo cargo (opcional)</span>
+          <select [(ngModel)]="rectification.role">
+            <option value="">Selecionar cargo</option>
+            <option *ngFor="let r of rolesCatalog" [value]="r.value">{{ r.label }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-group" *ngIf="requestType === 'deletion'">
+        <span>Dados elegíveis para eliminação</span>
+        <label class="field-option">
+          <input type="checkbox" [(ngModel)]="deleteName" />
+          <span>Nome</span>
+        </label>
+      </div>
+
+      <label *ngIf="requestType !== 'access'">
+        <span>Detalhes do pedido</span>
+        <textarea rows="4" [(ngModel)]="details" placeholder="Descreve o que pretendes corrigir ou remover."></textarea>
+      </label>
+
+      <div class="actions" *ngIf="requestType !== 'access'">
+        <button class="btn-ghost" type="button" (click)="submitRequest()" [disabled]="submitting">
+          Submeter pedido
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Pedidos submetidos</h2>
+    <p class="muted">Consulta o estado dos teus pedidos.</p>
+    <div class="requests" *ngIf="myRequests.length; else emptyMine">
+      <div class="request-row" *ngFor="let r of myRequests">
+        <div>
+          <div class="request-title">{{ r.requestType | uppercase }}</div>
+          <div class="muted">Campos: {{ r.fields?.length ? r.fields.join(', ') : '-' }}</div>
+          <div class="muted">Data: {{ r.requestedAtUtc | date:'short' }}</div>
+          <div class="muted" *ngIf="r.status === 'Rejected' && r.responseNote">Motivo: {{ r.responseNote }}</div>
+        </div>
+        <span class="status-pill">{{ statusLabel(r.status) }}</span>
+      </div>
+    </div>
+    <ng-template #emptyMine>
+      <p class="muted">Ainda não existem pedidos.</p>
+    </ng-template>
+  </section>
+
+  <section class="card" *ngIf="isAdmin">
+    <h2>Gestão de pedidos (Admin)</h2>
+    <p class="muted">Atualiza o estado dos pedidos dos utilizadores.</p>
+    <div class="requests" *ngIf="allRequests.length; else emptyAll">
+      <div class="request-row" *ngFor="let r of allRequests">
+        <div>
+          <div class="request-title">{{ r.requestType | uppercase }}</div>
+          <div class="muted">Email: {{ r.requestedByEmail || '-' }}</div>
+          <div class="muted">Campos: {{ r.fields?.length ? r.fields.join(', ') : '-' }}</div>
+          <div class="muted">Data: {{ r.requestedAtUtc | date:'short' }}</div>
+          <button class="btn-ghost" type="button" (click)="toggleRequest(r.id)">Ver pedido</button>
+          <div class="request-details" *ngIf="expandedRequests.has(r.id)">
+            <div class="muted" *ngIf="r.details && !parseDetails(r.details)">Detalhes: {{ r.details }}</div>
+            <ng-container *ngIf="parseDetails(r.details) as parsed">
+              <div class="muted" *ngIf="parsed.requested?.name">Novo nome: {{ parsed.requested?.name }}</div>
+              <div class="muted" *ngIf="parsed.requested?.email">Novo email: {{ parsed.requested?.email }}</div>
+              <div class="muted" *ngIf="parsed.requested?.role">Novo cargo: {{ parsed.requested?.role }}</div>
+              <div class="muted" *ngIf="parsed.notes">Observações: {{ parsed.notes }}</div>
+            </ng-container>
+          </div>
+        </div>
+        <div class="admin-actions">
+          <span class="status-pill">{{ statusLabel(r.status) }}</span>
+          <button class="btn-primary" type="button" (click)="updateRequestStatus(r, 'Completed')" [disabled]="r.status === 'Completed' || r.status === 'Rejected'">Aceitar</button>
+          <div class="reject-box">
+            <input type="text" [(ngModel)]="rejectReasons[r.id]" placeholder="Motivo da recusa" [disabled]="r.status === 'Completed' || r.status === 'Rejected'" />
+            <button class="btn-ghost" type="button" (click)="updateRequestStatus(r, 'Rejected')" [disabled]="r.status === 'Completed' || r.status === 'Rejected'">Recusar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <ng-template #emptyAll>
+      <p class="muted">Sem pedidos registados.</p>
+    </ng-template>
+  </section>
+</div>

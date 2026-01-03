@@ -120,8 +120,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   ) {}
 
   avatarUrl: string = 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><rect width=%2240%22 height=%2240%22 rx=%2220%22 fill=%22%2302284A%22/><text x=%2250%25%22 y=%2256%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-size=%2214%22 fill=%22white%22 font-family=%22Inter,Arial%22>%3F</text></svg>';
-  avatarModalOpen = false;
-
   ngOnInit(): void {
     // initialize displayed menu according to current user (may be null at startup)
     this.updateDisplayedMenu();
@@ -268,12 +266,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
 
  
-  logout(){
-    // call auth logout which triggers backend sign-out
-    this.auth.logout();
-    try { this.router.navigate(['/login']); } catch {}
-  }
-
   // Toggle sidebar (hamburger): open if closed, close if open
   toggleSidebar(){
     this.sidebarCollapsed = !this.sidebarCollapsed;
@@ -290,16 +282,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
   closeHotspot(){
     this.hotspotOpen = false;
     try { this.cdr.detectChanges(); } catch {}
-  }
-
-  openAvatarModal(){
-    if (!this.avatarUrl) return;
-    this.avatarModalOpen = true;
-    // focus trap start could be added later
-  }
-
-  closeAvatarModal(){
-    this.avatarModalOpen = false;
   }
 
 }

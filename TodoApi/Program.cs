@@ -591,6 +591,7 @@ using (var scope = app.Services.CreateScope())
     }
     await EnsureRoleChangeColumnsAsync(context, loggerFactory);
     await EnsurePrivacyPolicySchemaAsync(context, loggerFactory);
+    await EnsureDataRightsSchemaAsync(context, loggerFactory);
 
     try
     {
@@ -869,6 +870,88 @@ CREATE TABLE ""PrivacyPolicies"" (
     catch (Exception ex)
     {
         logger?.LogWarning(ex, "Failed to ensure privacy policy schema via fallback");
+    }
+    finally
+    {
+        if (conn.State == System.Data.ConnectionState.Open)
+        {
+            await conn.CloseAsync();
+        }
+    }
+}
+
+static async Task EnsureDataRightsSchemaAsync(PortContext context, ILoggerFactory? loggerFactory)
+{
+    if (!context.Database.IsSqlite())
+    {
+        return;
+    }
+
+    var logger = loggerFactory?.CreateLogger("Startup");
+    var conn = context.Database.GetDbConnection();
+    try
+    {
+        await conn.OpenAsync();
+
+        var hasTable = false;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='DataRightsRequests';";
+            using var reader = await cmd.ExecuteReaderAsync();
+            hasTable = await reader.ReadAsync();
+        }
+
+        if (!hasTable)
+        {
+            using var create = conn.CreateCommand();
+            create.CommandText = @"
+CREATE TABLE ""DataRightsRequests"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_DataRightsRequests"" PRIMARY KEY AUTOINCREMENT,
+    ""AppUserId"" INTEGER NOT NULL,
+    ""RequestType"" TEXT NOT NULL,
+    ""RequestedAtUtc"" TEXT NOT NULL,
+    ""Status"" TEXT NOT NULL,
+    ""PayloadJson"" TEXT NULL,
+    ""RequestedByEmail"" TEXT NULL,
+    CONSTRAINT ""FK_DataRightsRequests_AppUsers_AppUserId"" FOREIGN KEY (""AppUserId"") REFERENCES ""AppUsers"" (""Id"") ON DELETE CASCADE
+);";
+            await create.ExecuteNonQueryAsync();
+            logger?.LogInformation("Created DataRightsRequests table via fallback schema.");
+        }
+        else
+        {
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = "PRAGMA table_info('DataRightsRequests');";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    if (!reader.IsDBNull(1))
+                    {
+                        existing.Add(reader.GetString(1));
+                    }
+                }
+            }
+
+            var alters = new List<string>();
+            if (!existing.Contains("RespondedAtUtc"))
+                alters.Add("ALTER TABLE DataRightsRequests ADD COLUMN RespondedAtUtc TEXT");
+            if (!existing.Contains("ResponseNote"))
+                alters.Add("ALTER TABLE DataRightsRequests ADD COLUMN ResponseNote TEXT");
+
+            foreach (var sql in alters)
+            {
+                using var alter = conn.CreateCommand();
+                alter.CommandText = sql;
+                await alter.ExecuteNonQueryAsync();
+                logger?.LogInformation("Applied fallback column addition: {Sql}", sql);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        logger?.LogWarning(ex, "Failed to ensure data rights schema via fallback");
     }
     finally
     {

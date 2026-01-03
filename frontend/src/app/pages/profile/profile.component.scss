@@ -1,0 +1,183 @@
+.profile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: rgba(2, 6, 23, 0.6);
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(2, 6, 23, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.8rem;
+  color: rgba(2, 6, 23, 0.55);
+  margin-bottom: 0.15rem;
+}
+
+.value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.muted {
+  color: rgba(2, 6, 23, 0.55);
+}
+
+.actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.form input,
+.form textarea,
+.form select {
+  border: 1px solid rgba(2, 6, 23, 0.15);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.field-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+}
+
+.field-option input {
+  width: 16px;
+  height: 16px;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.field-row span {
+  color: rgba(2, 6, 23, 0.6);
+  font-size: 0.85rem;
+}
+
+.requests {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.request-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed rgba(2, 6, 23, 0.12);
+  border-radius: 10px;
+  align-items: center;
+}
+
+.request-title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.status-pill {
+  background: rgba(2, 40, 74, 0.12);
+  color: #02284a;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.reject-box {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.reject-box input {
+  border: 1px solid rgba(2, 6, 23, 0.15);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: 220px;
+}
+
+.request-details {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+@media (max-width: 900px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .request-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
