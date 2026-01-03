@@ -1,0 +1,28 @@
+@startuml US_3_1_1_C2_Impl
+title US 3.1.1 - SPA Setup (Implementation)
+
+node "Browser" {
+  component SPA as "Angular SPA\nstandalone components\nfolders: components/pages/services/models"
+}
+
+node "TodoApi Host" {
+  component API as "TodoApi\nHTTPS 7167\nREST controllers"
+}
+
+SPA --> API : Fetch/HttpClient\nwithCredentials
+
+component Shell as "App shell\napp.routes.ts\nLayoutComponent" #LightBlue
+component Auth as "AuthService + AuthGuard\n/auth_token cache\n/authtest/*" #LightBlue
+component I18n as "TranslationService\nEN/PT" #LightBlue
+component Toast as "ToastService\nfeedback" #LightBlue
+component Feature as "Feature pages\n(vessels, docks, VVNs, etc.)" #LightBlue
+
+Shell --> Auth
+Shell --> I18n
+Shell --> Toast
+Shell --> Feature : router-outlet
+Feature --> Auth : role checks
+Feature --> Toast
+Feature --> API : REST
+
+@enduml

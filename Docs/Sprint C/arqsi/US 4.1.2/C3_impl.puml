@@ -1,0 +1,22 @@
+@startuml US_3_1_2_C3_Impl
+title US 3.1.2 - Layout unificado
+
+component Layout as "LayoutComponent\nheader + sidebar\nbreadcrumbs\nresponsive sidebar" #LightBlue
+component Header as "Header\nlogo + title\nlang switch EN/PT\nuser info + logout"
+component Nav as "Navigation\nmenu items defined in layout.component.ts\nrole-based filter"
+component Content as "router-outlet\nloads pages"
+component Toast as "ToastContainerComponent\nfeedback overlay"
+
+Layout --> Header
+Layout --> Nav
+Layout --> Content
+Layout --> Toast
+
+note right of Nav
+- Sempre visível (header + nav)
+- Menu pai + submenu (hover)
+- Usa TranslationService para labels EN/PT
+- Responsivo: collapsed sidebar + hotspot
+end note
+
+@enduml

@@ -1,0 +1,23 @@
+@startuml US_3_2_4_C2_Impl
+title US 3.2.4 - RBAC end-to-end (Implementacao)
+
+node "Browser" {
+  component Guard as "AuthGuard\nexige roles na rota"
+  component SPA as "Página protegida\n/admin/users"
+  component Deny as "Toast + redirect '/'\n(Acesso negado)"
+}
+
+node "TodoApi" {
+  component Api as "Controllers [Authorize(Roles=...)]"
+}
+
+database DB as "PortContext\n(AppUsers, Roles, UserRoles)"
+
+Guard --> SPA : bloqueia ou permite navegação
+SPA --> Api : GET/POST/PUT\nwithCredentials
+Api --> DB : valida utilizador ativo + roles
+Api --> SPA : 200 ou 403
+SPA --> SPA : apresenta dados ou Access Denied
+Guard --> Deny : em falta de role\ninforma e redireciona
+
+@enduml

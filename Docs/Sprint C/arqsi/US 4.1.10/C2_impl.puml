@@ -1,0 +1,21 @@
+@startuml US_3_2_5_C2_Impl
+title US 3.2.5 - Gestao de roles (Implementacao)
+
+node "Browser" {
+  component AdminUI as "Admin UI\nassignar/remover roles\nresend activation"
+}
+
+node "TodoApi" {
+  component AdminCtrl as "AdminController\nPUT /admin/users/{id}/roles\nPOST /admin/users/{id}/resend-activation"
+  component Activation as "ActivationLinkService\nrole-change emails"
+}
+
+database DB as "PortContext\n(AppUsers, Roles, UserRoles, Tokens)"
+
+AdminUI --> AdminCtrl : update roles / resend activation
+AdminCtrl --> DB : atualizar UserRoles
+AdminCtrl --> Activation : gerar token + email
+Activation --> AdminUI : resultado
+AdminCtrl --> AdminUI : 200/204 ou 4xx
+
+@enduml
