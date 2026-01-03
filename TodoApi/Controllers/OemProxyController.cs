@@ -18,6 +18,136 @@ public class OemProxyController : ControllerBase
         _oemClient = oemClient;
     }
 
+    [HttpGet("incident-types")]
+    public async Task<IActionResult> GetIncidentTypes(
+        [FromQuery] int? parentId,
+        [FromQuery] string? severity,
+        [FromQuery] string? q,
+        [FromQuery] bool? tree,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetIncidentTypesAsync(parentId, severity, q, tree, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incident-types")]
+    public async Task<IActionResult> CreateIncidentType(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CreateIncidentTypeAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("incidents")]
+    public async Task<IActionResult> GetIncidents(
+        [FromQuery] string? vesselIdentifier,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? severity,
+        [FromQuery] string? status,
+        [FromQuery] int? incidentTypeId,
+        [FromQuery] string? scope,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetIncidentsAsync(
+            vesselIdentifier,
+            from,
+            to,
+            severity,
+            status,
+            incidentTypeId,
+            scope,
+            cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpGet("incidents/{id:int}")]
+    public async Task<IActionResult> GetIncident(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.GetIncidentAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents")]
+    public async Task<IActionResult> CreateIncident(
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.CreateIncidentAsync(payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("incidents/{id:int}")]
+    public async Task<IActionResult> UpdateIncident(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateIncidentAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("incidents/{id:int}")]
+    public async Task<IActionResult> DeleteIncident(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteIncidentAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents/{id:int}/affected-vves")]
+    public async Task<IActionResult> SetIncidentAffectedVves(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.SetIncidentAffectedVvesAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPost("incidents/{id:int}/affected-vves/{vveId:int}")]
+    public async Task<IActionResult> AddIncidentAffectedVve(
+        [FromRoute] int id,
+        [FromRoute] int vveId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.AddIncidentAffectedVveAsync(id, vveId, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("incidents/{id:int}/affected-vves/{vveId:int}")]
+    public async Task<IActionResult> RemoveIncidentAffectedVve(
+        [FromRoute] int id,
+        [FromRoute] int vveId,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.RemoveIncidentAffectedVveAsync(id, vveId, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpPatch("incident-types/{id:int}")]
+    public async Task<IActionResult> UpdateIncidentType(
+        [FromRoute] int id,
+        [FromBody] JsonElement payload,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.UpdateIncidentTypeAsync(id, payload, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
+    [HttpDelete("incident-types/{id:int}")]
+    public async Task<IActionResult> DeleteIncidentType(
+        [FromRoute] int id,
+        CancellationToken cancellationToken)
+    {
+        var response = await _oemClient.DeleteIncidentTypeAsync(id, cancellationToken);
+        return await ToActionResultAsync(response);
+    }
+
     [HttpGet("operation-plans")]
     public async Task<IActionResult> GetOperationPlans(
         [FromQuery] string? from,

@@ -33,7 +33,7 @@ import { IncidentTypeService } from '../services';
 @ApiTags('Incident Types')
 @ApiBearerAuth()
 @ApiExtraModels(IncidentTypeDto, IncidentTypeTreeDto)
-@UseGuards(IamAuthGuard, RolesGuard)
+//@UseGuards(IamAuthGuard, RolesGuard)
 @Controller('oem/incident-types')
 export class IncidentTypeController {
   constructor(private readonly service: IncidentTypeService) {}
