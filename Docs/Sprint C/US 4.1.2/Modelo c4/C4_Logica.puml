@@ -1,0 +1,62 @@
+@startuml C4_Generate_Operation_Plans_Logical_Deployment
+title C4 – Plan Generation (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(Operation Plans Module)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+  artifact "Observability Agent" as Observability
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Planning Platform" as OEM {
+  artifact "Preview Endpoint"
+  artifact "Generate Endpoint"
+  artifact "Missing Plans Endpoint"
+  artifact "Operations Store" as Store
+}
+
+cloud "Support Services" as Support {
+  artifact "VVN Catalog API"
+  artifact "Resource Catalog API"
+}
+
+Operator --> Spa : HTTPS (Browser)
+Spa --> Api : POST preview/generate/missing
+Api --> Oidc : Validate tokens
+Api --> Preview Endpoint : Forward preview requests
+Api --> Generate Endpoint : Persist plans
+Api --> Missing Plans Endpoint : Retrieve missing VVNs
+Preview Endpoint --> Store : read operations data
+Generate Endpoint --> Store : write plans + metadata
+Spa --> Support : fetch VVNs/resources for forms
+Api --> Observability : Emit telemetry
+
+@enduml

@@ -1,0 +1,86 @@
+@startuml C4_Generate_Operation_Plans_Implementation_View
+title C4 – Plan Generation (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class OemOperationPlansComponent {
+    -form: FormGroup
+    -previewPlans: OperationPlanPreviewDto[]
+    -selectedVvns: Set<number>
+    +onPreview(): void
+    +onPersist(): void
+    -selectedAsArray(): number[]
+    +fetchPlans(): void
+  }
+
+  class OemApiService {
+    +previewOperationPlans(date: string, algorithm: string, vvnIds?): Observable<OperationPlanPreviewDto[]>
+    +generateOperationPlans(date: string, algorithm: string, vvnIds?): Observable<OperationPlanDto[]>
+    +getOperationPlans(filters?): Observable<OperationPlanDto[]>
+    +getMissingOperationPlans(date: string): Observable<MissingOperationPlanDto[]>
+    +regenerateMissingOperationPlans(...): Observable<OperationPlanDto[]>
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +PreviewOperationPlans(OperationPlanRequest)
+    +GenerateOperationPlans(OperationPlanRequest)
+    +GetOperationPlans(...)
+    +GetMissingOperationPlans(date)
+    +RegenerateMissingOperationPlans(request)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +PreviewOperationPlansAsync(...)
+    +GenerateOperationPlansAsync(...)
+    +GetOperationPlansAsync(...)
+    +GetMissingOperationPlansAsync(...)
+    +RegenerateMissingOperationPlansAsync(...)
+    -ApplyIdentityHeaders(request)
+  }
+}
+
+package "TodoApi.Models.Oem" {
+  class OperationPlanRequest {
+    +string Date
+    +string Algorithm
+    +IEnumerable<int>? VvnIds
+  }
+  class OperationPlanPreviewDto {
+    +int VvnId
+    +string DockId
+    +string PlannedStartTime
+    +string PlannedEndTime
+    +IEnumerable<OperationTaskPreviewDto> Operations
+  }
+  class OperationPlanDto {
+    +int Id
+    +string Name
+    +string AlgorithmUsed
+    +string TargetDay
+    +DateTime CreatedAt
+    +string CreatedBy
+  }
+}
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> OperationPlanRequest
+OperationPlanDto "1" o-- "*" OperationTaskPreviewDto : when expanded
+
+@enduml

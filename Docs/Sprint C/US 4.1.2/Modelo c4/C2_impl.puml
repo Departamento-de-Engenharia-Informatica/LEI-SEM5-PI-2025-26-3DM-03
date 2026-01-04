@@ -1,0 +1,47 @@
+@startuml C2_Generate_Operation_Plans_Implementation_View
+title C2 – Generate Operation Plans (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Controllers" as P_Controllers {
+  package "OEM Proxy" as P_OemControllers {
+    [OemProxyController]
+  }
+}
+
+package "Services" as P_Services {
+  package "OEM Integration" as P_OemServices {
+    [OemClient]
+  }
+}
+
+package "Models" as P_Models {
+  package "Operation Plans" as P_Models_Plans {
+    [OperationPlanPreviewDto]
+    [OperationPlanDto]
+    [OperationPlanRequest]
+  }
+}
+
+package "Infrastructure" as P_Infrastructure {
+  [HttpClientFactory]
+  [IdentityHeaderProvider]
+}
+
+[OemProxyController] --> [OemClient] : preview/generate requests
+[OemProxyController] --> [OperationPlanDto]
+[OemProxyController] --> [OperationPlanPreviewDto]
+[OemClient] --> [HttpClientFactory]
+[OemClient] --> [IdentityHeaderProvider]
+
+@enduml

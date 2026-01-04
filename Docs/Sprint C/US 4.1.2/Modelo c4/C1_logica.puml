@@ -1,0 +1,44 @@
+@startuml C1_Generate_Operation_Plans_Logical_View
+title C1 – Generate Operation Plans (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+cloud "Identity Provider\n(OAuth 2.0 / OIDC)" as IAM
+cloud "OEM Planning & Scheduling Service" as OEM
+rectangle "Port Logistics Management System (PLMS)" as PLMS {
+  rectangle "Angular SPA\n(Operation Plans Generation UI)" as SPA
+  rectangle "TodoApi\n(OEM Proxy API)" as API
+  database "Reference Catalog Cache" as Cache
+}
+
+Operator --> SPA : Browser (HTTPS)
+SPA --> API : REST JSON (with credentials)
+API --> IAM : Validate identity headers
+API --> OEM : Forward preview/generate requests
+SPA --> Cache : Retrieve resources/VVNs for display
+Operator --> IAM : Login / SSO
+OEM --> API : Plans, metadata, warnings
+
+@enduml

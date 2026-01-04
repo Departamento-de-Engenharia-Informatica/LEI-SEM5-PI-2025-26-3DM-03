@@ -1,0 +1,47 @@
+@startuml C4_Generate_Operation_Plans_Process_View
+title C4 – Plan Generation (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Scheduler" as Scheduler
+participant "OEM Plan Repository" as Repository
+
+== Client-side preparation ==
+Operator -> Form : Pick date & algorithm
+Form -> Component : submit preview request
+Component -> Component : validate date & algorithm
+
+== Preview run ==
+Component -> Service : previewOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/preview
+Controller -> Client : Forward payload + auth headers
+Client -> Scheduler : POST /oem/operation-plans/preview
+Scheduler -> Scheduler : Compute sequence, assign resources
+Scheduler --> Client : Preview list
+Client --> Controller : 200 OK
+Controller --> Service : OperationPlanPreviewDto[]
+Service --> Component : render preview grid
+Component --> Operator : show operations per VVN
+
+== Persist ==
+Operator -> Form : Confirm save
+Form -> Component : trigger onPersist()
+Component -> Component : ensure preview exists, gather selected VVNs
+Component -> Service : generateOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/generate
+Controller -> Client : Forward payload
+Client -> Scheduler : POST /oem/operation-plans/generate
+Scheduler -> Repository : Store plans with metadata
+Repository --> Scheduler : IDs + timestamps
+Scheduler --> Client : Stored plans response
+Client --> Controller : 201 Created
+Controller --> Service : OperationPlanDto[]
+Service --> Component : update saved list
+Component --> Operator : toast success + metadata summary
+
+@enduml
