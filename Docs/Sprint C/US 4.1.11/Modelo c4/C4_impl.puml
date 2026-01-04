@@ -1,0 +1,69 @@
+@startuml C4_VVE_Executed_Operations_Implementation_View
+title C4 – Record Executed Operations (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class VesselVisitExecutionDetailComponent {
+    -vveId: string|number
+    -plannedOperations: any[]
+    -executedOperations: any[]
+    +loadPlannedOperations(): void
+    +loadExecutedOperations(): void
+    +saveExecution(plannedOperationId: string|number): void
+  }
+
+  class OemApiService {
+    +getPlannedOperations(vveId: number): any
+    +getExecutedOperations(vveId: number): any
+    +upsertExecutedOperation(vveId: number, plannedOperationId: number, payload: any): any
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetPlannedOperations(vveId)
+    +GetExecutedOperations(vveId)
+    +UpsertExecutedOperation(vveId, plannedOperationId)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetPlannedOperationsAsync(...)
+    +GetExecutedOperationsAsync(...)
+    +UpsertExecutedOperationAsync(...)
+  }
+}
+
+package "oem-api/src/oem/controllers" {
+  class VesselVisitExecutionController {
+    +plannedOperations(id: string)
+    +executedOperations(id: string)
+    +upsertExecutedOperation(id: string, plannedOperationId: string, dto: any)
+  }
+}
+
+package "oem-api/src/oem" {
+  class ExecutedOperationService
+  class ExecutedOperationRepository
+}
+
+VesselVisitExecutionDetailComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> VesselVisitExecutionController
+VesselVisitExecutionController --> ExecutedOperationService
+ExecutedOperationService --> ExecutedOperationRepository
+
+@enduml

@@ -1,0 +1,31 @@
+@startuml C3_Record_Executed_Operations_System_Sequence
+title C3 – Executed Operations (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "VesselVisitExecutionDetailComponent" as Component
+participant "OemApiService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "Execution Validator" as Validator
+
+Operator -> Component : Save executed operation
+Component -> SpaService : validate row + build payload
+SpaService -> Controller : PUT /api/oem/.../executed-operations/{plannedOpId}
+Controller -> Client : Forward + identity
+Client -> OemApi : PUT /vessel-visit-executions/{id}/executed-operations/{plannedOpId}
+OemApi -> Validator : Validate timestamps/resources
+alt Valid
+  Validator --> OemApi : OK
+  OemApi --> Client : 200 OK ExecutedOperationDto
+else Invalid
+  Validator --> OemApi : Errors
+  OemApi --> Client : 400 Bad Request
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : update tables
+Component --> Operator : show confirmation / error
+
+@enduml

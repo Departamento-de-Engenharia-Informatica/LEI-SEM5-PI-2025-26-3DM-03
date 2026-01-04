@@ -1,0 +1,41 @@
+@startuml C4_Manage_VVE_Process_View
+title C4 – Vessel Visit Executions (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "VesselVisitExecutionsHistoryComponent" as Component
+participant "OemApiService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Audit Trail" as Audit
+
+== Client-side validation ==
+Operator -> Form : Fill required fields (VVN, dock/berth, timings)
+Form -> Component : trigger create/update/complete
+Component -> Component : Validate required fields
+Component -> Component : Normalise dates to ISO
+
+== Server call ==
+Component -> Service : call OEM proxy endpoint
+Service -> Controller : REST /api/oem/vessel-visit-executions
+Controller -> Client : Forward + identity headers
+Client -> Validator : OEM REST call
+
+== OEM validation ==
+Validator -> Validator : Validate state transition (active -> completed)
+Validator -> Validator : Validate dock/berth consistency
+alt Valid
+  Validator -> Audit : Append audit entry (user, reason)
+  Validator --> Client : 200/201 OK VveDto
+else Invalid
+  Validator --> Client : 400 with errors
+end
+
+Client --> Controller : Bubble OEM response
+Controller --> Service : Pass-through JSON
+Service --> Component : Observable result
+Component --> Operator : Show success / error
+
+@enduml

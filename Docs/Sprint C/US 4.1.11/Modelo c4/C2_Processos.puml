@@ -1,0 +1,49 @@
+@startuml C2_Record_Executed_Operations_Process_View
+title C2 – Executed Operations (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "VesselVisitExecutionDetailComponent" as Component
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "OEM Validation Layer" as Validator
+
+== Load context ==
+Operator -> Component : Open VVE detail
+Component -> SpaService : load planned + executed ops
+SpaService -> Controller : GET planned ops
+Controller -> Client : Forward
+Client -> OemApi : GET /vessel-visit-executions/{id}/planned-operations
+OemApi --> Client : 200 OK planned[]
+Client --> Controller : Forward
+Controller --> SpaService : planned[]
+SpaService --> Component : update UI
+
+SpaService -> Controller : GET executed ops
+Controller -> Client : Forward
+Client -> OemApi : GET /vessel-visit-executions/{id}/executed-operations
+OemApi --> Client : 200 OK executed[]
+Client --> Controller : Forward
+Controller --> SpaService : executed[]
+SpaService --> Component : update UI
+
+== Upsert execution ==
+Operator -> Component : Save execution row
+Component -> SpaService : upsertExecutedOperation(vveId, plannedOpId, payload)
+SpaService -> Controller : PUT /api/oem/vessel-visit-executions/{id}/executed-operations/{plannedOpId}
+Controller -> Client : Forward + identity
+Client -> OemApi : PUT /vessel-visit-executions/{id}/executed-operations/{plannedOpId}
+OemApi -> Validator : Validate times/resources
+alt Valid
+  Validator --> OemApi : OK
+  OemApi --> Client : 200 OK ExecutedOperationDto
+else Invalid
+  OemApi --> Client : 400 Bad Request
+end
+Client --> Controller : Forward response
+Controller --> SpaService : JSON
+SpaService --> Component : refresh executed list
+
+@enduml

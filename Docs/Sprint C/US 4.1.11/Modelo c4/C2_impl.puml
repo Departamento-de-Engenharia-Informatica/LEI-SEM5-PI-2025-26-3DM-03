@@ -1,0 +1,53 @@
+@startuml C2_VVE_Executed_Operations_Implementation_View
+title C2 – Record Executed Operations (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Components" {
+    [VesselVisitExecutionDetailComponent]
+  }
+  package "Services" {
+    [OemApiService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [VesselVisitExecutionController]
+  }
+  package "Application" {
+    [ExecutedOperationService]
+  }
+  package "Persistence" {
+    [ExecutedOperationRepository]
+  }
+}
+
+[VesselVisitExecutionDetailComponent] --> [OemApiService]
+[OemApiService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [VesselVisitExecutionController]
+[VesselVisitExecutionController] --> [ExecutedOperationService]
+[ExecutedOperationService] --> [ExecutedOperationRepository]
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml C2_Incident_Types_Process_View
+title C2 – Incident Types (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "IncidentTypesComponent" as Component
+participant "IncidentTypesService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "OEM Validation Layer" as Validator
+
+== Load list ==
+Operator -> Component : Open page / search types
+Component -> SpaService : getIncidentTypes(q?)
+SpaService -> Controller : GET /api/oem/incident-types?q=...
+Controller -> Client : Forward
+Client -> OemApi : GET /incident-types?q=...
+OemApi --> Client : 200 OK types[]
+Client --> Controller : Forward
+Controller --> SpaService : types[]
+SpaService --> Component : update UI
+
+== Create / update ==
+Operator -> Component : Save type
+Component -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/incident-types
+Controller -> Client : Forward + identity
+Client -> OemApi : POST/PATCH /incident-types
+OemApi -> Validator : Validate code/name/parent
+alt Valid
+  OemApi --> Client : 200/201 OK
+else Invalid
+  OemApi --> Client : 400 with errors
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : refresh list
+
+@enduml

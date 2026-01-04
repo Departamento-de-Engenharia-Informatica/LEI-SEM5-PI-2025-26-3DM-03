@@ -1,0 +1,41 @@
+@startuml C1_Complementary_Tasks_Process_View
+title C1 – Complementary Tasks (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Complementary Tasks UI\n(Angular Component)" as UI
+participant "ComplementaryTasksService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open tasks page
+UI -> SpaService : getTasks(filters)
+SpaService -> Controller : GET /api/oem/complementary-tasks?...
+Controller -> Client : Forward
+Client -> OemService : GET /complementary-tasks?...
+OemService --> Client : Task list
+Client --> Controller : 200
+Controller --> SpaService : TaskDto[]
+SpaService --> UI : Render table
+
+Operator -> UI : Create / edit task
+UI -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/complementary-tasks
+Controller -> Client : Forward
+Client -> OemService : POST/PATCH /complementary-tasks
+OemService --> Client : 200/201
+Client --> Controller : Forward
+Controller --> SpaService : TaskDto
+SpaService --> UI : Refresh list
+
+Operator -> UI : Mark task completed
+UI -> SpaService : updateTask(id, { endTime })
+SpaService -> Controller : PATCH /api/oem/complementary-tasks/{id}
+Controller -> Client : Forward
+Client -> OemService : PATCH /complementary-tasks/{id}
+OemService --> Client : 200
+Client --> Controller : Forward
+Controller --> SpaService : TaskDto
+SpaService --> UI : Update status
+
+@enduml

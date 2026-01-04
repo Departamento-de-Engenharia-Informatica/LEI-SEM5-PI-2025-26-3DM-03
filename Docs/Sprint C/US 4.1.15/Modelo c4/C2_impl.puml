@@ -1,0 +1,53 @@
+@startuml C2_Complementary_Tasks_Implementation_View
+title C2 – Complementary Tasks (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Pages" {
+    [ComplementaryTasksComponent]
+  }
+  package "Services" {
+    [ComplementaryTasksService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [ComplementaryTaskController]
+  }
+  package "Application" {
+    [ComplementaryTaskService]
+  }
+  package "Persistence" {
+    [ComplementaryTaskRepository]
+  }
+}
+
+[ComplementaryTasksComponent] --> [ComplementaryTasksService]
+[ComplementaryTasksService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [ComplementaryTaskController]
+[ComplementaryTaskController] --> [ComplementaryTaskService]
+[ComplementaryTaskService] --> [ComplementaryTaskRepository]
+
+@enduml

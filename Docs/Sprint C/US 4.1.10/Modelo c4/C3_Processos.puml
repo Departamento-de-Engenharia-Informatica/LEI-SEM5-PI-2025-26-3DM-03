@@ -1,0 +1,31 @@
+@startuml C3_Manage_VVE_Process_View
+title C3 – Vessel Visit Executions (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "VesselVisitExecutionsHistoryComponent" as Component
+participant "OemApiService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "OEM Validation Layer" as Validator
+
+Operator -> Component : Create/update/complete VVE
+Component -> SpaService : validate & build payload
+SpaService -> Controller : POST/PATCH/POST complete
+Controller -> Client : Forward payload + identity
+Client -> OemApi : OEM REST call
+OemApi -> Validator : Validate state transition & required fields
+alt Valid
+  Validator --> OemApi : OK
+  OemApi --> Client : 200/201 OK VveDto
+else Invalid
+  Validator --> OemApi : Errors
+  OemApi --> Client : 400 Bad Request
+end
+Client --> Controller : Forward response
+Controller --> SpaService : JSON
+SpaService --> Component : update UI
+Component --> Operator : show success / error
+
+@enduml

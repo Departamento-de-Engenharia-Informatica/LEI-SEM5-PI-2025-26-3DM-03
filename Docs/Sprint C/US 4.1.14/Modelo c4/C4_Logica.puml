@@ -1,0 +1,49 @@
+@startuml C4_Complementary_Task_Categories_Logical_Deployment
+title C4 – Complementary Task Categories (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(CT Categories Feature)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Execution Platform" as OEM {
+  artifact "CT Categories API" as OemApi
+  artifact "Operational Store" as Store
+}
+
+Operator --> Spa : HTTPS
+Spa --> Api : GET/POST/PATCH/DELETE /api/oem/complementary-task-categories
+Api --> Oidc : Validate
+Api --> OemApi : Forward
+OemApi --> Store : Persist categories
+
+@enduml
