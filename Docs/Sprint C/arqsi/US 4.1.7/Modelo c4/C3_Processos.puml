@@ -1,0 +1,28 @@
+@startuml C3_Create_Vessel_Visit_Execution_Process_View
+title C3 – Create Vessel Visit Execution (Process View / System Sequence Diagram)
+hide footbox
+
+actor "Logistics Operator" as LogisticsOp
+participant "VVEController\n(API Layer)" as Controller
+participant "VVEService\n(Lógica de Negócio)" as Service
+participant "VVEMapper\n(Conversão DTO ↔ Entidade)" as Mapper
+participant "PortContext\n(Entity Framework Core)" as Context
+database "Database System\n(SQL / InMemory)" as DB
+
+
+LogisticsOp -> Controller : POST /api/VesselVisitExecutions (CreateVVEDTO)
+Controller -> Mapper : Converte DTO para Entidade VesselVisitExecution
+Mapper --> Controller : Retorna Entidade VesselVisitExecution
+Controller -> Service : ValidateVVN(vvnId)
+Service -> Context : Verifica existência de VVN
+Context -> DB : SELECT VesselVisitNotifications WHERE Id = vvnId
+DB --> Context : VVN encontrado
+Context --> Service : VVN válido
+Service -> Service : GenerateVVEIdentifier()\nDefine ActualArrivalTime\nDefine CreatorUserId\nMarca Status = "In Progress"
+Service --> Controller : VVE preparado
+Controller -> Context : Adiciona VesselVisitExecution e chama SaveChanges()
+Context -> DB : INSERT INTO VesselVisitExecutions (...)
+DB --> Context : Confirma inserção
+Controller --> LogisticsOp : HTTP 201 Created (VVEDTO com status "In Progress")
+
+@enduml

@@ -1,0 +1,42 @@
+@startuml C1_Create_Vessel_Visit_Execution_Logical_View
+title C1 – Create Vessel Visit Execution (Logical View)
+
+' === Atores Externos ===
+actor "Logistics Operator" as LogisticsOp
+rectangle "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
+database "Database System\n(SQL / InMemory)" as DB
+
+' === Sistema em Foco ===
+package "Port Logistics Management System (PLMS)" {
+    rectangle "Vessel Visit Execution API\n(ASP.NET Core Web API)" as API
+    rectangle "VVEMapper\n(Conversão DTO ↔ Model)" as Mapper
+    rectangle "PortContext\n(Entity Framework Core)" as Context
+}
+
+' === Relações ===
+LogisticsOp --> IAM : Autentica-se via OAuth 2.0
+LogisticsOp --> API : Create VVE (HTTP/JSON)
+API --> IAM : Validação de token
+API --> Context : Operações de leitura/escrita (EF Core)
+Context --> DB : Persistência de VVE com estado "In Progress"
+
+' === Estilo visual ===
+skinparam rectangle {
+  BackgroundColor<<System>> LightGray
+  BackgroundColor<<Component>> HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  FontColor White
+  BorderColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  FontColor Black
+}
+
+
+
+@enduml

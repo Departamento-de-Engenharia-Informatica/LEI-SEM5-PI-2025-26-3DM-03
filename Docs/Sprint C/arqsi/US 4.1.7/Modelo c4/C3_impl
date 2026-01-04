@@ -1,0 +1,98 @@
+@startuml C3_Create_Vessel_Visit_Execution_Implementation_View
+title C3 – Create Vessel Visit Execution (Implementation / Package & Class View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+
+' ======================
+' Packages conforme ao teu projeto
+' ======================
+
+package "Controllers.VesselVisitExecutions" {
+  class VVEController {
+    + GetAll()
+    + GetById(id)
+    + Post(dto)
+    + GetByStatus(status)
+  }
+}
+
+package "Services.VesselVisitExecutions" {
+  class VVEService {
+    + CreateVVE(createDto, userId) : VesselVisitExecution
+    + ValidateVVN(vvnId) : bool
+    + GenerateVVEIdentifier() : string
+    + GetAvailableVVNs() : List<VVN>
+  }
+}
+
+package "Models.VesselVisitExecutions" {
+  class VesselVisitExecution {
+    + Id : long
+    + VVEIdentifier : string
+    + VVNId : long
+    + VesselIdentifier : string
+    + ActualArrivalTime : DateTime
+    + CreatorUserId : string
+    + Status : string
+    + CreatedAt : DateTime
+  }
+
+  class VVEDTO {
+    + Id : long
+    + VVEIdentifier : string
+    + VVNId : long
+    + VesselIdentifier : string
+    + ActualArrivalTime : DateTime
+    + CreatorUserId : string
+    + Status : string
+  }
+
+  class CreateVVEDTO {
+    + VVNId : long
+    + VesselIdentifier : string
+    + ActualArrivalTime : DateTime
+  }
+
+  class VVEMapper {
+    + ToDTO(model) : VVEDTO
+    + ToModel(dto) : VesselVisitExecution
+    + ToModelFromCreate(dto, userId) : VesselVisitExecution
+  }
+}
+
+package "Data" {
+  class PortContext {
+    + VesselVisitExecutions : DbSet<VesselVisitExecution>
+    + VesselVisitNotifications : DbSet<VVN>
+    + SaveChanges()
+  }
+}
+
+' ======================
+' Relações
+' ======================
+
+VVEController --> VVEMapper : usa para conversões
+VVEController --> VVEService : delega lógica de negócio
+VVEController --> PortContext : acede à base de dados (EF Core)
+VVEService --> VesselVisitExecution : cria e valida entidades
+VVEService --> PortContext : persiste VVE com status "In Progress"
+VVEMapper --> VesselVisitExecution : converte entidades
+VVEMapper --> VVEDTO : converte DTOs
+VVEMapper --> CreateVVEDTO
+PortContext --> VesselVisitExecution : contém DbSet<>
+
+@enduml
