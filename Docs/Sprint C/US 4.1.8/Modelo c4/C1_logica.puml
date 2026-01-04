@@ -1,0 +1,30 @@
+@startuml C1_VVE_Update_Logical
+title C1 – VVE Update (Logical Relationships)
+
+skinparam rectangle {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+rectangle "Logistics Operator" as Operator
+rectangle "VveDetailsComponent" as Ui
+rectangle "TodoApi VveController" as Proxy
+rectangle "OEM Vve API" as OemApi
+rectangle "Vve Repository" as VveRepo
+rectangle "Vvn Repository" as VvnRepo
+rectangle "Audit Log" as Audit
+rectangle "IAM" as Iam
+
+Operator --> Ui : Submit updated berth/dock
+Ui --> Proxy : PATCH /vves/{vveId}
+Proxy --> Iam : Validate token
+Proxy --> OemApi : Forward request
+OemApi --> VveRepo : Update VVE record
+OemApi --> VvnRepo : Fetch planned dock (compare)
+OemApi --> Audit : Append update entry
+VveRepo --> OemApi : Updated VVE
+OemApi --> Proxy : VVE response + warnings
+Proxy --> Ui : JSON DTO
+Ui --> Operator : Confirmation & warning note
+
+@enduml

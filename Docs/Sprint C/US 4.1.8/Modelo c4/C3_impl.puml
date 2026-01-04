@@ -1,0 +1,69 @@
+@startuml C3_VVE_Update_Deployment
+title C3 – VVE Update (Implementation Mapping)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+node "User Device" {
+  artifact "vve-details.module.js" as SpaBundle
+  artifact "sessionStorage" as SessionStorage
+}
+
+node "PLMS Backend Host" {
+  artifact "TodoApi.dll" as TodoApiDll
+  artifact "VveProxyController.cs" as VveProxy
+  artifact "OemClient.cs" as OemClient
+  artifact "IdentityHeaderFactory.cs" as IdentityFactory
+  artifact "EtagValidator.cs" as EtagValidator
+}
+
+node "OEM Platform Cluster" {
+  artifact "oem-api.jar" as OemApiJar
+  artifact "vve.controller.ts" as VveController
+  artifact "vve-update.service.ts" as VveUpdateService
+  artifact "dock-discrepancy-checker.ts" as DiscrepancyChecker
+  artifact "concurrency-guard.ts" as ConcurrencyGuard
+  artifact "vve.repository.ts" as VveRepository
+  artifact "vvn.repository.ts" as VvnRepository
+  artifact "audit.publisher.ts" as AuditPublisher
+  database "vve_store" as VveStore
+  database "vvn_store" as VvnStore
+  database "audit_store" as AuditStore
+}
+
+node "IAM Provider" {
+  artifact "oidc-server" as Oidc
+}
+
+node "Event Bus" {
+  artifact "audit-topic" as AuditTopic
+}
+
+SpaBundle --> VveProxy : REST PATCH
+SessionStorage --> SpaBundle : Cache ETag/version
+VveProxy --> IdentityFactory : Build headers
+VveProxy --> EtagValidator : Check version header
+VveProxy --> OemClient : Send request
+OemClient --> VveController : HTTPS
+VveController --> VveUpdateService : NestJS call
+VveUpdateService --> ConcurrencyGuard : validate version
+VveUpdateService --> DiscrepancyChecker : fetch planned dock
+DiscrepancyChecker --> VvnRepository : Query
+VveUpdateService --> VveRepository : Persist updates
+VveUpdateService --> AuditPublisher : Emit event
+AuditPublisher --> AuditTopic : Publish message
+AuditPublisher --> AuditStore : Append audit record
+Oidc --> SpaBundle : Tokens
+Oidc --> IdentityFactory : JWKS metadata
+
+@enduml

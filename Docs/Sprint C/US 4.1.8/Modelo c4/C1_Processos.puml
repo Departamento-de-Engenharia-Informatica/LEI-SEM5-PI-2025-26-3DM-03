@@ -1,0 +1,17 @@
+@startuml C1_VVE_Update_Process
+title C1 – VVE Update (High-Level Process)
+
+start
+:Operator opens VVE in progress;
+:SPA preloads planned berth/dock details;
+:Operator adjusts actual berth time & dock;
+:SPA validates inputs and sends PATCH to TodoApi;
+:TodoApi verifies identity and forwards to OEM;
+:OEM service updates VVE, compares docks, appends warning if different;
+:OEM logs update timestamp/user and emits audit event;
+:OEM returns updated VVE DTO;
+:TodoApi relays response to SPA;
+:SPA displays confirmation and any warnings;
+stop
+
+@enduml

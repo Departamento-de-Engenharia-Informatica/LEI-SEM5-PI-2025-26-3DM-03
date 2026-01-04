@@ -1,0 +1,46 @@
+@startuml C2_VVE_Update_Process
+title C2 – VVE Update (Detailed Process)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Operator" as Operator
+participant "VveDetailsComponent" as UI
+participant "OemVveService" as FrontService
+participant "VveProxyController" as Proxy
+participant "EtagValidator" as Etag
+participant "OemClient" as Client
+participant "OEM VveController" as OemController
+participant "VveUpdateService" as UpdateService
+participant "ConcurrencyGuard" as Concurrency
+participant "DockDiscrepancyChecker" as Discrepancy
+participant "VvnRepository" as VvnRepo
+participant "VveRepository" as VveRepo
+participant "AuditPublisher" as Audit
+
+Operator -> UI : Submit updated berth/dock
+UI -> FrontService : updateVve(vveId, payload)
+FrontService -> Proxy : PATCH /vves/{vveId}
+Proxy -> Etag : Validate version
+Etag --> Proxy : ok
+Proxy -> Client : Forward request (with JWT)
+Client -> OemController : PATCH /vves/{vveId}
+OemController -> UpdateService : update(vveId, payload, user)
+UpdateService -> Concurrency : ensureLatestVersion
+Concurrency --> UpdateService : pass
+UpdateService -> Discrepancy : compare planned vs actual dock
+Discrepancy -> VvnRepo : fetch planned dock
+VvnRepo --> Discrepancy : dockId
+Discrepancy --> UpdateService : warnings[]
+UpdateService -> VveRepo : persist updates (timestamps, warnings)
+VveRepo --> UpdateService : updated entity
+UpdateService -> Audit : publish VVE_UPDATED
+Audit --> UpdateService : ack
+UpdateService --> OemController : Updated DTO
+OemController --> Client : 200 OK
+Client --> Proxy : 200 OK
+Proxy --> FrontService : DTO
+FrontService --> UI : Observable resolved
+UI --> Operator : Confirmation + warning badge
+
+@enduml
