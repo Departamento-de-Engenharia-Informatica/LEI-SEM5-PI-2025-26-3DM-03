@@ -1,0 +1,58 @@
+@startuml C4_Generate_Operation_Plans_Logical_Deployment
+title C4 - Plan Generation (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(Operation Plans Module)" as Spa
+}
+
+node "OEM API Node" as OemNode {
+  artifact "OperationPlanController" as Controller
+  artifact "OperationPlanService" as PlanService
+  artifact "OEM DB" as Store
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "TodoApi Platform" as TodoApi {
+  artifact "VVN Catalog API" as VvnApi
+}
+
+cloud "Resource Platform" as Resources {
+  artifact "Resources API"
+  artifact "Staff API"
+  artifact "Storage Areas API"
+}
+
+Operator --> Spa : HTTPS (Browser)
+Spa --> Controller : POST preview/generate/missing
+Controller --> Oidc : Validate tokens
+PlanService --> Store : Read/write plans + tasks
+PlanService --> VvnApi : Fetch approved VVNs
+PlanService --> Resources : Fetch resources/staff/storage
+Spa --> Resources : Fetch metadata for UI
+
+@enduml

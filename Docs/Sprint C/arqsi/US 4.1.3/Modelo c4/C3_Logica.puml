@@ -1,0 +1,45 @@
+@startuml C3_Search_Operation_Plans_Logical_View
+title C3 – Operation Plan Search (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+rectangle "Presentation Layer" as Presentation {
+  rectangle "Angular Component" as Component
+  rectangle "Filter Form" as FilterForm
+  rectangle "Plan Table" as PlanTable
+}
+
+rectangle "Application Layer" as Application {
+  rectangle "PlanSearchFacade" as Facade
+  rectangle "Sorting Service" as Sorting
+  rectangle "Pagination Service" as Pagination
+}
+
+rectangle "Integration Layer" as Integration {
+  rectangle "OemApiService" as ApiService
+  rectangle "HttpClient" as Http
+}
+
+rectangle "Backend Layer" as Backend {
+  rectangle "TodoApi Proxy" as Proxy
+  rectangle "OEM Query API" as OemApi
+}
+
+Component --> FilterForm
+Component --> PlanTable
+Component --> Facade
+Facade --> Sorting
+Facade --> Pagination
+Facade --> ApiService
+ApiService --> Http
+Http --> Proxy
+Proxy --> OemApi
+
+@enduml

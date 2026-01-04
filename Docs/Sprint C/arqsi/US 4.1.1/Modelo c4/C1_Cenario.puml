@@ -1,0 +1,42 @@
+@startuml C1_OEM_Service_Scenario_View
+title C1 – OEM Independent Service (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Project Manager" as PM
+actor "TodoApi Gateway" as Gateway
+actor "Frontoffice SPA" as SPA
+
+rectangle "OEM Service" as OEM {
+  usecase "Expose REST API" as UC_Rest
+  usecase "Enforce IAM Policies" as UC_Security
+  usecase "Manage Operation Plans" as UC_Plans
+  usecase "Manage Executions" as UC_Executions
+  usecase "Publish OpenAPI" as UC_Docs
+}
+
+PM --> UC_Rest
+PM --> UC_Security
+PM --> UC_Docs
+SPA --> UC_Plans
+SPA --> UC_Executions
+Gateway --> UC_Plans
+Gateway --> UC_Executions
+
+note right of UC_Rest
+  Service must be deployable and
+  evolve independently from other modules.
+end note
+
+note right of UC_Docs
+  OpenAPI/Swagger available for
+  internal and external consumers.
+end note
+
+@enduml

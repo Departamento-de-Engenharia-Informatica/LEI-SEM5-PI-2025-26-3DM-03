@@ -1,0 +1,35 @@
+@startuml C4_Create_Vessel_Visit_Execution_Process_View
+title C4 – Create Vessel Visit Execution (Process View)
+hide footbox
+
+actor "Logistics Operator" as LogisticsOp
+participant "Frontend Web App\n(React / Angular)" as Frontend
+participant "Vessel Visit Execution API\n(ASP.NET Core)" as API
+participant "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+database "PLMS Database\n(SQL / InMemory)" as DB
+
+== Autenticação ==
+LogisticsOp -> Frontend : Inicia sessão (credenciais)
+Frontend -> IAM : Solicita Token OAuth 2.0
+IAM --> Frontend : Retorna Access Token (JWT)
+
+== Criação de Vessel Visit Execution ==
+LogisticsOp -> Frontend : Submete formulário (VVN selecionado, dados do VVE)
+Frontend -> API : POST /api/VesselVisitExecutions (JSON + Bearer Token)
+API -> IAM : Valida token JWT
+IAM --> API : Token válido
+
+== Validação e Preparação ==
+API -> DB : Valida VVN existente
+DB --> API : VVN encontrado (OK)
+API -> API : Gera identificador VVE\nRegistra arrival time\nDefine creator user ID\nMarca status = "In Progress"
+
+== Persistência ==
+API -> DB : INSERT INTO VesselVisitExecutions (...)
+DB --> API : Confirmação (OK)
+
+== Resposta ==
+API --> Frontend : HTTP 201 Created (VVEDTO com status "In Progress")
+Frontend --> LogisticsOp : Mostra confirmação (VVE criado e In Progress)
+
+@enduml

@@ -1,0 +1,40 @@
+@startuml C4_Complementary_Task_Categories_Detailed_Process
+title C4 – Complementary Task Categories (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "ComplementaryTaskCategoriesComponent" as Component
+participant "ComplementaryTaskCategoriesService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Operational Store" as Store
+
+== Client-side validation ==
+Operator -> Form : Fill code + name
+Form -> Component : trigger save()
+Component -> Component : Validate required fields
+Component -> Component : Validate code regex
+
+== Server call ==
+Component -> Service : create/update category
+Service -> Controller : POST/PATCH /api/oem/complementary-task-categories
+Controller -> Client : Forward + identity
+Client -> Validator : OEM call
+
+== OEM validation & persistence ==
+Validator -> Validator : Validate uniqueness
+alt Valid
+  Validator -> Store : Persist category
+  Validator --> Client : 200/201
+else Invalid
+  Validator --> Client : 400
+end
+
+Client --> Controller : Response
+Controller --> Service : JSON
+Service --> Component : Observable
+Component --> Operator : Success / error
+
+@enduml

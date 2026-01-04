@@ -1,0 +1,49 @@
+@startuml C3_Update_Operation_Plans_Logical_View
+title C3 – Operation Plan Update (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Angular SPA" as SPA {
+  rectangle "Operation Plans Feature" as Feature
+  rectangle "Shared Services" as Shared
+}
+
+rectangle "TodoApi Gateway" as Api {
+  rectangle "OemProxyController" as Controller
+  rectangle "OemClient" as Client
+  rectangle "Identity Middleware" as Identity
+}
+
+cloud "OEM Operation Planning Service" as OEM
+cloud "Resource & Staff Catalogs" as Catalogs
+
+Operator --> Feature : UI interactions (HTTPS)
+Feature --> Shared : fetch reference data
+Feature --> Controller : REST requests
+Controller --> Identity : verify authorisation
+Controller --> Client : compose OEM HTTP calls
+Client --> OEM : Fetch/update plans
+Shared --> Catalogs : HTTP GET dropdown data
+OEM --> Controller : plan data + warnings
+Controller --> Feature : JSON payloads
+
+@enduml

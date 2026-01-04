@@ -1,0 +1,53 @@
+@startuml C2_Incident_Types_Implementation_View
+title C2 – Incident Types (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Pages" {
+    [IncidentTypesComponent]
+  }
+  package "Services" {
+    [IncidentTypesService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [IncidentTypeController]
+  }
+  package "Application" {
+    [IncidentTypeService]
+  }
+  package "Persistence" {
+    [IncidentTypeRepository]
+  }
+}
+
+[IncidentTypesComponent] --> [IncidentTypesService]
+[IncidentTypesService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [IncidentTypeController]
+[IncidentTypeController] --> [IncidentTypeService]
+[IncidentTypeService] --> [IncidentTypeRepository]
+
+@enduml

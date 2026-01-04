@@ -1,0 +1,28 @@
+@startuml C1_Create_Vessel_Visit_Execution_Process_View
+title C1 – Create Vessel Visit Execution (Process View)
+
+actor "Logistics Operator" as LogisticsOp
+participant "VVEController\n(API Layer)" as Controller
+participant "VVEMapper\n(Data Mapper)" as Mapper
+participant "VVEService\n(Domain Logic)" as Service
+participant "PortContext\n(EF Core)" as Context
+database "Database\n(SQL / InMemory)" as DB
+
+
+LogisticsOp -> Controller : POST /api/VesselVisitExecutions\n(CreateVVEDTO with VVN reference)
+Controller -> Mapper : Converte DTO → Entidade de Domínio
+Mapper --> Controller : Retorna objeto VesselVisitExecution
+
+Controller -> Service : Valida VVN existente e cria VVE
+Service -> Service : Gera identificador VVE\nDefine arrival time\nDefine creator user ID\nMarca como "In Progress"
+Service --> Controller : VVE criado e validado
+
+Controller -> Context : Adiciona entidade VesselVisitExecution
+Context -> DB : Persiste dados (SaveChanges)
+DB --> Context : Confirma inserção
+Context --> Controller : OK
+
+Controller --> LogisticsOp : HTTP 201 Created\n(VVEDTO com status "In Progress")
+
+
+@enduml

@@ -1,0 +1,53 @@
+@startuml C4_Create_Vessel_Visit_Execution_Implementation_View
+title C4 – Create Vessel Visit Execution (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Estrutura do domínio VesselVisitExecutions
+' ======================
+
+package "Controllers.VesselVisitExecutions" {
+  [VVEController]
+}
+
+package "Services.VesselVisitExecutions" {
+  [VVEService]
+}
+
+package "Models.VesselVisitExecutions" {
+  [VesselVisitExecution]
+  [VVEDTO]
+  [CreateVVEDTO]
+  [VVEMapper]
+}
+
+package "Data" {
+  [PortContext]
+}
+
+' ======================
+' Relações
+' ======================
+
+[VVEController] --> [VVEMapper] : usa para conversões
+[VVEController] --> [VVEService] : delega lógica de negócio
+[VVEController] --> [PortContext] : acede à BD (EF Core)
+[VVEService] --> [VesselVisitExecution] : cria e valida entidades
+[VVEService] --> [PortContext] : persiste VVE com status "In Progress"
+[VVEMapper] --> [VesselVisitExecution] : converte entidades
+[VVEMapper] --> [VVEDTO]
+[VVEMapper] --> [CreateVVEDTO]
+[PortContext] --> [VesselVisitExecution] : contém DbSet<>
+
+@enduml

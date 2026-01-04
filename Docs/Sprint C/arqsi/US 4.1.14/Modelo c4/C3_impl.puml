@@ -1,0 +1,75 @@
+@startuml C3_Complementary_Task_Categories_Component_View
+title C3 – Complementary Task Categories (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class ComplementaryTaskCategoriesComponent {
+    +loadCategories()
+    +search(q)
+    +createCategory()
+    +updateCategory(id)
+    +deleteCategory(id)
+  }
+  class CategoryEditorForm
+  class CategoriesTable
+}
+
+package "Frontend Services" {
+  class ComplementaryTaskCategoriesService {
+    +getAll(q?)
+    +create(payload)
+    +update(id,payload)
+    +delete(id)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetComplementaryTaskCategories(...)
+    +CreateComplementaryTaskCategory(...)
+    +UpdateComplementaryTaskCategory(...)
+    +DeleteComplementaryTaskCategory(...)
+  }
+  class OemClient {
+    +GetComplementaryTaskCategoriesAsync(...)
+    +CreateComplementaryTaskCategoryAsync(...)
+    +UpdateComplementaryTaskCategoryAsync(...)
+    +DeleteComplementaryTaskCategoryAsync(...)
+  }
+}
+
+package "OEM API" {
+  class ComplementaryTaskCategoryController {
+    +findAll(q)
+    +create(dto)
+    +update(id,dto)
+    +remove(id)
+  }
+  class ComplementaryTaskCategoryService
+  class ComplementaryTaskCategoryRepository
+}
+
+ComplementaryTaskCategoriesComponent --> CategoryEditorForm
+ComplementaryTaskCategoriesComponent --> CategoriesTable
+ComplementaryTaskCategoriesComponent --> ComplementaryTaskCategoriesService
+ComplementaryTaskCategoriesService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> ComplementaryTaskCategoryController
+ComplementaryTaskCategoryController --> ComplementaryTaskCategoryService
+ComplementaryTaskCategoryService --> ComplementaryTaskCategoryRepository
+
+@enduml

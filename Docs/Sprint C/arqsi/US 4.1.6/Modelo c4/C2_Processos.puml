@@ -1,0 +1,33 @@
+@startuml C2_Resource_Usage_Process
+title C2 – Resource Usage (Detailed Process)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Operator" as Operator
+participant "ResourceUtilizationComponent" as UI
+participant "TodoApi ResourceUsageController" as Proxy
+participant "OemClient" as Client
+participant "OEM ResourceUsageController" as OemController
+participant "ResourceUsageService" as UsageService
+participant "ResourceUsageQueryBuilder" as QueryBuilder
+participant "OperationPlanRepository" as PlanRepo
+participant "AllocationAggregator" as Aggregator
+
+Operator -> UI : Adjust filters
+UI -> Proxy : GET /resource-usage
+Proxy -> Client : Build request with JWT
+Client -> OemController : GET /resource-usage
+OemController -> UsageService : retrieveUsage(query)
+UsageService -> QueryBuilder : build criteria (status=Saved)
+QueryBuilder -> PlanRepo : query plans
+PlanRepo --> QueryBuilder : plan tasks
+UsageService -> Aggregator : aggregate totals
+Aggregator --> UsageService : summary + warnings
+UsageService --> OemController : ResourceUsageSummaryDto
+OemController --> Client : 200 OK
+Client --> Proxy : 200 OK
+Proxy --> UI : summary JSON
+UI --> Operator : Update table
+
+@enduml

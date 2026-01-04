@@ -1,0 +1,46 @@
+@startuml Mapping_C2_to_C3_Create_Vessel_Visit_Execution
+title Mapeamento entre C2 (Lógica) e C3 (Implementação) – Create Vessel Visit Execution
+left to right direction
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "C2 – Logical View" {
+  [Vessel Visit Execution API]
+  [VVEService (Business Logic)]
+  [PLMS Database]
+  [External IAM Provider]
+}
+
+package "C3 – Implementation View" {
+  [VVEController]
+  [VVEService]
+  [VVEMapper]
+  [PortContext]
+  [VesselVisitExecution]
+  [VVEDTO]
+  [CreateVVEDTO]
+  [Entity Framework Core]
+  [ASP.NET Auth Middleware]
+}
+
+' Mapeamento de correspondência'
+[Vessel Visit Execution API] --> [VVEController]
+[Vessel Visit Execution API] --> [VVEMapper]
+[Vessel Visit Execution API] --> [PortContext]
+[Vessel Visit Execution API] --> [VesselVisitExecution]
+[Vessel Visit Execution API] --> [CreateVVEDTO]
+[Vessel Visit Execution API] --> [VVEDTO]
+
+[VVEService (Business Logic)] --> [VVEService]
+[VVEService] --> [PortContext]
+
+[PLMS Database] --> [Entity Framework Core]
+[PLMS Database] --> [PortContext]
+[External IAM Provider] --> [ASP.NET Auth Middleware]
+
+@enduml

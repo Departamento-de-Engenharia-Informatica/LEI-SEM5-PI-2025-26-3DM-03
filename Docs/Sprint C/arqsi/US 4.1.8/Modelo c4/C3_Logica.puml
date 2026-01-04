@@ -1,0 +1,67 @@
+@startuml C3_VVE_Update_Logical_View
+title C3 – VVE Update (Logical Components)
+left to right direction
+
+package "Client Tier" {
+  component "VveDetailsComponent" as UiComponent
+  component "VveStore" as UiStore
+  component "DockDiscrepancyBanner" as WarningBanner
+  component "OemVveService" as UiService
+}
+
+package "Backend Tier" {
+  component "VveProxyController" as ApiController
+  component "VveUpdateAdapter" as AppAdapter
+  component "OemClient" as ProxyClient
+  component "JwtAuthentication" as JwtAuth
+  component "EtagValidator" as EtagValidator
+}
+
+package "OEM Domain Tier" {
+  component "VveController" as DomainController
+  component "VveUpdateService" as DomainService
+  component "ConcurrencyGuard" as ConcurrencyGuard
+  component "DockDiscrepancyChecker" as DiscrepancyChecker
+  component "VveRepository" as VveRepo
+  component "VvnRepository" as VvnRepo
+  component "AuditPublisher" as AuditPublisher
+  component "WarningBuilder" as WarningBuilder
+}
+
+package "Infrastructure" {
+  database "VVE Store" as VveDb
+  database "VVN Store" as VvnDb
+  database "Audit Store" as AuditDb
+  component "Audit Topic" as AuditTopic
+}
+
+UiComponent --> UiStore : Sync state
+UiComponent --> WarningBanner : Show warnings
+UiComponent --> UiService : Submit updates
+UiService --> ApiController : REST / JSON
+ApiController --> JwtAuth : Validate token
+ApiController --> EtagValidator : Check version header
+ApiController --> AppAdapter : Build OEM request
+AppAdapter --> ProxyClient : Forward PATCH
+ProxyClient --> DomainController : HTTP call
+DomainController --> DomainService : updateVve
+DomainService --> ConcurrencyGuard : ensure version
+ConcurrencyGuard --> VveRepo : Load VVE
+DomainService --> DiscrepancyChecker : compare docks
+DiscrepancyChecker --> VvnRepo : Fetch planned dock
+DomainService --> WarningBuilder : create warnings
+WarningBuilder --> DomainService : warnings[]
+DomainService --> VveRepo : Persist updates + timestamps
+VveRepo --> VveDb
+DomainService --> AuditPublisher : Publish audit log
+AuditPublisher --> AuditTopic
+AuditPublisher --> AuditDb
+DomainService --> DomainController : Updated DTO
+DomainController --> ProxyClient : Response
+ProxyClient --> AppAdapter : Response
+AppAdapter --> ApiController : DTO
+ApiController --> UiService : JSON
+UiService --> UiComponent : Update state
+UiService --> UiStore : Update cache
+
+@enduml

@@ -1,0 +1,32 @@
+@startuml C2_VVE_Update_Logical
+title C2 – VVE Update (Logical Containers)
+left to right direction
+
+node "Client Browser" as Browser {
+  component "PLMS SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  component "TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Oem {
+  component "Vve API" as VveApi
+  database "VVE Store" as VveStore
+  database "VVN Store" as VvnStore
+  component "Audit Producer" as AuditProducer
+}
+
+node "IAM" as Iam
+
+Spa --> TodoApi : HTTPS PATCH /vves/{id}
+TodoApi --> Iam : Token validation
+TodoApi --> VveApi : Forward update
+VveApi --> VveStore : Update VVE + timestamps
+VveApi --> VvnStore : Fetch planned dock
+VveApi --> AuditProducer : Publish VVE_UPDATED
+VveApi --> TodoApi : Updated VVE + warnings
+TodoApi --> Spa : JSON response
+Spa --> Browser : Refresh UI state
+
+@enduml

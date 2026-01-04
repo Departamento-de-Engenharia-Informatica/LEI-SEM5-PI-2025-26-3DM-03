@@ -1,0 +1,19 @@
+@startuml C3_Search_Operation_Plans_Process_View
+title C3 – Operation Plan Search (Client Sorting Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "OemOperationPlansComponent" as Component
+participant "Sorting Service" as Sorting
+participant "Pagination Service" as Pagination
+participant "Plans Table" as Table
+
+Operator -> Component : Click column header (Start Time)
+Component -> Sorting : changeSort('plannedStartTime')
+Sorting -> Sorting : toggle direction
+Sorting --> Component : sort key + dir
+Component -> Pagination : reset to page 1
+Component -> Table : render sorted rows
+Table --> Operator : Display ordered results
+
+@enduml

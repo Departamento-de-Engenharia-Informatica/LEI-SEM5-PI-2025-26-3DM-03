@@ -1,0 +1,47 @@
+@startuml C3_Record_Executed_Operations_Physical_View
+title C3 – Executed Operations (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device\n(Browser / Laptop)" as Client {
+  artifact "Angular SPA\n(VVE Detail Screen)" as Frontend
+}
+
+node "PLMS Application Server\n(Docker / .NET 8)" as AppServer {
+  artifact "TodoApi\n(OEM Proxy)" as ApiHost
+}
+
+node "OEM Platform\n(Kubernetes Cluster)" as OemInfra {
+  artifact "OEM Execution API" as OemApi
+  database "OEM Operational Store" as OemDb
+}
+
+node "Identity Provider" as Identity {
+  artifact "OAuth 2.0 / OIDC" as Idp
+}
+
+Operator --> Frontend : HTTPS (Browser)
+Frontend --> ApiHost : REST calls (HTTPS)
+ApiHost --> OemApi : HTTPS (proxied)
+OemApi --> OemDb : Persist executed ops
+ApiHost --> Identity : Token / cookie validation
+Frontend --> Identity : Interactive login
+
+@enduml

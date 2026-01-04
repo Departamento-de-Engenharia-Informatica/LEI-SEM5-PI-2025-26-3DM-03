@@ -1,0 +1,44 @@
+@startuml C4_Generate_Operation_Plans_Process_View
+title C4 - Plan Generation (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as Service
+participant "OperationPlanController" as Controller
+participant "OperationPlanService" as PlanService
+participant "OemVvnService" as VvnService
+participant "ExternalClientsService" as ExternalClients
+database "OEM DB" as Repository
+
+== Client-side preparation ==
+Operator -> Form : Pick date & algorithm
+Form -> Component : submit preview request
+Component -> Component : validate date & algorithm
+
+== Preview run ==
+Component -> Service : previewOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/preview
+Controller -> PlanService : generatePreviewForDay(...)
+PlanService -> VvnService : getApprovedForDay(date)
+PlanService -> ExternalClients : load resources/staff/storage
+PlanService --> Controller : OperationPlanPreviewDto[]
+Controller --> Service : 200 OK
+Service --> Component : render preview grid
+Component --> Operator : show operations per VVN
+
+== Persist ==
+Operator -> Form : Confirm save
+Form -> Component : trigger onPersist()
+Component -> Component : ensure preview exists, gather selected VVNs
+Component -> Service : generateOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/generate
+Controller -> PlanService : generateAndPersistForDay(...)
+PlanService -> Repository : store plans with metadata + tasks
+PlanService --> Controller : OperationPlanEntity[]
+Controller --> Service : 200 OK
+Service --> Component : update saved list
+Component --> Operator : toast success + metadata summary
+
+@enduml

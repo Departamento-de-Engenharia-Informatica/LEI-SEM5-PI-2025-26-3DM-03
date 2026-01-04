@@ -1,0 +1,75 @@
+@startuml C2_VVE_Update_Implementation
+title C2 – VVE Update (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "Frontend" {
+  package "Components" {
+    [VveDetailsComponent]
+    [DockDiscrepancyBanner]
+  }
+  package "Services" {
+    [OemVveService]
+    [VvnLookupService]
+    [ToastService]
+  }
+  package "State" {
+    [VveStore]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [VveProxyController]
+  }
+  package "Services" {
+    [OemClient]
+    [IdentityHeaderFactory]
+    [EtagValidator]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [VveController]
+  }
+  package "Application" {
+    [VveUpdateService]
+    [DockDiscrepancyChecker]
+    [ConcurrencyGuard]
+  }
+  package "Domain" {
+    [VveAggregate]
+  }
+  package "Persistence" {
+    [VveRepository]
+    [VvnRepository]
+  }
+  package "Integration" {
+    [AuditPublisher]
+  }
+}
+
+[VveDetailsComponent] --> [DockDiscrepancyBanner]
+[VveDetailsComponent] --> [OemVveService]
+[VveDetailsComponent] --> [VveStore]
+[OemVveService] --> [VveProxyController]
+[VveProxyController] --> [EtagValidator]
+[VveProxyController] --> [IdentityHeaderFactory]
+[VveProxyController] --> [OemClient]
+[OemClient] --> [VveController]
+[VveController] --> [VveUpdateService]
+[VveUpdateService] --> [ConcurrencyGuard]
+[VveUpdateService] --> [DockDiscrepancyChecker]
+[VveUpdateService] --> [VveRepository]
+[VveUpdateService] --> [AuditPublisher]
+[DockDiscrepancyChecker] --> [VvnRepository]
+
+@enduml

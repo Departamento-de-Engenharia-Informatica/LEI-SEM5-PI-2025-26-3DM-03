@@ -1,0 +1,36 @@
+@startuml C3_Missing_Plans_Process_View
+title C3 – Missing Operation Plans (Process Flow)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Logistics Operator" as Operator
+participant "MissingPlansComponent" as UI
+participant "TodoApi Proxy" as Proxy
+participant "OEM API" as OemApi
+participant "MissingPlanService" as MissingSvc
+participant "RegenerationJob" as RegenJob
+Database "VVN DB" as VvnDb
+Database "Planning DB" as PlanningDb
+participant "AuditPublisher" as Audit
+
+Operator -> UI : Request missing plans
+UI -> Proxy : GET /oem/missing-plans
+Proxy -> OemApi : Forward request with JWT
+OemApi -> MissingSvc : ListMissingPlans()
+MissingSvc -> VvnDb : Query VVNs without plan
+MissingSvc --> OemApi : MissingPlanDTO[]
+OemApi --> Proxy : 200 + payload
+Proxy --> UI : 200 + payload
+
+Operator -> UI : Trigger regenerate
+UI -> Proxy : POST /oem/missing-plans/{vvn}/regenerate
+Proxy -> OemApi : Forward regenerate command
+OemApi -> RegenJob : EnqueueRegeneration
+RegenJob -> PlanningDb : Generate & persist plan
+RegenJob -> Audit : Publish Regenerated event
+Audit -> PlanningDb : Store audit trail
+Audit --> Proxy : Webhook (optional)
+Proxy --> UI : 202 Accepted (with warning)
+
+@enduml

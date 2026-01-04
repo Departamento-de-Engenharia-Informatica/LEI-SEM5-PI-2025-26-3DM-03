@@ -1,0 +1,55 @@
+@startuml C2_VVE_Management_Implementation_View
+title C2 – Vessel Visit Executions (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Components" {
+    [VesselVisitExecutionsHistoryComponent]
+  }
+  package "Services" {
+    [OemApiService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [VesselVisitExecutionController]
+  }
+  package "Application" {
+    [VesselVisitExecutionService]
+    [AuditTrailService]
+  }
+  package "Persistence" {
+    [VesselVisitExecutionRepository]
+  }
+}
+
+[VesselVisitExecutionsHistoryComponent] --> [OemApiService]
+[OemApiService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [VesselVisitExecutionController]
+[VesselVisitExecutionController] --> [VesselVisitExecutionService]
+[VesselVisitExecutionController] --> [AuditTrailService]
+[VesselVisitExecutionService] --> [VesselVisitExecutionRepository]
+
+@enduml

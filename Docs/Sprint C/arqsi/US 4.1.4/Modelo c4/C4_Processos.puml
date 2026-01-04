@@ -1,0 +1,42 @@
+@startuml C4_Update_Operation_Plans_Process_View
+title C4 – Operation Plan Update (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Audit Trail" as Audit
+
+== Client-side validation ==
+Operator -> Form : Fill status, dock, tasks, reason
+Form -> Component : trigger onSaveEdit()
+Component -> Component : Ensure reason/status present
+Component -> Component : Normalise task times to ISO
+
+== Server call ==
+Component -> Service : updateOperationPlan(id, payload)
+Service -> Controller : PATCH /api/oem/operation-plans/{id}
+Controller -> Client : Forward payload + identity headers
+Client -> Validator : PATCH /oem/operation-plans/{id}
+
+== OEM validation ==
+Validator -> Validator : Validate timings, resource availability
+Validator -> Validator : Detect conflicts with other VVNs
+alt Conflicts detected
+  Validator --> Client : HTTP 200 { plan, warnings[], logEntry }
+else Validation error
+  Validator --> Client : HTTP 400 with errors
+end
+
+== Audit & response ==
+Validator -> Audit : Append change log entry with reason & user
+Client --> Controller : Bubble OEM response
+Controller --> Service : Pass-through JSON
+Service --> Component : Observable result
+Component --> Operator : Show success, warnings, updated history
+
+@enduml

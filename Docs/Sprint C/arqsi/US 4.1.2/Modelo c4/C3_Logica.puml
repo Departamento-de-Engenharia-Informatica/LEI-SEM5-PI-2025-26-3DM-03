@@ -1,0 +1,56 @@
+@startuml C3_Generate_Operation_Plans_Logical_View
+title C3 - Plan Generation (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Angular SPA" as SPA {
+  rectangle "Operation Plans Feature" as Feature
+  rectangle "Shared Utilities" as Shared
+}
+
+rectangle "OEM API (NestJS)" as Api {
+  rectangle "OperationPlanController" as Controller
+  rectangle "OperationPlanService" as PlanService
+  rectangle "MissingOperationPlansService" as MissingService
+  rectangle "OemVvnService" as VvnService
+  rectangle "ExternalClientsService" as ExternalClients
+  database "OEM Database" as Db
+}
+
+cloud "Identity Provider" as IAM
+cloud "VVN Catalog API" as VvnCatalog
+cloud "Resource Catalog APIs" as ResourceCatalogs
+
+Operator --> Feature : UI interactions (HTTPS)
+Feature --> Shared : gather VVN/resource data
+Feature --> Controller : preview/generate/missing
+Controller --> IAM : enforce authorisation
+Controller --> PlanService : plan generation logic
+Controller --> MissingService : missing plan flows
+PlanService --> VvnService : load approved VVNs
+PlanService --> ExternalClients : load resources/staff/storage
+PlanService --> Db : persist plans + tasks
+VvnService --> VvnCatalog : fetch approved VVNs
+ExternalClients --> ResourceCatalogs : fetch resources
+Controller --> Feature : JSON responses
+
+@enduml

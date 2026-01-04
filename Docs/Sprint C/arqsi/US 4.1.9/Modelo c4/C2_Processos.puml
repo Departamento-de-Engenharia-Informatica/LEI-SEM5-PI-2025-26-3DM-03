@@ -1,0 +1,48 @@
+@startuml C2_VVE_Execution_Process
+title C2 – VVE Execution (Detailed Process)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Operator" as Operator
+participant "VveOperationsComponent" as UI
+participant "OemVveService" as FrontService
+participant "VveOperationsProxyController" as Proxy
+participant "BulkResponseMapper" as BulkMapper
+participant "OemClient" as Client
+participant "OEM VveOperationsController" as OemController
+participant "VveExecutionService" as ExecService
+participant "ExecutionValidationService" as Validation
+participant "ConcurrencyGuard" as Concurrency
+participant "PlannedOperationRepository" as PlannedRepo
+participant "ExecutedOperationRepository" as ExecutedRepo
+participant "OperationPlanSyncService" as SyncService
+participant "PlanSyncPublisher" as SyncPublisher
+participant "AuditPublisher" as Audit
+
+Operator -> UI : Select operations & submit
+UI -> FrontService : updateOperations(payload)
+FrontService -> Proxy : PATCH /vves/{id}/operations
+Proxy -> BulkMapper : Normalise payload
+Proxy -> Client : Forward request with JWT
+Client -> OemController : PATCH /vves/{id}/operations
+OemController -> ExecService : processUpdates
+ExecService -> Validation : validate operations
+Validation --> ExecService : ok
+ExecService -> Concurrency : ensureVersions
+Concurrency --> ExecService : versions ok
+ExecService -> PlannedRepo : load planned data
+PlannedRepo --> ExecService : planned ops
+ExecService -> ExecutedRepo : persist executions
+ExecutedRepo --> ExecService : updated ops
+ExecService -> SyncService : syncPlanStatuses
+SyncService -> SyncPublisher : emit status updates
+ExecService -> Audit : publish execution events
+ExecService --> OemController : results + warnings
+OemController --> Client : 207 Multi-Status (example)
+Client --> Proxy : response
+Proxy --> FrontService : mapped response
+FrontService --> UI : Update store / warnings
+UI --> Operator : Show progress + variances
+
+@enduml

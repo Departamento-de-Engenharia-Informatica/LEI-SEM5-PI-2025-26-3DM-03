@@ -1,0 +1,40 @@
+@startuml C1_Record_Executed_Operations_Process_View
+title C1 – Record Executed Operations (Process View)
+
+actor "Logistics Operator" as Operator
+participant "VVE Detail UI\n(Angular Component)" as UI
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open VVE detail
+UI -> SpaService : getPlannedOperations(vveId)
+SpaService -> Controller : GET /api/oem/vessel-visit-executions/{id}/planned-operations
+Controller -> Client : Forward GET
+Client -> OemService : GET /vessel-visit-executions/{id}/planned-operations
+OemService --> Client : Planned ops
+Client --> Controller : 200
+Controller --> SpaService : PlannedOperationDto[]
+SpaService --> UI : Render planned operations
+
+UI -> SpaService : getExecutedOperations(vveId)
+SpaService -> Controller : GET /api/oem/vessel-visit-executions/{id}/executed-operations
+Controller -> Client : Forward GET
+Client -> OemService : GET /vessel-visit-executions/{id}/executed-operations
+OemService --> Client : Executed ops
+Client --> Controller : 200
+Controller --> SpaService : ExecutedOperationDto[]
+SpaService --> UI : Render executed operations
+
+Operator -> UI : Edit execution row + save
+UI -> SpaService : upsertExecutedOperation(vveId, plannedOpId, payload)
+SpaService -> Controller : PUT /api/oem/vessel-visit-executions/{id}/executed-operations/{plannedOpId}
+Controller -> Client : Forward PUT
+Client -> OemService : PUT /vessel-visit-executions/{id}/executed-operations/{plannedOpId}
+OemService --> Client : Upserted entry
+Client --> Controller : 200
+Controller --> SpaService : ExecutedOperationDto
+SpaService --> UI : Refresh executed operations
+
+@enduml

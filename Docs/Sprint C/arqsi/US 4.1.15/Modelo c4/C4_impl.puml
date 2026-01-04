@@ -1,0 +1,66 @@
+@startuml C4_Complementary_Tasks_Implementation_View
+title C4 – Complementary Tasks (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/pages" {
+  class ComplementaryTasksComponent {
+    -tasks: any[]
+    +loadTasks(): void
+    +saveTask(): void
+    +deleteTask(id: string|number): void
+  }
+}
+
+package "frontend/src/app/services/complementary-tasks" {
+  class ComplementaryTasksService {
+    +getTasks(filters?: any): any
+    +createTask(payload: any): any
+    +updateTask(id: number, payload: any): any
+    +deleteTask(id: number): any
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetComplementaryTasks(...)
+    +CreateComplementaryTask(...)
+    +UpdateComplementaryTask(...)
+    +DeleteComplementaryTask(...)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetComplementaryTasksAsync(...)
+    +CreateComplementaryTaskAsync(...)
+    +UpdateComplementaryTaskAsync(...)
+    +DeleteComplementaryTaskAsync(...)
+  }
+}
+
+package "oem-api/src/oem/controllers" {
+  class ComplementaryTaskController {
+    +findAll(...)
+    +create(dto: any)
+    +update(id: string, dto: any)
+    +remove(id: string)
+  }
+}
+
+ComplementaryTasksComponent --> ComplementaryTasksService
+ComplementaryTasksService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> ComplementaryTaskController
+
+@enduml

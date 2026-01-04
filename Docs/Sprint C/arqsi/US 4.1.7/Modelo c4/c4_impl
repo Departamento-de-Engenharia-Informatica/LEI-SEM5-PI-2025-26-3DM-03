@@ -1,0 +1,64 @@
+@startuml C4_Create_Vessel_Visit_Execution_Physical_View
+title C4 – Create Vessel Visit Execution (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+' ======================
+' INFRAESTRUTURA (FÍSICA)
+' ======================
+
+actor "Logistics Operator" as LogisticsOp
+
+node "User Device\n(Laptop / Browser)" as Client {
+  artifact "Frontend Web App\n(React / Angular)" as Frontend
+}
+
+node "Application Server\n(Docker Container / IIS)" as AppServer {
+  artifact "Vessel Visit Execution API.dll\n(ASP.NET Core 8.0)" as API
+  artifact "Controllers.VesselVisitExecutions.dll"
+  artifact "Services.VesselVisitExecutions.dll"
+  artifact "Models.VesselVisitExecutions.dll"
+  artifact "Data.dll"
+}
+
+node "Database Server\n(SQL Server / InMemoryDB)" as DBServer {
+  database "PLMS Database\n(VesselVisitExecutions, VVNs)" as Database
+}
+
+cloud "External IAM Provider\n(OAuth 2.0 / OIDC)" as IAM
+
+' ======================
+' RELAÇÕES (FÍSICAS)
+' ======================
+
+LogisticsOp --> Frontend : Interage via Browser (HTTPS)
+Frontend --> API : Envia pedidos REST (JSON/HTTPS) - Create VVE
+API --> IAM : Valida token OAuth 2.0
+API --> Database : CRUD via EF Core (SQL) - Persiste VVE com status "In Progress"
+AppServer -[hidden]-> DBServer
+
+@enduml

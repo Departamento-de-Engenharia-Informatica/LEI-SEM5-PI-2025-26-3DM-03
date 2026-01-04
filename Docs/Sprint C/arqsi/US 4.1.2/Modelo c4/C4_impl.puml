@@ -1,0 +1,81 @@
+@startuml C4_Generate_Operation_Plans_Implementation_View
+title C4 - Plan Generation (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class OemOperationPlansComponent {
+    -form: FormGroup
+    -previewPlans: OperationPlanPreviewDto[]
+    -selectedVvns: Set<number>
+    +onPreview(): void
+    +onPersist(): void
+    -selectedAsArray(): number[]
+    +fetchPlans(): void
+  }
+
+  class OemApiService {
+    +previewOperationPlans(date: string, algorithm: string, vvnIds?): Observable<OperationPlanPreviewDto[]>
+    +generateOperationPlans(date: string, algorithm: string, vvnIds?): Observable<OperationPlanDto[]>
+    +getOperationPlans(filters?): Observable<OperationPlanDto[]>
+    +getMissingOperationPlans(date: string): Observable<MissingOperationPlanDto[]>
+    +regenerateMissingOperationPlans(...): Observable<OperationPlanDto[]>
+  }
+}
+
+package "oem-api/src/oem/controllers" {
+  class OperationPlanController {
+    +preview(OperationPlanPreviewRequestDto)
+    +generate(GenerateOperationPlansRequestDto)
+    +listMissing(date: string)
+    +regenerateMissing(RegenerateMissingOperationPlansRequestDto)
+  }
+}
+
+package "oem-api/src/oem/services" {
+  class OperationPlanService {
+    +generatePreviewForDay(...)
+    +generateAndPersistForDay(...)
+    +findMissingPlansForDay(...)
+  }
+  class MissingOperationPlansService
+  class OemVvnService
+  class ExternalClientsService
+}
+
+package "oem-api/src/oem/operation-plans/dtos" {
+  class OperationPlanPreviewRequestDto
+  class GenerateOperationPlansRequestDto
+  class RegenerateMissingOperationPlansRequestDto
+  class OperationPlanPreviewDto
+}
+
+package "oem-api/src/oem/persistence" {
+  class OperationPlanEntity
+  class OperationPlanTaskEntity
+}
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OperationPlanController
+OperationPlanController --> OperationPlanService
+OperationPlanController --> MissingOperationPlansService
+OperationPlanService --> OemVvnService
+OperationPlanService --> ExternalClientsService
+OperationPlanService --> OperationPlanEntity
+OperationPlanService --> OperationPlanTaskEntity
+OperationPlanController --> OperationPlanPreviewRequestDto
+OperationPlanController --> GenerateOperationPlansRequestDto
+OperationPlanController --> RegenerateMissingOperationPlansRequestDto
+OperationPlanService --> OperationPlanPreviewDto
+
+@enduml

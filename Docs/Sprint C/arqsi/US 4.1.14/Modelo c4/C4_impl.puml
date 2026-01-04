@@ -1,0 +1,66 @@
+@startuml C4_Complementary_Task_Categories_Implementation_View
+title C4 – Complementary Task Categories (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/pages" {
+  class ComplementaryTaskCategoriesComponent {
+    -categories: any[]
+    +loadCategories(): void
+    +saveCategory(): void
+    +deleteCategory(id: string|number): void
+  }
+}
+
+package "frontend/src/app/services/complementary-task-categories" {
+  class ComplementaryTaskCategoriesService {
+    +getCategories(q?: string): any
+    +createCategory(payload: any): any
+    +updateCategory(id: number, payload: any): any
+    +deleteCategory(id: number): any
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetComplementaryTaskCategories(...)
+    +CreateComplementaryTaskCategory(...)
+    +UpdateComplementaryTaskCategory(...)
+    +DeleteComplementaryTaskCategory(...)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetComplementaryTaskCategoriesAsync(...)
+    +CreateComplementaryTaskCategoryAsync(...)
+    +UpdateComplementaryTaskCategoryAsync(...)
+    +DeleteComplementaryTaskCategoryAsync(...)
+  }
+}
+
+package "oem-api/src/oem/controllers" {
+  class ComplementaryTaskCategoryController {
+    +findAll(...)
+    +create(dto: any)
+    +update(id: string, dto: any)
+    +remove(id: string)
+  }
+}
+
+ComplementaryTaskCategoriesComponent --> ComplementaryTaskCategoriesService
+ComplementaryTaskCategoriesService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> ComplementaryTaskCategoryController
+
+@enduml

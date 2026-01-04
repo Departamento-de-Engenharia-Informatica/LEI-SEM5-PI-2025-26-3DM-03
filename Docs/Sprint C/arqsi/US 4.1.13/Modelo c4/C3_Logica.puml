@@ -1,0 +1,50 @@
+@startuml C3_Incidents_Logical_View
+title C3 – Incidents (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Angular SPA" as SPA {
+  rectangle "Incidents Feature" as Feature
+  rectangle "UI Forms / Filters" as Shared
+}
+
+rectangle "TodoApi Gateway" as Api {
+  rectangle "OemProxyController" as Controller
+  rectangle "OemClient" as Client
+  rectangle "Identity Middleware" as Identity
+}
+
+cloud "OEM Operational Execution Service" as OEM
+
+database "OEM Operational Store" as Db
+
+Operator --> Feature : UI interactions
+Feature --> Shared : validate forms
+Feature --> Controller : REST requests
+Controller --> Identity : verify authorisation
+Controller --> Client : OEM HTTP calls
+Client --> OEM : CRUD incidents + affected VVEs
+OEM --> Db : persist
+OEM --> Controller : JSON
+Controller --> Feature : responses
+
+@enduml

@@ -1,0 +1,53 @@
+@startuml C3_Missing_Plans_Deployment
+!define MERMAID true
+' UML Deployment diagram with implementation artifacts
+
+title C3 – Missing Operation Plans (Implementation Mapping)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+node "User Device" {
+  artifact "Angular SPA Bundle" as SpaBundle
+  artifact "Browser Session Storage" as SessionStorage
+}
+
+node "PLMS Backend Host" {
+  artifact "TodoApi.dll" as TodoApiDll
+  artifact "MissingPlansController.cs" as MissingCtrl
+  artifact "OemClient.cs" as OemClient
+}
+
+node "OEM Platform Cluster" {
+  artifact "oem-api.jar" as OemApiJar
+  artifact "MissingPlanService.ts" as MissingSvc
+  artifact "RegenerationJob.ts" as RegenJob
+  database "PlanningRepository" as PlanningRepo
+  database "VvnReadModel" as VvnRead
+}
+
+node "IAM Provider" {
+  artifact "OIDC Server" as Oidc
+}
+
+SpaBundle --> MissingCtrl : REST
+SessionStorage --> SpaBundle : JWT / VVN filters
+MissingCtrl --> OemClient : HTTP pipeline
+OemClient --> OemApiJar : HTTPS requests
+OemApiJar --> MissingSvc : NestJS module call
+MissingSvc --> VvnRead : Query missing VVNs
+RegenJob --> PlanningRepo : Upsert regenerated plans
+Oidc --> SpaBundle : login redirect
+Oidc --> MissingCtrl : token validation metadata
+
+@enduml

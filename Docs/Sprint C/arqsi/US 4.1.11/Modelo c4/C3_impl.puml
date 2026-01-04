@@ -1,0 +1,72 @@
+@startuml C3_VVE_Executed_Operations_Component_View
+title C3 – Record Executed Operations (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class VesselVisitExecutionDetailComponent {
+    +loadPlannedOperations()
+    +loadExecutedOperations()
+    +startEdit(plannedOperationId)
+    +saveExecution(plannedOperationId)
+  }
+  class ExecutedOpEditForm
+  class PlannedOpsTable
+  class ExecutedOpsTable
+}
+
+package "Frontend Services" {
+  class OemApiService {
+    +getPlannedOperations(vveId)
+    +getExecutedOperations(vveId)
+    +upsertExecutedOperation(vveId, plannedOperationId, payload)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetPlannedOperations(vveId)
+    +GetExecutedOperations(vveId)
+    +UpsertExecutedOperation(vveId, plannedOperationId)
+  }
+  class OemClient {
+    +GetPlannedOperationsAsync(...)
+    +GetExecutedOperationsAsync(...)
+    +UpsertExecutedOperationAsync(...)
+  }
+}
+
+package "OEM API" {
+  class VesselVisitExecutionController {
+    +plannedOperations(vveId)
+    +executedOperations(vveId)
+    +upsertExecutedOperation(vveId, plannedOperationId, dto)
+  }
+  class ExecutedOperationService
+  class ExecutedOperationRepository
+}
+
+VesselVisitExecutionDetailComponent --> PlannedOpsTable
+VesselVisitExecutionDetailComponent --> ExecutedOpsTable
+VesselVisitExecutionDetailComponent --> ExecutedOpEditForm
+VesselVisitExecutionDetailComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> VesselVisitExecutionController
+VesselVisitExecutionController --> ExecutedOperationService
+ExecutedOperationService --> ExecutedOperationRepository
+
+@enduml

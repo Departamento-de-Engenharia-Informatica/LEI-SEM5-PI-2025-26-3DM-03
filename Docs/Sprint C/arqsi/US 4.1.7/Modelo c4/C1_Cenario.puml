@@ -1,0 +1,27 @@
+@startuml C1_Create_Vessel_Visit_Execution_Scenario_View
+title C1 – Create Vessel Visit Execution (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as LogisticsOp
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Create Vessel Visit Execution (VVE)" as UC_CreateVVE
+  usecase "Reference Existing VVN" as UC_RefVVN
+  usecase "View VVE Status" as UC_ViewVVEStatus
+}
+
+LogisticsOp --> UC_CreateVVE
+LogisticsOp --> UC_RefVVN
+LogisticsOp --> UC_ViewVVEStatus
+
+UC_CreateVVE ..> UC_RefVVN : uses
+
+
+
+@enduml

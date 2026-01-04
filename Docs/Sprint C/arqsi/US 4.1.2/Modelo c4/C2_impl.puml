@@ -1,0 +1,51 @@
+@startuml C2_Generate_Operation_Plans_Implementation_View
+title C2 - Generate Operation Plans (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "oem-api/src/oem/controllers" as P_Controllers {
+  [OperationPlanController]
+}
+
+package "oem-api/src/oem/services" as P_Services {
+  [OperationPlanService]
+  [MissingOperationPlansService]
+  [OemVvnService]
+  [ExternalClientsService]
+}
+
+package "oem-api/src/oem/operation-plans/dtos" as P_Dtos {
+  [OperationPlanPreviewRequestDto]
+  [GenerateOperationPlansRequestDto]
+  [RegenerateMissingOperationPlansRequestDto]
+  [OperationPlanPreviewDto]
+}
+
+package "oem-api/src/oem/persistence" as P_Persistence {
+  [OperationPlanEntity]
+  [OperationPlanTaskEntity]
+}
+
+[OperationPlanController] --> [OperationPlanService] : preview/generate
+[OperationPlanController] --> [MissingOperationPlansService] : missing/regenerate
+[OperationPlanService] --> [OemVvnService]
+[OperationPlanService] --> [ExternalClientsService]
+[OperationPlanService] --> [OperationPlanEntity]
+[OperationPlanService] --> [OperationPlanTaskEntity]
+
+[OperationPlanController] --> [OperationPlanPreviewRequestDto]
+[OperationPlanController] --> [GenerateOperationPlansRequestDto]
+[OperationPlanController] --> [RegenerateMissingOperationPlansRequestDto]
+[OperationPlanService] --> [OperationPlanPreviewDto]
+
+@enduml

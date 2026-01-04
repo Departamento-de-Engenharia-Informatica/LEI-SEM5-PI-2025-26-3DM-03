@@ -1,0 +1,34 @@
+@startuml C1_Incidents_Scenario_View
+title C1 – Incidents (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Incidents" as UC_List
+  usecase "Filter Incidents" as UC_Filter
+  usecase "Create Incident" as UC_Create
+  usecase "Edit / Resolve Incident" as UC_Edit
+  usecase "Delete Incident" as UC_Delete
+  usecase "Consult Affected VVEs" as UC_Affected
+}
+
+Operator --> UC_List
+Operator --> UC_Filter
+Operator --> UC_Create
+Operator --> UC_Edit
+Operator --> UC_Delete
+Operator --> UC_Affected
+
+note right of UC_Affected
+  Shows which vessel visit executions
+  are impacted by a given incident.
+end note
+
+@enduml

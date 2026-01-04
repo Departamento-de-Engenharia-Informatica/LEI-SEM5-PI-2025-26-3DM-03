@@ -1,0 +1,44 @@
+@startuml C4_Resource_Usage_Sequence
+title C4 – Resource Usage (Sequence for Summary Query)
+
+autonumber
+
+actor Operator
+participant "ResourceUtilizationComponent" as UI
+participant "OemResourceUsageService" as FrontService
+participant "ResourceUsageController" as ProxyController
+participant "DateRangeValidator" as Validator
+participant "OemResourceUsageClient" as ProxyClient
+participant "OEM ResourceUsageController" as OemController
+participant "ResourceUsageService" as UsageService
+participant "ResourceUsageQueryBuilder" as QueryBuilder
+participant "OperationPlanRepository" as PlanRepo
+participant "AllocationAggregator" as Aggregator
+participant "WarningBuilder" as WarningBuilder
+participant "ResourceUsageCacheRepository" as CacheRepo
+
+Operator -> UI : Submit filters
+UI -> FrontService : getSummary(filters)
+FrontService -> ProxyController : GET /resource-usage
+ProxyController -> Validator : validate(filters)
+ProxyController -> ProxyClient : Forward request (with JWT)
+ProxyClient -> OemController : GET /resource-usage
+OemController -> UsageService : handle(query)
+UsageService -> CacheRepo : tryGet(key)
+CacheRepo --> UsageService : cache miss
+UsageService -> QueryBuilder : buildCriteria(query)
+QueryBuilder -> PlanRepo : findSavedPlans(criteria)
+PlanRepo --> QueryBuilder : planTasks
+UsageService -> Aggregator : aggregate(planTasks)
+Aggregator --> UsageService : totals
+UsageService -> WarningBuilder : buildWarnings(planTasks)
+WarningBuilder --> UsageService : warnings[]
+UsageService -> CacheRepo : set(key, summary)
+UsageService --> OemController : ResourceUsageSummaryDto
+OemController --> ProxyClient : 200 OK
+ProxyClient --> ProxyController : 200 OK
+ProxyController --> FrontService : summary DTO
+FrontService --> UI : Observable response
+UI --> Operator : Render table + warnings
+
+@enduml

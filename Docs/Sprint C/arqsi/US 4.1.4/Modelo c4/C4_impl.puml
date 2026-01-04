@@ -1,0 +1,92 @@
+@startuml C4_Update_Operation_Plans_Implementation_View
+title C4 – Operation Plan Update (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class OemOperationPlansComponent {
+    -form: FormGroup
+    -editForm: FormGroup
+    -editWarnings: string[]
+    +ngOnInit(): void
+    +openEdit(plan: OperationPlanDto): void
+    +onSaveEdit(): void
+    +cancelEdit(): void
+    -buildUpdatePayload(): Partial<OperationPlanDto>
+  }
+
+  class OemApiService {
+    +getOperationPlans(filters?): Observable<OperationPlanDto[]>
+    +getOperationPlan(id: number): Observable<OperationPlanDto>
+    +updateOperationPlan(id: number, payload): Observable<OperationPlanUpdateResponse>
+    +getResourceAllocation(filters): Observable<ResourceAllocationSummaryDto[]>
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetOperationPlans(...)
+    +GetOperationPlan(id)
+    +UpdateOperationPlan(id, payload)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetOperationPlansAsync(...): Task<HttpResponseMessage>
+    +GetOperationPlanAsync(id, token): Task<HttpResponseMessage>
+    +UpdateOperationPlanAsync(id, payload, token): Task<HttpResponseMessage>
+    -ApplyIdentityHeaders(request): void
+  }
+}
+
+package "TodoApi.Models.Oem" {
+  class OperationPlanDto {
+    +int Id
+    +string Name
+    +string Status
+    +string? DockId
+    +ICollection<OperationPlanTaskDto>? Tasks
+    +ICollection<OperationPlanChangeLogDto>? ChangeLogs
+  }
+  class OperationPlanTaskDto {
+    +int? Id
+    +string Type
+    +string? CraneId
+    +string? StorageAreaId
+    +ICollection<string>? StaffIds
+    +string StartTime
+    +string EndTime
+  }
+  class OperationPlanChangeLogDto {
+    +string Id
+    +string? ChangedBy
+    +string? Reason
+    +string CreatedAt
+    +ICollection<string>? Warnings
+  }
+  class OperationPlanUpdateResponse {
+    +OperationPlanDto Plan
+    +ICollection<string> Warnings
+    +OperationPlanChangeLogDto? LogEntry
+  }
+}
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> OperationPlanUpdateResponse
+OperationPlanDto "1" o-- "*" OperationPlanTaskDto
+OperationPlanDto "1" o-- "*" OperationPlanChangeLogDto
+
+@enduml

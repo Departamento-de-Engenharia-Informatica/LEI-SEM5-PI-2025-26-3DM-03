@@ -1,0 +1,41 @@
+@startuml C1_Incidents_Process_View
+title C1 – Incidents (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Incidents UI\n(Angular Component)" as UI
+participant "IncidentsService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open Incidents page
+UI -> SpaService : getIncidents(filters)
+SpaService -> Controller : GET /api/oem/incidents?...
+Controller -> Client : Forward GET
+Client -> OemService : GET /incidents?...
+OemService --> Client : Incident list
+Client --> Controller : 200
+Controller --> SpaService : IncidentDto[]
+SpaService --> UI : Render table
+
+Operator -> UI : Create / edit / resolve incident
+UI -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/incidents
+Controller -> Client : Forward
+Client -> OemService : POST/PATCH /incidents
+OemService --> Client : 200/201
+Client --> Controller : Forward
+Controller --> SpaService : IncidentDto
+SpaService --> UI : Refresh list
+
+Operator -> UI : View affected VVEs
+UI -> SpaService : getAffectedVesselVisitExecutions(incidentId)
+SpaService -> Controller : GET /api/oem/incidents/{id}/affected-vves
+Controller -> Client : Forward
+Client -> OemService : GET /incidents/{id}/affected-vves
+OemService --> Client : Affected VVEs
+Client --> Controller : 200
+Controller --> SpaService : VveDto[]
+SpaService --> UI : Show affected list
+
+@enduml

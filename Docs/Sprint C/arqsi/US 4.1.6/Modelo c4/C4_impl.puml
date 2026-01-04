@@ -1,0 +1,108 @@
+@startuml C4_Resource_Usage_Implementation_View
+title C4 – Resource Usage (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem/resource-usage" {
+  class ResourceUtilizationComponent {
+    -filters: ResourceUsageFilters
+    -summary$: Observable<ResourceUsageSummary>
+    -loading: boolean
+    +ngOnInit(): void
+    +onFiltersChanged(filters): void
+    +trackByResource(_: number, item: ResourceUsageBreakdown): string
+  }
+
+  class ResourceFiltersFormService {
+    +createForm(): FormGroup
+    +parse(form: FormGroup): ResourceUsageFilters
+  }
+
+  class OemResourceUsageService {
+    +getSummary(filters): Observable<ResourceUsageSummary>
+    +getBreakdown(filters, groupBy): Observable<ResourceUsageBreakdown[]>
+  }
+
+  class ResourceUsageSummary {
+    +string resourceId
+    +string resourceType
+    +string from
+    +string to
+    +int totalAllocatedMinutes
+    +int operationsCount
+    +double averageMinutesPerOperation
+    +string? firstAllocationAt
+    +string? lastAllocationAt
+    +string[] warnings
+  }
+}
+
+package "TodoApi.Controllers" {
+  class ResourceUsageController {
+    +GetResourceUsage(filters)
+    +GetResourceUsageBreakdown(filters)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetResourceUsageAsync(filters, token): Task<HttpResponseMessage>
+    +GetResourceUsageBreakdownAsync(filters, token): Task<HttpResponseMessage>
+    -ApplyIdentityHeaders(request): void
+  }
+}
+
+package "oem-api/src/resource-usage" {
+  class ResourceUsageController {
+    +getSummary(query): Promise<ResourceUsageSummaryDto>
+    +getBreakdown(query): Promise<ResourceUsageBreakdownDto[]>
+  }
+
+  class ResourceUsageService {
+    +getSummary(query): Promise<ResourceUsageSummary>
+    +getBreakdown(query): Promise<ResourceUsageBreakdown[]>
+  }
+
+  class ResourceUsageQueryBuilder {
+    +buildCriteria(query): OperationPlanCriteria
+  }
+
+  class AllocationAggregator {
+    +aggregate(planTasks: Task[]): AggregatedUsage
+    +buildWarnings(...): string[]
+  }
+
+  class OperationPlanRepository {
+    +findSavedPlans(criteria): Promise<OperationPlan[]>
+  }
+
+  class ResourceUsageCacheRepository {
+    +get(key): Promise<ResourceUsageSummary?>
+    +set(key, summary): Promise<void>
+  }
+}
+
+ResourceUtilizationComponent --> ResourceFiltersFormService
+ResourceUtilizationComponent --> OemResourceUsageService
+OemResourceUsageService --> ResourceUsageController
+ResourceUsageController --> OemClient
+OemClient --> ResourceUsageController#OEM
+ResourceUsageController#OEM --> ResourceUsageService
+ResourceUsageService --> ResourceUsageQueryBuilder
+ResourceUsageService --> OperationPlanRepository
+ResourceUsageService --> AllocationAggregator
+ResourceUsageService --> ResourceUsageCacheRepository
+AllocationAggregator --> ResourceUsageService
+OperationPlanRepository --> ResourceUsageService
+
+@enduml

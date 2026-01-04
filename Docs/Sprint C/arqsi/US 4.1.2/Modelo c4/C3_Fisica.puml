@@ -1,0 +1,56 @@
+@startuml C3_Generate_Operation_Plans_Physical_View
+title C3 - Plan Generation (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device\n(Browser)" as Client {
+  artifact "Angular SPA"
+}
+
+node "OEM API Server\n(Node.js / NestJS)" as OemServer {
+  artifact "OperationPlanController"
+  artifact "OperationPlanService"
+}
+
+database "OEM Database" as OemDb
+
+node "TodoApi Server" as TodoApi {
+  artifact "VVN Catalog API"
+}
+
+node "Resource APIs" as ResourceApis {
+  artifact "Resources API"
+  artifact "Staff API"
+  artifact "Storage Areas API"
+}
+
+node "Identity Provider" as Identity {
+  artifact "OAuth 2.0 / OIDC"
+}
+
+Operator --> Client : HTTPS UI access
+Client --> OemServer : REST calls (preview/generate)
+OemServer --> OemDb : Persist plans + tasks
+OemServer --> TodoApi : Fetch approved VVNs
+OemServer --> ResourceApis : Fetch cranes/staff/storage
+Client --> Identity : Authentication flow
+OemServer --> Identity : Validate token / roles
+
+@enduml

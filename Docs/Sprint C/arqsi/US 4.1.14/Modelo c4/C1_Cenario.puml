@@ -1,0 +1,32 @@
+@startuml C1_Complementary_Task_Categories_Scenario_View
+title C1 – Complementary Task Categories (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Categories" as UC_List
+  usecase "Search Categories" as UC_Search
+  usecase "Create Category" as UC_Create
+  usecase "Edit Category" as UC_Edit
+  usecase "Delete Category" as UC_Delete
+}
+
+Operator --> UC_List
+Operator --> UC_Search
+Operator --> UC_Create
+Operator --> UC_Edit
+Operator --> UC_Delete
+
+note right of UC_Create
+  Category code must match expected
+  format to keep consistency.
+end note
+
+@enduml

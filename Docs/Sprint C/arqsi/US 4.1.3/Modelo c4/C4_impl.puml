@@ -1,0 +1,80 @@
+@startuml C4_Search_Operation_Plans_Implementation_View
+title C4 – Operation Plan Search (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class OemOperationPlansComponent {
+    -savedFilterForm: FormGroup
+    -plans: OperationPlanDto[]
+    -sortKey: string
+    -sortDir: string
+    -pageSize: number
+    +fetchPlans(): void
+    +changeSort(key: SortKey): void
+    +pagedPlans: OperationPlanDto[]
+    +togglePlanDetails(plan: OperationPlanDto): void
+  }
+
+  class OemApiService {
+    +getOperationPlans(filters?: { from?: string; to?: string; vesselVisitId?: string | number }): Observable<OperationPlanDto[]>
+    +getOperationPlan(id: number): Observable<OperationPlanDto>
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetOperationPlans(from?, to?, vesselVisitId?)
+    +GetOperationPlan(id)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetOperationPlansAsync(from?, to?, vesselVisitId?, token)
+    +GetOperationPlanAsync(id, token)
+  }
+}
+
+package "oem-api/src/operation-plans" {
+  class OperationPlansController {
+    +findAll(filter: FindPlansDto)
+  }
+  class FindPlansDto {
+    +from?: string
+    +to?: string
+    +vesselVisitId?: number
+  }
+  class OperationPlansService {
+    +findAll(filter: FindPlansDto)
+  }
+  class OperationPlanRepository {
+    +find(filter: PlanFilter)
+  }
+  class PlanFilter {
+    +from?: Date
+    +to?: Date
+    +vesselVisitId?: number
+  }
+}
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> OperationPlansController
+OperationPlansController --> OperationPlansService
+OperationPlansService --> OperationPlanRepository
+FindPlansDto --> OperationPlansService
+PlanFilter --> OperationPlanRepository
+
+@enduml

@@ -1,0 +1,54 @@
+@startuml C2_Incidents_Logical_View
+title C2 – PLMS Containers for Incidents
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Port Logistics Management System" as PLMS {
+  rectangle "Angular SPA" as SPA {
+    rectangle "Incidents Feature" as Feature
+    rectangle "IncidentsService" as ApiService
+  }
+
+  rectangle "TodoApi (ASP.NET Core)" as Api {
+    rectangle "OemProxyController" as Controller
+    rectangle "OemClient" as Client
+  }
+}
+
+cloud "Identity Provider" as IAM
+cloud "OEM Operational Execution Service" as OEM
+
+database "OEM Operational Store" as Db
+
+Operator --> Feature : Browser interaction (HTTPS)
+Feature --> ApiService : Angular service calls
+ApiService --> Controller : REST JSON
+Controller --> IAM : Adds identity headers
+Controller --> Client : Forward OEM requests
+Client --> OEM : HTTPS API calls
+OEM --> Db : Persist incidents
+OEM --> Controller : JSON responses
+
+@enduml

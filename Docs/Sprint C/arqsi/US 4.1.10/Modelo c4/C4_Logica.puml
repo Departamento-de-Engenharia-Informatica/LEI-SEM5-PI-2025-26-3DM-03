@@ -1,0 +1,53 @@
+@startuml C4_Manage_VVE_Logical_Deployment
+title C4 – Vessel Visit Executions (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(VVE Feature)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+  artifact "Telemetry Agent" as Telemetry
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Execution Platform" as OEM {
+  artifact "Vessel Visit Execution API" as OemApi
+  artifact "Audit Store" as Audit
+  artifact "Operational Store" as Store
+}
+
+Operator --> Spa : HTTPS (Browser)
+Spa --> Api : /api/oem/vessel-visit-executions
+Api --> Oidc : Validate tokens / cookies
+Api --> OemApi : Forward OEM requests
+OemApi --> Audit : Persist audit entries
+OemApi --> Store : Persist VVE state
+Api --> Telemetry : Emit metrics/logs
+
+@enduml

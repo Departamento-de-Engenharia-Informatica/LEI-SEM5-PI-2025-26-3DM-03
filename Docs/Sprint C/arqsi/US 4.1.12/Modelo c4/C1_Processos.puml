@@ -1,0 +1,41 @@
+@startuml C1_Incident_Types_Process_View
+title C1 – Incident Types (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Incident Types UI\n(Angular Component)" as UI
+participant "IncidentTypesService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open Incident Types page
+UI -> SpaService : getIncidentTypes(q?)
+SpaService -> Controller : GET /api/oem/incident-types?q=...
+Controller -> Client : Forward GET
+Client -> OemService : GET /incident-types?q=...
+OemService --> Client : Type list
+Client --> Controller : 200
+Controller --> SpaService : IncidentTypeDto[]
+SpaService --> UI : Render list/tree
+
+Operator -> UI : Create new type
+UI -> SpaService : createIncidentType(payload)
+SpaService -> Controller : POST /api/oem/incident-types
+Controller -> Client : Forward POST
+Client -> OemService : POST /incident-types
+OemService --> Client : Created type
+Client --> Controller : 201
+Controller --> SpaService : IncidentTypeDto
+SpaService --> UI : Refresh list
+
+Operator -> UI : Edit / delete type
+UI -> SpaService : update/delete
+SpaService -> Controller : PATCH/DELETE /api/oem/incident-types/{id}
+Controller -> Client : Forward
+Client -> OemService : PATCH/DELETE /incident-types/{id}
+OemService --> Client : 200/204
+Client --> Controller : Forward
+Controller --> SpaService : Result
+SpaService --> UI : Update UI state
+
+@enduml

@@ -1,0 +1,77 @@
+@startuml C3_Complementary_Tasks_Component_View
+title C3 – Complementary Tasks (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class ComplementaryTasksComponent {
+    +loadTasks()
+    +applyFilters()
+    +createTask()
+    +updateTask(id)
+    +deleteTask(id)
+  }
+  class TaskEditorForm
+  class TasksTable
+  class FiltersForm
+}
+
+package "Frontend Services" {
+  class ComplementaryTasksService {
+    +getTasks(filters)
+    +createTask(payload)
+    +updateTask(id,payload)
+    +deleteTask(id)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetComplementaryTasks(...)
+    +CreateComplementaryTask(...)
+    +UpdateComplementaryTask(...)
+    +DeleteComplementaryTask(...)
+  }
+  class OemClient {
+    +GetComplementaryTasksAsync(...)
+    +CreateComplementaryTaskAsync(...)
+    +UpdateComplementaryTaskAsync(...)
+    +DeleteComplementaryTaskAsync(...)
+  }
+}
+
+package "OEM API" {
+  class ComplementaryTaskController {
+    +findAll(filter)
+    +create(dto)
+    +update(id,dto)
+    +remove(id)
+  }
+  class ComplementaryTaskService
+  class ComplementaryTaskRepository
+}
+
+ComplementaryTasksComponent --> FiltersForm
+ComplementaryTasksComponent --> TaskEditorForm
+ComplementaryTasksComponent --> TasksTable
+ComplementaryTasksComponent --> ComplementaryTasksService
+ComplementaryTasksService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> ComplementaryTaskController
+ComplementaryTaskController --> ComplementaryTaskService
+ComplementaryTaskService --> ComplementaryTaskRepository
+
+@enduml

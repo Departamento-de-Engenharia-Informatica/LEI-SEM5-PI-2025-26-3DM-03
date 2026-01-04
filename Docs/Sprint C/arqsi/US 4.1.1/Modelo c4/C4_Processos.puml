@@ -1,0 +1,32 @@
+@startuml C4_OEM_Service_Process_View
+title C4 – OEM Service (Detailed CRUD Flow)
+hide footbox
+
+actor "TodoApi" as Gateway
+participant "HttpClient" as HttpClient
+participant "OEM OperationPlansController" as Controller
+participant "JwtAuthGuard" as Guard
+participant "OperationPlansService" as Service
+participant "OperationPlansRepository" as Repository
+participant "DataSource" as DataSource
+participant "OEM Database" as Database
+
+Gateway -> HttpClient : POST https://oem/api/operation-plans
+HttpClient -> Controller : HTTP request + JWT
+Controller -> Guard : authenticate & authorise
+Guard -> DataSource : fetch user roles/claims
+DataSource --> Guard : claims
+Guard --> Controller : allow
+Controller -> Service : create(dto, user)
+Service -> Repository : save(dto, user)
+Repository -> DataSource : get manager
+DataSource -> Database : INSERT operation_plans ...
+Database --> DataSource : OK
+DataSource --> Repository : entity persisted
+Repository --> Service : OperationPlanEntity
+Service -> Service : map to DTO + audit metadata
+Service --> Controller : OperationPlanDto
+Controller --> HttpClient : 201 Created + body
+HttpClient --> Gateway : response
+
+@enduml

@@ -1,0 +1,153 @@
+@startuml C4_VVE_Execution_Implementation_View
+title C4 – VVE Execution (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem/vve" {
+  class VveOperationsComponent {
+    -vveId: string
+    -operations$: Observable<ExecutedOperation[]>
+    -formArray: FormArray
+    -bulkSubmitting: boolean
+    +ngOnInit(): void
+    +onSubmit(): void
+    +onReload(): void
+    -mapFormToPayload(): UpdateExecutionsRequest
+  }
+
+  class OperationExecutionFormComponent {
+    +form: FormGroup
+    +plannedOperation: PlannedOperation
+    +applyPlannedData(): void
+  }
+
+  class ExecutionVariancePanelComponent {
+    +planned: PlannedOperation
+    +executed: ExecutedOperation
+    +warnings: string[]
+  }
+
+  class OemVveService {
+    +getOperations(vveId: string): Observable<ExecutedOperation[]>
+    +updateOperations(vveId: string, payload: UpdateExecutionsRequest): Observable<ExecutionUpdateResponse>
+  }
+
+  class UpdateExecutionsRequest {
+    +ExecutionUpdateCommand[] operations
+  }
+
+  class ExecutionUpdateCommand {
+    +string plannedOperationId
+    +string? actualStartAt
+    +string? actualEndAt
+    +ExecutionResourceUsage actualResources
+    +ExecutionStatus status
+    +string? comment
+    +number version
+  }
+
+  class ExecutedOperation {
+    +string plannedOperationId
+    +string? actualStartAt
+    +string? actualEndAt
+    +ExecutionResourceUsage actualResources
+    +ExecutionStatus status
+    +string updatedBy
+    +string updatedAt
+    +number version
+    +string[] warnings
+  }
+
+  class ExecutionResourceUsage {
+    +string? craneId
+    +string? dockId
+    +string[] staffIds
+  }
+}
+
+package "TodoApi.Controllers" {
+  class VveOperationsProxyController {
+    +GetOperations(vveId)
+    +UpdateOperations(vveId, request)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetVveOperationsAsync(vveId, token): Task<HttpResponseMessage>
+    +UpdateVveOperationsAsync(vveId, payload, token): Task<HttpResponseMessage>
+    -ApplyIdentityHeaders(request): void
+  }
+
+  class BulkResponseMapper {
+    +MapResponse(HttpResponseMessage): ExecutionUpdateResponse
+  }
+}
+
+package "oem-api/src/vve/operations" {
+  class VveOperationsController {
+    +find(vveId: string): Promise<ExecutionUpdateResponse>
+    +bulkUpdate(vveId: string, payload: UpdateExecutionsRequest, user: UserContext): Promise<ExecutionUpdateResponse>
+  }
+
+  class VveExecutionService {
+    +bulkUpdate(vveId: string, commands: ExecutionUpdateCommand[], user: UserContext): Promise<ExecutedOperation[]>
+  }
+
+  class ExecutionValidationService {
+    +validate(commands, plannedOps): void
+  }
+
+  class ExecutionStatusCalculator {
+    +calculate(plannedOp, command): ExecutionStatus
+  }
+
+  class ExecutedOperationRepository {
+    +findByVve(vveId): Promise<ExecutedOperation[]>
+    +saveMany(executions): Promise<void>
+  }
+
+  class PlannedOperationRepository {
+    +findByIds(ids: string[]): Promise<PlannedOperation[]>
+  }
+
+  class VveRepository {
+    +updateProgress(vveId, progress): Promise<void>
+  }
+
+  class OperationPlanSyncService {
+    +syncStatus(vveId, executions): Promise<void>
+  }
+
+  class AuditPublisher {
+    +publishExecutionUpdated(vveId, executions): Promise<void>
+  }
+}
+
+VveOperationsComponent --> OperationExecutionFormComponent
+VveOperationsComponent --> ExecutionVariancePanelComponent
+VveOperationsComponent --> OemVveService
+OemVveService --> VveOperationsProxyController
+VveOperationsProxyController --> BulkResponseMapper
+VveOperationsProxyController --> OemClient
+OemClient --> VveOperationsController
+VveOperationsController --> VveExecutionService
+VveExecutionService --> ExecutionValidationService
+VveExecutionService --> ExecutionStatusCalculator
+VveExecutionService --> ExecutedOperationRepository
+VveExecutionService --> PlannedOperationRepository
+VveExecutionService --> VveRepository
+VveExecutionService --> OperationPlanSyncService
+VveExecutionService --> AuditPublisher
+
+@enduml

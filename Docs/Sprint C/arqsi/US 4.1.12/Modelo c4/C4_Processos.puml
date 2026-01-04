@@ -1,0 +1,40 @@
+@startuml C4_Incident_Types_Detailed_Process
+title C4 – Incident Types (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "IncidentTypesComponent" as Component
+participant "IncidentTypesService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Operational Store" as Store
+
+== Client-side validation ==
+Operator -> Form : Fill name, code, parent(optional)
+Form -> Component : trigger save()
+Component -> Component : Validate required fields
+Component -> Component : Validate code format
+
+== Server call ==
+Component -> Service : create/update type
+Service -> Controller : POST/PATCH /api/oem/incident-types
+Controller -> Client : Forward + identity
+Client -> Validator : OEM call
+
+== OEM validation & persistence ==
+Validator -> Validator : Validate uniqueness & hierarchy
+alt Valid
+  Validator -> Store : Persist type
+  Validator --> Client : 200/201
+else Invalid
+  Validator --> Client : 400 errors
+end
+
+Client --> Controller : Response
+Controller --> Service : JSON
+Service --> Component : Observable
+Component --> Operator : Success / error
+
+@enduml

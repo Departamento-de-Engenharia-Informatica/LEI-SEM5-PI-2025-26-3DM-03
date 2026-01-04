@@ -1,0 +1,34 @@
+@startuml C1_Complementary_Tasks_Scenario_View
+title C1 – Complementary Tasks (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Complementary Tasks" as UC_List
+  usecase "Filter Tasks" as UC_Filter
+  usecase "Create Task" as UC_Create
+  usecase "Edit Task" as UC_Edit
+  usecase "Delete Task" as UC_Delete
+  usecase "Mark Task Completed" as UC_Complete
+}
+
+Operator --> UC_List
+Operator --> UC_Filter
+Operator --> UC_Create
+Operator --> UC_Edit
+Operator --> UC_Delete
+Operator --> UC_Complete
+
+note right of UC_Filter
+  Filters by status, category,
+  timeframe and mode.
+end note
+
+@enduml

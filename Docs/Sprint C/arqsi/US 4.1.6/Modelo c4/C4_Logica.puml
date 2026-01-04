@@ -1,0 +1,53 @@
+@startuml C4_Resource_Usage_Logical_View
+title C4 – Resource Usage (Detailed Component Interaction)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+component "ResourceUtilizationComponent" as ListView
+component "ResourceFiltersFormService" as FilterService
+component "OemResourceUsageService" as FrontService
+component "UsageSummaryTableComponent" as Table
+
+component "TodoApi ResourceUsageController" as ProxyController
+component "DateRangeValidator" as Validator
+component "JwtMiddleware" as JwtMiddleware
+component "RetryPolicyHandler" as RetryHandler
+component "OemResourceUsageClient" as ProxyClient
+
+component "OEM ResourceUsageController" as OemController
+component "ResourceUsageService" as UsageService
+component "ResourceUsageQueryBuilder" as QueryBuilder
+component "PlanRepository" as PlanRepo
+component "AllocationAggregator" as Aggregator
+component "WarningBuilder" as WarningBuilder
+component "ResourceUsageCacheRepository" as CacheRepo
+component "AuditLogger" as AuditLogger
+
+ListView --> FilterService : create/parse form
+ListView --> FrontService : load summary
+ListView --> Table : feed summary rows
+FrontService --> ProxyController : HTTPS JSON
+ProxyController --> Validator : validate filters
+ProxyController --> JwtMiddleware : authorize
+ProxyController --> RetryHandler : resilience
+RetryHandler --> ProxyClient : outbound HTTP
+ProxyClient --> OemController : REST
+OemController --> UsageService : summary request
+UsageService --> QueryBuilder : build criteria
+UsageService --> PlanRepo : fetch saved plans
+UsageService --> Aggregator : aggregate totals
+UsageService --> WarningBuilder : detect gaps
+UsageService --> CacheRepo : store cache
+UsageService --> AuditLogger : trace access
+UsageService --> OemController : summary DTO
+OemController --> ProxyClient : 200 OK
+ProxyClient --> ProxyController : response
+ProxyController --> FrontService : JSON
+FrontService --> ListView : observable update
+
+@enduml

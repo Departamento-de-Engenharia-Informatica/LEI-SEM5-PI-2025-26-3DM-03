@@ -1,0 +1,81 @@
+@startuml C3_Incidents_Component_View
+title C3 – Incidents (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class IncidentsComponent {
+    +loadIncidents()
+    +createIncident()
+    +updateIncident(id)
+    +deleteIncident(id)
+    +viewAffectedVves(id)
+  }
+  class IncidentEditorForm
+  class IncidentsTable
+  class AffectedVvesPanel
+}
+
+package "Frontend Services" {
+  class IncidentsService {
+    +getIncidents(filters)
+    +createIncident(payload)
+    +updateIncident(id,payload)
+    +deleteIncident(id)
+    +getAffectedVesselVisitExecutions(incidentId)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetIncidents(...)
+    +CreateIncident(...)
+    +UpdateIncident(...)
+    +DeleteIncident(...)
+    +GetAffectedVesselVisitExecutions(...)
+  }
+  class OemClient {
+    +GetIncidentsAsync(...)
+    +CreateIncidentAsync(...)
+    +UpdateIncidentAsync(...)
+    +DeleteIncidentAsync(...)
+    +GetAffectedVesselVisitExecutionsAsync(...)
+  }
+}
+
+package "OEM API" {
+  class IncidentController {
+    +findAll(filter)
+    +create(dto)
+    +update(id,dto)
+    +remove(id)
+    +affectedVesselVisitExecutions(id)
+  }
+  class IncidentService
+  class IncidentRepository
+}
+
+IncidentsComponent --> IncidentEditorForm
+IncidentsComponent --> IncidentsTable
+IncidentsComponent --> AffectedVvesPanel
+IncidentsComponent --> IncidentsService
+IncidentsService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> IncidentController
+IncidentController --> IncidentService
+IncidentService --> IncidentRepository
+
+@enduml

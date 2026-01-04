@@ -1,0 +1,60 @@
+@startuml C3_VVE_Update_Physical_View
+title C3 – VVE Update (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device" as Device {
+  artifact "Angular SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  artifact ".NET TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Platform {
+  artifact "OEM API Pod" as OemApi
+  artifact "Command Worker" as CommandWorker
+  database "VVE Database" as VveDb
+  database "VVN Database" as VvnDb
+  database "Audit Log Store" as AuditDb
+}
+
+node "IAM Cluster" as Identity {
+  artifact "OIDC Provider" as Idp
+}
+
+node "Event Bus" as Bus {
+  artifact "Audit Topic" as AuditTopic
+}
+
+Operator --> Spa : HTTPS
+Spa --> TodoApi : REST (PATCH VVE)
+TodoApi --> OemApi : HTTPS
+OemApi --> CommandWorker : Dispatch update command
+CommandWorker --> VveDb : Update VVE record
+CommandWorker --> VvnDb : Read planned dock
+CommandWorker --> AuditDb : Append log entry
+CommandWorker --> AuditTopic : Publish VVE_UPDATED
+OemApi --> TodoApi : Updated VVE DTO
+TodoApi --> Spa : JSON response
+TodoApi --> Idp : Token introspection (per session)
+Spa --> Idp : Login/OAuth flow
+
+@enduml

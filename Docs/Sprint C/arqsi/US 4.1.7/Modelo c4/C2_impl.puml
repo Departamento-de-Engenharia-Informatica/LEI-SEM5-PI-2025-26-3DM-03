@@ -1,0 +1,68 @@
+@startuml C2_Create_Vessel_Visit_Execution_Implementation_View
+title C2 – Create Vessel Visit Execution (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+' ======================
+' Pacotes (lado a lado)
+' ======================
+
+together {
+  package "Controllers" as P_Controllers {
+    package "VesselVisitExecutions" as P_Controllers_VVE {
+      [VVEController]
+    }
+  }
+}
+
+together {
+  package "Models" as P_Models {
+    package "VesselVisitExecutions" as P_Models_VVE {
+      [VesselVisitExecution]
+      [VVEDTO]
+      [CreateVVEDTO]
+      [VVEMapper]
+    }
+  }
+}
+
+together {
+  package "Services" as P_Services {
+    package "VesselVisitExecutions" as P_Services_VVE {
+      [VVEService]
+    }
+  }
+}
+
+together {
+  package "Data" as P_Data {
+    [PortContext]
+  }
+}
+
+' ======================
+' Dependências
+' ======================
+
+[VVEController] --> [VVEMapper] : usa para conversões
+[VVEController] --> [VVEService] : delega lógica de negócio
+[VVEController] --> [PortContext] : acede à BD (EF Core)
+
+[VVEService] --> [VesselVisitExecution] : cria e valida entidades
+[VVEService] --> [PortContext] : persiste dados
+
+[VVEMapper] --> [VesselVisitExecution] : mapeia entidades
+[VVEMapper] --> [VVEDTO] : mapeia DTOs
+[VVEMapper] --> [CreateVVEDTO]
+
+@enduml
