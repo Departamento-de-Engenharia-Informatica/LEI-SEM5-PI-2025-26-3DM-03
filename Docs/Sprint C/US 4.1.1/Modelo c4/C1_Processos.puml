@@ -1,0 +1,21 @@
+@startuml C1_OEM_Service_Process_View
+title C1 – OEM Independent Service (Process View)
+
+actor "Frontoffice SPA" as SPA
+participant "TodoApi Gateway" as Gateway
+participant "OEM REST API" as OEM
+participant "Identity Provider" as IAM
+participant "OEM Database" as Db
+
+SPA -> Gateway : HTTPS request (/oem/...)
+Gateway -> IAM : Validate JWT / scopes
+IAM --> Gateway : Token OK
+Gateway -> OEM : Forward REST call
+OEM -> IAM : Introspect token (ABAC claims)
+IAM --> OEM : Claims / roles
+OEM -> Db : Execute business operation (CRUD)
+Db --> OEM : Result rows
+OEM --> Gateway : JSON response
+Gateway --> SPA : JSON response
+
+@enduml

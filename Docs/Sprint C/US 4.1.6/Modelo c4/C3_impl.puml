@@ -1,0 +1,57 @@
+@startuml C3_Resource_Usage_Deployment
+title C3 – Resource Usage (Implementation Mapping)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+node "User Device" {
+  artifact "resource-utilization.module.js" as SpaBundle
+  artifact "localStorage" as LocalStorage
+}
+
+node "PLMS Backend Host" {
+  artifact "TodoApi.dll" as TodoApiDll
+  artifact "ResourceUsageController.cs" as ResourceCtrl
+  artifact "OemClient.cs" as OemClient
+  artifact "JwtPolicyHandler.cs" as JwtPolicy
+}
+
+node "OEM Platform Cluster" {
+  artifact "oem-api.jar" as OemApiJar
+  artifact "ResourceUsageController.ts" as OemController
+  artifact "ResourceUsageService.ts" as UsageService
+  artifact "ResourceUsageQueryBuilder.ts" as QueryBuilder
+  artifact "AllocationAggregator.ts" as Aggregator
+  database "operation_plans" as PlansTable
+  database "resource_usage_cache" as CacheTable
+}
+
+node "IAM Provider" {
+  artifact "oidc-server" as Oidc
+}
+
+SpaBundle --> ResourceCtrl : REST calls
+LocalStorage --> SpaBundle : Persist filters
+ResourceCtrl --> JwtPolicy : Validate token
+ResourceCtrl --> OemClient : Build outbound request
+OemClient --> OemController : HTTPS
+OemController --> UsageService : NestJS module call
+UsageService --> QueryBuilder : Compose query
+QueryBuilder --> PlansTable : Read saved plans
+UsageService --> Aggregator : Aggregate totals
+Aggregator --> CacheTable : Cache summary
+UsageService --> OemController : ResourceUsageSummaryDto
+Oidc --> SpaBundle : Auth tokens
+Oidc --> JwtPolicy : JWKS metadata
+
+@enduml

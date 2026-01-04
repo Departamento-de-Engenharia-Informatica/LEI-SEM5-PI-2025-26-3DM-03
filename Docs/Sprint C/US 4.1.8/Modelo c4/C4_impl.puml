@@ -1,0 +1,124 @@
+@startuml C4_VVE_Update_Implementation_View
+title C4 – VVE Update (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem/vve" {
+  class VveDetailsComponent {
+    -form: FormGroup
+    -vve$: Observable<VesselVisitExecution>
+    -loading: boolean
+    +ngOnInit(): void
+    +onSubmit(): void
+    +onRetry(): void
+    -buildUpdatePayload(): UpdateVveRequest
+  }
+
+  class DockDiscrepancyBannerComponent {
+    +warnings: string[]
+    +plannedDockId: string
+    +actualDockId: string
+  }
+
+  class OemVveService {
+    +getVve(vveId: string): Observable<VesselVisitExecution>
+    +updateVve(vveId: string, payload: UpdateVveRequest): Observable<VesselVisitExecution>
+  }
+
+  class UpdateVveRequest {
+    +string actualBerthAt
+    +string actualDockId
+    +string? comment
+    +number version
+  }
+
+  class VesselVisitExecution {
+    +string vveId
+    +string vvnId
+    +string plannedDockId
+    +string? actualDockId
+    +string? plannedBerthAt
+    +string? actualBerthAt
+    +string status
+    +string updatedBy
+    +string updatedAt
+    +number version
+    +string[] warnings
+  }
+}
+
+package "TodoApi.Controllers" {
+  class VveProxyController {
+    +UpdateVve(vveId, payload)
+    +GetVve(vveId)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +UpdateVveAsync(vveId, payload, token): Task<HttpResponseMessage>
+    +GetVveAsync(vveId, token): Task<HttpResponseMessage>
+    -ApplyIdentityHeaders(request): void
+  }
+
+  class EtagValidator {
+    +Validate(version, headers): void
+  }
+}
+
+package "oem-api/src/vve" {
+  class VveController {
+    +update(id: string, body: UpdateVveDto, user: UserContext): Promise<VveDto>
+    +findOne(id: string): Promise<VveDto>
+  }
+
+  class VveUpdateService {
+    +update(id: string, command: UpdateVveCommand): Promise<Vve>
+  }
+
+  class ConcurrencyGuard {
+    +ensureLatestVersion(vve: Vve, expectedVersion: number): void
+  }
+
+  class DockDiscrepancyChecker {
+    +buildWarnings(vve: Vve, plannedDockId: string): string[]
+  }
+
+  class VveRepository {
+    +findById(id: string): Promise<Vve>
+    +save(vve: Vve): Promise<void>
+  }
+
+  class VvnRepository {
+    +findById(id: string): Promise<Vvn>
+  }
+
+  class AuditPublisher {
+    +publishVveUpdated(vve: Vve, delta: VveDelta): Promise<void>
+  }
+}
+
+VveDetailsComponent --> DockDiscrepancyBannerComponent
+VveDetailsComponent --> OemVveService
+OemVveService --> VveProxyController
+VveProxyController --> EtagValidator
+VveProxyController --> OemClient
+OemClient --> VveController
+VveController --> VveUpdateService
+VveUpdateService --> ConcurrencyGuard
+VveUpdateService --> DockDiscrepancyChecker
+VveUpdateService --> VveRepository
+VveUpdateService --> VvnRepository
+VveUpdateService --> AuditPublisher
+
+@enduml

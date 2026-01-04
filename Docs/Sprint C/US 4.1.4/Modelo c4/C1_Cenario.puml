@@ -1,0 +1,39 @@
+@startuml C1_Update_Operation_Plans_Scenario_View
+title C1 – Update Operation Plans (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Saved Operation Plans" as UC_List
+  usecase "Open Plan Details" as UC_Details
+  usecase "Edit Operation Plan" as UC_Edit
+  usecase "Review Change History" as UC_History
+  usecase "Inspect Resource Warnings" as UC_Warnings
+  usecase "Check Resource Allocation" as UC_Allocation
+}
+
+Operator --> UC_List
+Operator --> UC_Details
+Operator --> UC_Edit
+Operator --> UC_History
+Operator --> UC_Warnings
+Operator --> UC_Allocation
+
+note right of UC_Edit
+  Allows adjustments to status, dock,
+  crane/staff assignments, and timings.
+end note
+
+note right of UC_Warnings
+  Highlights potential conflicts across
+  VVNs, cranes, docks, and staff usage.
+end note
+
+@enduml

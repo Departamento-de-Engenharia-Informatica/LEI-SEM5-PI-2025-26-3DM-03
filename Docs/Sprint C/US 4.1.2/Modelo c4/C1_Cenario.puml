@@ -1,0 +1,37 @@
+@startuml C1_Generate_Operation_Plans_Scenario_View
+title C1 – Generate Operation Plans (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Select Planning Day" as UC_SelectDay
+  usecase "Preview Operation Plans" as UC_Preview
+  usecase "Persist Generated Plans" as UC_Persist
+  usecase "Review Generation Metadata" as UC_Metadata
+  usecase "Identify Missing Plans" as UC_Missing
+}
+
+Operator --> UC_SelectDay
+Operator --> UC_Preview
+Operator --> UC_Persist
+Operator --> UC_Metadata
+Operator --> UC_Missing
+
+note right of UC_Preview
+  Runs the chosen scheduling algorithm
+  and displays per-VVN operations before saving.
+end note
+
+note right of UC_Persist
+  Saves confirmed plans into OEM storage
+  with author, date, algorithm metadata.
+end note
+
+@enduml

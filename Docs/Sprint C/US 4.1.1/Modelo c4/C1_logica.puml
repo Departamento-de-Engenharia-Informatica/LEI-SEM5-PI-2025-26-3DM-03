@@ -1,0 +1,47 @@
+@startuml C1_OEM_Service_Logical_View
+title C1 – OEM Independent Service (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Project Manager" as PM
+actor "TodoApi" as Gateway
+actor "Frontoffice SPA" as SPA
+
+cloud "Identity Provider\n(OAuth2/OIDC)" as IAM
+
+rectangle "OEM Service" as OEM {
+  rectangle "REST Controllers" as Controllers
+  rectangle "Domain Services" as Domain
+  rectangle "Persistence Layer" as Persistence
+  database "OEM Database" as Db
+}
+
+PM --> Controllers : Governance & KPIs
+SPA --> Controllers : HTTPS/JSON calls
+Gateway --> Controllers : REST integration
+Controllers --> Domain : invoke business logic
+Domain --> Persistence : data access via repositories
+Persistence --> Db : SQL
+Controllers --> IAM : validate tokens / scopes
+
+@enduml

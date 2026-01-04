@@ -1,0 +1,37 @@
+@startuml C1_Missing_Plans_Scenario_View
+title C1 – Missing Operation Plans (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Operation Plans Module" as System {
+  usecase "List VVNs without Plan" as UC_List
+  usecase "Review Missing Details" as UC_Details
+  usecase "Confirm Regeneration" as UC_Regenerate
+  usecase "View Regeneration Metadata" as UC_Metadata
+  usecase "Acknowledge Overwrite Warning" as UC_Warning
+}
+
+Operator --> UC_List
+Operator --> UC_Details
+Operator --> UC_Regenerate
+Operator --> UC_Metadata
+Operator --> UC_Warning
+
+note right of UC_Regenerate
+  Runs scheduling algorithm for the selected day
+  to rebuild Operation Plans for missing VVNs.
+end note
+
+note right of UC_Warning
+  Operator must explicitly confirm that existing plans
+  will be overwritten before regeneration proceeds.
+end note
+
+@enduml

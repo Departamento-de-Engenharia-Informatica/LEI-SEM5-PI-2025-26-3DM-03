@@ -1,0 +1,53 @@
+@startuml C2_Search_Operation_Plans_Implementation_View
+title C2 – Operation Plan Search (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "Frontend" {
+  package "Components" {
+    [OemOperationPlansComponent]
+  }
+  package "Services" {
+    [OemApiService]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [OperationPlansController]
+  }
+  package "Application" {
+    [OperationPlansQueryService]
+  }
+  package "Persistence" {
+    [OperationPlanRepository]
+  }
+}
+
+[OemOperationPlansComponent] --> [OemApiService]
+[OemApiService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [OperationPlansController]
+[OperationPlansController] --> [OperationPlansQueryService]
+[OperationPlansQueryService] --> [OperationPlanRepository]
+
+@enduml

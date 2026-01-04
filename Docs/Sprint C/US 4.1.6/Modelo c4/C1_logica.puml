@@ -1,0 +1,26 @@
+@startuml C1_Resource_Usage_Logical
+title C1 – Resource Usage (Logical Relationships)
+
+skinparam rectangle {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+rectangle "Logistics Operator" as Operator
+rectangle "ResourceUtilizationComponent" as Ui
+rectangle "TodoApi ResourceUsageController" as Proxy
+rectangle "OEM ResourceUsage API" as OemApi
+rectangle "Operation Plan Repository" as PlanRepo
+rectangle "IAM" as Iam
+
+Operator --> Ui : Select resource & period
+Ui --> Proxy : REST GET /resource-usage
+Proxy --> Iam : Validate token
+Proxy --> OemApi : Forward request
+OemApi --> PlanRepo : Aggregate persisted plans
+PlanRepo --> OemApi : Totals / counts
+OemApi --> Proxy : Aggregated data + warnings
+Proxy --> Ui : JSON summary
+Ui --> Operator : Table + warnings
+
+@enduml

@@ -1,0 +1,15 @@
+@startuml C1_Resource_Usage_Process
+title C1 – Resource Usage (High-Level Process)
+
+start
+:Operator selects resource filters;
+:SPA validates period (<= 90 days);
+:SPA calls TodoApi /resource-usage;
+:TodoApi verifies JWT and forwards to OEM;
+:OEM aggregates saved plans for resource;
+:OEM returns totals, counts, warnings;
+:TodoApi relays response to SPA;
+:SPA renders summary table and warning banner;
+stop
+
+@enduml

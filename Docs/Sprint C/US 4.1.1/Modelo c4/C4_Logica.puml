@@ -1,0 +1,49 @@
+@startuml C4_OEM_Service_Logical_Deployment
+title C4 – OEM Service (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Project Manager" as PM
+
+node "DevOps Workstation" as Workstation {
+  artifact "CI/CD Pipeline" as Pipeline
+}
+
+node "Cloud Subscription" as Subscription {
+  node "Network: prod-oem" as Network {
+    artifact "Container App: oem-api" as Container
+    artifact "API Gateway" as Gateway
+  }
+  node "Network: shared-services" as Shared {
+    cloud "IAM Cluster" as IAM
+  }
+  node "Database Tier" as DatabaseTier {
+    artifact "Managed SQL Database" as Sql
+  }
+}
+
+Pipeline --> Container : Deploy Docker image
+Gateway --> Container : Route /oem/* traffic
+Container --> Sql : ODBC/TDS connection
+Container --> IAM : Token validation / JWKS fetch
+PM --> Pipeline : Trigger releases & view status
+
+@enduml

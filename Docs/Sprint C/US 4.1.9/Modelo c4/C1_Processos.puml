@@ -1,0 +1,17 @@
+@startuml C1_VVE_Execution_Process
+title C1 – VVE Execution (High-Level Process)
+
+start
+:Operator opens in-progress VVE and reviews planned operations;
+:SPA preloads planned tasks and populates execution form;
+:Operator confirms or adjusts start/end times and resources;
+:SPA sends PATCH /vves/{id}/operations to TodoApi;
+:TodoApi validates token and forwards to OEM;
+:OEM service validates operation references, persists execution updates, and sets statuses;
+:OEM synchronises completion state with Operation Plan and emits audit events;
+:OEM returns updated execution summary with warnings/deltas;
+:TodoApi relays response to SPA;
+:SPA updates progress indicators and variance badges;
+stop
+
+@enduml

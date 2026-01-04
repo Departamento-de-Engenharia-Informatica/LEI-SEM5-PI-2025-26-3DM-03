@@ -1,0 +1,55 @@
+@startuml C3_Resource_Usage_Logical_View
+title C3 – Resource Usage (Logical Components)
+left to right direction
+
+package "Client Tier" {
+  component "ResourceUtilizationComponent" as UiComponent
+  component "ResourceFiltersForm" as FilterForm
+  component "UsageSummaryTable" as SummaryTable
+  component "OemResourceUsageService" as UiService
+}
+
+package "Backend Tier" {
+  component "ResourceUsageController" as ApiController
+  component "ResourceUsageApplicationService" as AppService
+  component "OemClient" as ProxyClient
+  component "JwtAuthentication" as JwtAuth
+}
+
+package "OEM Domain Tier" {
+  component "ResourceUsageService" as DomainService
+  component "ResourceUsageQueryBuilder" as QueryBuilder
+  component "AllocationAggregator" as Aggregator
+  component "PlanRepository" as PlanRepo
+  component "UsageCacheRepository" as CacheRepo
+  component "WarningBuilder" as WarningBuilder
+}
+
+package "Infrastructure" {
+  database "Operation Plans DB" as PlansDb
+  database "Resource Usage Cache" as CacheDb
+  component "Message Bus" as Bus
+}
+
+FilterForm --> UiComponent : Emit filters
+UiComponent --> UiService : Fetch summaries
+UiService --> ApiController : REST / JSON
+ApiController --> JwtAuth : Validate JWT
+ApiController --> AppService : Query DTO
+AppService --> ProxyClient : Forward request
+ProxyClient --> DomainService : REST call
+DomainService --> QueryBuilder : Build criteria
+QueryBuilder --> PlanRepo : Fetch saved plans
+PlanRepo --> PlansDb
+DomainService --> Aggregator : Calculate totals
+Aggregator --> CacheRepo : Upsert cached result
+CacheRepo --> CacheDb
+DomainService --> WarningBuilder : detect gaps
+WarningBuilder --> DomainService : warnings[]
+DomainService --> ProxyClient : Summary + warnings
+ProxyClient --> AppService : HTTP response
+AppService --> ApiController : Summary DTO
+ApiController --> UiService : JSON
+UiService --> SummaryTable : Render rows
+
+@enduml

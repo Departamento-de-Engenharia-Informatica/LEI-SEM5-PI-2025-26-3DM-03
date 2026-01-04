@@ -1,0 +1,31 @@
+@startuml C1_Missing_Plans_Process_View
+title C1 – Missing Operation Plans (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Missing Plans UI" as UI
+participant "TodoApi" as Gateway
+participant "OEM Service" as OEM
+participant "VVN Repository" as VvnRepo
+participant "Plans Repository" as PlansRepo
+
+Operator -> UI : Select date & open "Missing Plans"
+UI -> Gateway : GET /api/oem/operation-plans/missing?date=...
+Gateway -> OEM : Forward GET
+OEM -> VvnRepo : Fetch VVNs for date
+OEM -> PlansRepo : Check plans linked to VVNs
+PlansRepo --> OEM : Existing plan IDs
+VvnRepo --> OEM : VVN list
+OEM --> Gateway : Missing VVNs JSON
+Gateway --> UI : Render list
+
+Operator -> UI : Click "Regenerar"
+UI -> Gateway : POST /api/oem/operation-plans/regenerate-missing
+Gateway -> OEM : Forward POST (with confirmOverwrite)
+OEM -> PlansRepo : Delete / overwrite plans
+OEM -> Scheduling Engine : Generate plans
+Scheduling Engine --> OEM : Generated plans + metadata
+OEM -> PlansRepo : Persist plans
+OEM --> Gateway : Response with plans + warnings
+Gateway --> UI : Show success + metadata + warnings
+
+@enduml

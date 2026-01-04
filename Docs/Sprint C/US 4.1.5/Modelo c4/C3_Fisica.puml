@@ -1,0 +1,50 @@
+@startuml C3_Missing_Plans_Physical_View
+title C3 – Missing Operation Plans (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device" as Device {
+  artifact "Angular SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  artifact "TodoApi Proxy" as Proxy
+}
+
+node "OEM Platform" as Platform {
+  artifact "OEM API Pod" as OemApi
+  artifact "Scheduling Worker" as Worker
+  database "OEM Planning DB" as PlansDb
+  database "VVN DB" as VvnDb
+}
+
+node "IAM Cluster" as Identity {
+  artifact "Keycloak / Azure AD" as Idp
+}
+
+Operator --> Spa : HTTPS
+Spa --> Proxy : REST (missing/regenerate)
+Proxy --> OemApi : HTTPS
+OemApi --> Worker : Trigger regeneration
+Worker --> PlansDb : Overwrite plans
+OemApi --> VvnDb : Query VVNs without plans
+Proxy --> Idp : Validate tokens (once per session)
+
+@enduml

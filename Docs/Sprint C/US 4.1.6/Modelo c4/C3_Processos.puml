@@ -1,0 +1,38 @@
+@startuml C3_Resource_Usage_Process_View
+title C3 – Resource Usage (Process Flow)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Logistics Operator" as Operator
+participant "ResourceUtilizationComponent" as UI
+participant "TodoApi ResourceUsageController" as Proxy
+participant "OemClient" as Client
+participant "OEM ResourceUsageController" as OemController
+participant "ResourceUsageService" as UsageService
+participant "ResourceUsageQueryBuilder" as QueryBuilder
+Database "Operation Plans DB" as PlansDb
+participant "AllocationAggregator" as Aggregator
+participant "WarningBuilder" as WarningBuilder
+Database "Resource Usage Cache" as CacheDb
+
+Operator -> UI : Apply filters & submit
+UI -> Proxy : GET /resource-usage
+Proxy -> Client : Prepare outbound request
+Client -> OemController : GET /resource-usage
+OemController -> UsageService : build summary
+UsageService -> QueryBuilder : criteria (Saved plans)
+QueryBuilder -> PlansDb : fetch tasks
+PlansDb --> QueryBuilder : plan data
+UsageService -> Aggregator : aggregate durations
+Aggregator --> UsageService : totals & counts
+UsageService -> WarningBuilder : detect gaps
+WarningBuilder --> UsageService : warnings
+UsageService -> CacheDb : write cache entry
+UsageService --> OemController : summary DTO
+OemController --> Client : 200 OK
+Client --> Proxy : 200 OK
+Proxy --> UI : summary JSON
+UI --> Operator : Render table + warnings
+
+@enduml

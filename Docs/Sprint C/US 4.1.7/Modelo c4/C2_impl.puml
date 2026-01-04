@@ -1,0 +1,71 @@
+@startuml C2_VVE_Creation_Implementation
+title C2 – VVE Creation (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "Frontend" {
+  package "Components" {
+    [VesselVisitExecutionComponent]
+    [VveConfirmationDialog]
+  }
+  package "Services" {
+    [OemVveService]
+    [VvnLookupService]
+    [ToastService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [VveProxyController]
+  }
+  package "Services" {
+    [OemClient]
+    [IdentityHeaderFactory]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [VveController]
+  }
+  package "Application" {
+    [VveApplicationService]
+    [VveIdGenerator]
+  }
+  package "Domain" {
+    [VvnEligibilityChecker]
+    [VveFactory]
+  }
+  package "Persistence" {
+    [VvnRepository]
+    [VveRepository]
+  }
+  package "Integration" {
+    [AuditPublisher]
+  }
+}
+
+[VesselVisitExecutionComponent] --> [VveConfirmationDialog]
+[VesselVisitExecutionComponent] --> [OemVveService]
+[VesselVisitExecutionComponent] --> [VvnLookupService]
+[OemVveService] --> [VveProxyController]
+[VveProxyController] --> [IdentityHeaderFactory]
+[VveProxyController] --> [OemClient]
+[OemClient] --> [VveController]
+[VveController] --> [VveApplicationService]
+[VveApplicationService] --> [VvnEligibilityChecker]
+[VveApplicationService] --> [VveFactory]
+[VveApplicationService] --> [VveRepository]
+[VveApplicationService] --> [AuditPublisher]
+[VvnEligibilityChecker] --> [VvnRepository]
+[VveFactory] --> [VveIdGenerator]
+
+@enduml

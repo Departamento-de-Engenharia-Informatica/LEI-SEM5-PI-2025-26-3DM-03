@@ -1,0 +1,63 @@
+@startuml C4_VVE_Execution_Logical_View
+title C4 – VVE Execution (Detailed Component Interaction)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+component "VveOperationsComponent" as ListView
+component "OperationExecutionFormComponent" as FormComponent
+component "ExecutionVariancePanelComponent" as VarianceComponent
+component "OemVveService" as FrontService
+component "VveOperationsStore" as Store
+
+component "TodoApi VveOperationsProxyController" as ProxyController
+component "JwtMiddleware" as JwtMiddleware
+component "BulkResponseMapper" as ResponseMapper
+component "IdentityHeaderFactory" as HeaderFactory
+component "OemVveClient" as ProxyClient
+
+component "OEM VveOperationsController" as OemController
+component "VveExecutionService" as ExecutionService
+component "ExecutionValidationService" as ValidationService
+component "ExecutionStatusCalculator" as StatusCalculator
+component "ExecutedOperationRepository" as ExecutedRepo
+component "PlannedOperationRepository" as PlannedRepo
+component "VveRepository" as VveRepo
+component "OperationPlanSyncService" as PlanSyncService
+component "AuditPublisher" as AuditPublisher
+component "PlanSyncPublisher" as PlanPublisher
+component "ExecutionDeltaBuilder" as DeltaBuilder
+
+ListView --> FormComponent : iterate planned ops
+ListView --> VarianceComponent : provide delta
+ListView --> FrontService : submit updates
+ListView --> Store : subscribe results
+FrontService --> ProxyController : HTTPS JSON
+ProxyController --> JwtMiddleware : authorize
+ProxyController --> ResponseMapper : transform responses
+ProxyController --> HeaderFactory : build identity headers
+ProxyController --> ProxyClient : outbound HTTP
+ProxyClient --> OemController : REST
+OemController --> ExecutionService : updateExecutions
+ExecutionService --> ValidationService : validate commands
+ExecutionService --> StatusCalculator : compute status
+ExecutionService --> PlannedRepo : fetch planned ops
+ExecutionService --> ExecutedRepo : persist executed ops
+ExecutionService --> VveRepo : update VVE progress
+ExecutionService --> DeltaBuilder : compute variances
+ExecutionService --> PlanSyncService : sync plans
+PlanSyncService --> PlanPublisher : publish events
+ExecutionService --> AuditPublisher : publish execution events
+AuditPublisher --> ExecutionService : ack
+ExecutionService --> OemController : ExecutionUpdateResponse
+OemController --> ProxyClient : response
+ProxyClient --> ProxyController : HTTP response
+ProxyController --> FrontService : DTO
+FrontService --> Store : update execution cache
+Store --> ListView : stream latest data
+
+@enduml

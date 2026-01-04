@@ -1,0 +1,30 @@
+@startuml C1_VVE_Execution_Logical
+title C1 – VVE Execution (Logical Relationships)
+
+skinparam rectangle {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+rectangle "Logistics Operator" as Operator
+rectangle "VveOperationsComponent" as Ui
+rectangle "TodoApi VveOperationsController" as Proxy
+rectangle "OEM Vve Operations API" as OemApi
+rectangle "Planned Operations Repository" as PlannedRepo
+rectangle "Executed Operations Repository" as ExecutedRepo
+rectangle "Operation Plan Sync Service" as PlanSync
+rectangle "IAM" as Iam
+
+Operator --> Ui : Confirm/adjust executions
+Ui --> Proxy : PATCH /vves/{id}/operations
+Proxy --> Iam : Validate token
+Proxy --> OemApi : Forward update JSON
+OemApi --> PlannedRepo : Load planned operation details
+OemApi --> ExecutedRepo : Persist execution updates
+OemApi --> PlanSync : Propagate status to plan
+PlanSync --> PlannedRepo : Update status flags
+OemApi --> Proxy : Updated operations + warnings
+Proxy --> Ui : JSON DTOs
+Ui --> Operator : Updated progress + variance
+
+@enduml

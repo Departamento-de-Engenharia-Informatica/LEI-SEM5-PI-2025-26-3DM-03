@@ -1,0 +1,86 @@
+@startuml C3_VVE_Execution_Deployment
+title C3 – VVE Execution (Implementation Mapping)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+node "User Device" {
+  artifact "vve-operations.module.js" as SpaBundle
+  artifact "indexedDb" as OfflineCache
+}
+
+node "PLMS Backend Host" {
+  artifact "TodoApi.dll" as TodoApiDll
+  artifact "VveOperationsProxyController.cs" as VveProxy
+  artifact "OemClient.cs" as OemClient
+  artifact "IdentityHeaderFactory.cs" as IdentityFactory
+  artifact "BulkResponseMapper.cs" as BulkMapper
+}
+
+node "OEM Platform Cluster" {
+  artifact "oem-api.jar" as OemApiJar
+  artifact "vve-operations.controller.ts" as VveController
+  artifact "vve-execution.service.ts" as ExecutionService
+  artifact "execution-validation.service.ts" as ValidationService
+  artifact "execution-status-calculator.ts" as StatusCalculator
+  artifact "plan-sync.service.ts" as PlanSyncService
+  artifact "audit.publisher.ts" as AuditPublisher
+  artifact "plan-sync.publisher.ts" as PlanPublisher
+  artifact "executed-operation.repository.ts" as ExecutedRepo
+  artifact "planned-operation.repository.ts" as PlannedRepo
+  artifact "vve.repository.ts" as VveRepo
+  database "executed_operations" as ExecutedTable
+  database "planned_operations" as PlannedTable
+  database "vve_store" as VveTable
+}
+
+node "Operation Plan Infrastructure" {
+  artifact "plan-sync.consumer.ts" as PlanConsumer
+  database "operation_plan_store" as PlanStore
+}
+
+node "IAM Provider" {
+  artifact "oidc-server" as Oidc
+}
+
+node "Event Bus" {
+  artifact "execution-events" as ExecutionTopic
+  artifact "plan-sync-events" as PlanSyncTopic
+}
+
+SpaBundle --> VveProxy : REST PATCH
+OfflineCache --> SpaBundle : Cached operations data
+VveProxy --> IdentityFactory : Build headers
+VveProxy --> BulkMapper : Normalize payload
+VveProxy --> OemClient : Send request
+OemClient --> VveController : HTTPS
+VveController --> ExecutionService : NestJS call
+ExecutionService --> ValidationService : Validate input
+ExecutionService --> StatusCalculator : Determine statuses
+ExecutionService --> ExecutedRepo : Persist executed ops
+ExecutedRepo --> ExecutedTable
+ExecutionService --> PlannedRepo : Load planned ops
+PlannedRepo --> PlannedTable
+ExecutionService --> VveRepo : Update VVE progress
+VveRepo --> VveTable
+ExecutionService --> AuditPublisher : Publish execution events
+AuditPublisher --> ExecutionTopic
+ExecutionService --> PlanSyncService : Trigger sync
+PlanSyncService --> PlanPublisher : Publish sync
+PlanPublisher --> PlanSyncTopic
+PlanConsumer --> PlanSyncTopic : Consume
+PlanConsumer --> PlanStore : Update plan
+Oidc --> SpaBundle : Tokens
+Oidc --> IdentityFactory : JWKS metadata
+
+@enduml

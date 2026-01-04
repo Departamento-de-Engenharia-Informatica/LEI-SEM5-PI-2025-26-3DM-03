@@ -1,0 +1,65 @@
+@startuml C2_Resource_Usage_Implementation
+title C2 – Resource Usage (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "Frontend" {
+  package "Components" {
+    [ResourceUtilizationComponent]
+    [ResourceFiltersForm]
+    [UsageSummaryTable]
+  }
+  package "Services" {
+    [OemResourceUsageService]
+    [NotificationService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [ResourceUsageController]
+  }
+  package "Services" {
+    [OemClient]
+    [JwtTokenValidator]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [ResourceUsageController]
+  }
+  package "Application" {
+    [ResourceUsageService]
+    [ResourceUsageQueryBuilder]
+  }
+  package "Persistence" {
+    [OperationPlanRepository]
+    [ResourceAllocationReadModel]
+  }
+  package "Domain" {
+    [AllocationAggregator]
+  }
+}
+
+[ResourceFiltersForm] --> [ResourceUtilizationComponent]
+[ResourceUtilizationComponent] --> [UsageSummaryTable]
+[ResourceUtilizationComponent] --> [OemResourceUsageService]
+[OemResourceUsageService] --> [ResourceUsageController]
+[ResourceUsageController] --> [JwtTokenValidator]
+[ResourceUsageController] --> [OemClient]
+[OemClient] --> [ResourceUsageController#OEM]
+[ResourceUsageController#OEM] --> [ResourceUsageService]
+[ResourceUsageService] --> [ResourceUsageQueryBuilder]
+[ResourceUsageService] --> [AllocationAggregator]
+[ResourceUsageQueryBuilder] --> [OperationPlanRepository]
+[AllocationAggregator] --> [ResourceAllocationReadModel]
+
+@enduml

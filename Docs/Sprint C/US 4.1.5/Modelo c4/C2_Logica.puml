@@ -1,0 +1,64 @@
+@startuml C2_Missing_Plans_Logical_View
+title C2 – Missing Operation Plans (Container View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Frontoffice SPA" as SPA {
+  rectangle "Operation Plans Feature" as Feature
+  rectangle "Confirm Dialog" as Dialog
+  rectangle "Notification Service" as Notification
+}
+
+rectangle "TodoApi" as Gateway {
+  rectangle "OemProxyController" as Controller
+  rectangle "OemClient" as Client
+}
+
+cloud "OEM Service" as OEM {
+  rectangle "Missing Plans API" as MissingApi
+  rectangle "Regeneration API" as RegenerateApi
+  rectangle "Scheduling Engine" as Scheduler
+}
+
+cloud "IAM" as IAM
+
+database "OEM Database" as PlansDb
+
+database "VVN Catalog" as VvnCatalog
+
+Operator --> Feature : Interact via browser
+Feature --> Controller : Call missing/regenerate endpoints
+Controller --> Client : Compose OEM HTTP request
+Client --> MissingApi : Fetch missing VVNs
+Client --> RegenerateApi : Trigger regeneration
+MissingApi --> VvnCatalog : Query VVNs
+MissingApi --> PlansDb : Check existing plans
+RegenerateApi --> Scheduler : Generate plans
+Scheduler --> PlansDb : Persist new plans
+Controller --> IAM : Validate token / claims
+Feature --> Dialog : request overwrite confirmation
+Feature --> Notification : show warnings and success
+
+@enduml

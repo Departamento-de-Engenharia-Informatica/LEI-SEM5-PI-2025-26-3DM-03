@@ -1,0 +1,32 @@
+@startuml C4_Missing_Plans_Sequence
+title C4 – Missing Operation Plans (Sequence of Regeneration)
+
+autonumber
+
+actor Operator
+participant "MissingPlansComponent" as UI
+participant "OemMissingPlansApiService" as FrontService
+participant "TodoApi MissingPlansController" as ProxyController
+participant "OemMissingPlansClient" as ProxyClient
+participant "OEM MissingPlansController" as OemController
+participant "RegenerationCommandHandler" as RegenHandler
+participant "PlanRepository" as PlanRepo
+participant "AuditLogRepository" as AuditRepo
+
+Operator -> UI : Click Regenerate
+UI -> FrontService : regeneratePlan(vvn)
+FrontService -> ProxyController : POST /oem/missing-plans/{vvn}/regenerate
+ProxyController -> ProxyClient : ForwardRequest(token)
+ProxyClient -> OemController : POST /missing-plans/{vvn}/regenerate
+OemController -> RegenHandler : handle(command)
+RegenHandler -> PlanRepo : generateAndSave(vvn)
+RegenHandler <- PlanRepo : OperationPlan
+RegenHandler -> AuditRepo : appendRegeneration(vvn, warnings)
+RegenHandler --> OemController : RegenerateResponse
+OemController --> ProxyClient : 202 Accepted
+ProxyClient --> ProxyController : 202 Accepted
+ProxyController --> FrontService : 202 + warnings
+FrontService --> UI : Resolved promise (warnings)
+UI --> Operator : Show toast + badge refresh
+
+@enduml

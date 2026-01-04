@@ -1,0 +1,23 @@
+@startuml C1_VVE_Execution_Context
+title C1 – VVE Execution Update Scenario
+
+actor "Logistics Operator" as Operator
+rectangle "PLMS Portal" {
+  package "Angular SPA" as Spa
+}
+rectangle "PLMS Backend" as Backend
+rectangle "OEM Platform" as Oem
+rectangle "Identity Provider" as Idp
+rectangle "Operation Plan Service" as PlanService
+
+Operator --> Spa : Record executed operations
+Spa --> Backend : HTTPS (Update VVE operations)
+Backend --> Oem : Forward bulk execution updates
+Oem --> PlanService : Sync status/deltas
+Oem --> Backend : Execution update response
+Backend --> Spa : JSON with progress & warnings
+Spa --> Operator : Show progress + variances
+Spa --> Idp : OIDC session
+Backend --> Idp : Token validation
+
+@enduml

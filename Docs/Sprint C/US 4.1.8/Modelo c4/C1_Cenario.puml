@@ -1,0 +1,21 @@
+@startuml C1_VVE_Update_Context
+title C1 – VVE Update Scenario
+
+actor "Logistics Operator" as Operator
+rectangle "PLMS Portal" {
+  package "Angular SPA" as Spa
+}
+rectangle "PLMS Backend" as Backend
+rectangle "OEM Platform" as Oem
+rectangle "Identity Provider" as Idp
+
+Operator --> Spa : Update berth time & dock
+Spa --> Backend : HTTPS (Update VVE)
+Backend --> Oem : Forward update request
+Oem --> Backend : Updated VVE DTO
+Backend --> Spa : JSON response
+Spa --> Operator : Show confirmation + warnings
+Spa --> Idp : OIDC login (session)
+Backend --> Idp : Token validation
+
+@enduml

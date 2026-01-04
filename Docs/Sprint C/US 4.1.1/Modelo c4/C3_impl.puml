@@ -1,0 +1,76 @@
+@startuml C3_OEM_Service_Component_View
+title C3 – OEM Service (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "OperationPlans" {
+  class OperationPlansController {
+    +create()
+    +findAll()
+    +findOne()
+    +update()
+    +remove()
+  }
+  class OperationPlansService {
+    +create()
+    +findAll()
+    +findOne()
+    +update()
+    +remove()
+  }
+  class OperationPlansRepository {
+    +save()
+    +find()
+    +findOne()
+    +softDelete()
+  }
+  class OperationPlanEntity
+  class OperationPlanMapper
+}
+
+package "Executions" {
+  class ExecutionsController
+  class ExecutionsService
+  class ExecutionsRepository
+  class VesselVisitExecutionEntity
+}
+
+package "Security" {
+  class JwtAuthGuard
+  class RolesGuard
+  class PoliciesGuard
+}
+
+package "Shared" {
+  class LoggingInterceptor
+  class ExceptionFilter
+  class PaginationUtil
+}
+
+OperationPlansController --> OperationPlansService
+OperationPlansService --> OperationPlansRepository
+OperationPlansService --> OperationPlanMapper
+OperationPlansRepository --> OperationPlanEntity
+ExecutionsController --> ExecutionsService
+ExecutionsService --> ExecutionsRepository
+ExecutionsRepository --> VesselVisitExecutionEntity
+OperationPlansController --> JwtAuthGuard
+OperationPlansController --> PoliciesGuard
+JwtAuthGuard --> RolesGuard
+LoggingInterceptor --> OperationPlansController
+ExceptionFilter --> OperationPlansController
+
+@enduml

@@ -1,0 +1,52 @@
+@startuml C3_VVE_Update_Process_View
+title C3 – VVE Update (Process Flow)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Logistics Operator" as Operator
+participant "VveDetailsComponent" as UI
+participant "OemVveService" as FrontService
+participant "VveProxyController" as Proxy
+participant "EtagValidator" as Etag
+participant "OemClient" as Client
+participant "OEM VveController" as OemController
+participant "VveUpdateService" as UpdateService
+participant "ConcurrencyGuard" as Concurrency
+participant "DockDiscrepancyChecker" as Discrepancy
+Database "VVN Store" as VvnDb
+participant "VveRepository" as VveRepo
+Database "VVE Store" as VveDb
+participant "AuditPublisher" as Audit
+Database "Audit Store" as AuditDb
+component "Audit Topic" as AuditTopic
+
+Operator -> UI : Change berth time & dock
+UI -> FrontService : save()
+FrontService -> Proxy : PATCH
+Proxy -> Etag : Validate version header
+Etag --> Proxy : ok
+Proxy -> Client : Forward request with JWT
+Client -> OemController : PATCH /vves/{id}
+OemController -> UpdateService : updateVve
+UpdateService -> Concurrency : ensureLatestVersion
+Concurrency -> VveRepo : load VVE
+VveRepo --> Concurrency : current version
+Concurrency --> UpdateService : ok
+UpdateService -> Discrepancy : compare planned dock
+Discrepancy -> VvnDb : load planned dock
+VvnDb --> Discrepancy : dock id
+Discrepancy --> UpdateService : warnings[]
+UpdateService -> VveRepo : save updated VVE
+VveRepo -> VveDb : persist changes
+UpdateService -> Audit : publish update event
+Audit -> AuditTopic : VVE_UPDATED
+Audit -> AuditDb : append audit record
+UpdateService --> OemController : Updated DTO
+OemController --> Client : 200 OK
+Client --> Proxy : 200 OK
+Proxy --> FrontService : DTO
+FrontService --> UI : Response
+UI --> Operator : Show warnings & confirmation
+
+@enduml

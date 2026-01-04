@@ -1,0 +1,91 @@
+@startuml C4_OEM_Service_Implementation_View
+title C4 – OEM Service (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "src/operation-plans" {
+  class OperationPlansController {
+    -service: OperationPlansService
+    +create(dto: CreateOperationPlanDto)
+    +findAll(query: FindPlansDto)
+    +findOne(id: number, opts)
+    +update(id: number, dto: UpdateOperationPlanDto)
+    +remove(id: number)
+  }
+
+  class OperationPlansService {
+    -repo: OperationPlansRepository
+    -mapper: OperationPlanMapper
+    +create(dto)
+    +findAll(query)
+    +findOne(id, opts)
+    +update(id, dto)
+    +remove(id)
+  }
+
+  class OperationPlansRepository {
+    -orm: Repository<OperationPlanEntity>
+    +save(entity)
+    +find(options)
+    +findOneById(id)
+    +softDelete(id)
+  }
+
+  class OperationPlanEntity {
+    +id: number
+    +vvnId: number
+    +status: string
+    +algorithm: string
+    +createdAt: Date
+    +createdBy: string
+    +tasks: OperationTaskEntity[]
+  }
+
+  class OperationTaskEntity {
+    +id: number
+    +type: string
+    +craneId: string
+    +startTime: Date
+    +endTime: Date
+  }
+
+  class OperationPlanMapper {
+    +toDto(entity: OperationPlanEntity): OperationPlanDto
+    +toEntity(dto: CreateOperationPlanDto): OperationPlanEntity
+    +merge(entity, dto: UpdateOperationPlanDto)
+  }
+}
+
+package "src/security" {
+  class JwtAuthGuard
+  class AbacPolicyGuard {
+    +canActivate(ctx)
+  }
+}
+
+package "src/common" {
+  class ApiResponseInterceptor
+  class HttpExceptionFilter
+}
+
+OperationPlansController --> OperationPlansService
+OperationPlansService --> OperationPlansRepository
+OperationPlansService --> OperationPlanMapper
+OperationPlansRepository --> OperationPlanEntity
+OperationPlanEntity "1" o-- "*" OperationTaskEntity
+OperationPlansController --> JwtAuthGuard
+OperationPlansController --> AbacPolicyGuard
+ApiResponseInterceptor --> OperationPlansController
+HttpExceptionFilter --> OperationPlansController
+
+@enduml

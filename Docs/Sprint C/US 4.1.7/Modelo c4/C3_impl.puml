@@ -1,0 +1,65 @@
+@startuml C3_VVE_Creation_Deployment
+title C3 – VVE Creation (Implementation Mapping)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+node "User Device" {
+  artifact "vve.module.js" as SpaBundle
+  artifact "sessionStorage" as SessionStorage
+}
+
+node "PLMS Backend Host" {
+  artifact "TodoApi.dll" as TodoApiDll
+  artifact "VveProxyController.cs" as VveProxy
+  artifact "OemClient.cs" as OemClient
+  artifact "IdentityHeaderFactory.cs" as IdentityFactory
+}
+
+node "OEM Platform Cluster" {
+  artifact "oem-api.jar" as OemApiJar
+  artifact "vve.controller.ts" as VveController
+  artifact "vve.service.ts" as VveService
+  artifact "vvn-eligibility-checker.ts" as Eligibility
+  artifact "vve-factory.ts" as VveFactory
+  artifact "vve-id-generator.ts" as VveIdGenerator
+  artifact "audit.publisher.ts" as AuditPublisher
+  database "vvn_store" as VvnStore
+  database "vve_store" as VveStore
+}
+
+node "IAM Provider" {
+  artifact "oidc-server" as Oidc
+}
+
+node "Event Bus" {
+  artifact "audit-topic" as AuditTopic
+}
+
+SpaBundle --> VveProxy : REST POST
+SessionStorage --> SpaBundle : Selected VVN context
+VveProxy --> IdentityFactory : Build headers
+VveProxy --> OemClient : Send request
+OemClient --> VveController : HTTPS
+VveController --> VveService : NestJS call
+VveService --> Eligibility : Validate VVN
+Eligibility --> VvnStore : Read VVN
+VveService --> VveFactory : Create entity
+VveFactory --> VveIdGenerator : Generate id
+VveService --> VveStore : Persist
+VveService --> AuditPublisher : Emit event
+AuditPublisher --> AuditTopic : Publish message
+Oidc --> SpaBundle : Tokens
+Oidc --> IdentityFactory : JWKS metadata
+
+@enduml

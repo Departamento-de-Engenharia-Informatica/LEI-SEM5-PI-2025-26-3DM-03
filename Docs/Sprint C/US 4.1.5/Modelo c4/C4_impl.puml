@@ -1,0 +1,97 @@
+@startuml C4_Missing_Plans_Implementation_View
+title C4 – Missing Operation Plans (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem/missing-plans" {
+  class MissingPlansComponent {
+    -filters: MissingPlanFilters
+    -selectedVvn: string?
+    -warningToast: string?
+    +ngOnInit(): void
+    +onFilterChange(filters): void
+    +onRegenerate(vvn: string): void
+    +loadMissingPlans(): void
+  }
+
+  class MissingPlansService {
+    +getMissingPlans(filters): Observable<MissingPlanDto[]>
+    +regeneratePlan(vvn: string): Observable<RegenerateResponse>
+  }
+
+  class MissingPlanDto {
+    +string Vvn
+    +string VesselName
+    +string Voyage
+    +Date MissingSince
+    +string LastKnownStatus
+    +string? LastRegenerationAttemptBy
+    +Date? LastRegenerationAttemptAt
+  }
+
+  class RegenerateResponse {
+    +string Vvn
+    +string Status
+    +ICollection<string> Warnings
+    +Date? EstimatedReadyAt
+  }
+}
+
+package "TodoApi.Controllers" {
+  class MissingPlansController {
+    +GetMissingPlans(...)
+    +RegeneratePlan(vvn)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetMissingPlansAsync(filters, token): Task<HttpResponseMessage>
+    +RegeneratePlanAsync(vvn, token): Task<HttpResponseMessage>
+    -ApplyIdentityHeaders(request): void
+  }
+}
+
+package "oem-api/src/missing-plans" {
+  class MissingPlansController {
+    +findMissingPlans(query): Promise<MissingPlanDto[]>
+    +regenerate(vvn): Promise<RegenerateResponse>
+  }
+
+  class MissingPlansService {
+    +getMissingPlans(query): Promise<MissingPlan[]>
+    +enqueueRegeneration(vvn): Promise<RegenerateResult>
+  }
+
+  class MissingPlanRepository {
+    +findMissingPlans(query): Promise<MissingPlan[]>
+    +markRegenerationAttempt(vvn, meta): Promise<void>
+  }
+
+  class RegenerationJob {
+    +handle(command): Promise<void>
+    -generatePlan(vvn): Promise<OperationPlan>
+    -publishAudit(vvn, meta): Promise<void>
+  }
+}
+
+MissingPlansComponent --> MissingPlansService
+MissingPlansService --> MissingPlansController
+MissingPlansController --> OemClient
+OemClient --> MissingPlansController
+MissingPlansController --> MissingPlansService
+MissingPlansService --> MissingPlanRepository
+MissingPlansService --> RegenerationJob
+RegenerationJob --> MissingPlanRepository
+
+@enduml

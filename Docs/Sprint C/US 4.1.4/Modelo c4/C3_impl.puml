@@ -1,0 +1,63 @@
+@startuml C3_Update_Operation_Plans_Implementation_View
+title C3 – Operation Plan Update (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend Components" {
+  class OemOperationPlansComponent {
+    +ngOnInit()
+    +openEdit(plan)
+    +onSaveEdit()
+    +displayWarnings()
+  }
+  class OemApiService {
+    +getOperationPlan(id)
+    +updateOperationPlan(id, payload)
+    +getReferenceData()
+  }
+  class DocksService
+  class ResourcesService
+  class StaffService
+}
+
+package "Backend Components" {
+  class OemProxyController {
+    +GetOperationPlans(filter)
+    +GetOperationPlan(id)
+    +UpdateOperationPlan(id, payload)
+  }
+  class OemClient {
+    +GetOperationPlanAsync(id)
+    +UpdateOperationPlanAsync(id, payload)
+    +ApplyIdentityHeaders(request)
+  }
+}
+
+package "External Systems" {
+  class OemOperationPlanningApi
+  class IdentityProvider
+}
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> OemOperationPlanningApi
+OemProxyController --> IdentityProvider : validates authentication
+OemApiService --> DocksService : load docks
+OemApiService --> ResourcesService : load cranes
+OemApiService --> StaffService : load staff
+
+@enduml

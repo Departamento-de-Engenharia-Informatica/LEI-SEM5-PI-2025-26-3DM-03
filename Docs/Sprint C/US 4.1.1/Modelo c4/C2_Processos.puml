@@ -1,0 +1,28 @@
+@startuml C2_OEM_Service_Process_View
+title C2 – OEM Service (Detailed Interaction)
+hide footbox
+
+actor "TodoApi" as Gateway
+participant "AuthGuard" as Guard
+participant "OperationPlansController" as Controller
+participant "OperationPlansService" as Service
+participant "PoliciesService" as Policies
+participant "OperationPlansRepository" as Repository
+participant "TypeORM" as Orm
+participant "OEM Database" as Db
+
+Gateway -> Guard : HTTP request + token
+Guard -> Policies : Evaluate RBAC/ABAC
+Policies --> Guard : Decision allow/deny
+Guard -> Controller : Pass request (allowed)
+Controller -> Service : createPlan(dto)
+Service -> Repository : save(entity)
+Repository -> Orm : persist(entity)
+Orm -> Db : INSERT ...
+Db --> Orm : ok
+Orm --> Repository : entity persisted
+Repository --> Service : entity
+Service --> Controller : dto
+Controller --> Gateway : 201 Created + body
+
+@enduml

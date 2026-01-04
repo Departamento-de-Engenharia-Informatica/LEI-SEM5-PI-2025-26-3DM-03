@@ -1,0 +1,49 @@
+@startuml C3_Generate_Operation_Plans_Logical_View
+title C3 – Plan Generation (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Angular SPA" as SPA {
+  rectangle "Operation Plans Feature" as Feature
+  rectangle "Shared Utilities" as Shared
+}
+
+rectangle "TodoApi Gateway" as Api {
+  rectangle "OemProxyController" as Controller
+  rectangle "OemClient" as Client
+  rectangle "Identity Middleware" as Identity
+}
+
+cloud "OEM Planning Service" as OEM
+cloud "VVN & Resource Catalogs" as Catalogs
+
+Operator --> Feature : UI interactions (HTTPS)
+Feature --> Shared : gather VVN/resource data
+Feature --> Controller : POST preview/generate
+Controller --> Identity : enforce authorisation
+Controller --> Client : compose OEM calls
+Client --> OEM : Run algorithms, persist data
+Shared --> Catalogs : HTTP GET metadata
+OEM --> Controller : Previews, stored plans, metadata
+Controller --> Feature : JSON responses
+
+@enduml

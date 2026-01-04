@@ -1,0 +1,48 @@
+@startuml C1_Missing_Plans_Logical_View
+title C1 – Missing Operation Plans (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+cloud "Identity Provider\n(OAuth2/OIDC)" as IAM
+rectangle "Frontoffice SPA" as SPA {
+  rectangle "Missing Plans Panel" as Panel
+}
+rectangle "TodoApi" as Gateway
+cloud "OEM Planning Service" as OEM
+
+database "OEM Plans Store" as PlansDb
+
+database "VVN Registry" as VvnDb
+
+Operator --> Panel : Browser (HTTPS)
+Panel --> Gateway : REST request (missing/regenerate)
+Gateway --> IAM : Validate token / claims
+Gateway --> OEM : GET /operation-plans/missing
+Gateway --> OEM : POST /operation-plans/regenerate-missing
+OEM --> PlansDb : Query/store plans
+OEM --> VvnDb : Identify VVNs lacking plans
+OEM --> Gateway : JSON responses
+Gateway --> Panel : Forward results
+
+@enduml

@@ -1,0 +1,55 @@
+@startuml C4_VVE_Update_Logical_View
+title C4 – VVE Update (Detailed Component Interaction)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+component "VveDetailsComponent" as DetailsComponent
+component "DockDiscrepancyBannerComponent" as WarningComponent
+component "OemVveService" as FrontService
+component "VveStore" as Store
+
+component "TodoApi VveProxyController" as ProxyController
+component "JwtMiddleware" as JwtMiddleware
+component "EtagValidator" as EtagValidator
+component "IdentityHeaderFactory" as HeaderFactory
+component "OemVveClient" as ProxyClient
+
+component "OEM VveController" as OemController
+component "VveUpdateService" as DomainService
+component "ConcurrencyGuard" as ConcurrencyGuard
+component "DockDiscrepancyChecker" as DiscrepancyChecker
+component "VveRepository" as VveRepo
+component "VvnRepository" as VvnRepo
+component "AuditPublisher" as AuditPublisher
+component "AuditLogWriter" as AuditWriter
+
+DetailsComponent --> WarningComponent : pass warnings
+DetailsComponent --> FrontService : submit update
+DetailsComponent --> Store : sync latest VVE
+FrontService --> ProxyController : HTTPS JSON
+ProxyController --> JwtMiddleware : authorize
+ProxyController --> EtagValidator : validate version
+ProxyController --> HeaderFactory : build identity headers
+ProxyController --> ProxyClient : outbound HTTP
+ProxyClient --> OemController : REST
+OemController --> DomainService : updateVve
+DomainService --> ConcurrencyGuard : ensure version
+ConcurrencyGuard --> VveRepo : load VVE
+DomainService --> DiscrepancyChecker : compare dock
+DiscrepancyChecker --> VvnRepo : fetch planned dock
+DomainService --> VveRepo : persist VVE updates
+DomainService --> AuditPublisher : publish event
+AuditPublisher --> AuditWriter : append audit row
+DomainService --> OemController : Updated DTO
+OemController --> ProxyClient : response
+ProxyClient --> ProxyController : HTTP response
+ProxyController --> FrontService : JSON DTO
+FrontService --> Store : update cache
+Store --> DetailsComponent : emit new VVE
+
+@enduml
