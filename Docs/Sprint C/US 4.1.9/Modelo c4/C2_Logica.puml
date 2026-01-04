@@ -1,0 +1,36 @@
+@startuml C2_VVE_Execution_Logical
+title C2 – VVE Execution (Logical Containers)
+left to right direction
+
+node "Client Browser" as Browser {
+  component "PLMS SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  component "TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Oem {
+  component "Vve Operations API" as VveApi
+  database "Planned Ops Store" as PlannedDb
+  database "Executed Ops Store" as ExecutedDb
+  database "VVE Store" as VveDb
+  component "Plan Sync Producer" as PlanSync
+}
+
+node "Operation Plan Service" as PlanSvc
+node "IAM" as Iam
+
+Spa --> TodoApi : HTTPS PATCH /vves/{id}/operations
+TodoApi --> Iam : Token validation
+TodoApi --> VveApi : Forward bulk update
+VveApi --> PlannedDb : Load planned details
+VveApi --> ExecutedDb : Upsert execution state
+VveApi --> VveDb : Update VVE progress
+VveApi --> PlanSync : Publish sync event
+PlanSync --> PlanSvc : Sync status
+VveApi --> TodoApi : Response with warnings
+TodoApi --> Spa : JSON payload
+Spa --> Browser : Refresh execution UI
+
+@enduml

@@ -1,0 +1,59 @@
+@startuml C3_VVE_Execution_Process_View
+title C3 – VVE Execution (Process Flow)
+
+skinparam ParticipantFontStyle bold
+skinparam shadowing false
+
+actor "Logistics Operator" as Operator
+participant "VveOperationsComponent" as UI
+participant "OemVveService" as FrontService
+participant "VveOperationsProxyController" as Proxy
+participant "BulkResponseMapper" as Mapper
+participant "OemClient" as Client
+participant "OEM VveOperationsController" as OemController
+participant "VveExecutionService" as ExecService
+participant "ExecutionValidationService" as Validation
+participant "ExecutionStatusCalculator" as StatusCalc
+participant "ExecutedOperationRepository" as ExecutedRepo
+Database "Executed Ops Store" as ExecutedDb
+participant "PlannedOperationRepository" as PlannedRepo
+Database "Planned Ops Store" as PlannedDb
+participant "VveRepository" as VveRepo
+Database "VVE Store" as VveDb
+participant "OperationPlanSyncService" as SyncService
+component "Plan Sync Topic" as PlanTopic
+participant "AuditPublisher" as AuditPublisher
+component "Execution Events Topic" as ExecTopic
+
+Operator -> UI : Select operations, set actual data
+UI -> FrontService : updateOperations()
+FrontService -> Proxy : PATCH request
+Proxy -> Mapper : Flatten payload
+Mapper --> Proxy : normalized
+Proxy -> Client : Forward with JWT
+Client -> OemController : PATCH /vves/{id}/operations
+OemController -> ExecService : updateExecutions
+ExecService -> Validation : validate entries
+Validation --> ExecService : result
+ExecService -> StatusCalc : compute status
+StatusCalc --> ExecService : status updates
+ExecService -> PlannedRepo : fetch planned operations
+PlannedRepo -> PlannedDb : query
+PlannedDb --> PlannedRepo : data
+PlannedRepo --> ExecService : planned data
+ExecService -> ExecutedRepo : persist updates
+ExecutedRepo -> ExecutedDb : save
+ExecService -> VveRepo : update progress
+VveRepo -> VveDb : save progress
+ExecService -> SyncService : propagate statuses
+SyncService -> PlanTopic : publish plan sync
+ExecService -> AuditPublisher : publish execution events
+AuditPublisher -> ExecTopic : publish events
+ExecService --> OemController : summary + warnings
+OemController --> Client : response
+Client --> Proxy : response
+Proxy --> FrontService : mapped response
+FrontService --> UI : update store
+UI --> Operator : Show progress & variances
+
+@enduml

@@ -1,0 +1,79 @@
+@startuml C3_VVE_Execution_Logical_View
+title C3 – VVE Execution (Logical Components)
+left to right direction
+
+package "Client Tier" {
+  component "VveOperationsComponent" as UiComponent
+  component "OperationExecutionFormComponent" as ExecutionForm
+  component "ExecutionVariancePanel" as VariancePanel
+  component "OemVveService" as UiService
+  component "VveOperationsStore" as UiStore
+}
+
+package "Backend Tier" {
+  component "VveOperationsProxyController" as ApiController
+  component "VveExecutionAdapter" as AppAdapter
+  component "OemClient" as ProxyClient
+  component "JwtAuthentication" as JwtAuth
+  component "BulkResponseMapper" as ResponseMapper
+}
+
+package "OEM Domain Tier" {
+  component "VveOperationsController" as DomainController
+  component "VveExecutionService" as DomainService
+  component "ExecutionValidationService" as ValidationService
+  component "ExecutionStatusCalculator" as StatusCalculator
+  component "ConcurrencyGuard" as ConcurrencyGuard
+  component "ExecutedOperationRepository" as ExecutedRepo
+  component "PlannedOperationRepository" as PlannedRepo
+  component "VveRepository" as VveRepo
+  component "OperationPlanSyncService" as PlanSyncService
+  component "AuditPublisher" as AuditPublisher
+  component "PlanSyncPublisher" as PlanPublisher
+}
+
+package "Infrastructure" {
+  database "Executed Ops Store" as ExecutedDb
+  database "Planned Ops Store" as PlannedDb
+  database "VVE Store" as VveDb
+  database "Operation Plan Store" as PlanDb
+  component "Execution Events Topic" as ExecTopic
+  component "Plan Sync Topic" as PlanTopic
+}
+
+UiComponent --> UiStore : Subscribe updates
+UiComponent --> ExecutionForm : Provide planned data
+UiComponent --> VariancePanel : Display warnings
+UiComponent --> UiService : Submit execution updates
+UiService --> ApiController : REST / JSON
+ApiController --> JwtAuth : Validate token
+ApiController --> ResponseMapper : Flatten partial results
+ApiController --> AppAdapter : Build OEM payload
+AppAdapter --> ProxyClient : Forward request
+ProxyClient --> DomainController : HTTP call
+DomainController --> DomainService : updateExecutions
+DomainService --> ValidationService : validate
+DomainService --> ConcurrencyGuard : ensure versions
+DomainService --> PlannedRepo : load planned operations
+PlannedRepo --> PlannedDb
+DomainService --> ExecutedRepo : persist executions
+ExecutedRepo --> ExecutedDb
+DomainService --> StatusCalculator : compute statuses
+DomainService --> VveRepo : update VVE progress
+VveRepo --> VveDb
+DomainService --> PlanSyncService : propagate to plans
+PlanSyncService --> PlanPublisher : publish delta
+PlanPublisher --> PlanTopic
+DomainService --> AuditPublisher : publish events
+AuditPublisher --> ExecTopic
+PlanTopic --> PlanDb : through downstream service
+ExecTopic --> ExecTopic : consumed by monitoring
+DomainService --> DomainController : response DTOs
+DomainController --> ProxyClient : response
+ProxyClient --> AppAdapter : response
+AppAdapter --> ApiController : DTO
+ApiController --> UiService : JSON
+UiService --> UiStore : Update state
+UiService --> UiComponent : Observable updates
+
+@enduml

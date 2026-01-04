@@ -1,0 +1,84 @@
+@startuml C2_VVE_Execution_Implementation
+title C2 – VVE Execution (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+package "Frontend" {
+  package "Components" {
+    [VveOperationsComponent]
+    [OperationExecutionForm]
+    [ExecutionVariancePanel]
+  }
+  package "Services" {
+    [OemVveService]
+    [OperationPlanService]
+    [ToastService]
+  }
+  package "State" {
+    [VveOperationsStore]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [VveOperationsProxyController]
+  }
+  package "Services" {
+    [OemClient]
+    [IdentityHeaderFactory]
+    [BulkResponseMapper]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [VveOperationsController]
+  }
+  package "Application" {
+    [VveExecutionService]
+    [OperationPlanSyncService]
+    [ExecutionValidationService]
+    [ConcurrencyGuard]
+  }
+  package "Domain" {
+    [ExecutedOperationAggregate]
+    [ExecutionStatusCalculator]
+  }
+  package "Persistence" {
+    [PlannedOperationRepository]
+    [ExecutedOperationRepository]
+    [VveRepository]
+  }
+  package "Integration" {
+    [AuditPublisher]
+    [PlanSyncPublisher]
+  }
+}
+
+[VveOperationsComponent] --> [OperationExecutionForm]
+[VveOperationsComponent] --> [ExecutionVariancePanel]
+[VveOperationsComponent] --> [OemVveService]
+[VveOperationsComponent] --> [VveOperationsStore]
+[OemVveService] --> [VveOperationsProxyController]
+[VveOperationsProxyController] --> [BulkResponseMapper]
+[VveOperationsProxyController] --> [IdentityHeaderFactory]
+[VveOperationsProxyController] --> [OemClient]
+[OemClient] --> [VveOperationsController]
+[VveOperationsController] --> [VveExecutionService]
+[VveExecutionService] --> [ExecutionValidationService]
+[VveExecutionService] --> [ConcurrencyGuard]
+[VveExecutionService] --> [ExecutedOperationRepository]
+[VveExecutionService] --> [PlannedOperationRepository]
+[VveExecutionService] --> [VveRepository]
+[VveExecutionService] --> [AuditPublisher]
+[VveExecutionService] --> [OperationPlanSyncService]
+[OperationPlanSyncService] --> [PlanSyncPublisher]
+
+@enduml
