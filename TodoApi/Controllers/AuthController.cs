@@ -15,10 +15,12 @@ namespace TodoApi.Controllers
     public class AuthController : ControllerBase
     {
         private readonly PortContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public AuthController(PortContext context)
+        public AuthController(PortContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         // GET /api/auth/role
@@ -110,7 +112,9 @@ namespace TodoApi.Controllers
 
             // 🔹 Also logout from Google (prevents auto-login on next attempt)
             var googleLogout = "https://accounts.google.com/Logout";
-            var frontendUrl = "https://localhost:4200";
+            var frontendUrl = _env.IsDevelopment()
+                ? "https://localhost:4200"
+                : "https://lei-sem5-g87.duckdns.org";
 
             // Redirect the browser to Google logout first, then back to frontend
             return Ok(new { message = "Logged out", redirect = $"{googleLogout}?continue={frontendUrl}" });

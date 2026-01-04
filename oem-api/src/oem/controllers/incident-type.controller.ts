@@ -8,7 +8,6 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -20,7 +19,7 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { IamAuthGuard, Roles, RolesGuard } from '../auth';
+import { Roles } from '../auth';
 import {
   CreateIncidentTypeDto,
   IncidentTypeDto,
