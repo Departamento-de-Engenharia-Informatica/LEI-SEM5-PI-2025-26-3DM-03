@@ -115,6 +115,14 @@ export class VesselVisitNotificationsService {
     await this.throwIfNotOk(res);
   }
 
+  async deleteApproved(id: number): Promise<void> {
+    const res = await this.requestWithFallback(`${this.apiUrl}/${id}`, {
+      method: 'DELETE',
+      credentials: 'include'
+    });
+    await this.throwIfNotOk(res);
+  }
+
   // Optional status update (endpoint may vary depending on backend design)
   async setStatus(id: number | string, status: 'Approved' | 'Rejected' | 'Cancelled'): Promise<void> {
     // Attempt a PATCH to /VesselVisitNotifications/{id}/status with JSON body { status }

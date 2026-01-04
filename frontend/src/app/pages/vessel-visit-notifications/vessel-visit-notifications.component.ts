@@ -55,6 +55,7 @@ export class VesselVisitNotificationsComponent implements OnInit, OnDestroy {
   // Details modal
   showDetails = false;
   selected: VesselVisitNotificationDTO | null = null;
+  deletingIds = new Set<number>();
   private filterChanges$ = new Subject<void>();
   private destroy$ = new Subject<void>();
 
@@ -365,6 +366,30 @@ export class VesselVisitNotificationsComponent implements OnInit, OnDestroy {
       this.toast.success('Notificação rejeitada');
     } catch (e: any) {
       this.toast.error(e?.message || 'Falha ao rejeitar.');
+    }
+  }
+
+  async deleteApproved(n?: VesselVisitNotificationDTO) {
+    const target = n || this.selected;
+    if (!target?.id) return;
+    const status = (target.status || '').toLowerCase();
+    if (status !== 'approved') {
+      this.toast.error('Só é possível apagar notificações aprovadas.');
+      return;
+    }
+    if (!confirm('Apagar esta notificação aprovada? Esta ação é irreversível.')) return;
+    this.deletingIds.add(target.id);
+    try {
+      await this.vvn.deleteApproved(target.id);
+      this.notifications = this.notifications.filter(x => x.id !== target.id);
+      this.filtered = this.filtered.filter(x => x.id !== target.id);
+      if (this.selected?.id === target.id) this.closeDetails();
+      this.loadNotifications();
+      this.toast.success('Notificação apagada');
+    } catch (e: any) {
+      this.toast.error(e?.message || 'Falha ao apagar notificação.');
+    } finally {
+      this.deletingIds.delete(target.id);
     }
   }
 

@@ -255,5 +255,23 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
             await _context.SaveChangesAsync();
             return true;
         }
+
+        public async Task<bool> DeleteApprovedAsync(long id)
+        {
+            var item = await _context.VesselVisitNotifications
+                .Include(v => v.CargoManifest)
+                .Include(v => v.CrewMembers)
+                .FirstOrDefaultAsync(v => v.Id == id);
+            if (item == null) return false;
+
+            if (!string.Equals(item.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Only notifications with status 'Approved' can be deleted.");
+            }
+
+            _context.VesselVisitNotifications.Remove(item);
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }
