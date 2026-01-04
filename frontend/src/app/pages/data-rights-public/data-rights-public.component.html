@@ -1,0 +1,44 @@
+<app-toast-container></app-toast-container>
+<div class="data-rights-page">
+  <div class="page-head">
+    <div>
+      <h1>Exercicio de Direitos de Dados</h1>
+      <p class="subtitle">
+        Formulario publico para titulares nao registados submeterem pedidos RGPD.
+      </p>
+    </div>
+    <a class="btn-ghost" routerLink="/login">Voltar ao login</a>
+  </div>
+
+  <section class="card">
+    <h2>Pedido</h2>
+    <p class="muted">Preenche os campos minimos para registar o pedido.</p>
+
+    <div class="form-grid">
+      <label>
+        <span>Nome do titular</span>
+        <input type="text" [(ngModel)]="name" placeholder="Nome completo" />
+      </label>
+      <label>
+        <span>Email de contacto</span>
+        <input type="email" [(ngModel)]="email" placeholder="email@exemplo.pt" />
+      </label>
+      <label class="full">
+        <span>Tipo de pedido</span>
+        <select [(ngModel)]="requestType">
+          <option value="access">Acesso</option>
+          <option value="rectification">Retificacao</option>
+          <option value="deletion">Apagamento</option>
+        </select>
+      </label>
+      <label class="full">
+        <span>Descricao (opcional)</span>
+        <textarea rows="5" [(ngModel)]="details" placeholder="Detalha o pedido, se necessario."></textarea>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="btn-primary" type="button" (click)="submit()" [disabled]="submitting">Submeter pedido</button>
+    </div>
+  </section>
+</div>

@@ -592,6 +592,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureRoleChangeColumnsAsync(context, loggerFactory);
     await EnsurePrivacyPolicySchemaAsync(context, loggerFactory);
     await EnsureDataRightsSchemaAsync(context, loggerFactory);
+    await EnsurePublicDataRightsSchemaAsync(context, loggerFactory);
 
     try
     {
@@ -952,6 +953,56 @@ CREATE TABLE ""DataRightsRequests"" (
     catch (Exception ex)
     {
         logger?.LogWarning(ex, "Failed to ensure data rights schema via fallback");
+    }
+    finally
+    {
+        if (conn.State == System.Data.ConnectionState.Open)
+        {
+            await conn.CloseAsync();
+        }
+    }
+}
+
+static async Task EnsurePublicDataRightsSchemaAsync(PortContext context, ILoggerFactory? loggerFactory)
+{
+    if (!context.Database.IsSqlite())
+    {
+        return;
+    }
+
+    var logger = loggerFactory?.CreateLogger("Startup");
+    var conn = context.Database.GetDbConnection();
+    try
+    {
+        await conn.OpenAsync();
+
+        var hasTable = false;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='PublicDataRightsRequests';";
+            using var reader = await cmd.ExecuteReaderAsync();
+            hasTable = await reader.ReadAsync();
+        }
+
+        if (!hasTable)
+        {
+            using var create = conn.CreateCommand();
+            create.CommandText = @"
+CREATE TABLE ""PublicDataRightsRequests"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_PublicDataRightsRequests"" PRIMARY KEY AUTOINCREMENT,
+    ""RequestType"" TEXT NOT NULL,
+    ""RequestedAtUtc"" TEXT NOT NULL,
+    ""RequestedByName"" TEXT NOT NULL,
+    ""RequestedByEmail"" TEXT NOT NULL,
+    ""Details"" TEXT NULL
+);";
+            await create.ExecuteNonQueryAsync();
+            logger?.LogInformation("Created PublicDataRightsRequests table via fallback schema.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger?.LogWarning(ex, "Failed to ensure public data rights schema via fallback");
     }
     finally
     {

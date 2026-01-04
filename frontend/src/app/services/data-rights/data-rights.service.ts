@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { DataRightsRequest, DataRightsRequestPayload } from '../../models/data-rights';
+import { DataRightsRequest, DataRightsRequestPayload, PublicDataRightsRequest, PublicDataRightsRequestPayload } from '../../models/data-rights';
 
 @Injectable({ providedIn: 'root' })
 export class DataRightsService {
@@ -45,6 +45,12 @@ export class DataRightsService {
     );
   }
 
+  async createPublicRequest(payload: PublicDataRightsRequestPayload): Promise<any> {
+    return this.executeWithFallback('/public-requests', (url) =>
+      firstValueFrom(this.http.post(url, payload))
+    );
+  }
+
   async listMyRequests(): Promise<DataRightsRequest[]> {
     return this.executeWithFallback('/requests', (url) =>
       firstValueFrom(this.http.get<DataRightsRequest[]>(url, { withCredentials: true }))
@@ -60,6 +66,12 @@ export class DataRightsService {
   async updateStatus(id: number, status: string, responseNote?: string): Promise<DataRightsRequest> {
     return this.executeWithFallback(`/requests/${id}/status`, (url) =>
       firstValueFrom(this.http.patch<DataRightsRequest>(url, { status, responseNote }, { withCredentials: true }))
+    );
+  }
+
+  async listPublicRequests(): Promise<PublicDataRightsRequest[]> {
+    return this.executeWithFallback('/public-requests', (url) =>
+      firstValueFrom(this.http.get<PublicDataRightsRequest[]>(url, { withCredentials: true }))
     );
   }
 }

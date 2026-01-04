@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth/auth.service';
 import { ToastService } from '../../components/toast/toast.service';
 import { DataRightsService } from '../../services/data-rights/data-rights.service';
-import { DataRightsRequest } from '../../models/data-rights';
+import { DataRightsRequest, PublicDataRightsRequest } from '../../models/data-rights';
 import { RouterModule, Router } from '@angular/router';
 
 @Component({
@@ -30,6 +30,7 @@ export class ProfileComponent implements OnInit {
   submitting = false;
   myRequests: DataRightsRequest[] = [];
   allRequests: DataRightsRequest[] = [];
+  publicRequests: PublicDataRightsRequest[] = [];
   expandedRequests = new Set<number>();
   rejectReasons: Record<number, string> = {};
 
@@ -54,6 +55,7 @@ export class ProfileComponent implements OnInit {
       this.myRequests = await this.dataRights.listMyRequests();
       if (this.isAdmin) {
         this.allRequests = await this.dataRights.listAllRequests();
+        this.publicRequests = await this.dataRights.listPublicRequests();
       }
       try { this.cdr.detectChanges(); } catch {}
     } catch {}
