@@ -131,7 +131,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly deckHeight = 75;
   private readonly deckMarginToEdge = 120;
   private readonly apronDepth = 220;
-  private readonly warehouseBaseZ = -820;
+  private readonly warehouseBaseZ = -980;
   private readonly warehouseZOffset = 80;
   private readonly serviceRoadCenterZ = -560;
   private readonly serviceRoadDepth = 280;
