@@ -1766,61 +1766,77 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private queueVesselArrivalAnimation(vessel: THREE.Group, label: THREE.Sprite | undefined, endPos: THREE.Vector3) {
     this.cancelVesselAnimationFor(vessel);
     const avoidanceOffset = this.computeArrivalAvoidanceOffset(endPos.z);
-    if (avoidanceOffset) {
-      const startPos = vessel.position.clone();
-      const dockingTarget = new THREE.Vector3(endPos.x, endPos.y, endPos.z);
-      const swingOut = new THREE.Vector3(endPos.x - 260, endPos.y, endPos.z + avoidanceOffset);
-      const alignPoint = new THREE.Vector3(endPos.x - 120, endPos.y, endPos.z + avoidanceOffset);
-      const forwardSet = new THREE.Vector3(endPos.x + 20, endPos.y, endPos.z + avoidanceOffset * 0.7);
-      const reverseStart = new THREE.Vector3(endPos.x + 15, endPos.y, endPos.z + avoidanceOffset * 0.2);
-      const approachCurve = new THREE.CatmullRomCurve3([
-        startPos.clone(),
-        swingOut,
-        alignPoint,
-        forwardSet,
-        reverseStart.clone(),
-      ]);
-      const reverseLine = new THREE.LineCurve3(reverseStart.clone(), dockingTarget.clone());
-      const curvePath = new THREE.CurvePath<THREE.Vector3>();
-      curvePath.add(approachCurve);
-      curvePath.add(reverseLine);
+    const startPos = vessel.position.clone();
+    const dockingTarget = new THREE.Vector3(endPos.x, endPos.y, endPos.z);
+    const initialForward = new THREE.Vector3(0, 0, 1).applyQuaternion(vessel.quaternion).setY(0);
+    if (initialForward.lengthSq() === 0) {
+      initialForward.set(1, 0, 0);
+    } else {
+      initialForward.normalize();
+    }
+    if (!avoidanceOffset) {
+      const pathVector = new THREE.Vector3().subVectors(endPos, vessel.position);
+      const distance = pathVector.length();
+      const pathDir = distance > 0.001 ? pathVector.clone().normalize() : new THREE.Vector3(0, 0, 1);
+      const pathRight = new THREE.Vector3(pathDir.z, 0, -pathDir.x);
+      if (pathRight.lengthSq() === 0) {
+        pathRight.set(1, 0, 0);
+      }
+      pathRight.normalize();
+      const dragFactor = Math.min(1, distance / 900);
+      const dragAmplitude = 18 * dragFactor;
+      const bobAmplitude = 6 * dragFactor;
       const animation: VesselAnimationState = {
         object: vessel,
         label,
-        startPos,
-        endPos: dockingTarget.clone(),
+        startPos: vessel.position.clone(),
+        endPos: endPos.clone(),
         startTime: performance.now(),
         duration: this.vesselArrivalAnimationMs,
-        dragAmplitude: 18,
-        bobAmplitude: 6,
-        curve: curvePath,
-        freezeHeadingFrom: 0.65,
+        pathRight,
+        pathForward: initialForward.clone(),
+        dragAmplitude,
+        bobAmplitude,
+        freezeHeadingFrom: 0,
+        lockedForward: initialForward.clone(),
       };
       this.vesselAnimations.push(animation);
       return;
     }
-    const pathVector = new THREE.Vector3().subVectors(endPos, vessel.position);
-    const distance = pathVector.length();
-    const pathDir = distance > 0.001 ? pathVector.clone().normalize() : new THREE.Vector3(0, 0, 1);
-    const pathRight = new THREE.Vector3(pathDir.z, 0, -pathDir.x);
-    if (pathRight.lengthSq() === 0) {
-      pathRight.set(1, 0, 0);
-    }
-    pathRight.normalize();
-    const dragFactor = Math.min(1, distance / 900);
-    const dragAmplitude = 18 * dragFactor;
-    const bobAmplitude = 6 * dragFactor;
+    const overshootDistance = THREE.MathUtils.clamp(this.cargoVesselHalfBeam * 1.4, 140, 220);
+    const forwardDock = new THREE.Vector3(1, 0, 0);
+    const reverseStart = dockingTarget.clone().add(forwardDock.clone().multiplyScalar(overshootDistance));
+    const baseAlignX = dockingTarget.x - 240;
+    const approachPoints: THREE.Vector3[] = [startPos.clone()];
+
+    approachPoints.push(
+      new THREE.Vector3(baseAlignX - 40, endPos.y, endPos.z + avoidanceOffset),
+      new THREE.Vector3(baseAlignX + 60, endPos.y, endPos.z + avoidanceOffset),
+      new THREE.Vector3(dockingTarget.x + overshootDistance * 0.6, endPos.y, endPos.z + avoidanceOffset * 0.25),
+      new THREE.Vector3(dockingTarget.x + overshootDistance * 0.85, endPos.y, endPos.z),
+      reverseStart.clone()
+    );
+
+    const approachCurve = new THREE.CatmullRomCurve3(approachPoints);
+    const reverseLine = new THREE.LineCurve3(reverseStart.clone(), dockingTarget.clone());
+    const curvePath = new THREE.CurvePath<THREE.Vector3>();
+    curvePath.add(approachCurve);
+    curvePath.add(reverseLine);
+    const approachLength = approachCurve.getLength();
+    const totalLength = approachLength + reverseLine.getLength();
+    const freezeHeadingFrom = totalLength > 0 ? approachLength / totalLength : 0.65;
     const animation: VesselAnimationState = {
       object: vessel,
       label,
-      startPos: vessel.position.clone(),
-      endPos: endPos.clone(),
+      startPos,
+      endPos: dockingTarget.clone(),
       startTime: performance.now(),
       duration: this.vesselArrivalAnimationMs,
-      pathRight,
-      pathForward: pathDir.clone(),
-      dragAmplitude,
-      bobAmplitude,
+      dragAmplitude: 18,
+      bobAmplitude: 6,
+      curve: curvePath,
+      freezeHeadingFrom: 0,
+      lockedForward: initialForward,
     };
     this.vesselAnimations.push(animation);
   }
