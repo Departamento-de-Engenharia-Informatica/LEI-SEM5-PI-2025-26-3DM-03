@@ -1,0 +1,60 @@
+@startuml C4_Update_Operation_Plans_Logical_Deployment
+title C4 – Operation Plan Update (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(Operation Plans Feature)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+  artifact "Telemetry Agent" as Telemetry
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Planning Platform" as OEM {
+  artifact "Operation Plans API" as OemApi
+  artifact "Conflict Evaluation Service" as ConflictEngine
+  artifact "Audit Store" as Audit
+}
+
+cloud "Support Catalog Services" as Catalogs {
+  artifact "Docks API"
+  artifact "Resources API"
+  artifact "Staff API"
+}
+
+Operator --> Spa : HTTPS (Browser)
+Spa --> Api : PATCH/GET /api/oem/operation-plans
+Api --> Oidc : Validate tokens / cookies
+Api --> OemApi : Forward OEM requests
+OemApi --> ConflictEngine : Evaluate overlaps
+OemApi --> Audit : Persist change logs
+Spa --> Catalogs : Reference data lookups
+Api --> Telemetry : Emit metrics/logs
+
+@enduml

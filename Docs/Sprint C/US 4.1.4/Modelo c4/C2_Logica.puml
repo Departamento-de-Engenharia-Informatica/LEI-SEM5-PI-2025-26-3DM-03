@@ -1,0 +1,60 @@
+@startuml C2_Update_Operation_Plans_Logical_View
+title C2 – PLMS Containers for Operation Plan Updates
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Port Logistics Management System" as PLMS {
+  rectangle "Angular SPA" as SPA {
+    rectangle "OemOperationPlansComponent" as Component
+    rectangle "OemApiService" as ApiService
+    rectangle "Reference Data Services\n(Docks, Resources, Staff)" as ReferenceServices
+  }
+
+  rectangle "TodoApi (ASP.NET Core)" as Api {
+    rectangle "OemProxyController" as Controller
+    rectangle "OemClient" as Client
+  }
+}
+
+cloud "Identity Provider" as IAM
+cloud "OEM Operation Planning Service" as OEM
+cloud "Resource Catalog APIs" as Catalogs
+
+database "Local Cache / Redis" as Cache
+
+Operator --> Component : Browser interaction (HTTPS)
+Component --> ApiService : Angular service calls
+ApiService --> Controller : REST JSON (with credentials)
+Controller --> Client : Forward OEM requests
+Client --> OEM : HTTPS API calls (PATCH/GET)
+ApiService --> ReferenceServices : lookups for dropdowns
+ReferenceServices --> Catalogs : fetch resource metadata
+Controller --> IAM : Adds identity headers
+Component --> Cache : optional caching of lists (local storage)
+
+OEM --> Controller : plan snapshots, change logs, warnings
+Catalogs --> ReferenceServices : resources, staff, docks
+
+@enduml

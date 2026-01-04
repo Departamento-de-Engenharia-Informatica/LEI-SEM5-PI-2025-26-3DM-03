@@ -1,0 +1,26 @@
+@startuml C3_Update_Operation_Plans_Process_View
+title C3 – Operation Plan Update (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Planning API" as OemApi
+participant "Warning Engine" as WarningEngine
+
+Operator -> Component : Submit edit form
+Component -> SpaService : validate & build payload
+SpaService -> Controller : PATCH /api/oem/operation-plans/{id}
+Controller -> Client : Forward payload
+Client -> OemApi : PATCH /oem/operation-plans/{id}
+OemApi -> WarningEngine : Evaluate conflicts (crane/staff overlaps)
+WarningEngine --> OemApi : Warnings[]
+OemApi --> Client : 200 OK { plan, warnings, logEntry }
+Client --> Controller : Forward response
+Controller --> SpaService : OperationPlanUpdateResponse
+SpaService --> Component : update UI state
+Component --> Operator : Show success + warnings + audit entry
+
+@enduml

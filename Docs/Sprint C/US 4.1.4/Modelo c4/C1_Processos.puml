@@ -1,0 +1,32 @@
+@startuml C1_Update_Operation_Plans_Process_View
+title C1 – Update Operation Plans (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Operation Plans UI\n(Angular Component)" as UI
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operation Planning Service" as OemService
+
+Operator -> UI : Select plan & open edit drawer
+UI -> SpaService : loadPlan(id)
+SpaService -> Controller : GET /api/oem/operation-plans/{id}
+Controller -> Client : Forward GET
+Client -> OemService : GET /oem/operation-plans/{id}
+OemService --> Client : Plan with tasks & logs
+Client --> Controller : HTTP 200
+Controller --> SpaService : OperationPlanDto
+SpaService --> UI : Populate form
+
+Operator -> UI : Submit updates (status, dock, tasks, reason)
+UI -> SpaService : updatePlan(id, payload)
+SpaService -> Controller : PATCH /api/oem/operation-plans/{id}
+Controller -> Client : Forward PATCH
+Client -> OemService : PATCH /oem/operation-plans/{id}
+OemService --> Client : Updated plan + warnings + logEntry
+Client --> Controller : HTTP 200
+Controller --> SpaService : OperationPlanUpdateResponse
+SpaService --> UI : Show success + warnings
+UI --> Operator : Display confirmation, warnings, updated history
+
+@enduml

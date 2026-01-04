@@ -1,0 +1,37 @@
+@startuml C2_Update_Operation_Plans_Process_View
+title C2 – Operation Plan Update (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operation Planning Service" as OemService
+participant "Change Log Store" as Audit
+
+== Open edit drawer ==
+Operator -> Component : Click "Editar"
+Component -> SpaService : getOperationPlan(id)
+SpaService -> Controller : GET /api/oem/operation-plans/{id}?includeTasks=true
+Controller -> Client : Forward GET
+Client -> OemService : GET /oem/operation-plans/{id}?includeTasks=true
+OemService --> Client : Plan + tasks + changeLogs
+Client --> Controller : HTTP 200
+Controller --> SpaService : OperationPlanDto
+SpaService --> Component : Populate reactive form
+
+== Submit update ==
+Operator -> Component : Save changes + reason
+Component -> SpaService : updateOperationPlan(id, payload)
+SpaService -> Controller : PATCH /api/oem/operation-plans/{id}
+Controller -> Client : Forward PATCH
+Client -> OemService : PATCH /oem/operation-plans/{id}
+OemService -> Audit : Append change log entry
+OemService --> Client : Response { plan, warnings, logEntry }
+Client --> Controller : HTTP 200
+Controller --> SpaService : OperationPlanUpdateResponse
+SpaService --> Component : emit success, warnings
+Component --> Operator : Show toast, highlight warnings, refresh table
+
+@enduml
