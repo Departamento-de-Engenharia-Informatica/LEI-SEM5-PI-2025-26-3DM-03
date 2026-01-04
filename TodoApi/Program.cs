@@ -531,6 +531,7 @@ var app = builder.Build();
 
 // Must run early so Request.Scheme/Host reflect the original client request when behind Nginx.
 app.UseForwardedHeaders();
+app.UseMiddleware<TodoApi.Security.AccessLogMiddleware>();
 app.UseMiddleware<TodoApi.Security.NetworkRestrictionMiddleware>();
 
 // Enable Swagger in ALL environments (Development + Production)
@@ -607,6 +608,10 @@ app.Use(async (context, next) =>
         var hasActiveRole = user?.UserRoles?.Any(ur => ur.Role != null && ur.Role.Active) == true;
         if (user == null || !user.Active || !hasActiveRole)
         {
+            var reason = user == null
+                ? "local_user_missing"
+                : (!user.Active ? "local_user_inactive" : "local_user_no_active_roles");
+            context.Items[TodoApi.Security.AccessLogMiddleware.AccessDeniedReasonKey] = reason;
             context.Response.StatusCode = 403;
             await context.Response.WriteAsJsonAsync(new { message = "Access denied: user has no local active account/role." });
             return;
