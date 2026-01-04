@@ -1,0 +1,45 @@
+@startuml C3_Missing_Plans_Logical_View
+title C3 – Missing Operation Plans (Logical View)
+left to right direction
+
+package "Client Tier" {
+  component "MissingPlansComponent" as UiComponent
+  component "MissingPlansService" as UiService
+}
+
+package "Backend Tier" {
+  component "MissingPlansController" as ApiController
+  component "MissingPlansApplicationService" as AppService
+  component "OemClient" as ProxyClient
+  component "JwtAuthentication" as JwtAuth
+}
+
+package "OEM Domain Tier" {
+  component "MissingPlanResolver" as Resolver
+  component "RegenerationManager" as Regeneration
+  component "PlanRepository" as PlanRepo
+  component "VvnRepository" as VvnRepo
+  component "AuditPublisher" as Audit
+}
+
+package "Infrastructure" {
+  database "Planning DB" as PlanningDb
+  database "VVN DB" as VvnDb
+  component "Message Bus" as Bus
+}
+
+UiComponent --> UiService : UI Actions
+UiService --> ApiController : REST / JSON
+ApiController --> JwtAuth : Validate JWT
+ApiController --> AppService : Command DTO
+AppService --> ProxyClient : Forward to OEM
+ProxyClient --> Resolver : REST call
+Resolver --> VvnRepo : Query missing VVNs
+Resolver --> PlanRepo : Load plan metadata
+Regeneration --> PlanRepo : Persist regenerated plan
+Regeneration --> Audit : Publish regeneration event
+Audit --> Bus : Emit audit log
+PlanRepo --> PlanningDb
+VvnRepo --> VvnDb
+
+@enduml

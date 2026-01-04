@@ -1,0 +1,46 @@
+@startuml C2_Missing_Plans_Process_View
+title C2 – Missing Operation Plans (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "MissingPlansPanel" as Panel
+participant "OemApiService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Missing API" as MissingApi
+participant "OEM Regeneration API" as RegenerateApi
+participant "Scheduling Engine" as Engine
+participant "OperationPlanRepository" as Repository
+participant "VesselVisitRepository" as VvnRepo
+
+== Load missing VVNs ==
+Operator -> Panel : Open tab & select date
+Panel -> SpaService : getMissingOperationPlans(date)
+SpaService -> Controller : GET /api/oem/operation-plans/missing?date=...
+Controller -> Client : Forward GET
+Client -> MissingApi : GET /operation-plans/missing?date=...
+MissingApi -> VvnRepo : Fetch VVNs
+MissingApi -> Repository : Determine plans attached
+VvnRepo --> MissingApi : VVN list
+Repository --> MissingApi : Plan IDs
+MissingApi --> Client : Missing VVNs DTOs
+Client --> Controller : HTTP 200
+Controller --> SpaService : DTO list
+SpaService --> Panel : Render missing grid
+
+== Regenerate plans ==
+Operator -> Panel : Confirm overwrite & click regenerate
+Panel -> SpaService : regenerateMissingOperationPlans(date, algorithm, true)
+SpaService -> Controller : POST /api/oem/operation-plans/regenerate-missing
+Controller -> Client : Forward POST
+Client -> RegenerateApi : POST payload
+RegenerateApi -> Engine : Execute scheduling algorithm
+Engine -> Repository : Persist plans (overwrite)
+Repository --> Engine : Persisted plans
+Engine --> RegenerateApi : Plans + metadata + warnings
+RegenerateApi --> Client : Response DTO
+Client --> Controller : HTTP 200
+Controller --> SpaService : DTO + warnings
+SpaService --> Panel : Show success, warnings, trigger saved list refresh
+
+@enduml

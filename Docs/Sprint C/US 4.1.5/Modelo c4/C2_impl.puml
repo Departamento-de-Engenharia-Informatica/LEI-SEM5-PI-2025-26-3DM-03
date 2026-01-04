@@ -1,0 +1,66 @@
+@startuml C2_Missing_Plans_Implementation_View
+title C2 – Missing Operation Plans (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Components" {
+    [OemOperationPlansComponent]
+    [MissingPlansPanel]
+  }
+  package "Services" {
+    [OemApiService]
+    [ConfirmationDialogService]
+    [ToastService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [OperationPlansController]
+  }
+  package "Application" {
+    [MissingPlansQueryService]
+    [PlanRegenerationService]
+  }
+  package "Persistence" {
+    [VesselVisitRepository]
+    [OperationPlanRepository]
+  }
+  package "Domain" {
+    [SchedulingEngineAdapter]
+  }
+}
+
+[MissingPlansPanel] --> [OemApiService]
+[OemOperationPlansComponent] --> [MissingPlansPanel]
+[OemApiService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [OperationPlansController]
+[OperationPlansController] --> [MissingPlansQueryService]
+[OperationPlansController] --> [PlanRegenerationService]
+[MissingPlansQueryService] --> [VesselVisitRepository]
+[MissingPlansQueryService] --> [OperationPlanRepository]
+[PlanRegenerationService] --> [SchedulingEngineAdapter]
+[PlanRegenerationService] --> [OperationPlanRepository]
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml C4_Missing_Plans_Logical_View
+title C4 – Missing Operation Plans (Logical Component Diagram)
+left to right direction
+
+skinparam componentStyle rectangle
+skinparam component {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+component "Missing Plans List View" as ListView
+component "Missing Plans Filters" as FilterForm
+component "Regeneration Modal" as RegenModal
+component "OemMissingPlansApiService" as FrontService
+
+component "TodoApi MissingPlansController" as ProxyController
+component "JwtMiddleware" as JwtMiddleware
+component "RetryPolicyHandler" as RetryHandler
+component "OemMissingPlansClient" as ProxyClient
+
+component "OEM MissingPlansController" as OemController
+component "MissingPlansResolver" as Resolver
+component "RegenerationCommandHandler" as RegenHandler
+component "PlanAuditEmitter" as AuditEmitter
+component "PlanRepository" as PlanRepo
+component "VvnRepository" as VvnRepo
+component "AuditLogRepository" as AuditRepo
+
+ListView --> FilterForm : bind filter values
+ListView --> FrontService : load missing plans
+ListView --> RegenModal : open regeneration
+RegenModal --> FrontService : POST regenerate
+FrontService --> ProxyController : HTTPS JSON
+ProxyController --> JwtMiddleware : authorize
+ProxyController --> RetryHandler : resilience
+RetryHandler --> ProxyClient : send HTTP
+ProxyClient --> OemController : REST
+OemController --> Resolver : query data
+Resolver --> PlanRepo : fetch plan metadata
+Resolver --> VvnRepo : find missing VVNs
+OemController --> RegenHandler : enqueue
+RegenHandler --> PlanRepo : persist regenerated plan
+RegenHandler --> AuditEmitter : emit event
+AuditEmitter --> AuditRepo : append audit record
+
+@enduml
