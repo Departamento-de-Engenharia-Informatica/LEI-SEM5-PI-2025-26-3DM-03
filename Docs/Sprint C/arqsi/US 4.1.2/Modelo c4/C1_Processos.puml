@@ -1,0 +1,33 @@
+@startuml C1_Generate_Operation_Plans_Process_View
+title C1 - Generate Operation Plans (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Operation Plans UI\n(Angular Component)" as UI
+participant "OemApiService" as SpaService
+participant "OEM OperationPlanController\n(NestJS)" as Controller
+participant "OperationPlanService" as PlanService
+database "OEM DB" as Db
+cloud "VVN Catalog API" as VVN
+cloud "Resource Catalog APIs" as Resources
+
+Operator -> UI : Select date + algorithm
+Operator -> UI : Click "Gerar Preview"
+UI -> SpaService : previewOperationPlans(date, algorithm, vvnIds?)
+SpaService -> Controller : POST /api/oem/operation-plans/preview
+Controller -> PlanService : generatePreviewForDay(...)
+PlanService -> VVN : Fetch approved VVNs for day
+PlanService -> Resources : Fetch cranes/staff/storage
+PlanService --> Controller : OperationPlanPreviewDto[]
+Controller --> SpaService : HTTP 200
+SpaService --> UI : Render preview grid
+
+Operator -> UI : Confirm selection & save
+UI -> SpaService : generateOperationPlans(date, algorithm, vvnIds?)
+SpaService -> Controller : POST /api/oem/operation-plans/generate
+Controller -> PlanService : generateAndPersistForDay(...)
+PlanService -> Db : Persist plans + tasks
+PlanService --> Controller : OperationPlanEntity[]
+Controller --> SpaService : HTTP 200
+SpaService --> UI : Show success + refresh saved list
+
+@enduml

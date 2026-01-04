@@ -1,0 +1,36 @@
+@startuml C3_Generate_Operation_Plans_Process_View
+title C3 - Plan Generation (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as Service
+participant "OperationPlanController" as Controller
+participant "OperationPlanService" as PlanService
+participant "OemVvnService" as VvnService
+participant "ExternalClientsService" as ExternalClients
+database "OEM DB" as Db
+
+== Preview ==
+Operator -> Component : Request preview
+Component -> Service : previewOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/preview
+Controller -> PlanService : generatePreviewForDay(...)
+PlanService -> VvnService : getApprovedForDay(date)
+PlanService -> ExternalClients : load resources/staff/storage
+PlanService --> Controller : OperationPlanPreviewDto[]
+Controller --> Service : 200 OK
+Service --> Component : Render preview grid
+
+== Persist ==
+Operator -> Component : Save generated plans
+Component -> Service : generateOperationPlans(payload)
+Service -> Controller : POST /api/oem/operation-plans/generate
+Controller -> PlanService : generateAndPersistForDay(...)
+PlanService -> Db : persist plans + tasks
+PlanService --> Controller : OperationPlanEntity[]
+Controller --> Service : 200 OK
+Service --> Component : Update saved list + toast
+Component --> Operator : Show success and metadata
+
+@enduml

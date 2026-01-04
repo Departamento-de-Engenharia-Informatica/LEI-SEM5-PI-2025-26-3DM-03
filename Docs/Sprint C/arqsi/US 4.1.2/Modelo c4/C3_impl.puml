@@ -1,0 +1,36 @@
+@startuml C3_Generate_Operation_Plans_Implementation_View
+title C3 - Generate Operation Plans (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+rectangle "Angular SPA" {
+  class OemOperationPlansComponent
+  class OemApiService
+}
+
+rectangle "OEM API (NestJS)" {
+  class OperationPlanController
+  class OperationPlanService
+  class MissingOperationPlansService
+  class OemVvnService
+  class ExternalClientsService
+}
+
+database "OEM Database" as Db
+
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OperationPlanController
+OperationPlanController --> OperationPlanService
+OperationPlanController --> MissingOperationPlansService
+OperationPlanService --> OemVvnService
+OperationPlanService --> ExternalClientsService
+OperationPlanService --> Db
+
+@enduml

@@ -1,0 +1,65 @@
+@startuml C2_Generate_Operation_Plans_Logical_View
+title C2 - PLMS Containers for Plan Generation
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Port Logistics Management System" as PLMS {
+  rectangle "Angular SPA" as SPA {
+    rectangle "OemOperationPlansComponent" as Component
+    rectangle "OemApiService" as ApiService
+    rectangle "MissingPlansPanel" as MissingPanel
+  }
+}
+
+rectangle "OEM API (NestJS)" as OemApi {
+  rectangle "OperationPlanController" as Controller
+  rectangle "OperationPlanService" as PlanService
+  rectangle "MissingOperationPlansService" as MissingService
+  rectangle "OemVvnService" as VvnService
+  rectangle "ExternalClientsService" as ExternalClients
+  database "OEM Database" as Db
+}
+
+cloud "Identity Provider" as IAM
+cloud "VVN Catalog API" as VvnCatalog
+cloud "Resource Catalog APIs" as ResourceCatalogs
+
+Operator --> Component : UI interactions (HTTPS)
+Component --> ApiService : Trigger preview/generate
+Component --> MissingPanel : Open missing plans view
+ApiService --> Controller : REST JSON calls
+Controller --> PlanService : Preview/generate
+Controller --> MissingService : Missing/regenerate
+PlanService --> VvnService : Load approved VVNs
+PlanService --> ExternalClients : Load cranes/staff/storage
+PlanService --> Db : Persist plans + tasks
+MissingService --> PlanService : Find missing / regenerate
+VvnService --> VvnCatalog : Fetch approved VVNs
+ExternalClients --> ResourceCatalogs : Fetch resources
+Controller --> IAM : Enforce auth/roles
+
+OemApi --> SPA : Preview + stored plans
+
+@enduml

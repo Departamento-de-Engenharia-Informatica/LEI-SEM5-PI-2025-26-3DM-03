@@ -1,46 +1,44 @@
 @startuml C2_Generate_Operation_Plans_Process_View
-title C2 – Plan Generation Workflow (Detailed Sequence)
+title C2 - Plan Generation Workflow (Detailed Sequence)
 hide footbox
 
 actor "Logistics Operator" as Operator
 participant "OemOperationPlansComponent" as Component
 participant "OemApiService" as SpaService
-participant "TodoApi OemProxyController" as Controller
-participant "OemClient" as Client
-participant "OEM Planning Service" as OemService
-participant "MissingPlansService" as MissingService
+participant "OperationPlanController" as Controller
+participant "OperationPlanService" as PlanService
+participant "OemVvnService" as VvnService
+participant "ExternalClientsService" as ExternalClients
+database "OEM DB" as Db
 
 == Preview ==
 Operator -> Component : Choose date + algorithm
 Component -> SpaService : previewOperationPlans(request)
 SpaService -> Controller : POST /api/oem/operation-plans/preview
-Controller -> Client : Forward POST
-Client -> OemService : POST /oem/operation-plans/preview
-OemService --> Client : Preview plans list
-Client --> Controller : HTTP 200
-Controller --> SpaService : OperationPlanPreviewDto[]
+Controller -> PlanService : generatePreviewForDay(...)
+PlanService -> VvnService : getApprovedForDay(date)
+PlanService -> ExternalClients : load resources/staff/storage
+PlanService --> Controller : OperationPlanPreviewDto[]
+Controller --> SpaService : HTTP 200
 SpaService --> Component : Display preview grid
 
 == Persist ==
 Operator -> Component : Confirm VVNs and save
 Component -> SpaService : generateOperationPlans(request)
 SpaService -> Controller : POST /api/oem/operation-plans/generate
-Controller -> Client : Forward POST
-Client -> OemService : POST /oem/operation-plans/generate
-OemService --> Client : Stored plans with metadata
-Client --> Controller : HTTP 201 / 200
-Controller --> SpaService : OperationPlanDto[]
+Controller -> PlanService : generateAndPersistForDay(...)
+PlanService -> Db : Persist plans + tasks
+PlanService --> Controller : OperationPlanEntity[]
+Controller --> SpaService : HTTP 200
 SpaService --> Component : Show success + refresh saved list
 
 == Missing plans helper ==
 Operator -> Component : Open "VVNs sem plano"
 Component -> SpaService : getMissingOperationPlans(date)
 SpaService -> Controller : GET /api/oem/operation-plans/missing
-Controller -> Client : Forward GET
-Client -> MissingService : GET missing VVNs
-MissingService --> Client : MissingPlanDto[]
-Client --> Controller : HTTP 200
-Controller --> SpaService : MissingOperationPlanDto[]
+Controller -> PlanService : findMissingPlansForDay(date)
+PlanService --> Controller : MissingOperationPlanDto[]
+Controller --> SpaService : HTTP 200
 SpaService --> Component : Render missing list / enable regenerate
 
 @enduml
