@@ -132,6 +132,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly deckMarginToEdge = 120;
   private readonly apronDepth = 220;
   private readonly warehouseBaseZ = -820;
+  private readonly warehouseZOffset = 80;
   private readonly serviceRoadCenterZ = -560;
   private readonly serviceRoadDepth = 280;
   private readonly logisticsRoadTextureUrl = 'assets/textures/estrada.jpg';
@@ -145,6 +146,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
   private readonly truckModelUrl = 'assets/models/Truck_DAF.glb';
   private readonly truckTrailerTextureUrl = 'assets/textures/azul.jpg';
   private readonly truckWindowTextureUrl = 'assets/textures/vidro.jpg';
+  private readonly craneVerticalOffset = -this.deckHeight + 80;
   private readonly cameraMoveSpeed = 260;
   private readonly containerStackUrls = ['assets/models/containers.glb'];
   private containerStackPrototype?: THREE.Group;
@@ -804,7 +806,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
         })
       )
     );
-    apron.position.set(0, this.deckHeight - apronHeight / 2 + 1, this.quayEdgeZ - this.apronDepth / 2);
+    apron.position.set(0, this.deckHeight - apronHeight / 2, this.quayEdgeZ - this.apronDepth / 2);
     apron.castShadow = true;
     apron.receiveShadow = true;
     this.scene.add(apron);
@@ -830,7 +832,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     });
     const box = module.geometry as THREE.BoxGeometry;
     const height = box?.parameters?.height ?? 0;
-    module.position.set(0, this.deckHeight - height / 2 + 0.2, this.serviceRoadCenterZ);
+    module.position.set(0, this.deckHeight - height / 2, this.serviceRoadCenterZ);
     this.scene.add(module);
     if (this.showLogisticsTrucks) {
       this.loadLogisticsTruck();
@@ -1227,7 +1229,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
           } else {
             slotIndex = unassignedSlot++;
           }
-          const zBase = dock ? this.warehouseBaseZ : this.warehouseBaseZ - 120;
+          const zBase = (dock ? this.warehouseBaseZ : this.warehouseBaseZ - 120) + this.warehouseZOffset;
           const z = this.computeWarehouseZ(slotIndex, zBase);
           const targetX = dock ? this.mapDockToDeckX(dock) : this.mapLayoutXToDeckCoord(layout.position?.x ?? 0);
           const size = new THREE.Vector3(
@@ -1326,7 +1328,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
       const craneMesh = this.createCraneMesh(layout);
       let position: THREE.Vector3;
       let rotation = Math.PI;
-      const verticalOffset = 0;
+      const verticalOffset = this.craneVerticalOffset;
       const deckBaseY = this.deckHeight + verticalOffset;
       let baseY = deckBaseY;
 
@@ -1393,7 +1395,7 @@ export class FinalSceneComponent implements AfterViewInit, OnDestroy {
     const offsets = [-360, 360];
     offsets.forEach((x, index) => {
       const crane = this.createCraneMesh();
-      crane.position.set(x, this.deckHeight + 20, this.quayEdgeZ - 40);
+      crane.position.set(x, this.deckHeight + this.craneVerticalOffset, this.quayEdgeZ - 40);
       crane.rotation.y = Math.PI;
       this.scene.add(crane);
       this.dynamicCraneMeshes.push(crane);

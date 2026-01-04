@@ -322,6 +322,15 @@
         </section>
 
         <div class="actions-bar footer-actions">
+          <button
+            *ngIf="auth.hasAny(['admin','authority']) && (selected?.status||'').toLowerCase()==='approved'"
+            type="button"
+            class="btn danger"
+            (click)="deleteApproved()"
+            [disabled]="deletingIds.has(selected?.id || 0)"
+          >
+            {{ deletingIds.has(selected?.id || 0) ? 'A apagar...' : 'Apagar' }}
+          </button>
           <button type="button" class="btn" (click)="closeDetails()">Fechar</button>
         </div>
       </section>
@@ -412,6 +421,15 @@
             <button class="btn-ghost" title="Editar" (click)="beginEdit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-pencil"></i></button>
             <button class="btn-ghost" title="Submeter" (click)="submit(n)" [disabled]="(n.status||'').toLowerCase()!=='inprogress'"><i class="bi bi-upload"></i></button>
             <button class="btn-ghost" title="Decidir" (click)="openDetails(n)" [disabled]="!auth.hasAny(['admin','authority']) || ( (n.status||'').toLowerCase()!=='submitted' && (n.status||'').toLowerCase()!=='pendingapproval' && (n.status||'').toLowerCase()!=='approvalpending' )"><i class="bi bi-check2-circle"></i></button>
+            <button
+              *ngIf="auth.hasAny(['admin','authority']) && (n.status||'').toLowerCase()==='approved'"
+              class="btn-ghost danger"
+              title="Apagar"
+              (click)="deleteApproved(n)"
+              [disabled]="deletingIds.has(n.id)"
+            >
+              <i class="bi bi-trash"></i>
+            </button>
           </td>
         </tr>
       </tbody>

@@ -15,6 +15,16 @@
 **/*.user
 **/*.suo
 **/*.cache
+**/*.glb
+
+# Large/irrelevant folders for API builds
+frontend/
+Docs/
+prolog/
+prolog2/
+testes/
+scripts/
+
 Dockerfile*
 README.md
 LICENSE

@@ -1,25 +1,53 @@
 version: "3.9"
 
 services:
-  # Reverse proxy / gateway único
+  # Reverse proxy / gateway único (faz LB para a SPA e faz proxy para as APIs)
   nginx:
     image: nginx:1.27-alpine
     container_name: nginx-gateway
     ports:
-      - "80:80"        # entrada única HTTP
+      - "8082:80"      # entrada HTTP (mantém compatibilidade com setups onde 80 já está ocupado)
       # - "443:443"    # opcional se quiseres TLS mais tarde
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/gateway.conf:/etc/nginx/conf.d/default.conf:ro
     # Em muitos ambientes académicos/legacy, "condition: service_healthy" pode não estar disponível.
     # Mantemos healthchecks nas APIs mas usamos um depends_on simples para compatibilidade.
     depends_on:
+      - spa1
+      - spa2
       - todoapi
       - oemapi
     networks:
       - app-net
 
+  # ------------ SPA (Angular) - 2 instâncias para LB/failover ------------
+  # Cada instância serve os mesmos ficheiros estáticos (dist) e o gateway distribui o tráfego.
+  spa1:
+    image: nginx:1.27-alpine
+    container_name: spa1
+    volumes:
+      - ./nginx/spa.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${FRONTEND_DIST_PATH:-/home/asist/spa-dist/browser}:/usr/share/nginx/html:ro
+    expose:
+      - "80"
+    networks:
+      - app-net
+
+  spa2:
+    image: nginx:1.27-alpine
+    container_name: spa2
+    volumes:
+      - ./nginx/spa.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${FRONTEND_DIST_PATH:-/home/asist/spa-dist/browser}:/usr/share/nginx/html:ro
+    expose:
+      - "80"
+    networks:
+      - app-net
+
   # ------------ TodoApi (.NET 8) ------------
   todoapi:
+    # Permite usar imagem pré-build (ex.: GHCR) com `docker-compose up --no-build`
+    image: ${TODOAPI_IMAGE:-todoapi-local}
     build:
       context: .
       dockerfile: TodoApi/Dockerfile
@@ -28,9 +56,12 @@ services:
       ASPNETCORE_ENVIRONMENT: "Production"
       # SQLite em ficheiro dedicado, dentro do volume /data
       ConnectionStrings__DefaultConnection: "Data Source=/data/todoapi.db"
-      # Desativar OIDC em produção simples / CI
-      DisableOidc: "true"
-      DISABLE_OIDC: "true"
+      # OIDC (Google) - por defeito desligado para arranques simples/CI.
+      # Para ativar login real: exporta DISABLE_OIDC=false e define as credenciais.
+      DisableOidc: "${DISABLE_OIDC:-true}"
+      DISABLE_OIDC: "${DISABLE_OIDC:-true}"
+      Authentication__Google__ClientId: "${Authentication__Google__ClientId:-}"
+      Authentication__Google__ClientSecret: "${Authentication__Google__ClientSecret:-}"
       # A TodoApi fala com a OemApi internamente pela docker network
       Oem__BaseUrl: "http://oemapi:3000/api/"
     volumes:
@@ -47,9 +78,11 @@ services:
 
   # ------------ OemApi (NestJS) ------------
   oemapi:
+    # Permite usar imagem pré-build (ex.: GHCR) com `docker-compose up --no-build`
+    image: ${OEMAPI_IMAGE:-oemapi-local}
     build:
-      context: .
-      dockerfile: oem-api/Dockerfile
+      context: ./oem-api
+      dockerfile: Dockerfile
     container_name: oemapi
     environment:
       NODE_ENV: "production"
