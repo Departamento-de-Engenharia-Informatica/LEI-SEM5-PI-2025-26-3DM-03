@@ -1,0 +1,79 @@
+@startuml C4_VVE_Management_Implementation_View
+title C4 – Vessel Visit Executions (Code-Level View)
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+package "frontend/src/app/oem" {
+  class VesselVisitExecutionsHistoryComponent {
+    -filtersForm: any
+    -vves: any[]
+    +loadVves(): void
+    +createVve(): void
+    +updateVve(id: string|number): void
+    +completeVve(id: string|number): void
+    +openAudit(id: string|number): void
+  }
+
+  class OemApiService {
+    +getVesselVisitExecutions(filters?: any): any
+    +createVesselVisitExecution(payload: any): any
+    +updateVesselVisitExecution(id: number, payload: any): any
+    +completeVesselVisitExecution(id: number): any
+    +getVesselVisitExecutionAuditTrail(id: number): any
+  }
+}
+
+package "TodoApi.Controllers" {
+  class OemProxyController {
+    +GetVesselVisitExecutions(...)
+    +CreateVesselVisitExecution(...)
+    +UpdateVesselVisitExecution(...)
+    +CompleteVesselVisitExecution(...)
+    +GetVesselVisitExecutionAuditTrail(...)
+  }
+}
+
+package "TodoApi.Services.Oem" {
+  class OemClient {
+    +GetVesselVisitExecutionsAsync(...)
+    +CreateVesselVisitExecutionAsync(...)
+    +UpdateVesselVisitExecutionAsync(...)
+    +CompleteVesselVisitExecutionAsync(...)
+    +GetVesselVisitExecutionAuditTrailAsync(...)
+  }
+}
+
+package "oem-api/src/oem/controllers" {
+  class VesselVisitExecutionController {
+    +findAll(...)
+    +findOne(id: string)
+    +create(dto: any)
+    +update(id: string, dto: any)
+    +complete(id: string)
+    +auditTrail(id: string)
+  }
+}
+
+package "oem-api/src/oem" {
+  class VesselVisitExecutionService
+  class VesselVisitExecutionRepository
+}
+
+VesselVisitExecutionsHistoryComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> VesselVisitExecutionController
+VesselVisitExecutionController --> VesselVisitExecutionService
+VesselVisitExecutionService --> VesselVisitExecutionRepository
+
+@enduml

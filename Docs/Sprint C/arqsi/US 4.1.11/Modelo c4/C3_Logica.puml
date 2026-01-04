@@ -1,0 +1,50 @@
+@startuml C3_Record_Executed_Operations_Logical_View
+title C3 – Executed Operations (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+
+rectangle "Angular SPA" as SPA {
+  rectangle "VVE Detail Feature" as Feature
+  rectangle "Row Editing / Forms" as Shared
+}
+
+rectangle "TodoApi Gateway" as Api {
+  rectangle "OemProxyController" as Controller
+  rectangle "OemClient" as Client
+  rectangle "Identity Middleware" as Identity
+}
+
+cloud "OEM Operational Execution Service" as OEM
+
+database "OEM Operational Store" as Db
+
+Operator --> Feature : UI interactions
+Feature --> Shared : validate fields / build payload
+Feature --> Controller : REST requests
+Controller --> Identity : verify authorisation
+Controller --> Client : OEM HTTP calls
+Client --> OEM : planned ops + executed ops + upsert
+OEM --> Db : read planned ops / persist execution
+OEM --> Controller : JSON payloads
+Controller --> Feature : pass-through responses
+
+@enduml

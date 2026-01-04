@@ -1,0 +1,77 @@
+@startuml C3_Incident_Types_Component_View
+title C3 – Incident Types (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class IncidentTypesComponent {
+    +loadTypes()
+    +createType()
+    +updateType(id)
+    +deleteType(id)
+    +toggleTreeView()
+  }
+  class TypeEditorForm
+  class TypesTable
+  class TypesTree
+}
+
+package "Frontend Services" {
+  class IncidentTypesService {
+    +getAll(query?)
+    +create(payload)
+    +update(id,payload)
+    +delete(id)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetIncidentTypes(...)
+    +CreateIncidentType(...)
+    +UpdateIncidentType(...)
+    +DeleteIncidentType(...)
+  }
+  class OemClient {
+    +GetIncidentTypesAsync(...)
+    +CreateIncidentTypeAsync(...)
+    +UpdateIncidentTypeAsync(...)
+    +DeleteIncidentTypeAsync(...)
+  }
+}
+
+package "OEM API" {
+  class IncidentTypeController {
+    +findAll(query)
+    +create(dto)
+    +update(id,dto)
+    +remove(id)
+  }
+  class IncidentTypeService
+  class IncidentTypeRepository
+}
+
+IncidentTypesComponent --> TypeEditorForm
+IncidentTypesComponent --> TypesTable
+IncidentTypesComponent --> TypesTree
+IncidentTypesComponent --> IncidentTypesService
+IncidentTypesService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> IncidentTypeController
+IncidentTypeController --> IncidentTypeService
+IncidentTypeService --> IncidentTypeRepository
+
+@enduml

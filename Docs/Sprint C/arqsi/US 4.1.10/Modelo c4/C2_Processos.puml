@@ -1,0 +1,53 @@
+@startuml C2_Manage_VVE_Process_View
+title C2 – Vessel Visit Executions (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "VesselVisitExecutionsHistoryComponent" as Component
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "Audit Trail Store" as Audit
+
+== Load list ==
+Operator -> Component : Open page / apply filters
+Component -> SpaService : getVesselVisitExecutions(filters)
+SpaService -> Controller : GET /api/oem/vessel-visit-executions?...
+Controller -> Client : Forward GET
+Client -> OemApi : GET /vessel-visit-executions?...
+OemApi --> Client : 200 OK VveDto[]
+Client --> Controller : Forward response
+Controller --> SpaService : VveDto[]
+SpaService --> Component : update table
+
+== Create VVE ==
+Operator -> Component : Submit create form
+Component -> SpaService : createVesselVisitExecution(payload)
+SpaService -> Controller : POST /api/oem/vessel-visit-executions
+Controller -> Client : Forward POST
+Client -> OemApi : POST /vessel-visit-executions
+OemApi -> Audit : Append "created" entry
+OemApi --> Client : 201 Created VveDto
+Client --> Controller : Forward response
+Controller --> SpaService : VveDto
+SpaService --> Component : refresh list
+
+== Complete VVE ==
+Operator -> Component : Click "Complete"
+Component -> SpaService : completeVesselVisitExecution(id)
+SpaService -> Controller : POST /api/oem/vessel-visit-executions/{id}/complete
+Controller -> Client : Forward
+Client -> OemApi : POST /vessel-visit-executions/{id}/complete
+alt Valid state transition
+  OemApi -> Audit : Append "completed" entry
+  OemApi --> Client : 200 OK Completed VveDto
+else Invalid transition
+  OemApi --> Client : 400 Bad Request
+end
+Client --> Controller : Forward
+Controller --> SpaService : Result
+SpaService --> Component : update UI state
+Component --> Operator : Show confirmation / error
+
+@enduml

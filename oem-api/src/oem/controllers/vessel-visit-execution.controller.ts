@@ -151,8 +151,6 @@ export class VesselVisitExecutionController {
     return this.service.upsertExecutedOperation(id, plannedOperationId, payload, req.user ?? null);
   }
 
-
-
   @Delete(':id')
   @Roles('oem:vessel:write')
   @ApiOperation({ summary: 'Delete vessel visit execution' })

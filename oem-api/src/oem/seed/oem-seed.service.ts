@@ -59,17 +59,17 @@ export class OemSeedService implements OnModuleInit {
 
   private async ensureOperationPlan(vvn: OemVvn): Promise<OperationPlanEntity> {
     const existing = await this.planRepo.findOne({
-      where: [
-        { sourceVvnId: TARGET_VVN_ID },
-        { vesselVisitId: TARGET_VVN_ID },
-      ],
+      where: [{ sourceVvnId: TARGET_VVN_ID }, { vesselVisitId: TARGET_VVN_ID }],
       order: { updatedAt: 'DESC', createdAt: 'DESC' },
     });
 
     if (existing) {
       let mutated = false;
 
-      if (existing.status !== OperationPlanStatus.Planned && existing.status !== OperationPlanStatus.InProgress) {
+      if (
+        existing.status !== OperationPlanStatus.Planned &&
+        existing.status !== OperationPlanStatus.InProgress
+      ) {
         existing.status = OperationPlanStatus.Planned;
         mutated = true;
       }
@@ -105,7 +105,9 @@ export class OemSeedService implements OnModuleInit {
 
     const now = new Date();
     const plannedStart = vvn.eta ? new Date(vvn.eta) : new Date(now.getTime() - 30 * 60 * 1000);
-    const plannedEnd = vvn.etd ? new Date(vvn.etd) : new Date(plannedStart.getTime() + 4 * 60 * 60 * 1000);
+    const plannedEnd = vvn.etd
+      ? new Date(vvn.etd)
+      : new Date(plannedStart.getTime() + 4 * 60 * 60 * 1000);
 
     const plan = this.planRepo.create({
       name: `${vvn.vesselName ?? 'Baseline Vessel'} plan`,

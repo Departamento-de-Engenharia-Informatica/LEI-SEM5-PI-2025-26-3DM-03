@@ -1,0 +1,51 @@
+@startuml C4_Record_Executed_Operations_Logical_Deployment
+title C4 – Executed Operations (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(VVE Detail Feature)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+  artifact "Telemetry Agent" as Telemetry
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Execution Platform" as OEM {
+  artifact "Executed Operations API" as OemApi
+  artifact "Operational Store" as Store
+}
+
+Operator --> Spa : HTTPS (Browser)
+Spa --> Api : GET/PUT /api/oem/vessel-visit-executions/.../executed-operations
+Api --> Oidc : Validate tokens / cookies
+Api --> OemApi : Forward OEM requests
+OemApi --> Store : Read planned ops / persist executed ops
+Api --> Telemetry : Emit metrics/logs
+
+@enduml

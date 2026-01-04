@@ -1,0 +1,61 @@
+@startuml C1_Manage_VVE_Process_View
+title C1 – Vessel Visit Executions (Process View)
+
+actor "Logistics Operator" as Operator
+participant "VVE History UI\n(Angular Component)" as UI
+participant "OemApiService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open VVE history page
+UI -> SpaService : getVesselVisitExecutions(filters)
+SpaService -> Controller : GET /api/oem/vessel-visit-executions
+Controller -> Client : Forward GET
+Client -> OemService : GET /vessel-visit-executions
+OemService --> Client : VVE list JSON
+Client --> Controller : HTTP 200
+Controller --> SpaService : VveDto[]
+SpaService --> UI : Render table
+
+Operator -> UI : Create new VVE
+UI -> SpaService : createVesselVisitExecution(payload)
+SpaService -> Controller : POST /api/oem/vessel-visit-executions
+Controller -> Client : Forward POST
+Client -> OemService : POST /vessel-visit-executions
+OemService --> Client : Created VVE
+Client --> Controller : HTTP 201
+Controller --> SpaService : VveDto
+SpaService --> UI : Add row + refresh
+
+Operator -> UI : Update berth/dock
+UI -> SpaService : updateVesselVisitExecution(id, payload)
+SpaService -> Controller : PATCH/PUT /api/oem/vessel-visit-executions/{id}
+Controller -> Client : Forward update
+Client -> OemService : PATCH/PUT /vessel-visit-executions/{id}
+OemService --> Client : Updated VVE + audit entry
+Client --> Controller : HTTP 200
+Controller --> SpaService : VveDto
+SpaService --> UI : Update row
+
+Operator -> UI : Complete VVE
+UI -> SpaService : completeVesselVisitExecution(id)
+SpaService -> Controller : POST /api/oem/vessel-visit-executions/{id}/complete
+Controller -> Client : Forward complete
+Client -> OemService : POST /vessel-visit-executions/{id}/complete
+OemService --> Client : Completed VVE
+Client --> Controller : HTTP 200
+Controller --> SpaService : VveDto
+SpaService --> UI : Mark as completed
+
+Operator -> UI : View audit trail
+UI -> SpaService : getVesselVisitExecutionAuditTrail(id)
+SpaService -> Controller : GET /api/oem/vessel-visit-executions/{id}/audit
+Controller -> Client : Forward GET
+Client -> OemService : GET /vessel-visit-executions/{id}/audit
+OemService --> Client : Audit entries
+Client --> Controller : HTTP 200
+Controller --> SpaService : AuditEntryDto[]
+SpaService --> UI : Show audit panel
+
+@enduml

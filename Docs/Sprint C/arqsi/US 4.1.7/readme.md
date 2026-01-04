@@ -48,74 +48,94 @@ The SPA must facilitate VVE creation using available VVN information for easy re
 
 ### 1.5. Input and Output Data
 
-**Input Data:**
-- VVN ID (long) - reference to existing VVN
-- Vessel Identifier (string)
-- Actual Arrival Time (DateTime)
-- Creator User ID (string) - captured from auth context
+**Input (Create VVE):**
+- `vvnId` - ID da Vessel Visit Notification
+- `actualArrivalTime` - Data/hora de chegada real
 
-**Output Data:**
-- VVEDTO object
-- VVE Identifier (auto-generated, pattern: VVN-like)
-- Status ("In Progress")
-- Confirmation message (on creation)
-- Retrieved VVE records (on search/get)
+**Input (Update VVE):**
+- `actualBerthTime` - Data/hora de atracação
+- `dockId` - Identificador do cais
+
+**Input (Complete VVE):**
+- `actualUnberthTime` - Data/hora de desatracação
+- `actualPortDepartureTime` - Data/hora de saída do porto
+
+**Output:**
+- VVE completo com: id, identifier, vvnId, vesselName, status, timestamps, createdBy
 
 ---
 
 ### 1.6. Main Endpoints
 
-| Method | Endpoint | Description | Example |
-|--------|-----------|--------------|----------|
-| GET | /api/VesselVisitExecutions | Get all VVEs or search by status | `/api/VesselVisitExecutions?status=InProgress` |
-| GET | /api/VesselVisitExecutions/{id} | Get a specific VVE by id | `/api/VesselVisitExecutions/1` |
-| POST | /api/VesselVisitExecutions | Create a new VVE | JSON body with VVN ID, vessel identifier, arrival time |
-| GET | /api/VesselVisitExecutions/status/{status} | Get VVEs by status | `/api/VesselVisitExecutions/status/InProgress` |
+| Method | Endpoint | Descrição |
+|--------|----------|-----------|
+| **POST** | `/oem/vessel-visit-executions` | Criar VVE |
+| **GET** | `/oem/vessel-visit-executions` | Listar VVEs |
+| **GET** | `/oem/vessel-visit-executions/:id` | Obter VVE por ID |
+| **PATCH** | `/oem/vessel-visit-executions/:id` | Atualizar com tempo de atracação |
+| **PATCH** | `/oem/vessel-visit-executions/:id/complete` | Marcar como completo |
 
 ---
 
-### 1.7. Example Requests (Postman)
+### 1.7. Example Requests
 
-```
-GET /api/VesselVisitExecutions?status=InProgress
-GET /api/VesselVisitExecutions/1
-POST /api/VesselVisitExecutions
-Content-Type: application/json
+**Criar VVE:**
+```json
+POST /oem/vessel-visit-executions
 {
   "vvnId": 1,
-  "vesselIdentifier": "SHIP-001",
   "actualArrivalTime": "2026-01-04T14:30:00Z"
 }
-GET /api/VesselVisitExecutions/status/InProgress
+```
+
+**Listar VVEs:**
+```
+GET /oem/vessel-visit-executions?from=2026-01-01&to=2026-01-31&status=in-progress
+```
+
+**Atualizar VVE:**
+```json
+PATCH /oem/vessel-visit-executions/5
+{
+  "actualBerthTime": "2026-01-04T16:00:00Z",
+  "dockId": "DOCK-A1"
+}
+```
+
+**Completar VVE:**
+```json
+PATCH /oem/vessel-visit-executions/5/complete
+{
+  "actualUnberthTime": "2026-01-04T22:00:00Z",
+  "actualPortDepartureTime": "2026-01-05T00:30:00Z"
+}
 ```
 
 ---
 
 ### 1.8. Bootstrap Data (Seeding)
-Initial VVEs are optional during seeding. Typically, VVEs are created dynamically when vessels arrive. However, test data can be seeded through PortContext using EF Core's InMemory database.
+Initial VVEs are **not seeded** during application startup. VVEs are created dynamically in real-time when vessels arrive at the port. Test data can be generated via the API for development/testing purposes. The OEM module includes seed scripts for reference data (incident types, complementary task categories) but not for VVEs, as they represent live operational data.
 
 ---
 
 ### 1.9. System Architecture (Summary)
 
-- **Framework:** ASP.NET Core 8.0  
-- **Persistence:** Entity Framework Core (InMemory / SQL)  
-- **Presentation:** REST API  
-- **Clients:** Angular SPA / Postman / Swagger  
-- **Layers:** Controller → Service → DTO → Mapper → Model → DbContext
-- **Key Components:**
-  - VVEController: Handles HTTP requests
-  - VVEService: Business logic (VVN validation, VVE ID generation, status management)
-  - VVEMapper: DTO ↔ Entity conversions
-  - PortContext: Database context with DbSet<VesselVisitExecution>
+- **Framework:** NestJS com TypeORM
+- **Linguagem:** TypeScript
+- **API:** REST com autenticação JWT (IAM)
+- **Autorização:** RBAC (admin, logistics-operator)
+- **Camadas:** Controller → Service → Repository → Entity → Database
+- **Auditoria:** Todas as operações são logged com timestamps e user ID
+- **Índices:** Otimizado para filtros por operationPlanId e status
 
 ---
 
 ### 1.10. Remarks
 
-- VVE creation automatically generates a unique identifier following the VVN identifier pattern.
-- The creator user ID is captured from the authenticated user context (IAM).
-- VVE status is automatically set to "In Progress" upon creation.
-- VVN validation ensures referential integrity (foreign key constraint).
-- The solution uses an in-memory database during development but can be extended to SQL Server or PostgreSQL.
-- Future iterations may include VVE completion, status transitions, and event logging for port operations tracking.
+- **Identificador auto-gerado** no padrão VVE-YYYYMMDD-###
+- **Status:** começa em `in-progress`, muda para `completed` após registar saída
+- **Auditoria:** createdBy e updatedAt rastreiam todas as mudanças
+- **Validação:** VVN referenciado deve existir na base de dados
+- **Aviso de incompatibilidade:** se o cais atribuído diferir do planeado, um aviso é registado
+- **Leitura após conclusão:** após completado, apenas admin pode fazer alterações
+- **Integrações:** pode referenciar Operation Plans para rastreamento de execução

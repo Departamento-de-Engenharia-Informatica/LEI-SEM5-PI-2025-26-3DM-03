@@ -38,10 +38,7 @@ export class DevSeedController {
   }
 
   private resolveNumericVvn(vve: VesselVisitExecutionEntity): number | null {
-    const candidates: Array<string | number | null | undefined> = [
-      vve.vesselVisitId,
-      vve.vvnId,
-    ];
+    const candidates: Array<string | number | null | undefined> = [vve.vesselVisitId, vve.vvnId];
 
     for (const candidate of candidates) {
       if (candidate == null) continue;

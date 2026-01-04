@@ -14,5 +14,6 @@ namespace TodoApi.Application.Services.VesselVisitNotifications
 
         Task<bool> ApproveAsync(long id, long dockId, long officerId);
         Task<bool> RejectAsync(long id, long officerId, string reason);
+        Task<bool> DeleteApprovedAsync(long id);
     }
 }

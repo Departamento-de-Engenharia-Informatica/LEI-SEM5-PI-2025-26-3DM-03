@@ -1,0 +1,47 @@
+@startuml C3_Complementary_Tasks_Physical_View
+title C3 – Complementary Tasks (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device\n(Browser / Laptop)" as Client {
+  artifact "Angular SPA\n(Complementary Tasks Screen)" as Frontend
+}
+
+node "PLMS Application Server\n(Docker / .NET 8)" as AppServer {
+  artifact "TodoApi\n(OEM Proxy)" as ApiHost
+}
+
+node "OEM Platform\n(Kubernetes Cluster)" as OemInfra {
+  artifact "OEM Execution API" as OemApi
+  database "OEM Operational Store" as OemDb
+}
+
+node "Identity Provider" as Identity {
+  artifact "OAuth 2.0 / OIDC" as Idp
+}
+
+Operator --> Frontend : HTTPS
+Frontend --> ApiHost : REST
+ApiHost --> OemApi : HTTPS
+OemApi --> OemDb : Persist tasks
+ApiHost --> Identity : Validate
+Frontend --> Identity : Login
+
+@enduml

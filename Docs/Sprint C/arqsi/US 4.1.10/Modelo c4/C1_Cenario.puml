@@ -1,0 +1,39 @@
+@startuml C1_Manage_VVE_Scenario_View
+title C1 – Vessel Visit Executions (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Vessel Visit Executions" as UC_List
+  usecase "Filter / Search VVEs" as UC_Filter
+  usecase "Create Vessel Visit Execution" as UC_Create
+  usecase "Update Berth / Dock" as UC_Update
+  usecase "Complete Vessel Visit Execution" as UC_Complete
+  usecase "Consult VVE Audit Trail" as UC_Audit
+}
+
+Operator --> UC_List
+Operator --> UC_Filter
+Operator --> UC_Create
+Operator --> UC_Update
+Operator --> UC_Complete
+Operator --> UC_Audit
+
+note right of UC_Filter
+  Filters by date range, dock/berth,
+  vessel visit identifiers, status.
+end note
+
+note right of UC_Complete
+  Closes the execution and locks
+  key fields for traceability.
+end note
+
+@enduml

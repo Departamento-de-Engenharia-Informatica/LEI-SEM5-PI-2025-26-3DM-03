@@ -1,0 +1,40 @@
+@startuml C2_Complementary_Tasks_Detailed_Sequence
+title C2 – Complementary Tasks (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "ComplementaryTasksComponent" as Component
+participant "ComplementaryTasksService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "Task Validator" as Validator
+
+== Load list ==
+Operator -> Component : Open page / apply filters
+Component -> SpaService : getTasks(filters)
+SpaService -> Controller : GET /api/oem/complementary-tasks?...
+Controller -> Client : Forward
+Client -> OemApi : GET /complementary-tasks?...
+OemApi --> Client : 200 OK tasks[]
+Client --> Controller : Forward
+Controller --> SpaService : tasks[]
+SpaService --> Component : update UI
+
+== Create/update/complete ==
+Operator -> Component : Save task / complete
+Component -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/complementary-tasks
+Controller -> Client : Forward + identity
+Client -> OemApi : POST/PATCH /complementary-tasks
+OemApi -> Validator : Validate dates/status
+alt Valid
+  OemApi --> Client : 200/201
+else Invalid
+  OemApi --> Client : 400
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : refresh
+
+@enduml

@@ -1,0 +1,41 @@
+@startuml C1_Complementary_Task_Categories_Process_View
+title C1 – Complementary Task Categories (Process View)
+
+actor "Logistics Operator" as Operator
+participant "CT Categories UI\n(Angular Component)" as UI
+participant "ComplementaryTaskCategoriesService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Operational Execution Service" as OemService
+
+Operator -> UI : Open categories page
+UI -> SpaService : getCategories(q?)
+SpaService -> Controller : GET /api/oem/complementary-task-categories?q=...
+Controller -> Client : Forward
+Client -> OemService : GET /complementary-task-categories?q=...
+OemService --> Client : Category list
+Client --> Controller : 200
+Controller --> SpaService : CategoryDto[]
+SpaService --> UI : Render table
+
+Operator -> UI : Create / edit category
+UI -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/complementary-task-categories
+Controller -> Client : Forward
+Client -> OemService : POST/PATCH /complementary-task-categories
+OemService --> Client : 200/201
+Client --> Controller : Forward
+Controller --> SpaService : CategoryDto
+SpaService --> UI : Refresh list
+
+Operator -> UI : Delete category
+UI -> SpaService : deleteCategory(id)
+SpaService -> Controller : DELETE /api/oem/complementary-task-categories/{id}
+Controller -> Client : Forward
+Client -> OemService : DELETE /complementary-task-categories/{id}
+OemService --> Client : 204
+Client --> Controller : Forward
+Controller --> SpaService : Result
+SpaService --> UI : Remove row
+
+@enduml

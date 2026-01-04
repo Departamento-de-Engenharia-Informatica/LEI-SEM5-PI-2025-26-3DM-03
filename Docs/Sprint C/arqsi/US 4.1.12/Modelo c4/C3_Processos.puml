@@ -1,0 +1,30 @@
+@startuml C3_Incident_Types_System_Sequence
+title C3 – Incident Types (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "IncidentTypesComponent" as Component
+participant "IncidentTypesService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "Type Validator" as Validator
+
+Operator -> Component : Save incident type
+Component -> SpaService : validate & build payload
+SpaService -> Controller : POST/PATCH /api/oem/incident-types
+Controller -> Client : Forward + identity
+Client -> OemApi : POST/PATCH /incident-types
+OemApi -> Validator : Validate name/code/parent
+alt Valid
+  Validator --> OemApi : OK
+  OemApi --> Client : 200/201
+else Invalid
+  Validator --> OemApi : Errors
+  OemApi --> Client : 400
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : refresh UI
+
+@enduml

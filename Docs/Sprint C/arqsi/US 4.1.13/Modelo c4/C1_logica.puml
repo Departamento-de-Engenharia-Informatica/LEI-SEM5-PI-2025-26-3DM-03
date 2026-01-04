@@ -1,0 +1,47 @@
+@startuml C1_Incidents_Logical_View
+title C1 – Incidents Management (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+cloud "Identity Provider\n(OAuth2/OIDC)" as IAM
+
+rectangle "Frontoffice SPA" as SPA {
+  rectangle "Incidents UI" as UI
+}
+
+rectangle "TodoApi" as Gateway
+cloud "OEM Operational Execution Service" as OEM
+
+database "OEM Operational Store" as Db
+
+Operator --> UI : Browser (HTTPS)
+UI --> Gateway : REST (incidents CRUD + affected VVEs)
+Gateway --> IAM : Validate session
+Gateway --> OEM : /incidents (proxied)
+OEM --> Db : Query / persist incidents
+Db --> OEM : Result sets
+OEM --> Gateway : JSON responses
+Gateway --> UI : Forward response
+
+@enduml

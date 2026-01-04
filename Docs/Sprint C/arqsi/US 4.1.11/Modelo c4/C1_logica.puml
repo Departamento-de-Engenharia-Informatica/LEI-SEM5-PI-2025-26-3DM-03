@@ -1,0 +1,47 @@
+@startuml C1_VVE_Executed_Operations_Logical_View
+title C1 – Record Executed Operations (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+cloud "Identity Provider\n(OAuth2/OIDC)" as IAM
+
+rectangle "Frontoffice SPA" as SPA {
+  rectangle "VVE Detail UI\n(Executed Operations)" as UI
+}
+
+rectangle "TodoApi" as Gateway
+cloud "OEM Operational Execution Service" as OEM
+
+database "OEM Operational Store" as Db
+
+Operator --> UI : Browser (HTTPS)
+UI --> Gateway : REST (planned+executed ops, upsert)
+Gateway --> IAM : Validate session
+Gateway --> OEM : /vessel-visit-executions/{id}/...
+OEM --> Db : Read planned/executed ops
+Db --> OEM : Data sets
+OEM --> Gateway : JSON responses
+Gateway --> UI : Forward response
+
+@enduml

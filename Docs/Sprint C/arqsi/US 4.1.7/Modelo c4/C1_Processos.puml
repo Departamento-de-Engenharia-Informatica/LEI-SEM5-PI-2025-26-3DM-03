@@ -2,27 +2,19 @@
 title C1 – Create Vessel Visit Execution (Process View)
 
 actor "Logistics Operator" as LogisticsOp
-participant "VVEController\n(API Layer)" as Controller
-participant "VVEMapper\n(Data Mapper)" as Mapper
-participant "VVEService\n(Domain Logic)" as Service
-participant "PortContext\n(EF Core)" as Context
-database "Database\n(SQL / InMemory)" as DB
+participant "OEM API\n(NestJS)" as Controller
+participant "VVEService" as Service
+participant "Repository\n(TypeORM)" as Context
+database "Database" as DB
 
 
-LogisticsOp -> Controller : POST /api/VesselVisitExecutions\n(CreateVVEDTO with VVN reference)
-Controller -> Mapper : Converte DTO → Entidade de Domínio
-Mapper --> Controller : Retorna objeto VesselVisitExecution
-
-Controller -> Service : Valida VVN existente e cria VVE
-Service -> Service : Gera identificador VVE\nDefine arrival time\nDefine creator user ID\nMarca como "In Progress"
-Service --> Controller : VVE criado e validado
-
-Controller -> Context : Adiciona entidade VesselVisitExecution
-Context -> DB : Persiste dados (SaveChanges)
-DB --> Context : Confirma inserção
-Context --> Controller : OK
-
-Controller --> LogisticsOp : HTTP 201 Created\n(VVEDTO com status "In Progress")
-
+LogisticsOp -> Controller : POST /oem/vessel-visit-executions\n(vvnId, actualArrivalTime)
+Controller -> Service : createExecution(payload, user)
+Service -> Context : Valida VVN e cria VVE
+Service -> Service : Gera identifier\nDefine status: in-progress\nCaptura createdBy
+Context -> DB : INSERT vessel_visit_executions
+DB --> Context : Confirm
+Service --> Controller : VVE criado
+Controller --> LogisticsOp : HTTP 201 Created\n(VesselVisitExecutionEntity)
 
 @enduml

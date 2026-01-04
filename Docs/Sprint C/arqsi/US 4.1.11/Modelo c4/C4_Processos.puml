@@ -1,0 +1,41 @@
+@startuml C4_Record_Executed_Operations_Detailed_Process
+title C4 – Executed Operations (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Row Editor" as Editor
+participant "VesselVisitExecutionDetailComponent" as Component
+participant "OemApiService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Operational Store" as Store
+
+== Client-side validation ==
+Operator -> Editor : Fill start/end times, resources
+Editor -> Component : trigger save()
+Component -> Component : Validate required fields
+Component -> Component : Ensure start < end
+Component -> Component : Normalise timestamps to ISO
+
+== Server call ==
+Component -> Service : upsertExecutedOperation(...)
+Service -> Controller : PUT /api/oem/.../executed-operations/{plannedOpId}
+Controller -> Client : Forward + identity headers
+Client -> Validator : OEM call
+
+== OEM validation & persistence ==
+Validator -> Validator : Validate time range & linkage
+alt Valid
+  Validator -> Store : Upsert executed operation
+  Validator --> Client : 200 OK
+else Invalid
+  Validator --> Client : 400 with errors
+end
+
+Client --> Controller : Response
+Controller --> Service : JSON
+Service --> Component : Observable
+Component --> Operator : Show success / error
+
+@enduml

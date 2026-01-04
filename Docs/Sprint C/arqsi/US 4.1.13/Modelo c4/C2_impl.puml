@@ -1,0 +1,53 @@
+@startuml C2_Incidents_Implementation_View
+title C2 – Incidents (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "Frontend" {
+  package "Pages" {
+    [IncidentsComponent]
+  }
+  package "Services" {
+    [IncidentsService]
+  }
+}
+
+package "TodoApi" {
+  package "Controllers" {
+    [OemProxyController]
+  }
+  package "Services" {
+    [OemClient]
+  }
+}
+
+package "OEM" {
+  package "Controllers" {
+    [IncidentController]
+  }
+  package "Application" {
+    [IncidentService]
+  }
+  package "Persistence" {
+    [IncidentRepository]
+  }
+}
+
+[IncidentsComponent] --> [IncidentsService]
+[IncidentsService] --> [OemProxyController]
+[OemProxyController] --> [OemClient]
+[OemClient] --> [IncidentController]
+[IncidentController] --> [IncidentService]
+[IncidentService] --> [IncidentRepository]
+
+@enduml

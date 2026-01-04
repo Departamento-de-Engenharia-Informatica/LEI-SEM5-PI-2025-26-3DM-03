@@ -1,0 +1,40 @@
+@startuml C4_Incidents_Detailed_Process
+title C4 – Incidents (Detailed Process)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "Angular Form" as Form
+participant "IncidentsComponent" as Component
+participant "IncidentsService" as Service
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Validation Layer" as Validator
+participant "OEM Operational Store" as Store
+
+== Client-side validation ==
+Operator -> Form : Fill type, scope, dates, description
+Form -> Component : trigger save()
+Component -> Component : Validate required fields
+Component -> Component : Normalise dates to ISO
+
+== Server call ==
+Component -> Service : create/update incident
+Service -> Controller : POST/PATCH /api/oem/incidents
+Controller -> Client : Forward + identity
+Client -> Validator : OEM call
+
+== OEM validation & persistence ==
+Validator -> Validator : Validate scope rules
+alt Valid
+  Validator -> Store : Persist incident
+  Validator --> Client : 200/201
+else Invalid
+  Validator --> Client : 400
+end
+
+Client --> Controller : Response
+Controller --> Service : JSON
+Service --> Component : Observable
+Component --> Operator : Success / error
+
+@enduml

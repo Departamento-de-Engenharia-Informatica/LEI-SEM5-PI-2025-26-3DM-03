@@ -1,0 +1,40 @@
+@startuml C2_Incidents_Detailed_Sequence
+title C2 – Incidents (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "IncidentsComponent" as Component
+participant "IncidentsService" as SpaService
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "OEM Validation Layer" as Validator
+
+== Load list ==
+Operator -> Component : Open page / apply filters
+Component -> SpaService : getIncidents(filters)
+SpaService -> Controller : GET /api/oem/incidents?...
+Controller -> Client : Forward
+Client -> OemApi : GET /incidents?...
+OemApi --> Client : 200 OK incidents[]
+Client --> Controller : Forward
+Controller --> SpaService : incidents[]
+SpaService --> Component : update UI
+
+== Create / resolve ==
+Operator -> Component : Save incident
+Component -> SpaService : create/update(payload)
+SpaService -> Controller : POST/PATCH /api/oem/incidents
+Controller -> Client : Forward + identity
+Client -> OemApi : POST/PATCH /incidents
+OemApi -> Validator : Validate type, scope, dates
+alt Valid
+  OemApi --> Client : 200/201 OK
+else Invalid
+  OemApi --> Client : 400
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : refresh list
+
+@enduml

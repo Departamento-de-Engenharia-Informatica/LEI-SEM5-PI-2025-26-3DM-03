@@ -179,6 +179,19 @@ jobs:
           GHCR_USER: ${{ secrets.GHCR_USER }}
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
 
+      - name: Free disk space (Docker prune)
+        continue-on-error: true
+        run: |
+          echo "Disk usage before prune:" 
+          df -h || true
+          echo "Docker usage before prune:" 
+          docker system df || true
+          docker container prune -f || true
+          docker image prune -af || true
+          docker builder prune -af || true
+          echo "Docker usage after prune:" 
+          docker system df || true
+
       - name: Free Docker disk space on VM
         run: |
           echo "Docker disk usage BEFORE prune:" || true

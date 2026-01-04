@@ -1,0 +1,34 @@
+@startuml C1_Incident_Types_Scenario_View
+title C1 – Incident Types (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "List Incident Types" as UC_List
+  usecase "Search / Filter Types" as UC_Search
+  usecase "Create Incident Type" as UC_Create
+  usecase "Edit Incident Type" as UC_Edit
+  usecase "Delete Incident Type" as UC_Delete
+  usecase "View Type Hierarchy" as UC_Tree
+}
+
+Operator --> UC_List
+Operator --> UC_Search
+Operator --> UC_Create
+Operator --> UC_Edit
+Operator --> UC_Delete
+Operator --> UC_Tree
+
+note right of UC_Tree
+  Operators can visualise parent/child
+  relationships for categorisation.
+end note
+
+@enduml

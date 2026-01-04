@@ -1,0 +1,30 @@
+@startuml C3_Complementary_Task_Categories_System_Sequence
+title C3 – Complementary Task Categories (System Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "ComplementaryTaskCategoriesComponent" as Component
+participant "ComplementaryTaskCategoriesService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM Execution API" as OemApi
+participant "Category Validator" as Validator
+
+Operator -> Component : Save category
+Component -> SpaService : validate & build payload
+SpaService -> Controller : POST/PATCH /api/oem/complementary-task-categories
+Controller -> Client : Forward + identity
+Client -> OemApi : POST/PATCH /complementary-task-categories
+OemApi -> Validator : Validate code format
+alt Valid
+  Validator --> OemApi : OK
+  OemApi --> Client : 200/201
+else Invalid
+  Validator --> OemApi : Errors
+  OemApi --> Client : 400
+end
+Client --> Controller : Forward
+Controller --> SpaService : JSON
+SpaService --> Component : refresh UI
+
+@enduml

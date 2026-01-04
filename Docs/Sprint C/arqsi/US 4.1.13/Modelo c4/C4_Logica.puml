@@ -1,0 +1,49 @@
+@startuml C4_Incidents_Logical_Deployment
+title C4 – Incidents (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Operator Device" as Device {
+  artifact "Angular SPA\n(Incidents Feature)" as Spa
+}
+
+node "PLMS API Cluster" as ApiCluster {
+  artifact "TodoApi Container\n(OemProxyController)" as Api
+}
+
+cloud "Identity Platform" as Identity {
+  artifact "OIDC Authority" as Oidc
+}
+
+cloud "OEM Execution Platform" as OEM {
+  artifact "Incidents API" as OemApi
+  artifact "Operational Store" as Store
+}
+
+Operator --> Spa : HTTPS
+Spa --> Api : GET/POST/PATCH/DELETE /api/oem/incidents
+Api --> Oidc : Validate
+Api --> OemApi : Forward
+OemApi --> Store : Persist incidents
+
+@enduml

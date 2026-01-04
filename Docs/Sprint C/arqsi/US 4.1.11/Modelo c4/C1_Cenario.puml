@@ -1,0 +1,32 @@
+@startuml C1_Record_Executed_Operations_Scenario_View
+title C1 – Record Executed Operations (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Port Logistics Management System (PLMS)" as System {
+  usecase "Open VVE Details" as UC_Open
+  usecase "View Planned Operations" as UC_Planned
+  usecase "View Executed Operations" as UC_Executed
+  usecase "Record Execution Data" as UC_Record
+  usecase "Update Execution Entry" as UC_Update
+}
+
+Operator --> UC_Open
+Operator --> UC_Planned
+Operator --> UC_Executed
+Operator --> UC_Record
+Operator --> UC_Update
+
+note right of UC_Record
+  Records start/end times, equipment,
+  resources used, and observations.
+end note
+
+@enduml
