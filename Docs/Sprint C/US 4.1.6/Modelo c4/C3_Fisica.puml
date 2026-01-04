@@ -1,0 +1,53 @@
+@startuml C3_Resource_Usage_Physical_View
+title C3 – Resource Usage (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device" as Device {
+  artifact "Angular SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  artifact ".NET TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Platform {
+  artifact "OEM API Pod" as OemApi
+  artifact "Aggregation Worker" as Worker
+  database "Operation Plans DB" as PlansDb
+  database "Resource Analytics Cache" as CacheDb
+}
+
+node "IAM Cluster" as Identity {
+  artifact "OIDC Provider" as Idp
+}
+
+Operator --> Spa : HTTPS
+Spa --> TodoApi : REST (resource usage)
+TodoApi --> OemApi : HTTPS
+OemApi --> Worker : Delegate heavy aggregation
+Worker --> PlansDb : Read saved plans
+Worker --> CacheDb : Store cached totals
+OemApi --> TodoApi : Aggregated response
+TodoApi --> Spa : Summary JSON
+TodoApi --> Idp : Token validation (per session)
+Spa --> Idp : Login/OAuth redirect
+
+@enduml

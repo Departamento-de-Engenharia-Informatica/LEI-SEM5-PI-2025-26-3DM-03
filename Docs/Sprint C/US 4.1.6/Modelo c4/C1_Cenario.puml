@@ -1,0 +1,21 @@
+@startuml C1_Resource_Usage_Context
+title C1 – Resource Usage Aggregation Scenario
+
+actor "Logistics Operator" as Operator
+rectangle "PLMS Portal" {
+  package "Angular SPA" as Spa
+}
+rectangle "PLMS Backend" as Backend
+rectangle "OEM Platform" as Oem
+rectangle "Identity Provider" as Idp
+
+Operator --> Spa : Query usage for resource
+Spa --> Backend : HTTPS (Resource Usage Request)
+Backend --> Oem : Forward aggregation request
+Oem --> Backend : Aggregated usage response
+Backend --> Spa : JSON summary
+Spa --> Operator : Show usage table & warnings
+Spa --> Idp : OIDC login (pre-existing session)
+Backend --> Idp : Token introspection
+
+@enduml

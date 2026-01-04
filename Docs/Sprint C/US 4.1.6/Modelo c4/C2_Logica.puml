@@ -1,0 +1,28 @@
+@startuml C2_Resource_Usage_Logical
+title C2 – Resource Usage (Logical Containers)
+left to right direction
+
+node "Client Browser" as Browser {
+  component "Resource Utilization SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  component "TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Oem {
+  component "OEM API" as OemApi
+  database "Operations DB" as OpsDb
+}
+
+node "IAM" as Iam
+
+Spa --> TodoApi : HTTPS JSON
+TodoApi --> Iam : Token validation (OAuth)
+TodoApi --> OemApi : HTTPS (resource usage)
+OemApi --> OpsDb : Aggregate saved plans
+OemApi --> TodoApi : Usage summary
+TodoApi --> Spa : Usage summary + warnings
+Spa --> Browser : Render table / chart
+
+@enduml
