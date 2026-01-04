@@ -1,0 +1,28 @@
+@startuml C1_VVE_Creation_Logical
+title C1 – VVE Creation (Logical Relationships)
+
+skinparam rectangle {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+rectangle "Logistics Operator" as Operator
+rectangle "VesselVisitExecutionComponent" as Ui
+rectangle "TodoApi VveController" as Proxy
+rectangle "OEM Vve API" as OemApi
+rectangle "Vvn Repository" as VvnRepo
+rectangle "Vve Repository" as VveRepo
+rectangle "IAM" as Iam
+
+Operator --> Ui : Initiate VVE creation
+Ui --> Proxy : POST /vvns/{vvnId}/vves
+Proxy --> Iam : Validate token
+Proxy --> OemApi : Forward request
+OemApi --> VvnRepo : Validate VVN status
+OemApi --> VveRepo : Persist VVE & status
+VveRepo --> OemApi : VVE record
+OemApi --> Proxy : VVE response
+Proxy --> Ui : JSON DTO
+Ui --> Operator : Confirmation & status badge
+
+@enduml

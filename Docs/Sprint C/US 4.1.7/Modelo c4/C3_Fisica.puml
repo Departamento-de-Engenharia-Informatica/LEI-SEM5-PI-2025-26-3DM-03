@@ -1,0 +1,58 @@
+@startuml C3_VVE_Creation_Physical_View
+title C3 – VVE Creation (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device" as Device {
+  artifact "Angular SPA" as Spa
+}
+
+node "PLMS Backend" as Backend {
+  artifact ".NET TodoApi" as TodoApi
+}
+
+node "OEM Platform" as Platform {
+  artifact "OEM API Pod" as OemApi
+  artifact "Command Worker" as CommandWorker
+  database "VVN Database" as VvnDb
+  database "VVE Database" as VveDb
+}
+
+node "IAM Cluster" as Identity {
+  artifact "OIDC Provider" as Idp
+}
+
+node "Event Bus" as Bus {
+  artifact "Audit Topic" as AuditTopic
+}
+
+Operator --> Spa : HTTPS
+Spa --> TodoApi : REST (create VVE)
+TodoApi --> OemApi : HTTPS
+OemApi --> CommandWorker : Dispatch create command
+CommandWorker --> VvnDb : Read VVN data
+CommandWorker --> VveDb : Insert VVE (InProgress)
+CommandWorker --> AuditTopic : Publish VVE_CREATED
+OemApi --> TodoApi : 201 Created + VVE DTO
+TodoApi --> Spa : JSON response
+TodoApi --> Idp : Token validation (per session)
+Spa --> Idp : Login/OAuth flow
+
+@enduml

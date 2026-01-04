@@ -1,0 +1,60 @@
+@startuml C3_VVE_Creation_Logical_View
+title C3 – VVE Creation (Logical Components)
+left to right direction
+
+package "Client Tier" {
+  component "VesselVisitExecutionComponent" as UiComponent
+  component "VvnLookupService" as VvnLookup
+  component "OemVveService" as UiService
+  component "VveConfirmationDialog" as Confirmation
+}
+
+package "Backend Tier" {
+  component "VveProxyController" as ApiController
+  component "VveApplicationAdapter" as AppAdapter
+  component "OemClient" as ProxyClient
+  component "JwtAuthentication" as JwtAuth
+  component "DuplicateGuard" as DuplicateGuard
+}
+
+package "OEM Domain Tier" {
+  component "VveController" as DomainController
+  component "VveApplicationService" as DomainService
+  component "VvnEligibilityChecker" as Eligibility
+  component "VveFactory" as Factory
+  component "VveRepository" as VveRepo
+  component "VvnRepository" as VvnRepo
+  component "AuditPublisher" as Audit
+}
+
+package "Infrastructure" {
+  database "VVN Store" as VvnDb
+  database "VVE Store" as VveDb
+  component "Audit Topic" as AuditTopic
+}
+
+UiComponent --> VvnLookup : Fetch eligible VVNs
+UiComponent --> Confirmation : Show vessel details
+UiComponent --> UiService : Submit create request
+UiService --> ApiController : REST / JSON
+ApiController --> JwtAuth : Validate token
+ApiController --> DuplicateGuard : Check existing VVE
+ApiController --> AppAdapter : Build OEM request
+AppAdapter --> ProxyClient : Forward POST
+ProxyClient --> DomainController : HTTP call
+DomainController --> DomainService : createVve
+DomainService --> Eligibility : Validate VVN status
+Eligibility --> VvnRepo : Load VVN
+VvnRepo --> VvnDb
+DomainService --> Factory : Build VVE aggregate
+Factory --> VveRepo : Save VVE
+VveRepo --> VveDb
+DomainService --> Audit : Publish event
+Audit --> AuditTopic
+DomainService --> DomainController : VVE DTO
+DomainController --> ProxyClient : Response
+ProxyClient --> ApiController : Response
+ApiController --> UiService : JSON DTO
+UiService --> UiComponent : Update UI state
+
+@enduml
