@@ -1,0 +1,55 @@
+@startuml C4_VVE_Execution_Sequence
+title C4 – VVE Execution (Sequence for Bulk Update)
+
+autonumber
+
+actor Operator
+participant "VveOperationsComponent" as UI
+participant "OemVveService" as FrontService
+participant "VveOperationsProxyController" as ProxyController
+participant "JwtMiddleware" as JwtMiddleware
+participant "BulkResponseMapper" as ResponseMapper
+participant "IdentityHeaderFactory" as HeaderFactory
+participant "OemVveClient" as ProxyClient
+participant "OEM VveOperationsController" as OemController
+participant "VveExecutionService" as ExecutionService
+participant "ExecutionValidationService" as ValidationService
+participant "ExecutionStatusCalculator" as StatusCalculator
+participant "PlannedOperationRepository" as PlannedRepo
+participant "ExecutedOperationRepository" as ExecutedRepo
+participant "VveRepository" as VveRepo
+participant "OperationPlanSyncService" as PlanSyncService
+participant "AuditPublisher" as AuditPublisher
+
+Operator -> UI : Submit execution form
+UI -> FrontService : updateOperations(vveId, payload)
+FrontService -> ProxyController : PATCH /vves/{vveId}/operations
+ProxyController -> JwtMiddleware : validate token
+JwtMiddleware --> ProxyController : ok
+ProxyController -> ResponseMapper : preprocess payload
+ResponseMapper --> ProxyController : normalized payload
+ProxyController -> HeaderFactory : add identity headers
+ProxyController -> ProxyClient : forward request
+ProxyClient -> OemController : PATCH /vves/{vveId}/operations
+OemController -> ExecutionService : bulkUpdate()
+ExecutionService -> ValidationService : validate commands
+ValidationService --> ExecutionService : ok
+ExecutionService -> PlannedRepo : load planned ops
+PlannedRepo --> ExecutionService : planned data
+ExecutionService -> StatusCalculator : compute statuses
+StatusCalculator --> ExecutionService : statuses
+ExecutionService -> ExecutedRepo : save executions
+ExecutedRepo --> ExecutionService : persisted
+ExecutionService -> VveRepo : update progress
+ExecutionService -> PlanSyncService : sync plan status
+PlanSyncService --> ExecutionService : sync complete
+ExecutionService -> AuditPublisher : publish execution events
+AuditPublisher --> ExecutionService : ack
+ExecutionService --> OemController : ExecutionUpdateResponse
+OemController --> ProxyClient : 207 Multi-Status + DTO
+ProxyClient --> ProxyController : response
+ProxyController --> FrontService : DTO
+FrontService --> UI : Observable resolved
+UI --> Operator : Show updated execution state & warnings
+
+@enduml
