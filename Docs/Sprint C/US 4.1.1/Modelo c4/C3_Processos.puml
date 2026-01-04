@@ -1,0 +1,23 @@
+@startuml C3_OEM_Service_Process_View
+title C3 – OEM Service (Swagger Request Sequence)
+hide footbox
+
+actor "Developer" as Dev
+participant "Swagger UI" as SwaggerUI
+participant "SwaggerController" as SwaggerController
+participant "OpenApiFactory" as Factory
+participant "AuthGuard" as Guard
+participant "IAM" as IAM
+
+Dev -> SwaggerUI : GET /docs
+SwaggerUI -> SwaggerController : GET /docs-json
+SwaggerController -> Guard : validate auth
+Guard -> IAM : Introspect token
+IAM --> Guard : Claims / scopes OK
+Guard --> SwaggerController : Allow
+SwaggerController -> Factory : buildDocument()
+Factory --> SwaggerController : OpenAPI JSON
+SwaggerController --> SwaggerUI : 200 + JSON
+SwaggerUI --> Dev : Render API documentation
+
+@enduml

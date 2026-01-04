@@ -1,0 +1,67 @@
+@startuml C2_OEM_Service_Implementation_View
+title C2 – OEM Service (Implementation / Package View)
+left to right direction
+hide empty members
+
+skinparam package {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam arrow {
+  Color Black
+}
+
+package "application" {
+  [AppModule]
+  [SwaggerConfig]
+}
+
+package "modules" {
+  package "OperationPlans" {
+    [OperationPlansController]
+    [OperationPlansService]
+    [OperationPlansRepository]
+    [OperationPlanMapper]
+  }
+  package "Executions" {
+    [ExecutionsController]
+    [ExecutionsService]
+    [ExecutionsRepository]
+  }
+  package "Resources" {
+    [ResourcesController]
+    [ResourcesService]
+    [ResourcesRepository]
+  }
+}
+
+package "security" {
+  [AuthModule]
+  [JwtStrategy]
+  [PoliciesGuard]
+}
+
+package "infrastructure" {
+  [TypeOrmModule]
+  [HealthController]
+  [LoggingInterceptor]
+}
+
+[AppModule] --> [OperationPlansController]
+[AppModule] --> [ExecutionsController]
+[AppModule] --> [ResourcesController]
+[OperationPlansController] --> [OperationPlansService]
+[OperationPlansService] --> [OperationPlansRepository]
+[OperationPlansService] --> [OperationPlanMapper]
+[ExecutionsController] --> [ExecutionsService]
+[ResourcesController] --> [ResourcesService]
+[OperationPlansController] --> [PoliciesGuard]
+[PoliciesGuard] --> [JwtStrategy]
+[TypeOrmModule] --> [OperationPlansRepository]
+[TypeOrmModule] --> [ExecutionsRepository]
+[TypeOrmModule] --> [ResourcesRepository]
+[SwaggerConfig] --> [OperationPlansController]
+
+@enduml

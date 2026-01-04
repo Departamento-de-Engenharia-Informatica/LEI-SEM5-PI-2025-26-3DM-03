@@ -1,0 +1,54 @@
+@startuml C2_OEM_Service_Logica_View
+title C2 – OEM Ecosystem (Container View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Project Manager" as PM
+actor "Frontoffice SPA" as SPA
+
+rectangle "PLMS Boundary" as PLMS {
+  rectangle "TodoApi" as Gateway
+}
+
+rectangle "OEM Service" as OEM {
+  rectangle "HTTP Layer" as Http
+  rectangle "Domain Layer" as Domain
+  rectangle "Persistence Layer" as Repo
+}
+
+database "OEM SQL Database" as Database
+cloud "IAM Service" as IAM
+cloud "Scheduling Engine" as Scheduler
+cloud "Monitoring Stack" as Monitoring
+
+SPA --> Gateway : REST calls (/oem)
+Gateway --> Http : Proxy requests
+Http --> Domain : execute use cases
+Domain --> Repo : repositories
+Repo --> Database : SQL CRUD
+Domain --> Scheduler : invoke planning algorithms
+Http --> IAM : JWT validation (RBAC/ABAC)
+Http --> Monitoring : metrics/logs
+PM --> Monitoring : review dashboards
+
+@enduml

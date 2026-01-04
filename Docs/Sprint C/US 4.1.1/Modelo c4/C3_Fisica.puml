@@ -1,0 +1,48 @@
+@startuml C3_OEM_Service_Physical_View
+title C3 – OEM Service (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Project Manager" as PM
+
+node "Kubernetes Cluster" as K8s {
+  node "Namespace: oem" as Namespace {
+    artifact "OEM API Pod\n(NestJS Container)" as Pod
+    artifact "OEM Migration Job" as Migration
+  }
+}
+
+node "Database Server" as DbNode {
+  database "OEM SQL Database" as Database
+}
+
+node "API Gateway" as Gateway {
+  artifact "TodoApi" as Todo
+}
+
+node "IAM Cluster" as IAM {
+  artifact "Keycloak / Azure AD" as Identity
+}
+
+PM --> Pod : Monitor deployments (CI/CD)
+Todo --> Pod : REST requests (HTTPS)
+Pod --> Database : TCP 1433/5432
+Pod --> Identity : JWT validation
+Migration --> Database : Schema migrations
+
+@enduml

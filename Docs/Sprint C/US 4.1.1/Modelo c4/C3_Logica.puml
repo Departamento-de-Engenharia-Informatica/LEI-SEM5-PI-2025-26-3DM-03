@@ -1,0 +1,48 @@
+@startuml C3_OEM_Service_Logico_View
+title C3 – OEM Service (Logical Architecture)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+rectangle "Presentation Layer" as Presentation {
+  rectangle "REST Controllers" as Controllers
+  rectangle "Swagger Module" as Swagger
+  rectangle "Exception Filters" as Filters
+}
+
+rectangle "Application Layer" as Application {
+  rectangle "Use Case Services" as Services
+  rectangle "Policy Enforcement" as Policies
+  rectangle "DTO Validators" as Validators
+}
+
+rectangle "Domain Layer" as Domain {
+  rectangle "Aggregates & Entities" as Entities
+  rectangle "Domain Events" as Events
+  rectangle "Schedulers Adapter" as SchedulerAdapter
+}
+
+rectangle "Infrastructure Layer" as Infrastructure {
+  rectangle "TypeORM Repositories" as Repositories
+  rectangle "Migrations" as Migrations
+  rectangle "Integration Clients" as Clients
+  rectangle "Logging & Metrics" as Telemetry
+}
+
+Controllers --> Services
+Controllers --> Validators
+Services --> Policies
+Services --> Entities
+Services --> SchedulerAdapter
+Entities --> Repositories
+Repositories --> Migrations
+Services --> Telemetry
+Clients --> SchedulerAdapter
+
+@enduml
