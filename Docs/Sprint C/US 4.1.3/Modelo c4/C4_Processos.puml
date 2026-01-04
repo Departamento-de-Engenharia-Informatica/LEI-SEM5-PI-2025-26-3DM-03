@@ -1,0 +1,31 @@
+@startuml C4_Search_Operation_Plans_Process_View
+title C4 – Operation Plan Search (Detailed Flow)
+hide footbox
+
+actor "Frontoffice SPA" as Spa
+participant "HttpClient" as HttpClient
+participant "TodoApi OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM OperationPlansController" as OemController
+participant "OperationPlansService" as Service
+participant "OperationPlanRepository" as Repository
+participant "Database" as Database
+
+Spa -> HttpClient : GET /api/oem/operation-plans?from=...&to=...
+HttpClient -> Controller : Send request with cookies/JWT
+Controller -> Client : Build OEM request
+Client -> OemController : GET /operation-plans?from=...&to=...
+OemController -> Service : findAll(filter)
+Service -> Repository : find(filter)
+Repository -> Database : SELECT ... WHERE target_day BETWEEN ...
+Database --> Repository : Result rows
+Repository --> Service : Entities list
+Service -> Service : map to DTOs (include vessel, dock, timings)
+Service --> OemController : DTO array
+OemController --> Client : HTTP 200 + body
+Client --> Controller : Relay response
+Controller --> HttpClient : JSON array
+HttpClient --> Spa : Provide response
+Spa -> Spa : Sort/paginate, update UI state
+
+@enduml

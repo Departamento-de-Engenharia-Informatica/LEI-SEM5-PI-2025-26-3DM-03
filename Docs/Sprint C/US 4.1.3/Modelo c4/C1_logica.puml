@@ -1,0 +1,45 @@
+@startuml C1_Search_Operation_Plans_Logical_View
+title C1 – Search Operation Plans (Context View)
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+  FontColor Black
+}
+skinparam actor {
+  BackgroundColor CornflowerBlue
+  BorderColor Black
+  FontColor White
+}
+
+actor "Logistics Operator" as Operator
+cloud "Identity Provider\n(OAuth2/OIDC)" as IAM
+rectangle "Frontoffice SPA" as SPA {
+  rectangle "Operation Plans UI" as UI
+}
+rectangle "TodoApi" as Gateway
+cloud "OEM Planning Service" as OEM
+
+database "OEM Plans Store" as Db
+
+Operator --> UI : Browser (HTTPS)
+UI --> Gateway : REST request (filters)
+Gateway --> IAM : Validate session
+Gateway --> OEM : GET /operation-plans
+OEM --> Db : Query filtered plans
+Db --> OEM : Result set
+OEM --> Gateway : Plan list JSON
+Gateway --> UI : Forward response
+
+@enduml

@@ -1,0 +1,27 @@
+@startuml C2_Search_Operation_Plans_Process_View
+title C2 – Operation Plan Search (Detailed Sequence)
+hide footbox
+
+actor "Logistics Operator" as Operator
+participant "OemOperationPlansComponent" as Component
+participant "OemApiService" as SpaService
+participant "OemProxyController" as Controller
+participant "OemClient" as Client
+participant "OEM OperationPlans API" as OemApi
+participant "OperationPlanRepository" as Repository
+
+Operator -> Component : Update filters (date range / VVN)
+Component -> Component : Debounce & validate form
+Component -> SpaService : getOperationPlans(filters)
+SpaService -> Controller : GET /api/oem/operation-plans?...
+Controller -> Client : Forward GET + identity headers
+Client -> OemApi : GET /operation-plans?...
+OemApi -> Repository : Build query (date range, VVN)
+Repository --> OemApi : Matching plans list
+OemApi --> Client : JSON array
+Client --> Controller : HTTP 200
+Controller --> SpaService : Plan DTOs
+SpaService --> Component : Update table data
+Component --> Operator : Render sorted/paginated table
+
+@enduml

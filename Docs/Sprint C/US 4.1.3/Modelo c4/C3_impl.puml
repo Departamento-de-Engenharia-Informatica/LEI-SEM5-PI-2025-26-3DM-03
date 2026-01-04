@@ -1,0 +1,72 @@
+@startuml C3_Search_Operation_Plans_Component_View
+title C3 – Operation Plan Search (Component View)
+left to right direction
+hide empty members
+
+skinparam rectangle {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam class {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+package "Frontend" {
+  class OemOperationPlansComponent {
+    +fetchPlans()
+    +changeSort(key)
+    +goToPage(page)
+    +togglePlanDetails(plan)
+  }
+  class SavedFilterForm
+  class FlatpickrAdapter
+  class PlansTable
+}
+
+package "Frontend Services" {
+  class OemApiService {
+    +getOperationPlans(filters)
+    +getOperationPlan(id)
+  }
+}
+
+package "TodoApi" {
+  class OemProxyController {
+    +GetOperationPlans(filter)
+    +GetOperationPlan(id)
+  }
+  class OemClient {
+    +GetOperationPlansAsync(...)
+    +GetOperationPlanAsync(...)
+  }
+}
+
+package "OEM API" {
+  class OperationPlansController {
+    +findAll(filter)
+    +findOne(id, opts)
+  }
+  class OperationPlansQueryService {
+    +execute(filter)
+  }
+  class OperationPlanRepository {
+    +find(filter)
+  }
+}
+
+OemOperationPlansComponent --> SavedFilterForm
+OemOperationPlansComponent --> FlatpickrAdapter
+OemOperationPlansComponent --> PlansTable
+OemOperationPlansComponent --> OemApiService
+OemApiService --> OemProxyController
+OemProxyController --> OemClient
+OemClient --> OperationPlansController
+OperationPlansController --> OperationPlansQueryService
+OperationPlansQueryService --> OperationPlanRepository
+
+@enduml

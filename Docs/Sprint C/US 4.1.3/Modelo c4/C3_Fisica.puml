@@ -1,0 +1,47 @@
+@startuml C3_Search_Operation_Plans_Physical_View
+title C3 – Operation Plan Search (Physical / Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor Wheat
+  BorderColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "User Device" as Device {
+  artifact "Browser + Angular SPA" as Browser
+}
+
+node "PLMS Backend" as Backend {
+  artifact "TodoApi Container" as Todo
+}
+
+node "OEM Platform" as OemPlatform {
+  artifact "OEM API Pod" as OemApi
+  database "OEM SQL Database" as OemDb
+}
+
+node "Identity Cluster" as Identity {
+  artifact "IAM" as IAM
+}
+
+Operator --> Browser : HTTPS UI
+Browser --> Todo : GET /api/oem/operation-plans
+Todo --> OemApi : HTTPS request
+OemApi --> OemDb : SQL query
+Todo --> IAM : Token validation (once per session)
+OemApi --> Browser : JSON via proxy
+
+@enduml

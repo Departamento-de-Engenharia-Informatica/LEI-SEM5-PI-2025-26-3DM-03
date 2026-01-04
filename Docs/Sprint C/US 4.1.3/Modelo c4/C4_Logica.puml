@@ -1,0 +1,53 @@
+@startuml C4_Search_Operation_Plans_Logical_Deployment
+title C4 – Operation Plan Search (Logical Deployment View)
+left to right direction
+
+skinparam node {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  FontStyle bold
+}
+
+skinparam artifact {
+  BackgroundColor HoneyDew
+  BorderColor Black
+  FontColor Black
+}
+
+skinparam cloud {
+  BackgroundColor LightGray
+  BorderColor Black
+  FontColor Black
+}
+
+actor "Logistics Operator" as Operator
+
+node "Device" as Device {
+  artifact "Angular SPA" as Spa
+}
+
+node "PLMS Network" as PlmsNet {
+  artifact "TodoApi Proxy" as Proxy
+  artifact "Telemetry Agent" as Telemetry
+}
+
+cloud "OEM SaaS" as OemSaaS {
+  artifact "Operation Plans API" as OemApi
+  artifact "Query Worker" as QueryWorker
+  artifact "Metadata Cache" as Cache
+}
+
+cloud "IAM" as IAM
+
+Operator --> Spa : HTTPS interaction
+Spa --> Proxy : GET /api/oem/operation-plans
+Proxy --> OemApi : Forward REST call
+Proxy --> IAM : Token validation, claim refresh
+OemApi --> QueryWorker : Build query + fetch from DB
+QueryWorker --> Cache : optional caching of results
+OemApi --> Proxy : JSON list
+Proxy --> Telemetry : Emit metrics
+Proxy --> Spa : Return data
+
+@enduml

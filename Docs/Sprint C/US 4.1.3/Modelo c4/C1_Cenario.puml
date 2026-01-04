@@ -1,0 +1,37 @@
+@startuml C1_Search_Operation_Plans_Scenario_View
+title C1 – Search Operation Plans (Scenario View)
+
+left to right direction
+skinparam usecase {
+  BorderColor Black
+  BackgroundColor HoneyDew
+  ArrowColor Black
+  FontStyle bold
+}
+
+actor "Logistics Operator" as Operator
+rectangle "Operation Plans Module" as System {
+  usecase "Set Date Range Filters" as UC_Dates
+  usecase "Filter by VVN" as UC_Vvn
+  usecase "View Plan Summaries" as UC_View
+  usecase "Sort Plan Results" as UC_Sort
+  usecase "Open Plan Details" as UC_Details
+}
+
+Operator --> UC_Dates
+Operator --> UC_Vvn
+Operator --> UC_View
+Operator --> UC_Sort
+Operator --> UC_Details
+
+note right of UC_View
+  Table lists vessel, dock, timings,
+  resources, algorithm, and status.
+end note
+
+note right of UC_Sort
+  Allows ordering by start time, vessel name,
+  or expected delay / creation date.
+end note
+
+@enduml

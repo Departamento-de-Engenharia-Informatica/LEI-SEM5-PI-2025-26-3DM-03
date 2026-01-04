@@ -1,0 +1,20 @@
+@startuml C1_Search_Operation_Plans_Process_View
+title C1 – Search Operation Plans (Process View)
+
+actor "Logistics Operator" as Operator
+participant "Operation Plans UI" as UI
+participant "TodoApi Gateway" as Gateway
+participant "OEM Service" as OEM
+participant "OEM Database" as Db
+
+Operator -> UI : Enter filters (from/to, VVN)
+Operator -> UI : Click "Filtrar"
+UI -> Gateway : GET /api/oem/operation-plans?...
+Gateway -> OEM : Forward GET with identity headers
+OEM -> Db : SELECT plans WHERE date BETWEEN ...
+Db --> OEM : Plan rows
+OEM --> Gateway : 200 + JSON
+Gateway --> UI : Plan list
+UI --> Operator : Render table, update pagination
+
+@enduml
