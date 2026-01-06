@@ -1,7 +1,4 @@
-import {
-  VesselExecutionStatus,
-  VesselVisitExecution,
-} from './vessel-visit-execution.entity';
+import { VesselExecutionStatus, VesselVisitExecution } from './vessel-visit-execution.entity';
 
 describe('VesselVisitExecution', () => {
   it('establishes safe defaults', () => {
