@@ -56,6 +56,21 @@ try {
         exit 1
     }
 
+    Write-Host "4) Fixing permissions on VM (avoid 403 from nginx)..."
+    $sshArgs = @()
+    if ($IdentityFile -and (Test-Path $IdentityFile)) {
+        $sshArgs += "-i"
+        $sshArgs += $IdentityFile
+    }
+    $sshArgs += "${VmUser}@${VmIp}"
+    $sshArgs += "chmod -R a+rX ${RemoteDir}"
+
+    & ssh @sshArgs
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Failed to chmod ${RemoteDir} on VM. If the site shows 403, run: chmod -R a+rX ${RemoteDir}"
+    }
+
     Write-Host "Frontend successfully deployed to $RemoteDir/browser"
 }
 finally {
