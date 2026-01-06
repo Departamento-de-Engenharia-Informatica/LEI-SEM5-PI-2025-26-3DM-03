@@ -36,6 +36,10 @@ on:
         description: 'Path on DEI VM to env-file with Authentication__Google__ClientId/Secret (used when OIDC is enabled)'
         required: false
         default: '/root/todoapi-oidc.env'
+      dockerNetwork:
+        description: 'Docker network to attach TodoApi to (must be same as nginx-gateway, so name "todoapi" resolves).'
+        required: false
+        default: 'lei-sem5-pi-2025-26-3dm-03_app-net'
 
   schedule:
     - cron: '0 2 * * *' # nightly at 02:00 UTC
@@ -197,6 +201,7 @@ jobs:
           CNAME="${{ inputs.containerName || 'todoapi' }}"
           HPORT="${{ inputs.hostPort || '8080' }}"
           ENVFILE="${{ inputs.oidcEnvFile || '/root/todoapi-oidc.env' }}"
+          NET="${{ inputs.dockerNetwork || 'lei-sem5-pi-2025-26-3dm-03_app-net' }}"
           # Make OIDC toggle explicit (true/false) so we can pass it to the container.
           OIDC_DISABLED="${{ inputs.disableOidc }}"
           if [ -z "$OIDC_DISABLED" ]; then
@@ -207,6 +212,7 @@ jobs:
           echo "hport=$HPORT" >> $GITHUB_OUTPUT
           echo "oidc_disabled=$OIDC_DISABLED" >> $GITHUB_OUTPUT
           echo "oidc_env_file=$ENVFILE" >> $GITHUB_OUTPUT
+          echo "net=$NET" >> $GITHUB_OUTPUT
 
       - name: Login to GHCR from VM
         run: |
@@ -234,6 +240,7 @@ jobs:
           NAME="${{ steps.prep.outputs.cname }}"
           PORT="${{ steps.prep.outputs.hport }}"
           OIDC_DISABLED="${{ steps.prep.outputs.oidc_disabled }}"
+          NET="${{ steps.prep.outputs.net }}"
 
           EXTRA_ENV_ARGS=""
           if [ "$OIDC_DISABLED" = "false" ]; then
@@ -259,6 +266,17 @@ jobs:
           docker rm -f "$NAME" || true
 
           echo "Starting new container on port $PORT"
+          if [ -n "$NET" ]; then
+            if ! docker network inspect "$NET" >/dev/null 2>&1; then
+              echo "Docker network not found: $NET"
+              echo "Create it (usually via docker compose up) or set the workflow input 'dockerNetwork' correctly."
+              exit 1
+            fi
+            NETWORK_ARG="--network $NET"
+          else
+            NETWORK_ARG=""
+          fi
+
           docker run -d --name "$NAME" \
             --restart unless-stopped \
             --add-host=host.docker.internal:host-gateway \
@@ -266,6 +284,7 @@ jobs:
             -e DisableOidc="$OIDC_DISABLED" \
             $EXTRA_ENV_ARGS \
             -v todoapi-data:/data \
+            $NETWORK_ARG \
             -p "$PORT":8080 \
             "$IMAGE"
 
