@@ -1,0 +1,69 @@
+.data-rights-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: rgba(2, 6, 23, 0.6);
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(2, 6, 23, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.04);
+}
+
+.muted {
+  color: rgba(2, 6, 23, 0.55);
+  font-size: 0.85rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  border: 1px solid rgba(2, 6, 23, 0.15);
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,19 +1,22 @@
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace TodoApi.Security
 {
     public class NetworkRestrictionMiddleware
     {
         private readonly RequestDelegate _next;
+        private readonly ILogger<NetworkRestrictionMiddleware> _logger;
         private readonly List<IPNetwork> _allowedNetworks;
 
         private static Timer? _debounceTimer;
         private static readonly object _lock = new();
-        public NetworkRestrictionMiddleware(RequestDelegate next, IConfiguration config)
+        public NetworkRestrictionMiddleware(RequestDelegate next, ILogger<NetworkRestrictionMiddleware> logger, IConfiguration config)
         {
             _next = next;
+            _logger = logger;
             _allowedNetworks = new List<IPNetwork>();
 
             var filePath = Path.Combine(Directory.GetCurrentDirectory(), "allowed_ips.txt");
@@ -44,7 +47,7 @@ namespace TodoApi.Security
 
                 _debounceTimer = new Timer(_ =>
                 {
-                    Console.WriteLine("[INFO] allowed_ips.txt changed — reloading...");
+                    _logger.LogInformation("allowed_ips.txt changed; reloading.");
                     LoadAllowedIPs(filePath);
                 },
                 null,
@@ -65,7 +68,7 @@ namespace TodoApi.Security
                 {
                     if (!File.Exists(filePath))
                     {
-                        Console.WriteLine("[WARNING] allowed_ips.txt not found — denying all requests");
+                        _logger.LogWarning("allowed_ips.txt not found; denying all requests.");
                         _allowedNetworks.Clear();
                         return;
                     }
@@ -84,14 +87,14 @@ namespace TodoApi.Security
                         }
                         catch
                         {
-                            Console.WriteLine($"[ERROR] Invalid CIDR entry → \"{r}\"");
+                            _logger.LogError("Invalid CIDR entry: {Entry}", r);
                         }
                     }
 
                     _allowedNetworks.Clear();
                     _allowedNetworks.AddRange(newList);
 
-                    Console.WriteLine($"[INFO] Reloaded {_allowedNetworks.Count} IP ranges.");
+                    _logger.LogInformation("Reloaded {Count} IP ranges.", _allowedNetworks.Count);
                     return;
                 }
                 catch (IOException)
@@ -100,7 +103,7 @@ namespace TodoApi.Security
                 }
             }
 
-            Console.WriteLine("[ERROR] Could not reload allowed_ips.txt — file is locked.");
+            _logger.LogError("Could not reload allowed_ips.txt; file is locked.");
         }
 
         public async Task InvokeAsync(HttpContext context)
@@ -122,7 +125,8 @@ namespace TodoApi.Security
             // Verify if the IP is allowed by the ranges
             if (remoteIp == null)
             {
-                Console.WriteLine("[ACCESS BLOCKED] Null IP detected.");
+                context.Items[AccessLogMiddleware.AccessDeniedReasonKey] = "ip_missing";
+                _logger.LogWarning("Access blocked: null IP.");
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsync("Invalid IP.");
                 return;
@@ -132,7 +136,8 @@ namespace TodoApi.Security
 
             if (!allowed)
             {
-                Console.WriteLine($"[ACCESS BLOCKED] IP {remoteIp} tried to access on {DateTime.UtcNow}.");
+                context.Items[AccessLogMiddleware.AccessDeniedReasonKey] = "ip_not_allowed";
+                _logger.LogWarning("Access blocked: IP {RemoteIp}.", remoteIp);
 
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsync("Access restricted to DEI internal network.");
@@ -205,4 +210,3 @@ namespace TodoApi.Security
         }
     }
 }
-

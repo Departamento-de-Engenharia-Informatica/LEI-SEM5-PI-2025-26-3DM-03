@@ -531,6 +531,7 @@ var app = builder.Build();
 
 // Must run early so Request.Scheme/Host reflect the original client request when behind Nginx.
 app.UseForwardedHeaders();
+app.UseMiddleware<TodoApi.Security.AccessLogMiddleware>();
 app.UseMiddleware<TodoApi.Security.NetworkRestrictionMiddleware>();
 
 // Enable Swagger in ALL environments (Development + Production)
@@ -607,6 +608,10 @@ app.Use(async (context, next) =>
         var hasActiveRole = user?.UserRoles?.Any(ur => ur.Role != null && ur.Role.Active) == true;
         if (user == null || !user.Active || !hasActiveRole)
         {
+            var reason = user == null
+                ? "local_user_missing"
+                : (!user.Active ? "local_user_inactive" : "local_user_no_active_roles");
+            context.Items[TodoApi.Security.AccessLogMiddleware.AccessDeniedReasonKey] = reason;
             context.Response.StatusCode = 403;
             await context.Response.WriteAsJsonAsync(new { message = "Access denied: user has no local active account/role." });
             return;
@@ -656,6 +661,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureRoleChangeColumnsAsync(context, loggerFactory);
     await EnsurePrivacyPolicySchemaAsync(context, loggerFactory);
     await EnsureDataRightsSchemaAsync(context, loggerFactory);
+    await EnsurePublicDataRightsSchemaAsync(context, loggerFactory);
 
     try
     {
@@ -1016,6 +1022,56 @@ CREATE TABLE ""DataRightsRequests"" (
     catch (Exception ex)
     {
         logger?.LogWarning(ex, "Failed to ensure data rights schema via fallback");
+    }
+    finally
+    {
+        if (conn.State == System.Data.ConnectionState.Open)
+        {
+            await conn.CloseAsync();
+        }
+    }
+}
+
+static async Task EnsurePublicDataRightsSchemaAsync(PortContext context, ILoggerFactory? loggerFactory)
+{
+    if (!context.Database.IsSqlite())
+    {
+        return;
+    }
+
+    var logger = loggerFactory?.CreateLogger("Startup");
+    var conn = context.Database.GetDbConnection();
+    try
+    {
+        await conn.OpenAsync();
+
+        var hasTable = false;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='PublicDataRightsRequests';";
+            using var reader = await cmd.ExecuteReaderAsync();
+            hasTable = await reader.ReadAsync();
+        }
+
+        if (!hasTable)
+        {
+            using var create = conn.CreateCommand();
+            create.CommandText = @"
+CREATE TABLE ""PublicDataRightsRequests"" (
+    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_PublicDataRightsRequests"" PRIMARY KEY AUTOINCREMENT,
+    ""RequestType"" TEXT NOT NULL,
+    ""RequestedAtUtc"" TEXT NOT NULL,
+    ""RequestedByName"" TEXT NOT NULL,
+    ""RequestedByEmail"" TEXT NOT NULL,
+    ""Details"" TEXT NULL
+);";
+            await create.ExecuteNonQueryAsync();
+            logger?.LogInformation("Created PublicDataRightsRequests table via fallback schema.");
+        }
+    }
+    catch (Exception ex)
+    {
+        logger?.LogWarning(ex, "Failed to ensure public data rights schema via fallback");
     }
     finally
     {

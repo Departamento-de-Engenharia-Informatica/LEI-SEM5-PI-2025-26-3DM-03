@@ -239,7 +239,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   get isPublicRoute(): boolean {
     try {
-      return this.isViewerRoute || this.router.url.startsWith('/privacy-policy');
+      return this.isViewerRoute
+        || this.router.url.startsWith('/privacy-policy')
+        || this.router.url.startsWith('/data-rights');
     } catch {
       return false;
     }

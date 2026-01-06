@@ -114,6 +114,66 @@ namespace TodoApi.Controllers
             public string? Details { get; set; }
         }
 
+        public class PublicDataRightsRequestPayload
+        {
+            public string? Name { get; set; }
+            public string? Email { get; set; }
+            public string? Type { get; set; }
+            public string? Details { get; set; }
+        }
+
+        [AllowAnonymous]
+        [HttpPost("public-requests")]
+        public async Task<IActionResult> CreatePublicRequest([FromBody] PublicDataRightsRequestPayload payload, CancellationToken cancellationToken)
+        {
+            var name = payload?.Name?.Trim();
+            var email = payload?.Email?.Trim();
+            var type = payload?.Type?.Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
+            {
+                return BadRequest(new { message = "Name and email are required." });
+            }
+            if (string.IsNullOrWhiteSpace(type) || !(type == "access" || type == "rectification" || type == "deletion"))
+            {
+                return BadRequest(new { message = "Invalid request type." });
+            }
+            if (name.Length > 120 || email.Length > 200)
+            {
+                return BadRequest(new { message = "Name or email is too long." });
+            }
+
+            var entity = new PublicDataRightsRequest
+            {
+                RequestType = type,
+                RequestedAtUtc = DateTime.UtcNow,
+                RequestedByName = name,
+                RequestedByEmail = email,
+                Details = string.IsNullOrWhiteSpace(payload?.Details) ? null : payload!.Details!.Trim()
+            };
+
+            _db.PublicDataRightsRequests.Add(entity);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            return Ok(new
+            {
+                message = "Pedido registado com sucesso.",
+                requestId = entity.Id,
+                requestedAtUtc = entity.RequestedAtUtc
+            });
+        }
+
+        [HttpGet("public-requests")]
+        public async Task<IActionResult> GetPublicRequests(CancellationToken cancellationToken)
+        {
+            if (!await CallerIsAdminAsync()) return Forbid();
+
+            var items = await _db.PublicDataRightsRequests
+                .OrderByDescending(r => r.RequestedAtUtc)
+                .ToListAsync(cancellationToken);
+
+            return Ok(items.Select(ToPublicDto));
+        }
+
         [HttpPost("requests")]
         public async Task<IActionResult> CreateRequest([FromBody] DataRightsRequestPayload payload, CancellationToken cancellationToken)
         {
@@ -341,6 +401,19 @@ namespace TodoApi.Controllers
                 request.ResponseNote,
                 Fields = fields,
                 Details = details
+            };
+        }
+
+        private static object ToPublicDto(PublicDataRightsRequest request)
+        {
+            return new
+            {
+                request.Id,
+                request.RequestType,
+                request.RequestedAtUtc,
+                request.RequestedByName,
+                request.RequestedByEmail,
+                request.Details
             };
         }
 

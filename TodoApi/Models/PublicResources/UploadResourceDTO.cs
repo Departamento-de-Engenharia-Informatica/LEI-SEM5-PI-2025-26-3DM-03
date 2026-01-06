@@ -4,7 +4,7 @@ namespace TodoApi.Models.PublicResources.DTO
 {
     public class UploadResourceDto
     {
-        public IFormFile File { get; set; }
-        public string? Description { get; set; }
+        public IFormFile File { get; set; } = null!;
+        public string? Description { get; set; }
     }
 }

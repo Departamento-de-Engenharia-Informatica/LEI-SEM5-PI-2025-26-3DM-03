@@ -166,4 +166,23 @@
       <p class="muted">Sem pedidos registados.</p>
     </ng-template>
   </section>
+
+  <section class="card" *ngIf="isAdmin">
+    <h2>Pedidos publicos (Admin)</h2>
+    <p class="muted">Pedidos submetidos por titulares nao registados.</p>
+    <div class="requests" *ngIf="publicRequests.length; else emptyPublic">
+      <div class="request-row" *ngFor="let r of publicRequests">
+        <div>
+          <div class="request-title">{{ r.requestType | uppercase }}</div>
+          <div class="muted">Nome: {{ r.requestedByName || '-' }}</div>
+          <div class="muted">Email: {{ r.requestedByEmail || '-' }}</div>
+          <div class="muted">Data: {{ r.requestedAtUtc | date:'short' }}</div>
+          <div class="muted" *ngIf="r.details">Detalhes: {{ r.details }}</div>
+        </div>
+      </div>
+    </div>
+    <ng-template #emptyPublic>
+      <p class="muted">Sem pedidos publicos registados.</p>
+    </ng-template>
+  </section>
 </div>

@@ -23,6 +23,7 @@
 | `ci-dotnet` (GitHub Actions `build-test` job) | Run unit/coverage suite | Every push to `main`, manual dispatch, nightly schedule | `dotnet test testes/Domain.Tests/Domain.Tests.csproj` with Coverlet |
 | `ci-container` (GitHub Actions `containerize` job) | Validate published Docker image boots and answers | After successful tests unless `runTestsOnly=true` | `docker run …` + `curl /WeatherForecast` |
 | `dei` (optional deployment target) | Controlled VM/container for validation of release candidate | Manual workflow run with `deployToDei=true` | `appleboy/ssh-action` executing Docker lifecycle |
+| `staging` | Validate access rules and least-privilege controls before release | Manual validation before promotion | Manual checklist + access logs review |
 
 ## Test Catalogue
 | ID | Name | Type | Description | Automated? |
@@ -33,6 +34,7 @@
 | TC-API-002 | Vessel endpoints contract | API | (Placeholder) Validate CRUD/DTO mapping for vessels using integration test harness once persistence lands. | Planned |
 | TC-SEC-001 | OIDC disabled bootstrap | Config | With `DISABLE_OIDC=true`, API boots without Google credentials and exposes anonymous endpoints. | Yes (container smoke test) |
 | TC-SEC-002 | OIDC enabled happy-path | Config | Validate authentication flow against Google test credentials. | Pending external secrets |
+| TC-SEC-003 | Access rules in staging | Security | Validate role-based access rules, access log entries, and deny paths in the staging environment. | Manual (staging) |
 
 ## Execution & Reporting
 1. Pipeline step **“Test (with coverage)”** executes all `Domain.Tests` cases, generates TRX + Cobertura reports, and publishes them as the `test-results` artifact (retained 30 days).

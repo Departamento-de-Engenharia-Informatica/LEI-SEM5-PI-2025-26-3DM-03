@@ -121,13 +121,28 @@ public async Task<IActionResult> Approve(long id, long dockId, long officerId)
 }
 
 
-   [HttpPost("{id}/reject/{officerId}/{reason}")]
+[HttpPost("{id}/reject/{officerId}/{reason}")]
 public async Task<IActionResult> Reject(long id, long officerId, string reason)
 {
     var ok = await _service.RejectAsync(id, officerId, reason);
     if (!ok) return NotFound();
     return NoContent();
 }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteApproved(long id)
+        {
+            try
+            {
+                var ok = await _service.DeleteApprovedAsync(id);
+                if (!ok) return NotFound();
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
 
 
     }

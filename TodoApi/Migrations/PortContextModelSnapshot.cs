@@ -63,6 +63,15 @@ namespace TodoApi.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime?>("LastRoleChangeConfirmedUtc")
                         .HasColumnType("TEXT");
 
@@ -77,15 +86,6 @@ namespace TodoApi.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime?>("LastSeenPrivacyPolicyUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
@@ -217,6 +217,82 @@ namespace TodoApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestedByEmail")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RespondedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResponseNote")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppUserId");
+
+                    b.ToTable("DataRightsRequests", (string)null);
+                });
+
+            modelBuilder.Entity("TodoApi.Models.DataRights.PublicDataRightsRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RequestedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestedByEmail")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestedByName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PublicDataRightsRequests", (string)null);
+                });
+
             modelBuilder.Entity("TodoApi.Models.Docks.Dock", b =>
                 {
                     b.Property<long>("Id")
@@ -265,49 +341,6 @@ namespace TodoApi.Migrations
                             MaxDraft = 10.0,
                             Name = "East Dock A"
                         });
-                });
-
-            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int>("AppUserId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("PayloadJson")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RequestType")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("RespondedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ResponseNote")
-                        .HasMaxLength(400)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("RequestedAtUtc")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RequestedByEmail")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AppUserId");
-
-                    b.ToTable("DataRightsRequests", (string)null);
                 });
 
             modelBuilder.Entity("TodoApi.Models.PrivacyPolicy.PrivacyPolicy", b =>
@@ -860,17 +893,6 @@ namespace TodoApi.Migrations
                     b.Navigation("AppUser");
                 });
 
-            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
-                {
-                    b.HasOne("TodoApi.Models.Auth.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("AppUser");
-                });
-
             modelBuilder.Entity("TodoApi.Models.Auth.UserRole", b =>
                 {
                     b.HasOne("TodoApi.Models.Auth.AppUser", "AppUser")
@@ -888,6 +910,17 @@ namespace TodoApi.Migrations
                     b.Navigation("AppUser");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("TodoApi.Models.DataRights.DataRightsRequest", b =>
+                {
+                    b.HasOne("TodoApi.Models.Auth.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
                 });
 
             modelBuilder.Entity("TodoApi.Models.Resources.Resource", b =>

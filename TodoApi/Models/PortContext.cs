@@ -52,6 +52,7 @@ namespace TodoApi.Models
         public DbSet<ResourceAccessLog> ResourceAccessLogs { get; set; } = null!;
         public DbSet<PrivacyPolicyEntity> PrivacyPolicies { get; set; } = null!;
         public DbSet<DataRightsRequest> DataRightsRequests { get; set; } = null!;
+        public DbSet<PublicDataRightsRequest> PublicDataRightsRequests { get; set; } = null!;
         // Authentication / Authorization tables
         public DbSet<AppUser> AppUsers { get; set; } = null!;
         public DbSet<Role> Roles { get; set; } = null!;
@@ -198,6 +199,17 @@ namespace TodoApi.Models
                     .WithMany()
                     .HasForeignKey(r => r.AppUserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<PublicDataRightsRequest>(entity =>
+            {
+                entity.ToTable("PublicDataRightsRequests");
+                entity.HasKey(r => r.Id);
+                entity.Property(r => r.RequestType).IsRequired().HasMaxLength(40);
+                entity.Property(r => r.RequestedAtUtc).IsRequired();
+                entity.Property(r => r.RequestedByName).IsRequired().HasMaxLength(120);
+                entity.Property(r => r.RequestedByEmail).IsRequired().HasMaxLength(200);
+                entity.Property(r => r.Details).HasMaxLength(2000);
             });
 
             modelBuilder.Entity<ActivationToken>(entity =>

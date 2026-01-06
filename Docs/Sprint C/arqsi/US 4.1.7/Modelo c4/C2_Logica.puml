@@ -1,5 +1,5 @@
 @startuml C2_Create_Vessel_Visit_Execution_Logical_View
-title C2 – Port Logistics Management System (PLMS) – Create Vessel Visit Execution (Logical Container View)
+title C2 – OEM Module (Create Vessel Visit Execution - Logical Container View)
 
 skinparam rectangle {
   BackgroundColor White
@@ -27,21 +27,20 @@ skinparam actor {
 actor "Logistics Operator" as LogisticsOp
 
 ' === Sistema Externo ===
-cloud "External IAM Provider\n(SSO / OAuth 2.0)" as IAM
+cloud "External IAM Provider\n(OAuth 2.0)" as IAM
 
 ' === Sistema em foco ===
 rectangle "Port Logistics Management System (PLMS)" as PLMS {
-  rectangle "Frontend Web Application\n(React / Angular)" as Frontend
-  rectangle "Vessel Visit Execution API\n(ASP.NET Core Web API)" as API
-  database "PLMS Database\n(SQL / EF Core)" as DB
+  rectangle "Frontend\n(Angular SPA)" as Frontend
+  rectangle "OEM API\n(NestJS + TypeORM)" as API
+  database "Database\n(PostgreSQL/SQLite)" as DB
 }
 
 ' === Relações ===
-LogisticsOp --> Frontend : Interage via Browser (HTTPS)
-Frontend --> API : Chamadas REST (JSON) - Create VVE
-API --> DB : Operações CRUD (Entity Framework Core) - Persiste VVE com status "In Progress"
-API --> IAM : Autenticação e Autorização
+LogisticsOp --> Frontend : Browser (HTTPS)
+Frontend --> API : REST (JSON) - Create/Update VVE
+API --> DB : TypeORM (SQL) - Persist VVE
+API --> IAM : Bearer Token (OAuth 2.0)
 
-
-
+@enduml
 @enduml
