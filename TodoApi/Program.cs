@@ -231,8 +231,17 @@ builder.Services.AddSwaggerGen(options =>
 
 // Allow disabling OIDC via environment variable for CI/containers where
 // interactive login is not required. Set DISABLE_OIDC=true to skip OIDC.
-var disableOidc = configuration.GetValue<bool>("DisableOidc")
-                 || string.Equals(Environment.GetEnvironmentVariable("DISABLE_OIDC"), "true", StringComparison.OrdinalIgnoreCase);
+var disableOidc = false;
+
+// Be tolerant: in some deployments the env var may be present but empty (e.g., GitHub Actions inputs on non-workflow_dispatch).
+var disableOidcRaw = configuration["DisableOidc"];
+if (!string.IsNullOrWhiteSpace(disableOidcRaw))
+{
+    bool.TryParse(disableOidcRaw, out disableOidc);
+}
+
+disableOidc = disableOidc
+             || string.Equals(Environment.GetEnvironmentVariable("DISABLE_OIDC"), "true", StringComparison.OrdinalIgnoreCase);
 
 if (disableOidc)
 {
@@ -281,6 +290,16 @@ else
 
         options.ClientId = clientId;
         options.ClientSecret = clientSecret;
+
+        // Helpful diagnostics: Google OAuth Client IDs for Web apps typically end with
+        // ".apps.googleusercontent.com". If this is not the case, Google often returns
+        // "invalid_client" / "OAuth client was not found".
+        if (!string.IsNullOrWhiteSpace(options.ClientId) &&
+            !options.ClientId.EndsWith(".apps.googleusercontent.com", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine(
+                "[OIDC WARNING] Authentication__Google__ClientId does not look like a valid Google OAuth Client ID (expected suffix '.apps.googleusercontent.com').");
+        }
 
         // Validation during development (clearer exception)
         if (string.IsNullOrEmpty(options.ClientId) || string.IsNullOrEmpty(options.ClientSecret))

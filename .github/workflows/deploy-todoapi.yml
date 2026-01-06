@@ -199,6 +199,9 @@ jobs:
           ENVFILE="${{ inputs.oidcEnvFile || '/root/todoapi-oidc.env' }}"
           # Make OIDC toggle explicit (true/false) so we can pass it to the container.
           OIDC_DISABLED="${{ inputs.disableOidc }}"
+          if [ -z "$OIDC_DISABLED" ]; then
+            OIDC_DISABLED="false"
+          fi
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "cname=$CNAME" >> $GITHUB_OUTPUT
           echo "hport=$HPORT" >> $GITHUB_OUTPUT
