@@ -265,6 +265,21 @@ jobs:
           echo "Stopping previous container..."
           docker rm -f "$NAME" || true
 
+          # Ensure the SQLite DB exists in the named volume.
+          # If the file is missing (or tiny, meaning a fresh/empty SQLite file), seed it from a known-good DB on the VM.
+          # This avoids runtime errors like: 'no such table: AppUsers' during OIDC callbacks.
+          SEED_DB_PATH="/home/asist/todoapi-data/port.db"
+          if [ -f "$SEED_DB_PATH" ]; then
+            echo "Ensuring DB in volume todoapi-data (/data/port.db)..."
+            docker run --rm \
+              -v todoapi-data:/data \
+              -v /home/asist/todoapi-data:/seed:ro \
+              alpine:3.20 \
+              sh -lc 'SIZE=$(wc -c < /data/port.db 2>/dev/null || echo 0); if [ "$SIZE" -lt 10000 ]; then echo "Seeding /data/port.db (size=$SIZE)"; rm -f /data/port.db /data/port.db-wal /data/port.db-shm || true; cp /seed/port.db /data/port.db; fi; ls -la /data/port.db'
+          else
+            echo "Seed DB not found at $SEED_DB_PATH (skipping DB seed)."
+          fi
+
           echo "Starting new container on port $PORT"
           if [ -n "$NET" ]; then
             if ! docker network inspect "$NET" >/dev/null 2>&1; then
