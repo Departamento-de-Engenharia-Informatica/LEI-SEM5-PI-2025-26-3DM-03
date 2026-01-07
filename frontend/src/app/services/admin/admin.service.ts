@@ -1,12 +1,13 @@
 import { Injectable } from '@angular/core';
 
 const apiBase = '/admin';
+const directHost = (typeof window !== 'undefined') ? window.location.origin : '';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   private async requestWithFallback(path: string, options?: RequestInit): Promise<Response> {
     const relative = path.startsWith('/') ? path : `/${path}`;
-    const direct = `https://localhost:7167${relative}`;
+    const direct = `${directHost}${relative}`;
 
     const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 2500) => {
       const controller = new AbortController();

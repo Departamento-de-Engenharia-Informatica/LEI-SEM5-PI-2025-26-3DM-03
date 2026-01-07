@@ -9,7 +9,10 @@ export class StaffService {
 
   private async requestWithFallback(urlPath: string, options?: RequestInit): Promise<Response> {
     const proxyUrl = urlPath.startsWith('/api') ? urlPath : `${apiBase}${urlPath}`;
-    const directUrl = `https://localhost:7167${proxyUrl}`;
+    const isLoopbackHost =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1';
+    const directHost = isLoopbackHost ? 'https://localhost:7167' : window.location.origin;
+    const directUrl = `${directHost}${proxyUrl}`;
 
     const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 2500) => {
       const controller = new AbortController();

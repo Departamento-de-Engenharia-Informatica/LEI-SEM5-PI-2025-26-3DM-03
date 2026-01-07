@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-const baseUrl = 'https://localhost:7167/api';
+const baseUrl = '/api';
 
 @Injectable({ providedIn: 'root' })
 export class VesselsService {

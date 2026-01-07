@@ -40,7 +40,7 @@ export class VesselsComponent implements OnInit {
   async ngOnInit() {
     try {
       await this.loadVessels();
-      const res = await fetch('https://localhost:7167/api/VesselTypes', {
+      const res = await fetch('/api/VesselTypes', {
         credentials: 'include'
       });
       if (res.ok) this.vesselTypes = await res.json();

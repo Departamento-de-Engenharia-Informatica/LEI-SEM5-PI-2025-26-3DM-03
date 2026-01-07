@@ -6,7 +6,10 @@ import { SharedResource } from '../../models/public-resource';
 @Injectable({ providedIn: 'root' })
 export class PublicResourcesService {
   private readonly apiPath = '/api/public-resources';
-  private readonly directHost = 'https://localhost:7167';
+  private readonly directHost =
+    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1'
+      ? 'https://localhost:7167'
+      : window.location.origin;
 
   constructor(private http: HttpClient) {}
 

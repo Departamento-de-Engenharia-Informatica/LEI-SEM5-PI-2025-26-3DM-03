@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { StorageAreaDTO, CreateStorageAreaDTO, UpdateStorageAreaDTO } from '../../models/storage-area';
 
 const baseUrl = '/api';
+const directHost = (typeof window !== 'undefined') ? window.location.origin : '';
 
 @Injectable({ providedIn: 'root' })
 export class StorageAreasService {
@@ -9,7 +10,7 @@ export class StorageAreasService {
 
   private async requestWithFallback(pathAndQuery: string, options?: RequestInit): Promise<Response> {
     const proxyUrl = baseUrl + pathAndQuery;
-    const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`;
+    const directUrl = `${directHost}${baseUrl}${pathAndQuery}`;
 
     const fetchWithTimeout = async (url: string, opts: RequestInit | undefined, timeoutMs = 3000) => {
       const controller = new AbortController();

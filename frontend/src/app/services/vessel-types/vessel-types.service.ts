@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { CreateVesselTypeDTO, UpdateVesselTypeDTO, VesselTypeDTO } from '../../models/vessel-type';
 
 const baseUrl = '/api';
+const directHost = (typeof window !== 'undefined') ? window.location.origin : '';
 
 @Injectable({ providedIn: 'root' })
 export class VesselTypesService {
@@ -9,7 +10,7 @@ export class VesselTypesService {
 
   private async requestWithFallback(pathAndQuery: string, options?: RequestInit): Promise<Response> {
     const proxyUrl = baseUrl + pathAndQuery; // /api/...
-    const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`;
+    const directUrl = `${directHost}${baseUrl}${pathAndQuery}`;
 
     const fetchWithTimeout = async (url: string, opts?: RequestInit, timeoutMs = 2500) => {
       const controller = new AbortController();

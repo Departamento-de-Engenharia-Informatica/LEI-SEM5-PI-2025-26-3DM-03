@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Qualification, QualificationPayload } from '../../models/qualification';
 
-const baseUrl = 'https://localhost:7167/api';
+const baseUrl = '/api';
 
 @Injectable({ providedIn: 'root' })
 export class QualificationsService {

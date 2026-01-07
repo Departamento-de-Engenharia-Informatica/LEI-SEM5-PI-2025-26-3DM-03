@@ -31,7 +31,10 @@ export class DocksService {
   // Helper to try proxy first and fallback to direct backend
   private async requestWithFallback(pathAndQuery: string, options?: RequestInit): Promise<Response> {
     const proxyUrl = baseUrl + pathAndQuery; // e.g. /api/Docks/1
-    const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`; // e.g. https://localhost:7167/api/Docks/1
+    const isLoopbackHost =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1';
+    const directHost = isLoopbackHost ? 'https://localhost:7167' : window.location.origin;
+    const directUrl = `${directHost}${baseUrl}${pathAndQuery}`; // e.g. https://<host>/api/Docks/1
 
     try {
       console.log(`[DocksService] requestWithFallback -> trying proxy ${proxyUrl}`, options?.method || 'GET');
@@ -62,7 +65,10 @@ export class DocksService {
     // Try the dev proxy first (recommended when running `ng serve` with proxy.conf.json).
     const proxyUrl = baseUrl + this.apiUrl + suffix; // e.g. /api/Docks
     // Fallback direct backend URL useful when proxy isn't used or `ng serve` not running.
-    const directBackendUrl = `https://localhost:7167${baseUrl}${this.apiUrl}${suffix}`; // https://localhost:7167/api/Docks
+    const isLoopbackHost =
+      window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname === '::1';
+    const directHost = isLoopbackHost ? 'https://localhost:7167' : window.location.origin;
+    const directBackendUrl = `${directHost}${baseUrl}${this.apiUrl}${suffix}`; // https://<host>/api/Docks
 
     // Try proxy first (fast local dev path). If it returns OK parse and update cache/subject.
     try {

@@ -4,7 +4,7 @@ export type ApiKind = 'todo' | 'oem' | 'scheduling' | 'other';
 
 /**
  * Classifica a request com base no path, para saber a que API pertence.
- * Usa apenas o pathname para funcionar tanto com URLs relativas (/api/...) como absolutas (https://localhost:7167/authtest/...).
+ * Usa apenas o pathname para funcionar tanto com URLs relativas (/api/...) como absolutas (https://<host>/authtest/...).
  */
 export function classifyApi(url: string): ApiKind {
   try {

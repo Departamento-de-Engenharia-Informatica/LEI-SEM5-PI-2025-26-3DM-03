@@ -3,6 +3,7 @@ import { CreateVesselVisitNotificationDTO, VesselVisitNotificationDTO } from '..
 
 // Use dev proxy first (when running `ng serve` with proxy.conf.json), then fallback to direct backend
 const baseUrl = '/api';
+const directHost = (typeof window !== 'undefined') ? window.location.origin : '';
 
 @Injectable({ providedIn: 'root' })
 export class VesselVisitNotificationsService {
@@ -18,7 +19,7 @@ export class VesselVisitNotificationsService {
 
   private async requestWithFallback(pathAndQuery: string, options?: RequestInit): Promise<Response> {
     const proxyUrl = baseUrl + pathAndQuery; // e.g. /api/VesselVisitNotifications
-    const directUrl = `https://localhost:7167${baseUrl}${pathAndQuery}`; // e.g. https://localhost:7167/api/VesselVisitNotifications
+    const directUrl = `${directHost}${baseUrl}${pathAndQuery}`; // e.g. <origin>/api/VesselVisitNotifications
 
     try {
       const r = await fetch(proxyUrl, options);
